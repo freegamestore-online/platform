@@ -13,6 +13,7 @@ const VALID_GAMES = new Set([
   "chess", "puzzle", "tetris", "snake", "minesweeper", "2048",
   "slither", "racing", "bowling", "spaceshooter", "breakout", "platformer", "sudoku",
   "pacman", "pong", "flappy", "solitaire", "connect4", "wordle", "simon", "mahjong",
+  "checkers", "hangman", "memory", "frogger", "match3", "whackamole", "wordsearch", "asteroids",
 ]);
 
 function cors(request: Request): Record<string, string> {
