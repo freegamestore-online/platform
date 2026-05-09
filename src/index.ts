@@ -1,5 +1,14 @@
 interface Env {
   DB: D1Database;
+  JWT_SECRET: string;
+}
+
+interface JWTPayload {
+  sub: string;
+  name: string;
+  avatar: string;
+  exp: number;
+  iat: number;
 }
 
 const ALLOWED_ORIGIN = /^https:\/\/[\w-]+\.freegamestore\.online$/;
@@ -18,11 +27,12 @@ const VALID_GAMES = new Set([
 
 function cors(request: Request): Record<string, string> {
   const origin = request.headers.get("Origin") ?? "";
-  const allowed = ALLOWED_ORIGIN.test(origin) || origin === "http://localhost:5173";
+  const allowed = ALLOWED_ORIGIN.test(origin) || origin === "https://freegamestore.online" || origin === "http://localhost:5173";
   return {
     "Access-Control-Allow-Origin": allowed ? origin : "",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400",
   };
 }
@@ -40,6 +50,62 @@ async function hashIP(ip: string): Promise<string> {
   return Array.from(new Uint8Array(hash).slice(0, 8))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function base64UrlDecode(str: string): Uint8Array {
+  const padded = str.replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function getCookie(request: Request, name: string): string | null {
+  const header = request.headers.get("Cookie");
+  if (!header) return null;
+  const match = header.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+async function verifyJWT(request: Request, secret: string): Promise<JWTPayload | null> {
+  const token = getCookie(request, "fgs_token");
+  if (!token) return null;
+
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+
+  try {
+    // Verify header is HS256
+    const header = JSON.parse(new TextDecoder().decode(base64UrlDecode(parts[0])));
+    if (header.alg !== "HS256") return null;
+
+    // Verify signature
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"],
+    );
+
+    const signature = base64UrlDecode(parts[2]);
+    const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
+
+    const valid = await crypto.subtle.verify("HMAC", key, signature, data);
+    if (!valid) return null;
+
+    // Decode payload
+    const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(parts[1]))) as JWTPayload;
+
+    // Check expiration
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
+
+    return payload;
+  } catch {
+    return null;
+  }
 }
 
 // POST /api/scores { game, name, score }
@@ -60,10 +126,6 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
     return json({ error: "Invalid score" }, 400, request);
   }
 
-  const playerName = typeof name === "string"
-    ? name.trim().slice(0, MAX_NAME_LENGTH).replace(/[<>&"']/g, "") || "Anonymous"
-    : "Anonymous";
-
   const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
   const ipHash = await hashIP(ip);
 
@@ -80,20 +142,35 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
     return json({ error: "Too fast, wait a few seconds" }, 429, request);
   }
 
+  // Check JWT for authenticated user
+  const jwtPayload = await verifyJWT(request, env.JWT_SECRET);
+
+  let playerName: string;
+  let userId: string | null = null;
+
+  if (jwtPayload) {
+    userId = jwtPayload.sub;
+    playerName = jwtPayload.name.trim().slice(0, MAX_NAME_LENGTH).replace(/[<>&"']/g, "") || "Anonymous";
+  } else {
+    playerName = typeof name === "string"
+      ? name.trim().slice(0, MAX_NAME_LENGTH).replace(/[<>&"']/g, "") || "Anonymous"
+      : "Anonymous";
+  }
+
   await env.DB.prepare(
-    `INSERT INTO scores (game_id, player_name, score, ip_hash) VALUES (?, ?, ?, ?)`,
+    `INSERT INTO scores (game_id, player_name, score, ip_hash, user_id) VALUES (?, ?, ?, ?, ?)`,
   )
-    .bind(game, playerName, score, ipHash)
+    .bind(game, playerName, score, ipHash, userId)
     .run();
 
-  // Return the player's rank
+  // Return the player's rank (among authenticated users only)
   const rank = await env.DB.prepare(
-    `SELECT COUNT(*) as rank FROM scores WHERE game_id = ? AND score > ?`,
+    `SELECT COUNT(*) as rank FROM scores WHERE game_id = ? AND score > ? AND user_id IS NOT NULL`,
   )
     .bind(game, score)
     .first<{ rank: number }>();
 
-  return json({ ok: true, rank: (rank?.rank ?? 0) + 1 }, 201, request);
+  return json({ ok: true, rank: (rank?.rank ?? 0) + 1, authenticated: !!userId }, 201, request);
 }
 
 // GET /api/leaderboard/:game?limit=10
@@ -106,11 +183,14 @@ async function getLeaderboard(game: string, url: URL, request: Request, env: Env
   const limit = Math.min(Math.max(parseInt(limitParam ?? "10", 10) || 10, 1), LEADERBOARD_LIMIT);
 
   const results = await env.DB.prepare(
-    `SELECT player_name, score, created_at FROM scores
-     WHERE game_id = ? ORDER BY score DESC LIMIT ?`,
+    `SELECT s.player_name, s.score, s.created_at, s.user_id, u.avatar_url
+     FROM scores s
+     LEFT JOIN users u ON s.user_id = u.id
+     WHERE s.game_id = ? AND s.user_id IS NOT NULL
+     ORDER BY s.score DESC LIMIT ?`,
   )
     .bind(game, limit)
-    .all<{ player_name: string; score: number; created_at: string }>();
+    .all<{ player_name: string; score: number; created_at: string; user_id: string; avatar_url: string | null }>();
 
   return json({ game, scores: results.results }, 200, request);
 }
@@ -125,13 +205,76 @@ async function getRecent(game: string, url: URL, request: Request, env: Env): Pr
   const limit = Math.min(Math.max(parseInt(limitParam ?? "10", 10) || 10, 1), LEADERBOARD_LIMIT);
 
   const results = await env.DB.prepare(
-    `SELECT player_name, score, created_at FROM scores
-     WHERE game_id = ? ORDER BY created_at DESC LIMIT ?`,
+    `SELECT s.player_name, s.score, s.created_at, s.user_id, u.avatar_url
+     FROM scores s
+     LEFT JOIN users u ON s.user_id = u.id
+     WHERE s.game_id = ? ORDER BY s.created_at DESC LIMIT ?`,
   )
     .bind(game, limit)
-    .all<{ player_name: string; score: number; created_at: string }>();
+    .all<{ player_name: string; score: number; created_at: string; user_id: string | null; avatar_url: string | null }>();
 
   return json({ game, scores: results.results }, 200, request);
+}
+
+// GET /api/leaderboard/overall?limit=10
+async function getOverallLeaderboard(url: URL, request: Request, env: Env): Promise<Response> {
+  const limitParam = url.searchParams.get("limit");
+  const limit = Math.min(Math.max(parseInt(limitParam ?? "10", 10) || 10, 1), LEADERBOARD_LIMIT);
+
+  const results = await env.DB.prepare(
+    `SELECT s.user_id, u.name, u.avatar_url, SUM(s.score) as total_score, COUNT(DISTINCT s.game_id) as games_played
+     FROM scores s
+     JOIN users u ON s.user_id = u.id
+     WHERE s.user_id IS NOT NULL
+     GROUP BY s.user_id
+     ORDER BY total_score DESC
+     LIMIT ?`,
+  )
+    .bind(limit)
+    .all<{ user_id: string; name: string; avatar_url: string | null; total_score: number; games_played: number }>();
+
+  return json({ scores: results.results }, 200, request);
+}
+
+// GET /api/leaderboard/:game/user/:userId
+async function getUserGameScore(game: string, userId: string, request: Request, env: Env): Promise<Response> {
+  if (!VALID_GAMES.has(game)) {
+    return json({ error: "Invalid game" }, 400, request);
+  }
+
+  // Get user's best score
+  const best = await env.DB.prepare(
+    `SELECT s.player_name, s.score, s.created_at, u.avatar_url
+     FROM scores s
+     LEFT JOIN users u ON s.user_id = u.id
+     WHERE s.game_id = ? AND s.user_id = ?
+     ORDER BY s.score DESC LIMIT 1`,
+  )
+    .bind(game, userId)
+    .first<{ player_name: string; score: number; created_at: string; avatar_url: string | null }>();
+
+  if (!best) {
+    return json({ error: "No scores found" }, 404, request);
+  }
+
+  // Get rank (number of users with higher best scores)
+  const rank = await env.DB.prepare(
+    `SELECT COUNT(DISTINCT s2.user_id) as rank
+     FROM scores s2
+     WHERE s2.game_id = ? AND s2.user_id IS NOT NULL AND s2.score > ?`,
+  )
+    .bind(game, best.score)
+    .first<{ rank: number }>();
+
+  return json({
+    game,
+    user_id: userId,
+    player_name: best.player_name,
+    score: best.score,
+    avatar_url: best.avatar_url,
+    created_at: best.created_at,
+    rank: (rank?.rank ?? 0) + 1,
+  }, 200, request);
 }
 
 export default {
@@ -147,6 +290,17 @@ export default {
     // POST /api/scores
     if (request.method === "POST" && path === "/api/scores") {
       return submitScore(request, env);
+    }
+
+    // GET /api/leaderboard/overall
+    if (request.method === "GET" && path === "/api/leaderboard/overall") {
+      return getOverallLeaderboard(url, request, env);
+    }
+
+    // GET /api/leaderboard/:game/user/:userId
+    const userMatch = path.match(/^\/api\/leaderboard\/([\w-]+)\/user\/([\w-]+)$/);
+    if (request.method === "GET" && userMatch?.[1] && userMatch[2]) {
+      return getUserGameScore(userMatch[1], userMatch[2], request, env);
     }
 
     // GET /api/leaderboard/:game/recent
