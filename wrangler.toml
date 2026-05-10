@@ -1,0 +1,11 @@
+name = "freegamestore-admin"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+workers_dev = false
+
+[vars]
+CF_ACCOUNT_ID = "c1089bfcc43c1c6c2aa89e584e86f0bc"
+
+[[routes]]
+pattern = "admin.freegamestore.online/*"
+zone_name = "freegamestore.online"
