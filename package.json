@@ -1,0 +1,17 @@
+{
+  "name": "fgs-auditor",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "postinstall": "npx playwright install chromium",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "playwright": "^1.52.0",
+    "tsx": "^4.19.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.5"
+  }
+}
