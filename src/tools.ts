@@ -1,9 +1,8 @@
 import type { ToolDef, ToolCall, ToolResult } from "./providers/types";
+import type { StoreConfig } from "./config";
 
-/** Tool definitions for the agent — file management + deployment + infra */
-
-export const TOOL_DEFINITIONS: ToolDef[] = [
-  // -- File tools --
+/** File tools — identical across all stores */
+const FILE_TOOLS: ToolDef[] = [
   {
     name: "write_file",
     description:
@@ -44,69 +43,6 @@ export const TOOL_DEFINITIONS: ToolDef[] = [
       required: ["path"],
     },
   },
-
-  // -- Deploy + infra tools (executed server-side by the session) --
-  {
-    name: "deploy",
-    description:
-      "Full deploy: provision GitHub repo, CF Pages project, DNS, store listing, then push all project files. Use this for the FIRST deploy of a new game. Call only when the user explicitly asks to deploy.",
-    parameters: {
-      type: "object",
-      properties: {
-        id: { type: "string", description: "Game ID — lowercase letters, numbers, hyphens. e.g. 'space-invaders'" },
-        name: { type: "string", description: "Display name. e.g. 'Space Invaders'" },
-        category: { type: "string", description: "Category: arcade, puzzle, strategy, racing, sports, cards, board, rpg, action, casual" },
-        icon: { type: "string", description: "HTML entity for icon emoji. e.g. '&#127918;'" },
-        iconBg: { type: "string", description: "Icon background color. e.g. '#1a2e26'" },
-        description: { type: "string", description: "One-sentence store description." },
-      },
-      required: ["id", "name", "category", "icon", "iconBg", "description"],
-    },
-  },
-  {
-    name: "push_update",
-    description:
-      "Push updated files to an existing deployed game's GitHub repo. Use this when the game is already deployed and the user wants to update it. Creates a new commit with changed files.",
-    parameters: {
-      type: "object",
-      properties: {
-        id: { type: "string", description: "Game ID of the already-deployed game. e.g. 'space-invaders'" },
-        message: { type: "string", description: "Commit message describing the update." },
-      },
-      required: ["id", "message"],
-    },
-  },
-  {
-    name: "check_deploy_status",
-    description:
-      "Check the deployment status of a game on Cloudflare Pages. Returns the latest deployment status and URL.",
-    parameters: {
-      type: "object",
-      properties: {
-        id: { type: "string", description: "Game ID. e.g. 'space-invaders'" },
-      },
-      required: ["id"],
-    },
-  },
-  {
-    name: "list_deployed_games",
-    description:
-      "List all games currently deployed on FreeGameStore. Returns game names, IDs, URLs, and categories from the store registry.",
-    parameters: { type: "object", properties: {} },
-  },
-  {
-    name: "fetch_url",
-    description:
-      "Fetch a URL and return the response body. Useful for checking if a deployed game is live, reading remote files, or verifying URLs.",
-    parameters: {
-      type: "object",
-      properties: {
-        url: { type: "string", description: "URL to fetch" },
-        method: { type: "string", description: "HTTP method (default GET)" },
-      },
-      required: ["url"],
-    },
-  },
   {
     name: "search_files",
     description:
@@ -119,59 +55,135 @@ export const TOOL_DEFINITIONS: ToolDef[] = [
       required: ["pattern"],
     },
   },
-  {
-    name: "run_compliance_check",
-    description:
-      "Run FreeGameStore compliance checks against the current project files. Validates: MIT license, no tracking SDKs, brand fonts (Manrope + Fraunces), CSS variables, HTML meta tags, PWA manifest, overflow hidden, freegamestore.online link, pnpm workspace. Returns pass/fail for each check with details. Run this BEFORE deploying to catch issues early.",
-    parameters: { type: "object", properties: {} },
-  },
-  {
-    name: "get_build_logs",
-    description:
-      "Get the latest Cloudflare Pages build/deploy logs for a game. Use when a deploy fails or the game isn't working to see build errors, missing dependencies, or compilation failures.",
-    parameters: {
-      type: "object",
-      properties: {
-        id: { type: "string", description: "Game ID. e.g. 'space-invaders'" },
-      },
-      required: ["id"],
-    },
-  },
-  {
-    name: "get_ci_results",
-    description:
-      "Get GitHub Actions CI check results (compliance checks) for a game's repo. Shows which checks passed/failed and error details. Use to diagnose compliance failures after pushing code.",
-    parameters: {
-      type: "object",
-      properties: {
-        id: { type: "string", description: "Game ID (same as GitHub repo name)" },
-      },
-      required: ["id"],
-    },
-  },
-  {
-    name: "get_audit_results",
-    description:
-      "Get quality audit results for a game from the FreeGameStore auditor. Shows compliance score, viewport coverage, and any issues found. Use to understand what needs fixing for quality approval.",
-    parameters: {
-      type: "object",
-      properties: {
-        id: { type: "string", description: "Game ID. e.g. 'space-invaders'" },
-      },
-      required: ["id"],
-    },
-  },
 ];
+
+/** Tool definitions parameterized by store config */
+export function getToolDefinitions(config: StoreConfig): ToolDef[] {
+  const { noun, Noun, nounPlural, storeName, categories } = config;
+  const example = config.store === "games" ? "space-invaders" : "meditation-timer";
+  const exampleName = config.store === "games" ? "Space Invaders" : "Meditation Timer";
+
+  return [
+    ...FILE_TOOLS,
+
+    // ── Deploy + infra tools (executed server-side by the session) ──
+    {
+      name: "deploy",
+      description:
+        `Full deploy: provision GitHub repo, CF Pages project, then push all project files. Use this for the FIRST deploy of a new ${noun}. Call only when the user explicitly asks to deploy.`,
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: `${Noun} ID — lowercase letters, numbers, hyphens. e.g. '${example}'` },
+          name: { type: "string", description: `Display name. e.g. '${exampleName}'` },
+          category: { type: "string", description: `Category: ${categories}` },
+          icon: { type: "string", description: "HTML entity for icon emoji. e.g. '&#128992;'" },
+          iconBg: { type: "string", description: "Icon background color. e.g. '#f0f9ff'" },
+          description: { type: "string", description: "One-sentence store description." },
+        },
+        required: ["id", "name", "category", "icon", "iconBg", "description"],
+      },
+    },
+    {
+      name: "push_update",
+      description:
+        `Push updated files to an existing deployed ${noun}'s GitHub repo. Use this when the ${noun} is already deployed and the user wants to update it. Creates a new commit with changed files.`,
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: `${Noun} ID of the already-deployed ${noun}. e.g. '${example}'` },
+          message: { type: "string", description: "Commit message describing the update." },
+        },
+        required: ["id", "message"],
+      },
+    },
+    {
+      name: "check_deploy_status",
+      description:
+        `Check the deployment status of a ${noun} on Cloudflare Pages. Returns the latest deployment status and URL.`,
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: `${Noun} ID. e.g. '${example}'` },
+        },
+        required: ["id"],
+      },
+    },
+    {
+      name: `list_deployed_${nounPlural}`,
+      description:
+        `List all ${nounPlural} currently deployed on ${storeName}. Returns ${noun} names, IDs, URLs, and categories from the store registry.`,
+      parameters: { type: "object", properties: {} },
+    },
+    {
+      name: "fetch_url",
+      description:
+        `Fetch a URL and return the response body. Useful for checking if a deployed ${noun} is live, reading remote files, or verifying URLs.`,
+      parameters: {
+        type: "object",
+        properties: {
+          url: { type: "string", description: "URL to fetch" },
+          method: { type: "string", description: "HTTP method (default GET)" },
+        },
+        required: ["url"],
+      },
+    },
+    {
+      name: "run_compliance_check",
+      description:
+        `Run ${storeName} compliance checks against the current project files. Validates: MIT license, no tracking SDKs, brand fonts, CSS variables, HTML meta tags, PWA manifest, ${config.domain} link, pnpm workspace. Returns pass/fail for each check with details. Run this BEFORE deploying to catch issues early.`,
+      parameters: { type: "object", properties: {} },
+    },
+    {
+      name: "get_build_logs",
+      description:
+        `Get the latest Cloudflare Pages build/deploy logs for a ${noun}. Use when a deploy fails or the ${noun} isn't working to see build errors, missing dependencies, or compilation failures.`,
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: `${Noun} ID. e.g. '${example}'` },
+        },
+        required: ["id"],
+      },
+    },
+    {
+      name: "get_ci_results",
+      description:
+        `Get GitHub Actions CI check results (compliance checks) for a ${noun}'s repo. Shows which checks passed/failed and error details. Use to diagnose compliance failures after pushing code.`,
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: `${Noun} ID (same as GitHub repo name)` },
+        },
+        required: ["id"],
+      },
+    },
+    {
+      name: "get_audit_results",
+      description:
+        `Get quality audit results for a ${noun} from the ${storeName} auditor. Shows compliance score, viewport coverage, and any issues found. Use to understand what needs fixing for quality approval.`,
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: `${Noun} ID. e.g. '${example}'` },
+        },
+        required: ["id"],
+      },
+    },
+  ];
+}
 
 /** Infra tools that need env/network access — handled by the session DO */
 export const INFRA_TOOLS = new Set([
-  "deploy", "push_update", "check_deploy_status", "list_deployed_games",
+  "deploy", "push_update", "check_deploy_status",
+  "list_deployed_apps", "list_deployed_games",
   "fetch_url", "get_build_logs", "get_ci_results", "get_audit_results",
 ]);
 
 export function executeTool(
   toolCall: ToolCall,
   files: Map<string, string>,
+  config: StoreConfig,
 ): ToolResult {
   const { name, input, id } = toolCall;
 
@@ -221,7 +233,7 @@ export function executeTool(
     }
 
     case "run_compliance_check": {
-      return { id, content: runComplianceCheck(files) };
+      return { id, content: runComplianceCheck(files, config) };
     }
 
     default:
@@ -231,7 +243,7 @@ export function executeTool(
 }
 
 /** Run compliance checks locally on the virtual filesystem */
-function runComplianceCheck(files: Map<string, string>): string {
+function runComplianceCheck(files: Map<string, string>, config: StoreConfig): string {
   const results: string[] = [];
   const pass = (name: string) => results.push(`PASS: ${name}`);
   const fail = (name: string, detail: string) => results.push(`FAIL: ${name} — ${detail}`);
@@ -263,10 +275,16 @@ function runComplianceCheck(files: Map<string, string>): string {
   if (hasManrope && hasFraunces) pass("Brand fonts (Manrope + Fraunces)");
   else fail("Brand fonts", `Missing: ${!hasManrope ? "Manrope" : ""} ${!hasFraunces ? "Fraunces" : ""}`.trim());
 
-  // CSS variables
-  const hasVars = /--bg/.test(css) && /--ink/.test(css) && /--accent/.test(css);
-  if (hasVars) pass("CSS variables (--bg, --ink, --accent)");
-  else fail("CSS variables", "Missing --bg, --ink, or --accent in index.css");
+  // CSS variables (store-specific)
+  if (config.store === "games") {
+    const hasVars = /--bg/.test(css) && /--ink/.test(css) && /--accent/.test(css);
+    if (hasVars) pass("CSS variables (--bg, --ink, --accent)");
+    else fail("CSS variables", "Missing --bg, --ink, or --accent in index.css");
+  } else {
+    const hasVars = /--paper/.test(css) && /--ink/.test(css) && /--accent/.test(css);
+    if (hasVars) pass("CSS variables (--paper, --ink, --accent)");
+    else fail("CSS variables", "Missing --paper, --ink, or --accent in index.css");
+  }
 
   // HTML meta tags
   const html = files.get("web/index.html") || "";
@@ -287,19 +305,30 @@ function runComplianceCheck(files: Map<string, string>): string {
   if (hasPWAMeta) pass("PWA meta tags");
   else fail("PWA meta tags", "Missing apple-mobile-web-app-capable or mobile-web-app-capable");
 
-  // FreeGameStore link
-  let hasFGSLink = false;
+  // Store link
+  let hasStoreLink = false;
   for (const [path, content] of files) {
-    if (path.startsWith("web/src/") && content.includes("freegamestore.online")) { hasFGSLink = true; break; }
+    if (path.startsWith("web/src/") && content.includes(config.domain)) { hasStoreLink = true; break; }
   }
-  if (hasFGSLink) pass("FreeGameStore link in source");
-  else fail("FreeGameStore link", "No reference to freegamestore.online in web/src/");
+  if (hasStoreLink) pass(`${config.storeName} link in source`);
+  else fail(`${config.storeName} link`, `No reference to ${config.domain} in web/src/`);
 
-  // Overflow hidden
-  let hasOverflowHidden = false;
-  if (/overflow:\s*hidden/i.test(css) || /overflow-hidden/.test(css)) hasOverflowHidden = true;
-  if (hasOverflowHidden) pass("Overflow hidden");
-  else fail("Overflow hidden", "Body or #root must have overflow: hidden for games");
+  // Store-specific checks
+  if (config.store === "games") {
+    // Overflow hidden (required for games)
+    let hasOverflowHidden = false;
+    if (/overflow:\s*hidden/i.test(css) || /overflow-hidden/.test(css)) hasOverflowHidden = true;
+    if (hasOverflowHidden) pass("Overflow hidden");
+    else fail("Overflow hidden", "Body or #root must have overflow: hidden for games");
+  } else {
+    // Dark mode support (required for apps)
+    let hasDarkMode = false;
+    for (const [path, content] of files) {
+      if (path.startsWith("web/src/") && /prefers-color-scheme|data-theme|color-scheme/.test(content)) { hasDarkMode = true; break; }
+    }
+    if (hasDarkMode) pass("Dark mode support");
+    else fail("Dark mode", "No prefers-color-scheme, data-theme, or color-scheme in web/src/");
+  }
 
   // pnpm workspace
   const rootPkg = files.get("package.json") || "";

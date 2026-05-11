@@ -18,6 +18,7 @@ new_sqlite_classes = ["AgentSession"]
 
 [vars]
 CF_ACCOUNT_ID = "c1089bfcc43c1c6c2aa89e584e86f0bc"
+STORE = "games"
 
 # Secrets (set via `wrangler secret put`):
 # GITHUB_TOKEN       — org-level PAT for provisioning + pushing code

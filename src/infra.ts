@@ -1,21 +1,20 @@
 /** Infra query tools — read-only operations against GitHub, CF, and audit APIs. */
 
 import type { DeployEnv } from "./deploy";
+import type { StoreConfig } from "./config";
 
-const ORG = "freegamestore-online";
-const DOMAIN = "freegamestore.online";
-const STORE_REPO = "freegamestore";
-
-async function ghApi(token: string, path: string) {
-  const res = await fetch(`https://api.github.com${path}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "User-Agent": "freegamestore-agent",
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
-  });
-  return res.json() as Promise<any>;
+function makeGhApi(token: string, agentName: string) {
+  return async (path: string) => {
+    const res = await fetch(`https://api.github.com${path}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "User-Agent": agentName,
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    });
+    return res.json() as Promise<any>;
+  };
 }
 
 async function cfApi(token: string, accountId: string, path: string) {
@@ -26,37 +25,38 @@ async function cfApi(token: string, accountId: string, path: string) {
 }
 
 /** Check the latest deployment status on CF Pages. */
-export async function checkDeployStatus(appId: string, env: DeployEnv): Promise<string> {
-  const cfProject = appId;
+export async function checkDeployStatus(appId: string, env: DeployEnv, config: StoreConfig): Promise<string> {
+  const cfProject = config.cfProjectName(appId);
   const res = await cfApi(
     env.CF_API_TOKEN, env.CF_ACCOUNT_ID,
     `/accounts/${env.CF_ACCOUNT_ID}/pages/projects/${cfProject}/deployments?sort_by=created_on&sort_order=desc&per_page=1`,
   );
   if (!res.success || !res.result?.length) {
-    return `No deployments found for ${cfProject}. The game may not be provisioned yet.`;
+    return `No deployments found for ${cfProject}. The ${config.noun} may not be provisioned yet.`;
   }
   const d = res.result[0];
   const status = d.latest_stage?.status || "unknown";
-  const url = d.url || `https://${appId}.${DOMAIN}`;
+  const url = d.url || `https://${appId}.${config.domain}`;
   const created = d.created_on ? new Date(d.created_on).toISOString() : "unknown";
   return `Latest deploy: ${status}\nURL: ${url}\nCreated: ${created}\nStage: ${d.latest_stage?.name || "unknown"}`;
 }
 
-/** List all games from the store registry. */
-export async function listDeployedApps(env: DeployEnv): Promise<string> {
-  const file = await ghApi(env.GITHUB_TOKEN, `/repos/${ORG}/${STORE_REPO}/contents/registry.json`);
+/** List all items from the store registry. */
+export async function listDeployed(env: DeployEnv, config: StoreConfig): Promise<string> {
+  const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
+  const file = await ghApi(`/repos/${config.org}/${config.storeRepo}/contents/registry.json`);
   if (!file.content) return "Could not read registry.";
   const rawBytes = Uint8Array.from(atob(file.content.replace(/\n/g, "")), (c) => c.charCodeAt(0));
   const registry = JSON.parse(new TextDecoder().decode(rawBytes));
-  const games = registry.games || [];
-  if (games.length === 0) return "No games deployed yet.";
-  return games.map((a: any) => `${a.id} — ${a.name} (${a.category}) ${a.appUrl}`).join("\n");
+  const items = registry[config.nounPlural] || [];
+  if (items.length === 0) return `No ${config.nounPlural} deployed yet.`;
+  return items.map((a: any) => `${a.id} — ${a.name} (${a.category}) ${a.appUrl}`).join("\n");
 }
 
 /** Fetch a URL and return the response. */
-export async function fetchUrl(url: string, method = "GET"): Promise<string> {
+export async function fetchUrl(url: string, method: string, agentName: string): Promise<string> {
   try {
-    const res = await fetch(url, { method, headers: { "User-Agent": "freegamestore-agent" } });
+    const res = await fetch(url, { method, headers: { "User-Agent": agentName } });
     const body = await res.text();
     return `${res.status} ${res.statusText}\n${body.slice(0, 2000)}`;
   } catch (err) {
@@ -65,8 +65,8 @@ export async function fetchUrl(url: string, method = "GET"): Promise<string> {
 }
 
 /** Get CF Pages build logs for the latest deployment. */
-export async function getBuildLogs(appId: string, env: DeployEnv): Promise<string> {
-  const cfProject = appId;
+export async function getBuildLogs(appId: string, env: DeployEnv, config: StoreConfig): Promise<string> {
+  const cfProject = config.cfProjectName(appId);
   const deps = await cfApi(
     env.CF_API_TOKEN, env.CF_ACCOUNT_ID,
     `/accounts/${env.CF_ACCOUNT_ID}/pages/projects/${cfProject}/deployments?sort_by=created_on&sort_order=desc&per_page=1`,
@@ -87,9 +87,10 @@ export async function getBuildLogs(appId: string, env: DeployEnv): Promise<strin
 }
 
 /** Get GitHub Actions CI check results for a repo. */
-export async function getCIResults(appId: string, env: DeployEnv): Promise<string> {
-  const repo = `${ORG}/${appId}`;
-  const runs = await ghApi(env.GITHUB_TOKEN, `/repos/${repo}/commits/main/check-runs`);
+export async function getCIResults(appId: string, env: DeployEnv, config: StoreConfig): Promise<string> {
+  const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
+  const repo = `${config.org}/${appId}`;
+  const runs = await ghApi(`/repos/${repo}/commits/main/check-runs`);
   if (!runs.check_runs?.length) return `No CI check runs found for ${repo}. CI may not have run yet.`;
 
   const results = runs.check_runs.map((r: any) => {
@@ -103,13 +104,13 @@ export async function getCIResults(appId: string, env: DeployEnv): Promise<strin
   return `CI results for ${repo} (${runs.check_runs.length} checks):\n${results.join("\n")}`;
 }
 
-/** Get quality audit results from the FreeGameStore audit API. */
-export async function getAuditResults(appId: string): Promise<string> {
+/** Get quality audit results from the store's audit API. */
+export async function getAuditResults(appId: string, config: StoreConfig): Promise<string> {
   try {
-    const res = await fetch(`https://api.freegamestore.online/v1/audit?game=${appId}`, {
-      headers: { "User-Agent": "freegamestore-agent" },
+    const res = await fetch(`https://api.${config.domain}/v1/audit?${config.auditParam}=${appId}`, {
+      headers: { "User-Agent": config.agentName },
     });
-    if (!res.ok) return `Audit API returned ${res.status}. The game may not have been audited yet.`;
+    if (!res.ok) return `Audit API returned ${res.status}. The ${config.noun} may not have been audited yet.`;
     const data = (await res.json()) as any;
 
     if (data.summary) {

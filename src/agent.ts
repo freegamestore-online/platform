@@ -1,12 +1,13 @@
 /** Agent loop: send messages to AI, handle tool calls, repeat until done. */
 
 import type { AIConfig, Message, ToolCall, ToolResult, StreamEvent, ProviderAdapter } from "./providers/types";
+import type { StoreConfig } from "./config";
 import { AnthropicAdapter } from "./providers/anthropic";
 import { OpenAIAdapter } from "./providers/openai";
 import { GoogleAdapter } from "./providers/google";
 import { GitHubModelsAdapter } from "./providers/github";
-import { TOOL_DEFINITIONS, INFRA_TOOLS, executeTool } from "./tools";
-import { SYSTEM_PROMPT } from "./template";
+import { getToolDefinitions, INFRA_TOOLS, executeTool } from "./tools";
+import { getSystemPrompt } from "./template";
 
 function createAdapter(config: AIConfig): ProviderAdapter {
   const temp = config.temperature ?? 0.7;
@@ -33,12 +34,6 @@ export interface AgentTurnResult {
   infraRequests: InfraRequest[];
 }
 
-/**
- * Run one user turn through the agent loop.
- * Streams events via the writer, handles file tool calls internally.
- * Infra tools (deploy, push_update, etc.) are collected and returned
- * for the session to execute with env access.
- */
 export interface SessionContext {
   appId: string | null;
   appName: string | null;
@@ -46,30 +41,40 @@ export interface SessionContext {
   fileList: string;
 }
 
+/**
+ * Run one user turn through the agent loop.
+ * Streams events via the writer, handles file tool calls internally.
+ * Infra tools (deploy, push_update, etc.) are collected and returned
+ * for the session to execute with env access.
+ */
 export async function runAgentTurn(
   config: AIConfig,
   conversationHistory: Message[],
   userMessage: string,
   files: Map<string, string>,
   writer: WritableStreamDefaultWriter<Uint8Array>,
+  storeConfig: StoreConfig,
   ctx?: SessionContext,
 ): Promise<AgentTurnResult> {
   const encoder = new TextEncoder();
   const adapter = createAdapter(config);
   const MAX_LOOPS = 25;
+  const toolDefinitions = getToolDefinitions(storeConfig);
 
   // Build dynamic system prompt with session context
-  let systemPrompt = SYSTEM_PROMPT;
+  let systemPrompt = getSystemPrompt(storeConfig);
   if (ctx) {
+    const noun = storeConfig.noun;
+    const Noun = storeConfig.Noun;
     const parts: string[] = [`\n\n## Current Session State`];
     parts.push(`- Files in project: ${ctx.fileCount} (${ctx.fileList.slice(0, 300)})`);
     if (ctx.appId) {
-      parts.push(`- Deployed game ID: ${ctx.appId}`);
-      parts.push(`- Game name: ${ctx.appName}`);
-      parts.push(`- Game ID: ${ctx.appId} (deployed)`);
-      parts.push(`- Use push_update (not deploy) for changes to this game.`);
+      parts.push(`- Deployed ${noun} ID: ${ctx.appId}`);
+      parts.push(`- ${Noun} name: ${ctx.appName}`);
+      parts.push(`- ${Noun} ID: ${ctx.appId} (deployed)`);
+      parts.push(`- Use push_update (not deploy) for changes to this ${noun}.`);
     } else {
-      parts.push(`- Game not yet deployed. Use deploy tool when ready.`);
+      parts.push(`- ${Noun} not yet deployed. Use deploy tool when ready.`);
     }
     systemPrompt += parts.join("\n");
   }
@@ -77,7 +82,7 @@ export async function runAgentTurn(
   // Trim conversation history to fit model context limits.
   // GitHub Models free tier limits vary by model:
   //   gpt-4.1: 8K tokens, gpt-4o/4o-mini: 16K+, others: varies
-  // System prompt + 14 tools ~= 2600 tokens.
+  // System prompt + 14 tools ≈ 2600 tokens.
   const isSmallContext = config.provider === "github" && config.model.includes("gpt-4.1");
   const MAX_HISTORY_CHARS = isSmallContext ? 6000 : config.provider === "github" ? 30000 : 80000;
 
@@ -97,14 +102,34 @@ export async function runAgentTurn(
   }
 
   // Fix orphaned messages: first message must be role=user.
-  // If trimming left an orphaned tool_result or assistant-with-toolCalls,
-  // keep dropping until we hit a clean user message.
   while (trimmedHistory.length > 1 && trimmedHistory[0].role !== "user") {
-    historyChars -= msgSize(trimmedHistory.shift()!);
+    trimmedHistory.shift();
+  }
+
+  // Fix orphaned tool_use/tool_result pairs:
+  // Every assistant message with toolCalls must be followed by a tool_result.
+  // Every tool_result must follow an assistant with toolCalls.
+  // Drop any that don't have their pair.
+  const cleaned: Message[] = [];
+  for (let i = 0; i < trimmedHistory.length; i++) {
+    const m = trimmedHistory[i];
+    if (m.role === "assistant" && m.toolCalls?.length) {
+      // Check if next message is tool_result
+      const next = trimmedHistory[i + 1];
+      if (next?.role === "tool_result") {
+        cleaned.push(m, next);
+        i++; // skip the tool_result
+      }
+      // else: orphaned tool_use — drop both
+    } else if (m.role === "tool_result") {
+      // Orphaned tool_result without preceding tool_use — drop it
+    } else {
+      cleaned.push(m);
+    }
   }
 
   const messages: Message[] = [
-    ...trimmedHistory,
+    ...cleaned,
     { role: "user", content: userMessage },
   ];
   const newMessages: Message[] = [{ role: "user", content: userMessage }];
@@ -130,7 +155,7 @@ export async function runAgentTurn(
     let rateLimited = false;
 
     try {
-      for await (const event of adapter.run(systemPrompt, messages, TOOL_DEFINITIONS)) {
+      for await (const event of adapter.run(systemPrompt, messages, toolDefinitions)) {
         if (event.type === "done") continue;
         // Catch rate limit errors and retry after delay
         if (event.type === "error" && (event.data.includes("429") || event.data.includes("Rate limited"))) {
@@ -185,7 +210,7 @@ export async function runAgentTurn(
     // Execute file tools
     const results: ToolResult[] = [];
     for (const tc of fileToolCalls) {
-      const result = executeTool(tc, files);
+      const result = executeTool(tc, files, storeConfig);
       // Truncate large results in conversation history (e.g. read_file returning full file)
       const truncated = { ...result, content: result.content.slice(0, 1500) };
       results.push(truncated);

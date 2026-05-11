@@ -1,4 +1,6 @@
-/** Deploy: provision the game via CF/GitHub APIs, then push all files. */
+/** Deploy: provision via CF/GitHub APIs, then push all files. */
+
+import type { StoreConfig } from "./config";
 
 export interface DeployConfig {
   id: string;
@@ -30,9 +32,6 @@ export type DeployStatus =
   | { phase: "live"; appUrl: string }
   | { phase: "error"; error: string };
 
-const ORG = "freegamestore-online";
-const DOMAIN = "freegamestore.online";
-
 async function cfApi(token: string, accountId: string, path: string, method = "GET", body?: unknown) {
   const res = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
     method,
@@ -42,47 +41,51 @@ async function cfApi(token: string, accountId: string, path: string, method = "G
   return res.json() as Promise<any>;
 }
 
-async function ghApi(token: string, path: string, method = "GET", body?: unknown) {
-  const res = await fetch(`https://api.github.com${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "User-Agent": "freegamestore-agent",
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  return res.json() as Promise<any>;
+function makeGhApi(token: string, agentName: string) {
+  return async (path: string, method = "GET", body?: unknown) => {
+    const res = await fetch(`https://api.github.com${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "User-Agent": agentName,
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return res.json() as Promise<any>;
+  };
 }
 
 /** Deploy = create repo + push code. No CF Pages, no DNS, no registry.
  *  Those are for PUBLISH (separate action). */
 export async function deployApp(
-  config: DeployConfig,
+  deployConfig: DeployConfig,
   files: Map<string, string>,
   env: DeployEnv,
+  config: StoreConfig,
   onStatus: (status: DeployStatus) => void,
 ): Promise<void> {
+  const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
   const steps: DeployStep[] = [];
   onStatus({ phase: "provisioning", steps: [] });
 
   // Step 1: Create GitHub repo
-  const repoCheck = await ghApi(env.GITHUB_TOKEN, `/repos/${ORG}/${config.id}`);
+  const repoCheck = await ghApi(`/repos/${config.org}/${deployConfig.id}`);
   if (repoCheck.id) {
-    steps.push({ name: "GitHub repo", status: "skip", detail: `${ORG}/${config.id} already exists` });
+    steps.push({ name: "GitHub repo", status: "skip", detail: `${config.org}/${deployConfig.id} already exists` });
   } else {
-    const createRepo = await ghApi(env.GITHUB_TOKEN, `/orgs/${ORG}/repos`, "POST", {
-      name: config.id,
+    const createRepo = await ghApi(`/orgs/${config.org}/repos`, "POST", {
+      name: deployConfig.id,
       private: false,
-      description: config.description,
+      description: deployConfig.description,
       auto_init: true,
       has_issues: true,
       has_projects: false,
       has_wiki: false,
     });
     if (createRepo.id) {
-      steps.push({ name: "GitHub repo", status: "ok", detail: `Created ${ORG}/${config.id}` });
+      steps.push({ name: "GitHub repo", status: "ok", detail: `Created ${config.org}/${deployConfig.id}` });
     } else {
       steps.push({ name: "GitHub repo", status: "fail", detail: createRepo.message || "Failed" });
       onStatus({ phase: "error", error: `GitHub repo creation failed: ${createRepo.message}` });
@@ -94,14 +97,14 @@ export async function deployApp(
   // Step 2: Create CF Pages project — try clean name first, prefix if squatted
   const cfBody = (name: string) => ({
     name,
-    source: { type: "github", config: { owner: ORG, repo_name: config.id, production_branch: "main", deployments_enabled: true, production_deployments_enabled: true } },
+    source: { type: "github", config: { owner: config.org, repo_name: deployConfig.id, production_branch: "main", deployments_enabled: true, production_deployments_enabled: true } },
     build_config: { build_command: "npx pnpm@10 install && npx pnpm@10 build", destination_dir: "web/dist" },
     deployment_configs: { production: { env_vars: { NODE_VERSION: { value: "22" } } } },
   });
 
   const candidates = [
-    config.id,                                    // clean: space-invaders.pages.dev
-    `${config.id}-${Date.now() % 10000}`,         // suffixed: space-invaders-4821.pages.dev
+    deployConfig.id,
+    `${deployConfig.id}-${Date.now() % 10000}`,
   ];
 
   let cfProject = "";
@@ -132,9 +135,9 @@ export async function deployApp(
   }
   onStatus({ phase: "provisioning", steps: [...steps] });
 
-  // Step 3: Push files to GitHub -> CF Pages auto-builds
+  // Step 3: Push files to GitHub → CF Pages auto-builds
   onStatus({ phase: "pushing", progress: "Creating file tree..." });
-  await pushFilesToGitHub(config.id, files, env.GITHUB_TOKEN);
+  await pushFilesToGitHub(deployConfig.id, files, env.GITHUB_TOKEN, config);
   steps.push({ name: "Pushing code", status: "ok", detail: "Code pushed" });
   onStatus({ phase: "provisioning", steps: [...steps] });
 
@@ -174,15 +177,17 @@ async function pushFilesToGitHub(
   repoId: string,
   files: Map<string, string>,
   token: string,
+  config: StoreConfig,
 ): Promise<void> {
-  const repo = `${ORG}/${repoId}`;
+  const ghApi = makeGhApi(token, config.agentName);
+  const repo = `${config.org}/${repoId}`;
 
   // Check if repo is empty (no refs). Git Data API doesn't work on empty repos.
-  const ref = await ghApi(token, `/repos/${repo}/git/ref/heads/main`);
+  const ref = await ghApi(`/repos/${repo}/git/ref/heads/main`);
   if (!ref.object?.sha) {
     // Initialize empty repo with a seed file via Contents API (works on empty repos)
     const initContent = btoa("# Initial commit\n");
-    await ghApi(token, `/repos/${repo}/contents/README.md`, "PUT", {
+    await ghApi(`/repos/${repo}/contents/README.md`, "PUT", {
       message: "Initialize repo",
       content: initContent,
     });
@@ -191,13 +196,13 @@ async function pushFilesToGitHub(
   }
 
   // Now Git Data API works — get current HEAD
-  const headRef = await ghApi(token, `/repos/${repo}/git/ref/heads/main`);
+  const headRef = await ghApi(`/repos/${repo}/git/ref/heads/main`);
   const parentSha = headRef.object?.sha;
 
   // Create blobs for each file
   const treeItems: { path: string; mode: string; type: string; sha: string }[] = [];
   for (const [path, content] of files) {
-    const blob = await ghApi(token, `/repos/${repo}/git/blobs`, "POST", {
+    const blob = await ghApi(`/repos/${repo}/git/blobs`, "POST", {
       content,
       encoding: "utf-8",
     });
@@ -206,42 +211,44 @@ async function pushFilesToGitHub(
   }
 
   // Create tree
-  const tree = await ghApi(token, `/repos/${repo}/git/trees`, "POST", {
+  const tree = await ghApi(`/repos/${repo}/git/trees`, "POST", {
     tree: treeItems,
   });
   if (!tree.sha) throw new Error(`Failed to create tree: ${tree.message || "unknown error"}`);
 
   // Create commit
-  const commit = await ghApi(token, `/repos/${repo}/git/commits`, "POST", {
-    message: "Initial game — built with FreeGameStore AI agent",
+  const commit = await ghApi(`/repos/${repo}/git/commits`, "POST", {
+    message: `Initial ${config.noun} — built with ${config.storeName} AI agent`,
     tree: tree.sha,
     parents: parentSha ? [parentSha] : [],
   });
   if (!commit.sha) throw new Error(`Failed to create commit: ${commit.message || "unknown error"}`);
 
   // Update main ref
-  await ghApi(token, `/repos/${repo}/git/refs/heads/main`, "PATCH", {
+  await ghApi(`/repos/${repo}/git/refs/heads/main`, "PATCH", {
     sha: commit.sha,
     force: true,
   });
 }
 
-/** Push an update to an existing game's repo (new commit on top of existing). */
+/** Push an update to an existing repo (new commit on top of existing). */
 export async function pushUpdate(
   appId: string,
   files: Map<string, string>,
   commitMessage: string,
   env: DeployEnv,
+  config: StoreConfig,
 ): Promise<string> {
-  const repo = `${ORG}/${appId}`;
+  const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
+  const repo = `${config.org}/${appId}`;
 
-  const ref = await ghApi(env.GITHUB_TOKEN, `/repos/${repo}/git/ref/heads/main`);
+  const ref = await ghApi(`/repos/${repo}/git/ref/heads/main`);
   const parentSha = ref.object?.sha;
-  if (!parentSha) return `Error: could not find HEAD for ${repo}. Is the game deployed?`;
+  if (!parentSha) return `Error: could not find HEAD for ${repo}. Is the ${config.noun} deployed?`;
 
   const treeItems: { path: string; mode: string; type: string; sha: string }[] = [];
   for (const [path, content] of files) {
-    const blob = await ghApi(env.GITHUB_TOKEN, `/repos/${repo}/git/blobs`, "POST", {
+    const blob = await ghApi(`/repos/${repo}/git/blobs`, "POST", {
       content,
       encoding: "utf-8",
     });
@@ -249,21 +256,21 @@ export async function pushUpdate(
     treeItems.push({ path, mode: "100644", type: "blob", sha: blob.sha });
   }
 
-  const parentCommit = await ghApi(env.GITHUB_TOKEN, `/repos/${repo}/git/commits/${parentSha}`);
+  const parentCommit = await ghApi(`/repos/${repo}/git/commits/${parentSha}`);
   if (!parentCommit.tree?.sha) return `Error: could not read parent commit tree for ${repo}.`;
 
-  const tree = await ghApi(env.GITHUB_TOKEN, `/repos/${repo}/git/trees`, "POST", {
+  const tree = await ghApi(`/repos/${repo}/git/trees`, "POST", {
     base_tree: parentCommit.tree.sha,
     tree: treeItems,
   });
 
-  const commit = await ghApi(env.GITHUB_TOKEN, `/repos/${repo}/git/commits`, "POST", {
+  const commit = await ghApi(`/repos/${repo}/git/commits`, "POST", {
     message: commitMessage,
     tree: tree.sha,
     parents: [parentSha],
   });
 
-  const refUpdate = await ghApi(env.GITHUB_TOKEN, `/repos/${repo}/git/refs/heads/main`, "PATCH", {
+  const refUpdate = await ghApi(`/repos/${repo}/git/refs/heads/main`, "PATCH", {
     sha: commit.sha,
   });
   if (!refUpdate.ref) return `Error: failed to update ref for ${repo}: ${refUpdate.message || "unknown"}`;

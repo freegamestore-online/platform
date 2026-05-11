@@ -4,7 +4,9 @@
 import type { Message, AIConfig, TokenUsage } from "./providers/types";
 import type { DeployStatus, DeployEnv } from "./deploy";
 import type { Env } from "./index";
-import { TEMPLATE_FILES } from "./template";
+import type { StoreConfig } from "./config";
+import { getConfig } from "./config";
+import { getTemplateFiles } from "./template";
 import { runAgentTurn } from "./agent";
 import { executeInfraTool } from "./infra-exec";
 
@@ -27,11 +29,13 @@ interface SessionState {
 export class AgentSession implements DurableObject {
   private state: DurableObjectState;
   private env: Env;
+  private config: StoreConfig;
   private session: SessionState | null = null;
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
     this.env = env;
+    this.config = getConfig(env.STORE);
   }
 
   private async load(): Promise<SessionState> {
@@ -42,7 +46,7 @@ export class AgentSession implements DurableObject {
     } else {
       this.session = {
         messages: [],
-        files: { ...TEMPLATE_FILES },
+        files: { ...getTemplateFiles(this.config) },
         tokenUsage: { input: 0, output: 0 },
         deployStatus: null,
         appId: null,
@@ -67,7 +71,7 @@ export class AgentSession implements DurableObject {
     const path = url.pathname;
 
     if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders(request) });
+      return new Response(null, { status: 204, headers: corsHeaders(request, this.config.domain) });
     }
 
     try {
@@ -89,9 +93,9 @@ export class AgentSession implements DurableObject {
       if (path === "/reset" && request.method === "POST") {
         return this.handleReset(request);
       }
-      return json({ error: "not found" }, 404, request);
+      return json({ error: "not found" }, 404, request, this.config.domain);
     } catch (err) {
-      return json({ error: String(err) }, 500, request);
+      return json({ error: String(err) }, 500, request, this.config.domain);
     }
   }
 
@@ -103,7 +107,7 @@ export class AgentSession implements DurableObject {
     }>();
 
     if (!body.message || !body.aiConfig?.apiKey || !body.aiConfig?.provider || !body.aiConfig?.model) {
-      return json({ error: "message, aiConfig.provider, aiConfig.model, and aiConfig.apiKey are required" }, 400, request);
+      return json({ error: "message, aiConfig.provider, aiConfig.model, and aiConfig.apiKey are required" }, 400, request, this.config.domain);
     }
 
     const session = await this.load();
@@ -124,6 +128,8 @@ export class AgentSession implements DurableObject {
           }
         : null;
 
+    const config = this.config;
+
     // Run the agent in the background
     (async () => {
       const encoder = new TextEncoder();
@@ -138,7 +144,7 @@ export class AgentSession implements DurableObject {
           fileCount: files.size,
           fileList: [...files.keys()].sort().join(", "),
         };
-        const result = await runAgentTurn(body.aiConfig, session.messages, body.message, files, writer, sessionCtx).catch((err) => {
+        const result = await runAgentTurn(body.aiConfig, session.messages, body.message, files, writer, config, sessionCtx).catch((err) => {
           this.logError("agent", String(err));
           throw err;
         });
@@ -165,6 +171,7 @@ export class AgentSession implements DurableObject {
                 appId: session.appId,
                 files,
                 env: deployEnv,
+                config,
                 onDeployStatus: (status) => {
                   session.deployStatus = status;
                   this.state.storage.put("session", session);
@@ -213,7 +220,7 @@ export class AgentSession implements DurableObject {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
         Connection: "keep-alive",
-        ...corsHeaders(request),
+        ...corsHeaders(request, this.config.domain),
       },
     });
   }
@@ -232,6 +239,7 @@ export class AgentSession implements DurableObject {
       },
       200,
       request,
+      this.config.domain,
     );
   }
 
@@ -242,7 +250,7 @@ export class AgentSession implements DurableObject {
       path,
       size: content.length,
     }));
-    return json({ files }, 200, request);
+    return json({ files }, 200, request, this.config.domain);
   }
 
   private logError(source: string, message: string) {
@@ -255,7 +263,7 @@ export class AgentSession implements DurableObject {
   /** GET /errors — return server-side errors for debugging */
   private async handleErrors(request: Request): Promise<Response> {
     const session = await this.load();
-    return json({ errors: session.errors }, 200, request);
+    return json({ errors: session.errors }, 200, request, this.config.domain);
   }
 
   /** GET /history — return all conversation messages for restoring UI */
@@ -284,6 +292,7 @@ export class AgentSession implements DurableObject {
       },
       200,
       request,
+      this.config.domain,
     );
   }
 
@@ -291,7 +300,7 @@ export class AgentSession implements DurableObject {
   private async handleReset(request: Request): Promise<Response> {
     this.session = {
       messages: [],
-      files: { ...TEMPLATE_FILES },
+      files: { ...getTemplateFiles(this.config) },
       tokenUsage: { input: 0, output: 0 },
       deployStatus: null,
       appId: null,
@@ -299,20 +308,20 @@ export class AgentSession implements DurableObject {
       errors: [],
     };
     await this.save();
-    return json({ ok: true }, 200, request);
+    return json({ ok: true }, 200, request, this.config.domain);
   }
 }
 
-function corsHeaders(request: Request): Record<string, string> {
+function corsHeaders(request: Request, domain: string): Record<string, string> {
   const origin = request.headers.get("Origin");
   const allowed =
     origin &&
-    (origin.endsWith(".freegamestore.online") ||
-      origin === "https://freegamestore.online" ||
+    (origin.endsWith(`.${domain}`) ||
+      origin === `https://${domain}` ||
       origin.endsWith(".pages.dev") ||
       origin.startsWith("http://localhost"))
       ? origin
-      : "https://freegamestore.online";
+      : `https://${domain}`;
   return {
     "Access-Control-Allow-Origin": allowed,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -321,9 +330,9 @@ function corsHeaders(request: Request): Record<string, string> {
   };
 }
 
-function json(data: unknown, status: number, request: Request): Response {
+function json(data: unknown, status: number, request: Request, domain: string): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json", ...corsHeaders(request) },
+    headers: { "Content-Type": "application/json", ...corsHeaders(request, domain) },
   });
 }

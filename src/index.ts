@@ -1,5 +1,7 @@
 /** Worker entry — routes requests to the correct Durable Object session. */
 
+import { getConfig } from "./config";
+
 export { AgentSession } from "./session";
 
 export interface Env {
@@ -9,18 +11,19 @@ export interface Env {
   CF_ACCOUNT_ID: string;
   CF_GLOBAL_KEY: string;
   CF_EMAIL: string;
+  STORE: string;
 }
 
-function corsHeaders(request: Request): Record<string, string> {
+function corsHeaders(request: Request, domain: string): Record<string, string> {
   const origin = request.headers.get("Origin");
   const allowed =
     origin &&
-    (origin.endsWith(".freegamestore.online") ||
-      origin === "https://freegamestore.online" ||
+    (origin.endsWith(`.${domain}`) ||
+      origin === `https://${domain}` ||
       origin.endsWith(".pages.dev") ||
       origin.startsWith("http://localhost"))
       ? origin
-      : "https://freegamestore.online";
+      : `https://${domain}`;
   return {
     "Access-Control-Allow-Origin": allowed,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -31,8 +34,10 @@ function corsHeaders(request: Request): Record<string, string> {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const config = getConfig(env.STORE);
+
     if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders(request) });
+      return new Response(null, { status: 204, headers: corsHeaders(request, config.domain) });
     }
 
     const url = new URL(request.url);
@@ -42,10 +47,10 @@ export default {
     if (path === "/" || path === "/health") {
       return new Response(JSON.stringify({
         ok: true,
-        service: "freegamestore-agent",
+        service: config.agentName,
         hasSecrets: !!(env.GITHUB_TOKEN && env.CF_API_TOKEN),
       }), {
-        headers: { "Content-Type": "application/json", ...corsHeaders(request) },
+        headers: { "Content-Type": "application/json", ...corsHeaders(request, config.domain) },
       });
     }
 
@@ -54,7 +59,7 @@ export default {
     if (!match) {
       return new Response(JSON.stringify({ error: "not found", hint: "Use /session/:id/chat" }), {
         status: 404,
-        headers: { "Content-Type": "application/json", ...corsHeaders(request) },
+        headers: { "Content-Type": "application/json", ...corsHeaders(request, config.domain) },
       });
     }
 
