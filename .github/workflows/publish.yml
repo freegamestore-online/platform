@@ -1,0 +1,70 @@
+name: Publish to npm
+
+# Triggers on push to main that touches publishable packages.
+# Each package self-checks: if its version matches what's on npm,
+# publish is a no-op. Release flow:
+#
+#   1. cd packages/games-sdk (or fgs-cli)
+#   2. npm version patch
+#   3. git push --follow-tags
+#
+# Auth: OIDC trusted publishing — no stored NPM_TOKEN needed.
+# Each @freegamestore/* package is linked to this repo on npmjs.com.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/games-sdk/**'
+      - 'packages/fgs-cli/**'
+      - '.github/workflows/publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [games-sdk, fgs-cli]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm -r build
+
+      - name: Decide whether to publish
+        id: decide
+        working-directory: packages/${{ matrix.package }}
+        run: |
+          PKG_NAME=$(node -p "require('./package.json').name")
+          LOCAL_VER=$(node -p "require('./package.json').version")
+          NPM_VER=$(npm view "$PKG_NAME" version 2>/dev/null || echo "0.0.0")
+          echo "$PKG_NAME — local=$LOCAL_VER  npm=$NPM_VER"
+          if [ "$LOCAL_VER" = "$NPM_VER" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "Version unchanged — skipping publish."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "Version bumped ($NPM_VER → $LOCAL_VER) — will publish."
+          fi
+
+      - name: Publish via OIDC trusted publishing
+        if: steps.decide.outputs.publish == 'true'
+        working-directory: packages/${{ matrix.package }}
+        run: npm publish --access public --provenance

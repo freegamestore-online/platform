@@ -1,0 +1,42 @@
+{
+  "name": "@freegamestore/games",
+  "version": "0.12.0",
+  "description": "Shared React UI primitives for games on FreeGameStore — GameShell, GameTopbar, etc. Brand-consistent, scroll-free.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "homepage": "https://github.com/freegamestore-online/platform#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/freegamestore-online/platform.git",
+    "directory": "packages/games-sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/freegamestore-online/platform/issues"
+  },
+  "keywords": ["freegamestore", "game", "ui", "react", "topbar", "shell"],
+  "files": ["dist", "README.md"],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "react": "^19.2.5",
+    "typescript": "^5.7.0"
+  },
+  "sideEffects": false
+}
