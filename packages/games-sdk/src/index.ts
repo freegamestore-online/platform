@@ -31,5 +31,6 @@ export {
   useLeaderboard,
   type LeaderboardEntry,
 } from './useLeaderboard.js';
+export { Leaderboard, type LeaderboardProps } from './Leaderboard.js';
 export { useSound } from './SoundContext.js';
 export { useGameSounds } from './useGameSounds.js';

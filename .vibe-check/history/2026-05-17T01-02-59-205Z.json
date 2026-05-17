@@ -1,6 +1,6 @@
 {
   "version": "0.28.0",
-  "timestamp": "2026-05-17T01:03:46.135Z",
+  "timestamp": "2026-05-17T01:02:59.205Z",
   "score": 70,
   "grade": "C",
   "checks": [
@@ -51,7 +51,7 @@
         "ok": true
       },
       "issues": [],
-      "duration": 5358
+      "duration": 4799
     },
     {
       "name": "type-safety",
@@ -146,7 +146,7 @@
         "documentedPct": "n/a"
       },
       "issues": [],
-      "duration": 1
+      "duration": 0
     },
     {
       "name": "best-practices",
@@ -228,7 +228,7 @@
           "rule": "no-tests"
         }
       ],
-      "duration": 0
+      "duration": 1
     },
     {
       "name": "secrets",
@@ -238,7 +238,7 @@
         "secretsFound": 0
       },
       "issues": [],
-      "duration": 21
+      "duration": 20
     },
     {
       "name": "security",
@@ -266,7 +266,7 @@
         "majorOutdated": 0
       },
       "issues": [],
-      "duration": 1577
+      "duration": 1586
     },
     {
       "name": "architecture",
@@ -349,7 +349,7 @@
   "meta": {
     "cwd": "/Users/serge/dev/stores/fgs/platform",
     "node": "v22.21.1",
-    "duration": 6975,
+    "duration": 6418,
     "stack": {
       "language": "typescript",
       "framework": "none",
