@@ -18,6 +18,7 @@ interface PublishRequest {
   iconBg: string;
   description: string;
   type?: string;
+  creatorGithub?: string;
 }
 
 interface Step {
@@ -108,6 +109,23 @@ export async function handlePublish(req: PublishRequest, env: PublishEnv): Promi
     } else {
       steps.push({ name: "GitHub repo", status: "fail", detail: createRepo.message || "Failed to create repo" });
       return { steps, success: false };
+    }
+  }
+
+  // Step 1b: Add creator as collaborator with push access
+  if (req.creatorGithub) {
+    const collab = await ghApi(
+      env,
+      `/repos/${config.org}/${req.id}/collaborators/${req.creatorGithub}`,
+      "PUT",
+      { permission: "push" },
+    );
+    if (collab.id || collab.invitee) {
+      steps.push({ name: "Collaborator", status: "ok", detail: `${req.creatorGithub} granted push access` });
+    } else if (collab.message?.includes("already")) {
+      steps.push({ name: "Collaborator", status: "skip", detail: `${req.creatorGithub} already has access` });
+    } else {
+      steps.push({ name: "Collaborator", status: "fail", detail: collab.message || "Failed to add collaborator" });
     }
   }
 
@@ -221,6 +239,7 @@ export function renderProvisionForm(): string {
       <input name="icon" placeholder="Icon HTML entity (e.g. &#9812;)" required style="padding:0.5rem;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:0.5rem;color:#e5e5e5;" />
       <input name="iconBg" placeholder="Icon bg color (e.g. #f0fdf4)" value="#ecfdf5" style="padding:0.5rem;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:0.5rem;color:#e5e5e5;" />
       <input name="description" placeholder="Short description" required style="padding:0.5rem;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:0.5rem;color:#e5e5e5;" />
+      <input name="creatorGithub" placeholder="Creator GitHub username (gets push access)" style="padding:0.5rem;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:0.5rem;color:#e5e5e5;" />
       <button type="submit" style="padding:0.6rem;background:#10b981;color:white;border:none;border-radius:0.5rem;cursor:pointer;font-weight:600;">Provision Game</button>
     </div>
   </form>
