@@ -12,6 +12,7 @@ import { checkNoPlaceholders } from './checks/no-placeholders.js';
 import { checkNoScroll } from './checks/no-scroll.js';
 import { checkNoTracking } from './checks/no-tracking.js';
 import { checkPwaMeta } from './checks/pwa-meta.js';
+import { checkPwaOffline } from './checks/pwa-offline.js';
 import { checkStoreLink } from './checks/store-link.js';
 import { checkUnsafeVh } from './checks/unsafe-vh.js';
 import { checkViewportSupport } from './checks/viewport-support.js';
@@ -48,6 +49,7 @@ export {
   checkNoScroll,
   checkNoTracking,
   checkPwaMeta,
+  checkPwaOffline,
   checkStoreLink,
   checkUnsafeVh,
   checkViewportSupport,
@@ -87,6 +89,7 @@ async function runChecksOn(source: FileSource): Promise<CheckResult[]> {
     checkUnsafeVh(source),
     checkHtmlMeta(source),
     checkPwaMeta(source),
+    checkPwaOffline(source),
     checkManifest(source),
     checkStoreLink(source),
     checkDarkMode(source),

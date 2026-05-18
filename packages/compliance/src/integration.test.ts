@@ -83,9 +83,11 @@ describe('failing-app fixture', () => {
       'PWA meta tags',
       'Store link',
     ]);
-    // The only passing check on a maximally-broken app: no-scroll
-    // skips because it's not a game project.
-    expect(summary.pass).toEqual(['No scroll (games only)']);
+    // Passing checks on a maximally-broken app: no-scroll skips because
+    // it's not a game project; PWA-offline passes because the fixture
+    // has no vite.config.ts so the check is not applicable. The
+    // failure case for PWA-offline is covered in its unit tests.
+    expect(summary.pass.sort()).toEqual(['No scroll (games only)', 'PWA offline correctness']);
   });
 });
 

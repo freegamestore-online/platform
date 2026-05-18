@@ -26,13 +26,13 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
     "status": "warn",
   },
   {
-    "detail": "platform-boilerplate sections: Platform: FreeAppStore, Tech Stack, Brand Guidelines, Rules; missing SKILLS.md pointer",
+    "detail": "platform-boilerplate sections: Tech Stack, Brand Guidelines, Rules; missing SKILLS.md pointer",
     "name": "CLAUDE.md is slim (no platform boilerplate)",
     "status": "warn",
     "suggestions": [
       "Per-repo CLAUDE.md should hold only what is unique to this repo (description, dev/build/deploy, repo-specific setup).",
       "Anything platform-wide (tech stack, brand, mobile rules, deploy flow) belongs in SKILLS.md instead.",
-      "See the "Per-repo CLAUDE.md convention" section of SKILLS.md: https://raw.githubusercontent.com/freeappstore-online/freeappstore/main/SKILLS.md",
+      "See the "Per-repo CLAUDE.md convention" section of SKILLS.md: https://raw.githubusercontent.com/freegamestore-online/freegamestore/main/SKILLS.md",
     ],
   },
   {
@@ -58,7 +58,7 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
     "status": "fail",
     "suggestions": [
       "Add a LICENSE file with the MIT license text. The platform requires MIT for publication.",
-      "Template: https://github.com/freeappstore-online/template-standalone/blob/main/LICENSE",
+      "Template: https://github.com/freegamestore-online/template-game-canvas/blob/main/LICENSE",
     ],
   },
   {
@@ -133,11 +133,16 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
     ],
   },
   {
-    "detail": "no link to freeappstore.online found in web/src/",
+    "detail": "no web/vite.config.ts (not a Vite project)",
+    "name": "PWA offline correctness",
+    "status": "pass",
+  },
+  {
+    "detail": "no link to freegamestore.online found in web/src/",
     "name": "Store link",
     "status": "warn",
     "suggestions": [
-      "Add a small "Built for freeappstore.online" link in the footer or about screen.",
+      "Add a small "Built for freegamestore.online" link in the footer or about screen.",
       "It helps visitors find the rest of the catalog — and it counts for storefront ranking.",
     ],
   },
