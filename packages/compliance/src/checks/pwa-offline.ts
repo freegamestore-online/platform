@@ -34,38 +34,57 @@ export async function checkPwaOffline(source: FileSource): Promise<CheckResult> 
   const config = await source.read(VITE_CONFIG);
   const html = await source.read(INDEX_HTML);
 
-  if (config === null) {
-    return {
-      name: 'PWA offline correctness',
-      status: 'pass',
-      detail: 'no web/vite.config.ts (not a Vite project)',
-    };
-  }
-
   const linksManifest =
     html !== null && /<link[^>]+rel\s*=\s*["']manifest["']/i.test(html);
   const linksGoogleFonts =
     html !== null && /fonts\.(googleapis|gstatic)\.com/i.test(html);
 
-  const hasVitePwa = /\bVitePWA\s*\(/.test(config);
+  const hasVitePwa = config !== null && /\bVitePWA\s*\(/.test(config);
+  // Hand-rolled SW registration (e.g. an inline <script> calling
+  // navigator.serviceWorker.register) is a legitimate alternative to
+  // vite-plugin-pwa. If it exists, we trust the dev to manage their own
+  // precache and limit ourselves to the install-claim check.
+  const hasManualSw =
+    (html !== null && /serviceWorker\.register/.test(html)) ||
+    (await sourceHasSwRegistration(source));
+  const hasServiceWorker = hasVitePwa || hasManualSw;
 
-  // PWA-shaped (has manifest <link>) but no service worker → offline impossible.
-  if (!hasVitePwa) {
-    if (linksManifest) {
-      return {
-        name: 'PWA offline correctness',
-        status: 'fail',
-        detail: 'index.html links a manifest but vite.config.ts has no VitePWA → no service worker → cannot load offline from home screen',
-        suggestions: [
-          'Install vite-plugin-pwa and wire VitePWA({...}) in vite.config.ts.',
-          'Or drop the <link rel="manifest"> from index.html if this game is not meant to be installable.',
-        ],
-      };
-    }
+  // "Installable" claim with no service worker — the worst failure mode.
+  // The PWA installs from the manifest but launches into a network fetch
+  // for `/` that 404s offline → blank screen on home screen.
+  if (linksManifest && !hasServiceWorker) {
+    return {
+      name: 'PWA offline correctness',
+      status: 'fail',
+      detail: 'index.html links a manifest but no service worker is registered → installable PWA that cannot load offline from home screen',
+      suggestions: [
+        'Install vite-plugin-pwa and add VitePWA({...}) to vite.config.ts plugins.',
+        'Or register a service worker manually (`navigator.serviceWorker.register("/sw.js")`).',
+        'Or drop the <link rel="manifest"> from index.html if this is not meant to be installable.',
+      ],
+    };
+  }
+
+  // No vite.config.ts at all — can't analyze further. Either not a Vite
+  // project, or PWA wiring lives elsewhere; either way, nothing for us
+  // to assert about workbox.
+  if (config === null) {
     return {
       name: 'PWA offline correctness',
       status: 'pass',
-      detail: 'not a PWA (no VitePWA, no manifest link)',
+      detail: hasManualSw
+        ? 'no vite.config.ts; hand-rolled service worker present'
+        : 'no web/vite.config.ts (not a Vite project)',
+    };
+  }
+
+  if (!hasVitePwa) {
+    return {
+      name: 'PWA offline correctness',
+      status: 'pass',
+      detail: hasManualSw
+        ? 'hand-rolled service worker; no install claim to verify'
+        : 'not a PWA (no VitePWA, no manifest link)',
     };
   }
 
@@ -205,6 +224,28 @@ async function findUncoveredAssets(
   const seen = new Set<string>();
   await walkPublic(source, dir, seen, covered, 0);
   return [...seen].sort();
+}
+
+/**
+ * Best-effort scan of web/src/ entry points for a manual
+ * `serviceWorker.register` call. Doesn't recurse into the whole src
+ * tree — we only care about top-level entry files (main, index,
+ * registerSW) where this conventionally lives.
+ */
+async function sourceHasSwRegistration(source: FileSource): Promise<boolean> {
+  const candidates = [
+    'web/src/main.tsx',
+    'web/src/main.ts',
+    'web/src/index.tsx',
+    'web/src/index.ts',
+    'web/src/registerSW.ts',
+    'web/src/registerSW.js',
+  ];
+  for (const p of candidates) {
+    const text = await source.read(p);
+    if (text !== null && /serviceWorker\.register/.test(text)) return true;
+  }
+  return false;
 }
 
 async function walkPublic(

@@ -144,6 +144,49 @@ describe('checkPwaOffline', () => {
     expect(r.status).toBe('pass');
   });
 
+  it('fails when index.html links a manifest and there is no vite.config.ts at all (B1 regression)', async () => {
+    // The bug this guards: an earlier version of the check short-circuited
+    // to "pass — not a Vite project" when vite.config.ts was absent, which
+    // missed broken PWAs whose entire build setup lives elsewhere or whose
+    // PWA wiring was simply forgotten.
+    const r = await checkPwaOffline(
+      mapFileSource(
+        new Map([
+          [INDEX_HTML, HTML_NO_FONTS], // has manifest link
+          // intentionally no vite.config.ts
+        ]),
+      ),
+    );
+    expect(r.status).toBe('fail');
+    expect(r.detail).toMatch(/no service worker/i);
+  });
+
+  it('passes when index.html links a manifest AND a manual service-worker registration is present (B2)', async () => {
+    // Real-world: chess/puzzle hand-register `/sw.js` from an inline
+    // script. The check should trust that as a legitimate alternative
+    // to vite-plugin-pwa.
+    const inlineRegister =
+      '<html><head><link rel="manifest" href="/m.json" /></head><body>' +
+      '<script>navigator.serviceWorker.register("/sw.js")</script></body></html>';
+    const r = await checkPwaOffline(
+      mapFileSource(new Map([[INDEX_HTML, inlineRegister]])),
+    );
+    expect(r.status).toBe('pass');
+    expect(r.detail).toMatch(/hand-rolled service worker/i);
+  });
+
+  it('passes when manual SW registration lives in src/main.tsx (B2 src variant)', async () => {
+    const r = await checkPwaOffline(
+      mapFileSource(
+        new Map([
+          [INDEX_HTML, HTML_NO_FONTS], // has manifest link
+          ['web/src/main.tsx', 'if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");'],
+        ]),
+      ),
+    );
+    expect(r.status).toBe('pass');
+  });
+
   it('warns when public/ has assets in extensions not in globPatterns (e.g. wasm)', async () => {
     const config = `
       import { VitePWA } from "vite-plugin-pwa";
