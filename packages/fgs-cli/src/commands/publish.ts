@@ -9,28 +9,23 @@ import { readConfig } from '../lib/config.js';
 import { openUrl } from '../lib/open.js';
 import { renderCheckResults } from './check.js';
 
-// TEMPORARY: games are routed through the FreeAppStore submissions repo
-// because no `freegamestore-online/submissions` repo exists yet. This works
-// (issues file fine), but the categories below are app-flavored and a few
-// don't fit games well (Finance, News & Weather, Productivity). When the
-// games submissions repo + game-submission.yml template ship, swap this URL
-// and the CATEGORIES list to game-specific ones (Arcade / Puzzle / Strategy
-// / Action / Word / Card / Casual / Educational / Other).
+// Games are still routed through the FreeAppStore submissions repo because
+// no `freegamestore-online/submissions` repo exists yet — but the category
+// list is now games-native (matching the storefront filter chips on
+// freegamestore.online) so creators can pick the right bucket. The Issue
+// form fallback uses these too; the admin reviewer can map them to the
+// app-side dropdown if the games-submissions repo is still not split out.
 const SUBMISSION_URL = 'https://github.com/freeappstore-online/submissions/issues/new';
 
-// Must match the dropdown options in
-// freeappstore-online/submissions/.github/ISSUE_TEMPLATE/app-submission.yml
+// Must match the storefront filter chips on freegamestore.online.
 const CATEGORIES = [
-  'Learning',
-  'Strategy',
-  'Discovery',
   'Brain Training',
-  'Social',
-  'Productivity',
-  'Health & Fitness',
-  'Finance',
-  'News & Weather',
-  'Utilities',
+  'Arcade',
+  'Strategy',
+  'Sports',
+  'Casual',
+  'Cards',
+  'Racing',
   'Other (specify in description)',
 ] as const;
 
