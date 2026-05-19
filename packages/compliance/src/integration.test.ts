@@ -87,7 +87,11 @@ describe('failing-app fixture', () => {
     // it's not a game project; PWA-offline passes because the fixture
     // has no vite.config.ts so the check is not applicable. The
     // failure case for PWA-offline is covered in its unit tests.
-    expect(summary.pass.sort()).toEqual(['No scroll (games only)', 'PWA offline correctness']);
+    expect(summary.pass.sort()).toEqual([
+      'Audio respects platform mute',
+      'No scroll (games only)',
+      'PWA offline correctness',
+    ]);
   });
 });
 

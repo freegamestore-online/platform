@@ -1,4 +1,5 @@
 import type { FileSource } from '../lib/file-source.js';
+import { isGameProject } from '../lib/project-type.js';
 import type { CheckResult } from '../types.js';
 
 const VITE_CONFIG = 'web/vite.config.ts';
@@ -6,11 +7,20 @@ const INDEX_HTML = 'web/index.html';
 const PUBLIC_DIR = 'web/public';
 
 /**
- * Verifies a game's PWA can actually load from the home screen while
- * offline. Apps that ship a manifest but mis-configure the service
- * worker install fine, then show a blank screen when offline.
+ * Two things this check enforces:
  *
- * Three failure modes this catches, all observed in the wild:
+ *   1. Platform mandate — every game on freegamestore.online MUST be an
+ *      installable PWA (service worker registered). Detected via
+ *      `isGameProject` so non-game repos (admin, auditor, etc.) are
+ *      exempt. Hand-rolled `serviceWorker.register` counts; vite-plugin-pwa
+ *      counts. Anything else fails.
+ *
+ *   2. Offline-correctness quality — among PWAs that ARE configured,
+ *      the workbox setup actually has to work from the home screen
+ *      while offline. Apps that ship a manifest but mis-configure the
+ *      service worker install fine, then show a blank screen offline.
+ *
+ * Three quality failure modes this catches, all observed in the wild:
  *
  *  1. `maximumFileSizeToCacheInBytes` left at the workbox default (2 MB).
  *     Any bundle chunk above 2 MB is silently dropped from the precache.
@@ -64,6 +74,23 @@ export async function checkPwaOffline(source: FileSource): Promise<CheckResult> 
     (html !== null && /serviceWorker\.register/.test(html)) ||
     (await sourceHasSwRegistration(source));
   const hasServiceWorker = hasVitePwa || hasManualSw;
+
+  // Platform mandate (freegamestore.online): every game must be an
+  // installable PWA. "Installable" at the static-check level means a
+  // service worker registers — VitePWA (which also injects the
+  // manifest link), an injectManifest setup, or hand-rolled register.
+  // Non-games (admin, auditor, marketing site, etc.) are exempt.
+  if ((await isGameProject(source)) && !hasServiceWorker) {
+    return {
+      name: 'PWA offline correctness',
+      status: 'fail',
+      detail: 'platform mandate: every game on freegamestore.online must be an installable PWA, but no service worker is registered',
+      suggestions: [
+        'Add `vite-plugin-pwa` to web/devDependencies, then wire `VitePWA({...})` into vite.config.ts plugins. Mirror the canonical config used in bowling, 2048, snake, etc.',
+        'Or, if you prefer to manage your own SW, register it from web/src/main.tsx with `navigator.serviceWorker.register("/sw.js")` and ship the SW yourself.',
+      ],
+    };
+  }
 
   // "Installable" claim with no service worker — the worst failure mode.
   // The PWA installs from the manifest but launches into a network fetch

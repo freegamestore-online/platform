@@ -34,7 +34,68 @@ const HTML_NO_FONTS = `<html><head>
   <link rel="manifest" href="/manifest.webmanifest" />
 </head></html>`;
 
+// `isGameProject` returns true if any package.json or .ts file
+// mentions @freegamestore/games. Add this entry to any test source
+// that's meant to represent an actual game.
+const GAME_MARKER: [string, string] = [
+  'web/package.json',
+  '{"dependencies":{"@freegamestore/games":"^0.13.0"}}',
+];
+
 describe('checkPwaOffline', () => {
+  it('fails when a game project has no service worker (platform mandate)', async () => {
+    // Game (has @freegamestore/games) with no PWA setup at all —
+    // no manifest link, no VitePWA, no manual register. Was previously
+    // a silent pass; now mandated to fail.
+    const r = await checkPwaOffline(
+      mapFileSource(
+        new Map([
+          GAME_MARKER,
+          [VITE_CONFIG, 'export default { plugins: [] };'],
+          [INDEX_HTML, '<html><head><title>x</title></head></html>'],
+        ]),
+      ),
+    );
+    expect(r.status).toBe('fail');
+    expect(r.detail).toMatch(/platform mandate/i);
+  });
+
+  it('fails when a game project has no vite.config.ts at all (mandate)', async () => {
+    // A game source with no Vite project. Mandate still applies.
+    const r = await checkPwaOffline(
+      mapFileSource(new Map([GAME_MARKER])),
+    );
+    expect(r.status).toBe('fail');
+    expect(r.detail).toMatch(/platform mandate/i);
+  });
+
+  it('passes when a non-game project has no PWA setup (mandate is opt-in via @freegamestore/games)', async () => {
+    // No GAME_MARKER → isGameProject returns false → mandate exempt.
+    // Same setup that would fail above.
+    const r = await checkPwaOffline(
+      mapFileSource(
+        new Map([
+          [VITE_CONFIG, 'export default { plugins: [] };'],
+          [INDEX_HTML, '<html><head><title>x</title></head></html>'],
+        ]),
+      ),
+    );
+    expect(r.status).toBe('pass');
+  });
+
+  it('passes when a game project has VitePWA configured (mandate satisfied)', async () => {
+    const r = await checkPwaOffline(
+      mapFileSource(
+        new Map([
+          GAME_MARKER,
+          [VITE_CONFIG, GOOD_WORKBOX],
+          [INDEX_HTML, HTML_WITH_FONTS],
+        ]),
+      ),
+    );
+    expect(r.status).toBe('pass');
+  });
+
   it('passes for a config that mirrors bowling', async () => {
     const r = await checkPwaOffline(
       mapFileSource(
