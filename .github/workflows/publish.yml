@@ -68,4 +68,7 @@ jobs:
       - name: Publish via OIDC trusted publishing
         if: steps.decide.outputs.publish == 'true'
         working-directory: packages/${{ matrix.package }}
-        run: npm publish --access public --provenance
+        # pnpm publish (not npm) so workspace:* deps get rewritten to real
+        # semver in the tarball. npm publish leaves the workspace protocol
+        # intact, which breaks downstream consumers (npx, yarn, npm install).
+        run: pnpm publish --access public --no-git-checks --provenance
