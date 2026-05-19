@@ -1,3 +1,4 @@
+import { checkAudioMuteRespect } from './checks/audio-mute-respect.js';
 import { checkBrandFonts } from './checks/brand-fonts.js';
 import { checkBrandTokens } from './checks/brand-tokens.js';
 import { checkBundleSize } from './checks/bundle-size.js';
@@ -35,6 +36,7 @@ export {
 } from './live/index.js';
 export type { CheckResult, CheckStatus } from './types.js';
 export {
+  checkAudioMuteRespect,
   checkBrandFonts,
   checkBrandTokens,
   checkBundleSize,
@@ -81,6 +83,7 @@ async function runChecksOn(source: FileSource): Promise<CheckResult[]> {
     checkNoEnvProduction(source),
     checkNoPlaceholders(source),
     checkNoTracking(source),
+    checkAudioMuteRespect(source),
     checkBrandFonts(source),
     checkBrandTokens(source),
     checkNoBrandOverrides(source),
