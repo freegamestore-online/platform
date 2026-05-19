@@ -1,6 +1,6 @@
 {
   "name": "@freegamestore/compliance",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Compliance checks for games published on freegamestore.online — used by the CLI for local feedback and by CI for gating.",
   "license": "MIT",
   "type": "module",
