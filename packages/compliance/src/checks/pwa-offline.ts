@@ -1,5 +1,4 @@
 import type { FileSource } from '../lib/file-source.js';
-import { isGameProject } from '../lib/project-type.js';
 import { stripCommentsAndStrings, stripHtmlComments } from '../lib/strip.js';
 import type { CheckResult } from '../types.js';
 
@@ -11,10 +10,13 @@ const PUBLIC_DIR = 'web/public';
  * Two things this check enforces:
  *
  *   1. Platform mandate — every game on freegamestore.online MUST be an
- *      installable PWA (service worker registered). Detected via
- *      `isGameProject` so non-game repos (admin, auditor, etc.) are
- *      exempt. Hand-rolled `serviceWorker.register` counts; vite-plugin-pwa
- *      counts. Anything else fails.
+ *      installable PWA (service worker registered). Triggered whenever
+ *      a project has a `web/index.html` (the universal signal of a
+ *      Vite-built app destined for the storefront). Hand-rolled
+ *      `serviceWorker.register` counts; vite-plugin-pwa counts.
+ *      Anything else fails. Non-game repos that don't ship a web
+ *      entry (admin, auditor, leaderboard, etc.) are naturally exempt
+ *      — they're not subject to compliance anyway.
  *
  *   2. Offline-correctness quality — among PWAs that ARE configured,
  *      the workbox setup actually has to work from the home screen
@@ -80,8 +82,11 @@ export async function checkPwaOffline(source: FileSource): Promise<CheckResult> 
   // installable PWA. "Installable" at the static-check level means a
   // service worker registers — VitePWA (which also injects the
   // manifest link), an injectManifest setup, or hand-rolled register.
-  // Non-games (admin, auditor, marketing site, etc.) are exempt.
-  if ((await isGameProject(source)) && !hasServiceWorker) {
+  // Triggered by the presence of `web/index.html` — the universal
+  // signal of a Vite-built game. Non-game repos in the org (admin,
+  // auditor, marketing site) don't ship index.html and are naturally
+  // exempt; compliance isn't run against them anyway.
+  if (html !== null && !hasServiceWorker) {
     return {
       name: 'PWA offline correctness',
       status: 'fail',

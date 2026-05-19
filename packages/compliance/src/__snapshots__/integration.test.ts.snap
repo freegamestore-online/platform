@@ -137,9 +137,13 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
     ],
   },
   {
-    "detail": "no web/vite.config.ts (not a Vite project)",
+    "detail": "platform mandate: every game on freegamestore.online must be an installable PWA, but no service worker is registered",
     "name": "PWA offline correctness",
-    "status": "pass",
+    "status": "fail",
+    "suggestions": [
+      "Add \`vite-plugin-pwa\` to web/devDependencies, then wire \`VitePWA({...})\` into vite.config.ts plugins. Mirror the canonical config used in bowling, 2048, snake, etc.",
+      "Or, if you prefer to manage your own SW, register it from web/src/main.tsx with \`navigator.serviceWorker.register("/sw.js")\` and ship the SW yourself.",
+    ],
   },
   {
     "detail": "no link to freegamestore.online found in web/src/",

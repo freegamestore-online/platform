@@ -34,23 +34,14 @@ const HTML_NO_FONTS = `<html><head>
   <link rel="manifest" href="/manifest.webmanifest" />
 </head></html>`;
 
-// `isGameProject` returns true if any package.json or .ts file
-// mentions @freegamestore/games. Add this entry to any test source
-// that's meant to represent an actual game.
-const GAME_MARKER: [string, string] = [
-  'web/package.json',
-  '{"dependencies":{"@freegamestore/games":"^0.13.0"}}',
-];
-
 describe('checkPwaOffline', () => {
-  it('fails when a game project has no service worker (platform mandate)', async () => {
-    // Game (has @freegamestore/games) with no PWA setup at all —
-    // no manifest link, no VitePWA, no manual register. Was previously
-    // a silent pass; now mandated to fail.
+  it('fails when a game (web/index.html present) has no service worker (platform mandate)', async () => {
+    // Any project that ships a web entry is presumed to be a game
+    // destined for freegamestore.online. The mandate triggers on
+    // index.html presence and demands a service worker.
     const r = await checkPwaOffline(
       mapFileSource(
         new Map([
-          GAME_MARKER,
           [VITE_CONFIG, 'export default { plugins: [] };'],
           [INDEX_HTML, '<html><head><title>x</title></head></html>'],
         ]),
@@ -60,34 +51,33 @@ describe('checkPwaOffline', () => {
     expect(r.detail).toMatch(/platform mandate/i);
   });
 
-  it('fails when a game project has no vite.config.ts at all (mandate)', async () => {
-    // A game source with no Vite project. Mandate still applies.
+  it('fails when index.html exists but no vite.config.ts at all', async () => {
+    // Web entry alone is enough to trigger the mandate.
     const r = await checkPwaOffline(
-      mapFileSource(new Map([GAME_MARKER])),
+      mapFileSource(new Map([[INDEX_HTML, '<html><head></head></html>']])),
     );
     expect(r.status).toBe('fail');
     expect(r.detail).toMatch(/platform mandate/i);
   });
 
-  it('passes when a non-game project has no PWA setup (mandate is opt-in via @freegamestore/games)', async () => {
-    // No GAME_MARKER → isGameProject returns false → mandate exempt.
-    // Same setup that would fail above.
+  it('passes when there is no web/index.html (not a game — admin/leaderboard/etc.)', async () => {
+    // No index.html → not a publishable game → mandate exempt. Repos
+    // in the org without a web entry aren't subject to the storefront
+    // PWA requirement.
     const r = await checkPwaOffline(
       mapFileSource(
         new Map([
           [VITE_CONFIG, 'export default { plugins: [] };'],
-          [INDEX_HTML, '<html><head><title>x</title></head></html>'],
         ]),
       ),
     );
     expect(r.status).toBe('pass');
   });
 
-  it('passes when a game project has VitePWA configured (mandate satisfied)', async () => {
+  it('passes when a game has VitePWA configured (mandate satisfied)', async () => {
     const r = await checkPwaOffline(
       mapFileSource(
         new Map([
-          GAME_MARKER,
           [VITE_CONFIG, GOOD_WORKBOX],
           [INDEX_HTML, HTML_WITH_FONTS],
         ]),
@@ -127,7 +117,10 @@ describe('checkPwaOffline', () => {
     expect(r.detail).toMatch(/no VitePWA|no service worker/i);
   });
 
-  it('passes when there is no VitePWA AND no manifest link (plain site)', async () => {
+  it('fails on a plain site that ships web/index.html with no SW (mandate)', async () => {
+    // Post-mandate: shipping a web entry IS the install claim. There's
+    // no opt-out for "plain site that happens to live on freegamestore"
+    // — every published game is mandated to be installable.
     const r = await checkPwaOffline(
       mapFileSource(
         new Map([
@@ -136,8 +129,8 @@ describe('checkPwaOffline', () => {
         ]),
       ),
     );
-    expect(r.status).toBe('pass');
-    expect(r.detail).toMatch(/not a PWA/);
+    expect(r.status).toBe('fail');
+    expect(r.detail).toMatch(/platform mandate/i);
   });
 
   it('warns when maximumFileSizeToCacheInBytes is missing', async () => {
@@ -344,9 +337,13 @@ describe('checkPwaOffline', () => {
     expect(r.status).toBe('fail');
   });
 
-  it('ignores HTML-commented <link rel="manifest"> (B7)', async () => {
-    // Dev temporarily disables install via HTML comment. The check
-    // should not flag this as a broken installable PWA.
+  it('still fails on web/index.html with a commented-out manifest (mandate fires on the page itself)', async () => {
+    // The B7 fix was about HTML comments not satisfying the install
+    // claim. Under the broader mandate, the index.html itself is the
+    // trigger (with or without an inline manifest link), so the
+    // commented-out tag is moot — the assertion now confirms the
+    // mandate message fires rather than the older "claims manifest
+    // without SW" branch.
     const r = await checkPwaOffline(
       mapFileSource(
         new Map([
@@ -357,7 +354,8 @@ describe('checkPwaOffline', () => {
         ]),
       ),
     );
-    expect(r.status).toBe('pass');
+    expect(r.status).toBe('fail');
+    expect(r.detail).toMatch(/platform mandate/i);
   });
 
   it('accepts request.destination filter as Google Fonts coverage (B8)', async () => {

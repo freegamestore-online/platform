@@ -73,6 +73,7 @@ describe('failing-app fixture', () => {
       'No template placeholders',
       'No tracking SDKs',
       'PWA manifest',
+      'PWA offline correctness',
       'Viewport support',
     ]);
     expect(summary.warn.sort()).toEqual([
@@ -83,14 +84,13 @@ describe('failing-app fixture', () => {
       'PWA meta tags',
       'Store link',
     ]);
-    // Passing checks on a maximally-broken app: no-scroll skips because
-    // it's not a game project; PWA-offline passes because the fixture
-    // has no vite.config.ts so the check is not applicable. The
-    // failure case for PWA-offline is covered in its unit tests.
+    // After the mandate broadening, failing-app now also fails
+    // PWA offline correctness (it ships web/index.html with no SW).
+    // The remaining passes: no-scroll skips because it's not a game
+    // project, and audio-mute-respect passes because no raw audio.
     expect(summary.pass.sort()).toEqual([
       'Audio respects platform mute',
       'No scroll (games only)',
-      'PWA offline correctness',
     ]);
   });
 });
