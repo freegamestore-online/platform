@@ -69,6 +69,18 @@ describe('scanContent (unit)', () => {
     expect(issues[0]).toMatch(/sora/);
   });
 
+  it('does not consume sibling JSX style props when scanning fontFamily value', () => {
+    // Regression: previously matched through the `,` separator into `color:`
+    // and tried to validate `"var(--success)"` as a font-family token.
+    const issues = scanContent(
+      'web/src/App.tsx',
+      `
+      <h2 style={{ fontFamily: "Fraunces, serif", color: "var(--success)" }} />
+    `,
+    );
+    expect(issues).toEqual([]);
+  });
+
   it('handles a JSX ternary fontFamily without false-positiving on the predicate', () => {
     // Regression: the prefix `isGiven ?` used to be parsed as a font name
     // because the opening quote in the regex was optional.

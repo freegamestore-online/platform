@@ -144,11 +144,13 @@ export function scanContent(
   // quoted string in the value and check each one separately. If there are
   // no quoted strings, the value is treated as a CSS-style comma list
   // (`font-family: Comic Sans, serif`).
-  const fontRe = /(?:font-family|fontFamily)\s*[:=]([^;{}\n]+)/g;
+  const fontHeadRe = /(font-family|fontFamily)\s*[:=]/g;
   const quotedRe = /(['"`])([^'"`\n]+)\1/g;
   let m: RegExpExecArray | null;
-  while ((m = fontRe.exec(content)) !== null) {
-    const value = m[1]!;
+  while ((m = fontHeadRe.exec(content)) !== null) {
+    const isJsx = m[1] === 'fontFamily';
+    const start = m.index + m[0].length;
+    const value = sliceFontValue(content, start, isJsx);
     const quotedStrings = [...value.matchAll(quotedRe)].map((x) => x[2]!);
     const candidates = quotedStrings.length > 0 ? quotedStrings : [value];
     let flagged = false;
@@ -170,6 +172,46 @@ export function scanContent(
   }
 
   return out;
+}
+
+/**
+ * Walk forward from `start` until we hit the end of the font-family value.
+ *
+ * CSS values end at `;` or `}` or newline.
+ * JSX values end at `}` or at a `,` followed by another identifier+colon
+ * (the next style property). Commas inside quoted strings or before
+ * non-identifiers (e.g. font fallbacks) are part of the value.
+ */
+function sliceFontValue(content: string, start: number, isJsx: boolean): string {
+  let i = start;
+  let quote: string | null = null;
+  while (i < content.length) {
+    const c = content[i]!;
+    if (quote) {
+      if (c === '\\') {
+        i += 2;
+        continue;
+      }
+      if (c === quote) quote = null;
+      i++;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      quote = c;
+      i++;
+      continue;
+    }
+    if (c === '\n' || c === ';' || c === '}') break;
+    if (isJsx && c === ',') {
+      // Lookahead: is this `,` followed by `identifier:`? If yes, end of value.
+      let j = i + 1;
+      while (j < content.length && (content[j] === ' ' || content[j] === '\t')) j++;
+      const rest = content.slice(j, j + 64);
+      if (/^[A-Za-z_$][\w$]*\s*:/.test(rest)) break;
+    }
+    i++;
+  }
+  return content.slice(start, i);
 }
 
 function extOf(path: string): string {
