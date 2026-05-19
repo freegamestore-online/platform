@@ -138,25 +138,34 @@ export function scanContent(
   }
 
   // 2. font-family overrides.
-  const fontRe = /(?:font-family|fontFamily)\s*[:=]\s*["'`]?([^;"'`}\n]+)["'`]?/g;
+  // Capture the value of every font-family / fontFamily declaration, then
+  // extract candidate font names. JSX values can be ternaries
+  // (`fontFamily: isFoo ? "Fraunces" : "Manrope"`), so we pull out every
+  // quoted string in the value and check each one separately. If there are
+  // no quoted strings, the value is treated as a CSS-style comma list
+  // (`font-family: Comic Sans, serif`).
+  const fontRe = /(?:font-family|fontFamily)\s*[:=]([^;{}\n]+)/g;
+  const quotedRe = /(['"`])([^'"`\n]+)\1/g;
   let m: RegExpExecArray | null;
   while ((m = fontRe.exec(content)) !== null) {
-    const list = m[1]!;
-    const tokens = list
-      .split(',')
-      .map((t) =>
-        t
-          .trim()
-          .replace(/^["']|["']$/g, '')
-          .toLowerCase(),
-      )
-      .filter(Boolean);
-    for (const t of tokens) {
-      if (!ALLOWED_FONT_TOKENS.has(t)) {
-        const line = lineNumberAt(content, m.index);
-        out.push(`${filename}:${line} non-brand font "${t}"`);
-        break;
+    const value = m[1]!;
+    const quotedStrings = [...value.matchAll(quotedRe)].map((x) => x[2]!);
+    const candidates = quotedStrings.length > 0 ? quotedStrings : [value];
+    let flagged = false;
+    for (const cand of candidates) {
+      const tokens = cand
+        .split(',')
+        .map((t) => t.trim().replace(/^["']|["']$/g, '').toLowerCase())
+        .filter(Boolean);
+      for (const t of tokens) {
+        if (!ALLOWED_FONT_TOKENS.has(t)) {
+          const line = lineNumberAt(content, m.index);
+          out.push(`${filename}:${line} non-brand font "${t}"`);
+          flagged = true;
+          break;
+        }
       }
+      if (flagged) break;
     }
   }
 

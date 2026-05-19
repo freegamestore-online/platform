@@ -69,6 +69,29 @@ describe('scanContent (unit)', () => {
     expect(issues[0]).toMatch(/sora/);
   });
 
+  it('handles a JSX ternary fontFamily without false-positiving on the predicate', () => {
+    // Regression: the prefix `isGiven ?` used to be parsed as a font name
+    // because the opening quote in the regex was optional.
+    const issues = scanContent(
+      'web/src/App.tsx',
+      `
+      const s = { fontFamily: isGiven ? "Fraunces, serif" : "Manrope, system-ui, sans-serif" };
+    `,
+    );
+    expect(issues).toEqual([]);
+  });
+
+  it('flags a non-brand branch inside a ternary fontFamily', () => {
+    const issues = scanContent(
+      'web/src/App.tsx',
+      `
+      const s = { fontFamily: isGiven ? "Cormorant Garamond" : "Manrope" };
+    `,
+    );
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatch(/cormorant garamond/);
+  });
+
   it('accepts brand fonts and system fallbacks', () => {
     const issues = scanContent(
       'web/src/index.css',
