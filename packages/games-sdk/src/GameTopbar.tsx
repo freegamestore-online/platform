@@ -92,6 +92,14 @@ export function GameTopbar({
 
   return (
     <>
+      {/* One stylesheet for every interactive control in the topbar.
+          Inline styles give us the runtime values (color tokens,
+          dimensions) but can't express :active / :focus-visible, so
+          those pseudo-states live here. The `data-fgs-tb-btn`
+          attribute on every button + link selects them all uniformly.
+          The block renders once per topbar instance — browsers de-dupe
+          identical content and games only mount a single topbar. */}
+      <style>{TOPBAR_BUTTON_CSS}</style>
       <div
         style={{
           display: 'flex',
@@ -111,6 +119,7 @@ export function GameTopbar({
               grid reads as "all games / browse the catalog" and is
               visually distinct from anything browser chrome ships. */}
           <a
+            data-fgs-tb-btn
             href="https://freegamestore.online"
             target="_blank"
             rel="noopener noreferrer"
@@ -148,6 +157,7 @@ export function GameTopbar({
           </a>
           {rules !== undefined && (
             <button
+              data-fgs-tb-btn
               onClick={() => setShowRules(true)}
               style={{
                 background: 'none',
@@ -204,6 +214,7 @@ export function GameTopbar({
           {/* Play/Pause + Restart — opt-in for interactive games */}
           {onPlayPause !== undefined && (
             <button
+              data-fgs-tb-btn
               onClick={onPlayPause}
               style={{
                 background: 'none',
@@ -218,7 +229,12 @@ export function GameTopbar({
                 color: 'var(--ink, #f0f0f0)',
                 WebkitTapHighlightColor: 'transparent',
               }}
-              aria-label={paused ? 'Play' : 'Pause'}
+              // aria-pressed announces the pressed (paused) state to
+              // assistive tech. aria-label stays fixed at "Pause" — the
+              // WAI-ARIA toggle pattern says the label describes the
+              // control, the pressed state describes the world.
+              aria-label="Pause"
+              aria-pressed={paused === true}
             >
               {paused ? (
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -234,6 +250,7 @@ export function GameTopbar({
           )}
           {onRestart !== undefined && (
             <button
+              data-fgs-tb-btn
               onClick={onRestart}
               style={{
                 background: 'none',
@@ -269,6 +286,7 @@ export function GameTopbar({
           )}
           {/* Sound toggle — always present, muted by default */}
           <button
+            data-fgs-tb-btn
             onClick={sound.toggle}
             style={{
               background: 'none',
@@ -283,7 +301,11 @@ export function GameTopbar({
               color: sound.muted ? 'var(--muted, #999)' : 'var(--accent, #10b981)',
               WebkitTapHighlightColor: 'transparent',
             }}
-            aria-label={sound.muted ? 'Unmute' : 'Mute'}
+            // Toggle pattern: aria-label is fixed ("Mute"); aria-pressed
+            // tells AT whether sound is currently muted. Screen readers
+            // announce "Mute, toggle button, pressed" when muted.
+            aria-label="Mute"
+            aria-pressed={sound.muted}
           >
             {sound.muted ? (
               <svg
@@ -369,6 +391,7 @@ function RulesOverlay({
           How to Play
         </span>
         <button
+          data-fgs-tb-btn
           onClick={onClose}
           style={{
             background: 'none',
@@ -421,7 +444,11 @@ function Stat({ stat }: { stat: GameTopbarStat }): React.JSX.Element {
       </div>
       <div
         style={{
-          fontSize: '0.5rem',
+          // Was 0.5rem (~8px) — too small to read in sunlight or for
+          // anyone with even mild low vision. 0.65rem (~10.4px) keeps
+          // the visual hierarchy (value still dominates at 0.85rem)
+          // while staying legible.
+          fontSize: '0.65rem',
           fontWeight: 700,
           textTransform: 'uppercase',
           letterSpacing: '0.06em',
@@ -434,3 +461,27 @@ function Stat({ stat }: { stat: GameTopbarStat }): React.JSX.Element {
     </div>
   );
 }
+
+/**
+ * Pseudo-state styling for every topbar button + link. Tagged via
+ * `data-fgs-tb-btn`. Keep this small and predictable — the topbar is
+ * brand surface, not a creative palette.
+ *
+ *   :active — opacity dip so taps feel anchored on touch devices that
+ *             otherwise give no feedback (we already disable the
+ *             default tap-highlight via WebkitTapHighlightColor).
+ *
+ *   :focus-visible — accent outline so keyboard users see where focus
+ *                    is. -2px outline-offset draws inside the button's
+ *                    2.75rem touch target so the ring doesn't bleed
+ *                    into adjacent controls.
+ */
+const TOPBAR_BUTTON_CSS = `
+[data-fgs-tb-btn] { transition: opacity 80ms ease; }
+[data-fgs-tb-btn]:active { opacity: 0.55; }
+[data-fgs-tb-btn]:focus-visible {
+  outline: 2px solid var(--accent, #10b981);
+  outline-offset: -2px;
+  border-radius: 0.4rem;
+}
+`;
