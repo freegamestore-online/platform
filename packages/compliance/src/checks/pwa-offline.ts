@@ -39,7 +39,19 @@ export async function checkPwaOffline(source: FileSource): Promise<CheckResult> 
   const linksGoogleFonts =
     html !== null && /fonts\.(googleapis|gstatic)\.com/i.test(html);
 
-  const hasVitePwa = config !== null && /\bVitePWA\s*\(/.test(config);
+  // Strip comments and string-literal contents before any regex matching
+  // against the config text — otherwise `VitePWA(` in a comment or
+  // `"workbox: {"` in a string is treated as real code (false positive).
+  const configCode = config === null ? null : stripCommentsAndStrings(config);
+  const hasVitePwa = configCode !== null && /\bVitePWA\s*\(/.test(configCode);
+  // `injectManifest` strategy means the developer writes their own SW
+  // file (typically web/src/sw.ts). The `workbox` field doesn't apply
+  // — `injectManifest` config does — so the rest of our checks are
+  // inapplicable. Trust the dev's manual SW. (Matched against `config`
+  // — not `configCode` — because the string-stripping would erase
+  // `"injectManifest"` from the latter.)
+  const usesInjectManifest =
+    config !== null && /strategies\s*:\s*["']injectManifest["']/.test(config);
   // Hand-rolled SW registration (e.g. an inline <script> calling
   // navigator.serviceWorker.register) is a legitimate alternative to
   // vite-plugin-pwa. If it exists, we trust the dev to manage their own
@@ -88,8 +100,24 @@ export async function checkPwaOffline(source: FileSource): Promise<CheckResult> 
     };
   }
 
-  // Extract the workbox block. Match `workbox: { ... }` allowing nested braces.
-  const workbox = extractBalancedBlock(config, /workbox\s*:\s*\{/);
+  // injectManifest: developer hand-writes the SW. Their `workbox` config
+  // (if any) is irrelevant; the analyzable surface lives in their SW
+  // source which we don't parse.
+  if (usesInjectManifest) {
+    return {
+      name: 'PWA offline correctness',
+      status: 'pass',
+      detail: 'VitePWA with injectManifest strategy — SW managed in src',
+    };
+  }
+
+  // Extract the workbox block. Match `workbox: { ... }` allowing nested
+  // braces. We pass `configCode` (comments/strings stripped) so the
+  // matcher can't false-positive on `"workbox: {"` inside a string, but
+  // we slice out of `config` so the returned substring still has its
+  // real string contents — otherwise downstream `globPatterns:
+  // ["..."]` regex would fail.
+  const workbox = extractBalancedBlock(config, configCode, /workbox\s*:\s*\{/);
   if (workbox === null) {
     return {
       name: 'PWA offline correctness',
@@ -123,12 +151,12 @@ export async function checkPwaOffline(source: FileSource): Promise<CheckResult> 
   }
 
   // Issue 3: assets in public/ in extensions not covered by globPatterns.
-  const globMatch = workbox.match(/globPatterns\s*:\s*\[\s*["']([^"']+)["']/);
-  const pattern = globMatch?.[1];
-  if (pattern && source.listDir) {
-    const exts = pattern.match(/\{([^}]+)\}/);
-    const extList = exts?.[1] ?? '';
-    const covered = new Set(extList.split(',').map((s) => s.trim().toLowerCase()));
+  // Workbox supports multiple patterns in the array; we union the
+  // extensions across all of them, otherwise a config like
+  // `globPatterns: ["**/*.{js,css}", "**/*.wasm"]` would look like it
+  // omits wasm.
+  const covered = extractCoveredExtensions(workbox);
+  if (covered !== null && source.listDir) {
     const uncovered = await findUncoveredAssets(source, PUBLIC_DIR, covered);
     if (uncovered.length > 0) {
       const sample = uncovered.slice(0, 3).join(', ');
@@ -155,45 +183,81 @@ export async function checkPwaOffline(source: FileSource): Promise<CheckResult> 
 }
 
 /**
+ * Returns a "code-only" version of `src` where every comment body and
+ * string-literal content is replaced with spaces of equal length. This
+ * lets us run cheap regex matches against the source while ignoring
+ * text that isn't real code, without disturbing source positions —
+ * regex `.index` results are still valid offsets into the original.
+ *
+ * Handles: line comments (`//`), block comments (`/* *\/`), single,
+ * double, and backtick strings (with `\` escapes). Doesn't try to
+ * track template-literal `${...}` expressions or recognise regex
+ * literals — both edge cases would need a real tokenizer.
+ */
+function stripCommentsAndStrings(src: string): string {
+  const out = src.split('');
+  let i = 0;
+  const blank = (from: number, to: number) => {
+    for (let k = from; k < to; k++) if (out[k] !== '\n') out[k] = ' ';
+  };
+  while (i < src.length) {
+    const c = src[i];
+    if (c === '/' && src[i + 1] === '/') {
+      const start = i;
+      while (i < src.length && src[i] !== '\n') i++;
+      blank(start, i);
+      continue;
+    }
+    if (c === '/' && src[i + 1] === '*') {
+      const start = i;
+      i += 2;
+      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i++;
+      i = Math.min(src.length, i + 2);
+      blank(start, i);
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      const quote = c;
+      const start = i + 1; // keep the opening quote in place
+      i++;
+      while (i < src.length && src[i] !== quote) {
+        if (src[i] === '\\' && i + 1 < src.length) i++;
+        i++;
+      }
+      blank(start, i);
+      i++; // skip closing quote
+      continue;
+    }
+    i++;
+  }
+  return out.join('');
+}
+
+/**
  * Extracts the `{ ... }` body that follows the first match of `opener`,
- * walking the source character-by-character to balance braces. Ignores
- * braces inside string literals (single/double/backtick) and line and
- * block comments. Returns null if no match or unbalanced.
+ * walking the source character-by-character to balance braces.
+ *
+ * Two source views are required:
+ *   - `src` — the real source, used for the returned substring.
+ *   - `code` — the stripped view (comments/strings blanked) with the
+ *     same character offsets as `src`. Used for matching the opener and
+ *     counting braces, so that `}` in a string doesn't close the block.
  *
  * Regex alone can't handle this because workbox blocks contain nested
  * objects (`options: { expiration: {...} }`) and regex doesn't balance.
  */
-function extractBalancedBlock(src: string, opener: RegExp): string | null {
-  const m = src.match(opener);
+function extractBalancedBlock(
+  src: string,
+  code: string,
+  opener: RegExp,
+): string | null {
+  const m = code.match(opener);
   if (!m || m.index === undefined) return null;
   let i = m.index + m[0].length; // start just after the `{`
   let depth = 1;
   const start = i;
-  while (i < src.length) {
-    const c = src[i];
-    // Skip string literals
-    if (c === '"' || c === "'" || c === '`') {
-      const quote = c;
-      i++;
-      while (i < src.length && src[i] !== quote) {
-        if (src[i] === '\\') i++;
-        i++;
-      }
-      i++;
-      continue;
-    }
-    // Skip line comments
-    if (c === '/' && src[i + 1] === '/') {
-      while (i < src.length && src[i] !== '\n') i++;
-      continue;
-    }
-    // Skip block comments
-    if (c === '/' && src[i + 1] === '*') {
-      i += 2;
-      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i++;
-      i += 2;
-      continue;
-    }
+  while (i < code.length) {
+    const c = code[i];
     if (c === '{') depth++;
     else if (c === '}') {
       depth--;
@@ -202,6 +266,35 @@ function extractBalancedBlock(src: string, opener: RegExp): string | null {
     i++;
   }
   return null;
+}
+
+/**
+ * Parses every string literal in the workbox block, finds those that
+ * look like glob patterns with a brace-expansion (e.g.
+ * `**\/*.{js,css,wasm}`), and unions their extensions. Returns null if
+ * no `globPatterns:` key is present at all.
+ */
+function extractCoveredExtensions(workbox: string): Set<string> | null {
+  const match = workbox.match(/globPatterns\s*:\s*\[([^\]]*)\]/);
+  if (!match) return null;
+  const arrayBody = match[1] ?? '';
+  const covered = new Set<string>();
+  // Pull each quoted string out of the array body.
+  for (const m of arrayBody.matchAll(/["']([^"']+)["']/g)) {
+    const pattern = m[1] ?? '';
+    const brace = pattern.match(/\{([^}]+)\}/);
+    if (brace) {
+      for (const ext of brace[1]!.split(',')) {
+        covered.add(ext.trim().toLowerCase());
+      }
+    } else {
+      // Bare pattern like "**/*.wasm" — extract the extension after the
+      // last `.` (or the entire pattern if it's literally `**/*.wasm`).
+      const ext = pattern.match(/\.([a-zA-Z0-9]+)$/);
+      if (ext) covered.add(ext[1]!.toLowerCase());
+    }
+  }
+  return covered;
 }
 
 function extOf(filename: string): string {

@@ -210,4 +210,103 @@ describe('checkPwaOffline', () => {
     expect(r.status).toBe('warn');
     expect(r.detail).toMatch(/wasm/);
   });
+
+  it('passes when VitePWA uses the injectManifest strategy (B3)', async () => {
+    // With injectManifest, the developer writes their own SW file —
+    // the `workbox` field doesn't apply, so we should not complain
+    // about a missing workbox block.
+    const config = `
+      import { VitePWA } from "vite-plugin-pwa";
+      export default { plugins: [VitePWA({
+        strategies: "injectManifest",
+        srcDir: "src",
+        filename: "sw.ts",
+      })] };`;
+    const r = await checkPwaOffline(
+      mapFileSource(
+        new Map([
+          [VITE_CONFIG, config],
+          [INDEX_HTML, HTML_WITH_FONTS],
+          ['web/src/sw.ts', '/* custom SW */'],
+        ]),
+      ),
+    );
+    expect(r.status).toBe('pass');
+    expect(r.detail).toMatch(/injectManifest/);
+  });
+
+  it('handles globPatterns with multiple entries — extensions unioned across them (B4)', async () => {
+    // First pattern omits wasm; second adds it. Should be treated as
+    // covering wasm.
+    const config = `
+      import { VitePWA } from "vite-plugin-pwa";
+      export default { plugins: [VitePWA({
+        workbox: {
+          globPatterns: ["**/*.{js,css,html,png,svg,ico,woff2}", "**/*.wasm"],
+          maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+          runtimeCaching: [
+            { urlPattern: /^https:\\/\\/fonts\\.googleapis\\.com\\/.*/i },
+            { urlPattern: /^https:\\/\\/fonts\\.gstatic\\.com\\/.*/i },
+          ],
+        },
+      })] };`;
+    const r = await checkPwaOffline(
+      mapFileSource(
+        new Map([
+          [VITE_CONFIG, config],
+          [INDEX_HTML, HTML_WITH_FONTS],
+          ['web/public/engine.wasm', '\0'],
+        ]),
+      ),
+    );
+    expect(r.status).toBe('pass');
+  });
+
+  it('ignores VitePWA mentioned only in a comment (B5)', async () => {
+    // The dev wrote `// VitePWA(...)` as a doc snippet but didn't
+    // actually wire it. With an installable manifest link and no real
+    // SW, this is the worst-case broken PWA — must fail.
+    const config = `
+      /* example usage:
+         VitePWA({ workbox: { globPatterns: [...] } })
+       */
+      import react from "@vitejs/plugin-react";
+      export default { plugins: [react()] };`;
+    const r = await checkPwaOffline(
+      mapFileSource(
+        new Map([
+          [VITE_CONFIG, config],
+          [INDEX_HTML, HTML_WITH_FONTS],
+        ]),
+      ),
+    );
+    expect(r.status).toBe('fail');
+  });
+
+  it('ignores "workbox: {" appearing inside a string literal (B6)', async () => {
+    // A const help-text string mentioning the workbox shape should not
+    // be picked up as the actual config block.
+    const config = `
+      import { VitePWA } from "vite-plugin-pwa";
+      const help = "set workbox: { globPatterns: [...] } in your config";
+      export default { plugins: [VitePWA({
+        workbox: {
+          globPatterns: ["**/*.{js,css,html,png,svg,ico,woff2,wasm,json}"],
+          maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+          runtimeCaching: [
+            { urlPattern: /^https:\\/\\/fonts\\.googleapis\\.com\\/.*/i },
+            { urlPattern: /^https:\\/\\/fonts\\.gstatic\\.com\\/.*/i },
+          ],
+        },
+      })] };`;
+    const r = await checkPwaOffline(
+      mapFileSource(
+        new Map([
+          [VITE_CONFIG, config],
+          [INDEX_HTML, HTML_WITH_FONTS],
+        ]),
+      ),
+    );
+    expect(r.status).toBe('pass');
+  });
 });
