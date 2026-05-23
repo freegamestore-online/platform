@@ -3,6 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/freegamestore-online/auditor"
+  },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "postinstall": "npx playwright install chromium",
     "test": "vitest run"
