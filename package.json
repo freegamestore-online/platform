@@ -2,14 +2,23 @@
   "name": "freegamestore-auth",
   "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/freegamestore-online/auth"
+  },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "test": "node --import tsx/esm --test src/**/*.test.ts",
     "db:init": "wrangler d1 execute leaderboard --file=schema.sql",
     "db:init:local": "wrangler d1 execute leaderboard --file=schema.sql --local"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4",
+    "tsx": "^4",
     "typescript": "^5.7",
     "wrangler": "^4"
   }
