@@ -34,6 +34,13 @@ export async function checkTypescriptStrict(source: FileSource): Promise<CheckRe
 
     const compilerOptions = config.compilerOptions as Record<string, unknown> | undefined;
 
+    // Solution-style tsconfig (only `references`, no `compilerOptions`).
+    // Skip to the next candidate — the actual config lives in the
+    // referenced files (typically tsconfig.app.json).
+    if (!compilerOptions && config.references) {
+      continue;
+    }
+
     // Direct "strict": true in this file.
     if (compilerOptions?.strict === true) {
       return {

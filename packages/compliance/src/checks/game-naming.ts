@@ -61,20 +61,10 @@ function checkName(name: string, source: string): NamingIssue[] {
 export async function checkGameNaming(source: FileSource): Promise<CheckResult> {
   const issues: NamingIssue[] = [];
 
-  // Check root package.json
-  const rootRaw = await source.read('package.json');
-  if (rootRaw) {
-    try {
-      const rootPkg = JSON.parse(rootRaw);
-      if (typeof rootPkg.name === 'string') {
-        issues.push(...checkName(rootPkg.name, 'package.json name'));
-      }
-    } catch {
-      // invalid JSON — other checks will flag this
-    }
-  }
-
-  // Check web/package.json
+  // Only check web/package.json for naming conventions. The root
+  // package.json name often follows CF Pages project naming (e.g.
+  // "freechessapp") which legitimately uses the "free" prefix — that's
+  // the platform's naming scheme, not the game developer's choice.
   const webRaw = await source.read('web/package.json');
   if (webRaw) {
     try {

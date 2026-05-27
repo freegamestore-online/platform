@@ -59,11 +59,30 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
     ],
   },
   {
+    "detail": "package names follow platform naming conventions",
+    "name": "Game naming conventions",
+    "status": "pass",
+  },
+  {
+    "detail": "web/package.json not found — deferring to uses-game-sdk check",
+    "name": "Games SDK version",
+    "status": "pass",
+  },
+  {
     "detail": "missing: lang attribute on <html>, viewport meta, non-empty <title>",
     "name": "HTML meta tags",
     "status": "fail",
     "suggestions": [
       "Restore the canonical <head>: \`<html lang="en">\`, \`<meta name="viewport" content="width=device-width, initial-scale=1" />\`, \`<title>App name</title>\`.",
+    ],
+  },
+  {
+    "detail": "no localStorage usage or useHighScore hook found in web/src/",
+    "name": "Local storage for progress/scores",
+    "status": "warn",
+    "suggestions": [
+      "Consider saving high scores or progress with localStorage so returning players feel rewarded.",
+      "The games SDK provides a useHighScore() hook that handles serialisation and leaderboard formatting.",
     ],
   },
   {
@@ -96,6 +115,35 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
     ],
   },
   {
+    "detail": "1 console.log() call(s) across 1 file(s): web/src/tracking.ts",
+    "name": "No console.log",
+    "status": "warn",
+    "suggestions": [
+      "Remove debug logging before publishing. Use console.error or console.warn for runtime diagnostics that should stay.",
+      "If the logging is intentional (e.g. performance stats), consider gating it behind a DEBUG flag.",
+    ],
+  },
+  {
+    "detail": "no cookie usage found — player data stays in localStorage",
+    "name": "No cookies",
+    "status": "pass",
+  },
+  {
+    "detail": "no \`: any\` or \`as any\` found in web/src/",
+    "name": "No explicit any types",
+    "status": "pass",
+  },
+  {
+    "detail": "no disallowed external script sources in index.html",
+    "name": "No external scripts",
+    "status": "pass",
+  },
+  {
+    "detail": "no payment SDK imports found — game is free forever",
+    "name": "No payment SDKs",
+    "status": "pass",
+  },
+  {
     "detail": "not a game project — check skipped",
     "name": "No scroll (games only)",
     "status": "pass",
@@ -117,6 +165,15 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
       "web/src/index.css:4 100vh — use 100svh or 100dvh",
       "web/src/index.css:9 100vh — use 100svh or 100dvh",
       "Replace with 100svh (preferred) or 100dvh. Add \`// allow-100vh\` on the line if intentional.",
+    ],
+  },
+  {
+    "detail": "missing PWA icon(s): web/public/icon-192.png, web/public/icon-512.png",
+    "name": "PWA icons",
+    "status": "fail",
+    "suggestions": [
+      "Add the missing icon file(s) to web/public/. Both icon-192.png (192x192) and icon-512.png (512x512) are required for PWA installability.",
+      "Use a square PNG with your game logo on a solid background. Tools like https://realfavicongenerator.net/ can generate both sizes.",
     ],
   },
   {
@@ -157,6 +214,30 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
     "suggestions": [
       "Add a small "Built for freegamestore.online" link in the footer or about screen.",
       "It helps visitors find the rest of the catalog — and it counts for storefront ranking.",
+    ],
+  },
+  {
+    "detail": "web/package.json not found — cannot check dependency versions",
+    "name": "Tech stack versions",
+    "status": "warn",
+  },
+  {
+    "detail": "no web/tsconfig.json or web/tsconfig.app.json found",
+    "name": "TypeScript strict mode",
+    "status": "fail",
+    "suggestions": [
+      "Create a tsconfig.json in web/ with \`"strict": true\` in compilerOptions.",
+      "The game template includes a pre-configured tsconfig — run \`fgs create\` to scaffold one.",
+    ],
+  },
+  {
+    "detail": "@freegamestore/games not in web/package.json dependencies; no GameShell import found in web/src/",
+    "name": "Uses GameShell SDK",
+    "status": "fail",
+    "suggestions": [
+      "Run \`cd web && npm install @freegamestore/games\` to add the platform SDK.",
+      "Import and use GameShell in your entry point: \`import { GameShell } from '@freegamestore/games';\`",
+      "GameShell provides the standard game chrome (back, fullscreen, mute), lifecycle hooks, and platform integration.",
     ],
   },
   {

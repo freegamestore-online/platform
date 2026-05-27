@@ -52,7 +52,7 @@ describe('passing-app fixture', () => {
 
   it('warns only on bundle-size (no dist built)', async () => {
     const results = await runChecks(PASSING_APP);
-    expect(summarise(results).warn).toEqual(['Bundle size']);
+    expect(summarise(results).warn.sort()).toEqual(['Bundle size']);
   });
 });
 
@@ -72,27 +72,32 @@ describe('failing-app fixture', () => {
       'No .env.production',
       'No brand overrides',
       'No template placeholders',
+      'PWA icons',
       'PWA manifest',
       'PWA offline correctness',
+      'TypeScript strict mode',
+      'Uses GameShell SDK',
       'Viewport support',
     ]);
     expect(summary.warn.sort()).toEqual([
       'Bundle size',
       'CLAUDE.md is slim (no platform boilerplate)',
       'Dark mode support',
+      'Local storage for progress/scores',
+      'No console.log',
       'No unsafe 100vh',
       'PWA meta tags',
       'Store link',
+      'Tech stack versions',
     ]);
-    // After the mandate broadening, failing-app now also fails
-    // PWA offline correctness (it ships web/index.html with no SW).
-    // The remaining passes: no-scroll skips because it's not a game
-    // project, audio-mute-respect passes because no raw audio, and
-    // PWA maskable icon passes intentionally when no manifest exists
-    // at all (the PWA manifest check already fails loudly for that —
-    // don't double-report).
     expect(summary.pass.sort()).toEqual([
       'Audio respects platform mute',
+      'Game naming conventions',
+      'Games SDK version',
+      'No cookies',
+      'No explicit any types',
+      'No external scripts',
+      'No payment SDKs',
       'No scroll (games only)',
       'PWA maskable icon',
     ]);

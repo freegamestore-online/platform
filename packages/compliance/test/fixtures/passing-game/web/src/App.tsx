@@ -1,10 +1,12 @@
-import { GameShell } from '@freeappstore/games';
+import { GameShell, GameTopbar } from '@freegamestore/games';
 import './index.css';
 import { Footer } from './Footer.js';
 
+const highScore = localStorage.getItem('high-score');
+
 export default function App() {
   return (
-    <GameShell>
+    <GameShell topbar={<GameTopbar title="Passing Game" />}>
       <h1>Passing Game</h1>
       <Footer />
     </GameShell>

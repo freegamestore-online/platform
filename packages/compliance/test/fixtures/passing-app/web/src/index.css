@@ -1,6 +1,7 @@
 /* Brand fonts: Manrope (body) + Fraunces (display).
-   Brand tokens: --paper / --ink / --accent. */
+   Brand tokens: --bg / --ink / --accent. */
 :root {
+  --bg: #fafaf7;
   --paper: #fafaf7;
   --ink: #111111;
   --accent: #c84a00;
