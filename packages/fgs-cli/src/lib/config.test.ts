@@ -3,20 +3,20 @@ import { normalizeApiBase } from './config.js';
 
 describe('normalizeApiBase', () => {
   it('leaves a clean URL alone', () => {
-    expect(normalizeApiBase('https://api.freeappstore.online')).toBe(
-      'https://api.freeappstore.online',
+    expect(normalizeApiBase('https://api.freegamestore.online')).toBe(
+      'https://api.freegamestore.online',
     );
   });
 
   it('strips a single trailing slash (regression: //health URLs)', () => {
-    expect(normalizeApiBase('https://api.freeappstore.online/')).toBe(
-      'https://api.freeappstore.online',
+    expect(normalizeApiBase('https://api.freegamestore.online/')).toBe(
+      'https://api.freegamestore.online',
     );
   });
 
   it('strips multiple trailing slashes', () => {
-    expect(normalizeApiBase('https://api.freeappstore.online////')).toBe(
-      'https://api.freeappstore.online',
+    expect(normalizeApiBase('https://api.freegamestore.online////')).toBe(
+      'https://api.freegamestore.online',
     );
   });
 

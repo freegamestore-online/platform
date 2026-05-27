@@ -52,7 +52,7 @@ describe('buildSubmissionUrl', () => {
   it('builds a github.com submission URL with the right template', () => {
     const url = new URL(buildSubmissionUrl(baseInput));
     expect(url.host).toBe('github.com');
-    expect(url.pathname).toBe('/freeappstore-online/submissions/issues/new');
+    expect(url.pathname).toBe('/freegamestore-online/submissions/issues/new');
     expect(url.searchParams.get('template')).toBe('app-submission.yml');
   });
 

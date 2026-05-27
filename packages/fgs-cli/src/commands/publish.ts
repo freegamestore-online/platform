@@ -10,13 +10,7 @@ import { openUrl } from '../lib/open.js';
 import { renderCheckResults } from './check.js';
 import { ensureDeployWorkflow } from './publish-workflow.js';
 
-// Games are still routed through the FreeAppStore submissions repo because
-// no `freegamestore-online/submissions` repo exists yet — but the category
-// list is now games-native (matching the storefront filter chips on
-// freegamestore.online) so creators can pick the right bucket. The Issue
-// form fallback uses these too; the admin reviewer can map them to the
-// app-side dropdown if the games-submissions repo is still not split out.
-const SUBMISSION_URL = 'https://github.com/freeappstore-online/submissions/issues/new';
+const SUBMISSION_URL = 'https://github.com/freegamestore-online/submissions/issues/new';
 
 // Must match the storefront filter chips on freegamestore.online.
 const CATEGORIES = [
@@ -45,7 +39,7 @@ interface SubmissionInput {
   demo: string | null;
 }
 
-// fgs always targets games. Identity is shared with fas (one ~/.fas/config.json).
+// fgs always targets games.
 const STORE = 'games' as const;
 const META = {
   label: 'FreeGameStore',
@@ -94,8 +88,7 @@ export const publishCommand = new Command('publish')
         const config = await readConfig();
         if (!config.session?.token) {
           process.stdout.write(
-            '\n⚠  Not signed in. Run: fgs login (shared identity with fas).\n' +
-              '   (or run `fgs publish --issue` to submit via the GitHub Issue form instead.)\n',
+            '\nNot signed in. Run: fgs login\n',
           );
           process.exit(1);
         }
@@ -231,7 +224,7 @@ type AutoProvisionResult = AutoProvisionSuccess | AutoProvisionFailure;
 async function tryAutoProvision(input: SubmissionInput): Promise<AutoProvisionResult> {
   const config = await readConfig();
   const sessionToken = config.session?.token;
-  if (!sessionToken) return { kind: 'unauthorized', reason: 'no fas session' };
+  if (!sessionToken) return { kind: 'unauthorized', reason: 'no session' };
 
   const typeShort = input.type.startsWith('Standalone') ? 'standalone' : 'connected';
   const res = await fetch(`${config.apiBase}/v1/publish`, {
@@ -357,7 +350,7 @@ export function buildPromptList(
     list.push({
       type: 'select',
       name: 'category',
-      message: "Category (one app per category — check freeappstore.online for what's taken)",
+      message: "Category (one game per category — check freegamestore.online for what's taken)",
       choices: CATEGORIES.map((c) => ({ title: c, value: c })),
     });
   }

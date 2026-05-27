@@ -2,44 +2,34 @@ import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-const CONFIG_DIR = join(homedir(), '.fas');
+const CONFIG_DIR = join(homedir(), '.fgs');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
 
-export interface FasConfig {
+export interface FgsConfig {
   apiBase: string;
   github?: {
     accessToken: string;
     login: string;
     obtainedAt: number;
   };
-  /**
-   * fas session token, minted by /v1/auth/exchange. Used as a Bearer for
-   * authenticated calls to the platform API. Lives 30 days; if expired,
-   * `fas login` mints a new one.
-   */
   session?: {
     token: string;
     obtainedAt: number;
   };
 }
 
-const DEFAULT_CONFIG: FasConfig = {
-  apiBase: process.env.FAS_API_BASE ?? 'https://api.freeappstore.online',
+const DEFAULT_CONFIG: FgsConfig = {
+  apiBase: process.env.FGS_API_BASE ?? 'https://api.freegamestore.online',
 };
 
-/**
- * Strips trailing slashes so callers can do `${apiBase}/v1/foo` without
- * worrying about producing `https://host//v1/foo`. Defensive: a stored or
- * env-supplied value with a trailing slash is normalised on read.
- */
 export function normalizeApiBase(s: string): string {
   return s.replace(/\/+$/, '');
 }
 
-export async function readConfig(): Promise<FasConfig> {
+export async function readConfig(): Promise<FgsConfig> {
   try {
     const raw = await readFile(CONFIG_FILE, 'utf8');
-    const parsed = JSON.parse(raw) as Partial<FasConfig>;
+    const parsed = JSON.parse(raw) as Partial<FgsConfig>;
     const merged = { ...DEFAULT_CONFIG, ...parsed };
     return { ...merged, apiBase: normalizeApiBase(merged.apiBase) };
   } catch {
@@ -47,7 +37,7 @@ export async function readConfig(): Promise<FasConfig> {
   }
 }
 
-export async function writeConfig(config: FasConfig): Promise<void> {
+export async function writeConfig(config: FgsConfig): Promise<void> {
   await mkdir(CONFIG_DIR, { recursive: true, mode: 0o700 });
   await writeFile(CONFIG_FILE, JSON.stringify(config, null, 2), { mode: 0o600 });
   await chmod(CONFIG_FILE, 0o600);
