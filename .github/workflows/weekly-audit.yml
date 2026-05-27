@@ -1,0 +1,76 @@
+name: Weekly Platform Audit
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 06:00 UTC
+  workflow_dispatch:       # Manual trigger
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout freegamestore (for registry.json)
+        uses: actions/checkout@v4
+        with:
+          repository: freegamestore-online/freegamestore
+          path: freegamestore
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run audit (all games)
+        run: npx tsx audit.ts --all --output audit-results.json
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-results-${{ github.run_id }}
+          path: audit-results.json
+          retention-days: 90
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ -f audit-results.json ]; then
+            node -e "
+              const r = JSON.parse(require('fs').readFileSync('audit-results.json','utf8'));
+              const games = r.games;
+              const passing = games.filter(g => g.score >= 88);
+              const failing = games.filter(g => g.score < 88);
+              const errors = games.filter(g => g.consoleErrors.length > 0);
+              const security = games.filter(g => g.securityIssues && g.securityIssues.length > 0);
+              console.log('## Weekly Audit Results');
+              console.log('');
+              console.log('| Metric | Count |');
+              console.log('|---|---|');
+              console.log('| Total games | ' + games.length + ' |');
+              console.log('| Viewport passing (≥88) | ' + passing.length + ' |');
+              console.log('| Viewport failing (<88) | ' + failing.length + ' |');
+              console.log('| Console errors | ' + errors.length + ' |');
+              console.log('| Security issues | ' + security.length + ' |');
+              if (failing.length > 0) {
+                console.log('');
+                console.log('### Failing games');
+                for (const g of failing) console.log('- **' + g.name + '** (score: ' + g.score + ')');
+              }
+              if (security.length > 0) {
+                console.log('');
+                console.log('### Security issues');
+                for (const g of security) console.log('- **' + g.name + '**: ' + g.securityIssues.join(', '));
+              }
+            " >> \$GITHUB_STEP_SUMMARY
+          fi
