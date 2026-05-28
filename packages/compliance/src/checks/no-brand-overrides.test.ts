@@ -116,6 +116,17 @@ describe('scanContent (unit)', () => {
     expect(issues).toEqual([]);
   });
 
+  it('accepts popular monospace coding webfonts (code-editor surfaces)', () => {
+    const issues = scanContent(
+      'web/src/components/CodeEditor.tsx',
+      `
+      const editorStyle = { fontFamily: '"JetBrains Mono", monospace' };
+      const altStyle = { fontFamily: "Fira Code, monospace" };
+    `,
+    );
+    expect(issues).toEqual([]);
+  });
+
   it('reports line numbers', () => {
     const issues = scanContent('web/src/index.css', `\n\n:root { --paper: red; }\n`);
     expect(issues[0]).toMatch(/:3 /);

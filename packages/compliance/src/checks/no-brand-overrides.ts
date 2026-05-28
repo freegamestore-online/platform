@@ -117,6 +117,20 @@ const ALLOWED_FONT_TOKENS = new Set([
   'liberation mono',
   'courier',
   'courier new',
+  // Popular monospace coding webfonts. Legitimate in code-editor surfaces
+  // (coding games like turtlecode / pixelcode / roboclean) — the brand
+  // stack defines no monospace, so a code font is the app's choice. These
+  // are recognized mono families, not arbitrary brand overrides.
+  'jetbrains mono',
+  'fira code',
+  'fira mono',
+  'cascadia code',
+  'cascadia mono',
+  'source code pro',
+  'ibm plex mono',
+  'roboto mono',
+  'space mono',
+  'inconsolata',
   'georgia',
   'noto sans',
   'noto color emoji',
