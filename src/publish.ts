@@ -19,14 +19,28 @@ interface PublishEnv {
 }
 
 interface PublishRequest {
-  id: string;
+  /** Slug / subdomain. Optional — derived from `name` when the CLI omits it. */
+  id?: string;
   name: string;
   category: string;
-  icon: string;
-  iconBg: string;
-  description: string;
+  /** Optional — defaults applied when the CLI omits them. */
+  icon?: string;
+  iconBg?: string;
+  description?: string;
+  /** CLI sends a short tagline as `oneliner`; used as description if description absent. */
+  oneliner?: string;
   type?: string;
   creatorGithub?: string;
+}
+
+/** Lowercase a display name into a valid slug (matches validateId rules). */
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 58);
 }
 
 interface Step {
@@ -105,43 +119,49 @@ async function insertHostRoute(env: PublishEnv, slug: string): Promise<Step> {
 export async function handlePublish(
   req: PublishRequest,
   env: PublishEnv,
-): Promise<{ steps: Step[]; success: boolean }> {
+): Promise<{ steps: Step[]; success: boolean; appUrl?: string; repoUrl?: string }> {
   const steps: Step[] = [];
 
-  if (!req.id || !req.name) {
+  if (!req.name) {
     return {
-      steps: [{ name: "Validation", status: "fail", detail: "id and name are required" }],
+      steps: [{ name: "Validation", status: "fail", detail: "name is required" }],
       success: false,
     };
   }
-  const idError = validateId(req.id);
+  // The CLI sends only `name`; derive a slug if `id` is omitted. Apply
+  // sensible defaults for the fields the CLI doesn't collect.
+  const id = req.id ?? slugify(req.name);
+  const icon = req.icon ?? "🎮";
+  const iconBg = req.iconBg ?? "#ecfdf5";
+  const description = req.description ?? req.oneliner ?? req.name;
+  const idError = validateId(id);
   if (idError) {
     return { steps: [{ name: "Validation", status: "fail", detail: idError }], success: false };
   }
 
   const config = STORE_CONFIG;
-  const subdomain = `${req.id}.${config.domain}`;
+  const subdomain = `${id}.${config.domain}`;
 
   // Step 1: Create GitHub repo from template
-  const repoCheck = await ghApi(env, `/repos/${config.org}/${req.id}`);
+  const repoCheck = await ghApi(env, `/repos/${config.org}/${id}`);
   if (repoCheck.id) {
     steps.push({
       name: "GitHub repo",
       status: "skip",
-      detail: `${config.org}/${req.id} already exists`,
+      detail: `${config.org}/${id} already exists`,
     });
   } else {
     const createRepo = await ghApi(
       env,
       `/repos/${config.org}/${config.templateRepo}/generate`,
       "POST",
-      { owner: config.org, name: req.id, private: false, description: req.description },
+      { owner: config.org, name: id, private: false, description },
     );
     if (createRepo.id) {
       steps.push({
         name: "GitHub repo",
         status: "ok",
-        detail: `Created ${config.org}/${req.id} from ${config.templateRepo}`,
+        detail: `Created ${config.org}/${id} from ${config.templateRepo}`,
       });
     } else {
       steps.push({
@@ -157,7 +177,7 @@ export async function handlePublish(
   if (req.creatorGithub) {
     const collab = await ghApi(
       env,
-      `/repos/${config.org}/${req.id}/collaborators/${req.creatorGithub}`,
+      `/repos/${config.org}/${id}/collaborators/${req.creatorGithub}`,
       "PUT",
       { permission: "push" },
     );
@@ -185,7 +205,7 @@ export async function handlePublish(
   // Step 2: Hosting route (Path B). Replaces the previous CF Pages project
   // + custom domain + DNS CNAME steps. fgs/host serves from fgs-games R2
   // at games/<slug>/, which the per-repo deploy.yml syncs on every push.
-  const hostingStep = await insertHostRoute(env, req.id);
+  const hostingStep = await insertHostRoute(env, id);
   steps.push(hostingStep);
   if (hostingStep.status === "fail") {
     return { steps, success: false };
@@ -201,20 +221,20 @@ export async function handlePublish(
     const content = JSON.parse(rawContent);
     const key = config.registryKey;
     const items = content[key] || [];
-    const alreadyListed = items.some((a: any) => a.id === req.id);
+    const alreadyListed = items.some((a: any) => a.id === id);
 
     if (alreadyListed) {
       steps.push({ name: "Store registry", status: "skip", detail: "Already listed" });
     } else {
       items.push({
-        id: req.id,
+        id,
         name: req.name,
         category: req.category,
-        icon: req.icon,
-        iconBg: req.iconBg,
-        description: req.description,
+        icon,
+        iconBg,
+        description,
         appUrl: `https://${subdomain}`,
-        repo: `${config.org}/${req.id}`,
+        repo: `${config.org}/${id}`,
         hostedOn: "r2",
         type: req.type || "standalone",
         developer: config.developer,
@@ -242,7 +262,12 @@ export async function handlePublish(
   }
 
   const success = steps.every((s) => s.status !== "fail");
-  return { steps, success };
+  return {
+    steps,
+    success,
+    appUrl: `https://${subdomain}`,
+    repoUrl: `https://github.com/${config.org}/${id}`,
+  };
 }
 
 export function renderProvisionForm(): string {
