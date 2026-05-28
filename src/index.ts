@@ -1,4 +1,5 @@
 import { handlePublish, renderProvisionForm } from "./publish";
+import { verifySession } from "./auth";
 
 interface Env {
   CF_ACCOUNT_ID: string;
@@ -6,6 +7,8 @@ interface Env {
   CF_GLOBAL_KEY: string;
   CF_EMAIL: string;
   GITHUB_TOKEN: string;
+  /** Shared with FAS auth flow — HS256 key for Bearer session tokens. */
+  SESSION_SIGNING_KEY: string;
 }
 
 interface GameConfig {
@@ -444,6 +447,23 @@ export default {
     }
 
     if ((url.pathname === "/api/provision" || url.pathname === "/api/publish") && request.method === "POST") {
+      // HS256 Bearer session check. Without this, anyone reachable to
+      // admin.freegamestore.online can provision repos in freegamestore-online
+      // and mint CF resources. Add CF Access in front for defense-in-depth.
+      const authHeader = request.headers.get("Authorization");
+      if (!authHeader?.startsWith("Bearer ")) {
+        return new Response(JSON.stringify({ error: "unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      const login = await verifySession(authHeader.slice(7), env.SESSION_SIGNING_KEY);
+      if (!login) {
+        return new Response(JSON.stringify({ error: "invalid or expired session" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
       try {
         const body = await request.json() as any;
         const result = await handlePublish(body, env as any);
