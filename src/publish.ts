@@ -1,13 +1,21 @@
-// Publish API -- provisions a new game on FreeGameStore.
+// Publish API -- provisions a new game on FreeGameStore via Path B.
 // POST /api/provision
-// Body: { id, name, category, icon, iconBg, description, type?: "standalone"|"connected" }
+// Body: { id, name, category, icon, iconBg, description, type?, creatorGithub? }
+//
+// Path B (since 2026-05-28): instead of creating a CF Pages project, this
+// writes a row to the shared `fas` D1 `routes` table. The fgs/host Worker
+// (`*.freegamestore.online/*`) reads that table and serves from
+// `r2://fgs-games/games/<slug>/`. The per-game GH Actions deploy.yml
+// (in template-game-canvas) syncs build output to the right R2 prefix on
+// every push to main.
+//
+// Why: 100-project/account CF Pages cap doesn't scale for free side.
 
 interface PublishEnv {
   CF_ACCOUNT_ID: string;
   CF_API_TOKEN: string;
-  CF_GLOBAL_KEY: string;
-  CF_EMAIL: string;
   GITHUB_TOKEN: string;
+  DB: D1Database;
 }
 
 interface PublishRequest {
@@ -30,30 +38,12 @@ interface Step {
 const STORE_CONFIG = {
   org: "freegamestore-online",
   domain: "freegamestore.online",
-  zoneId: "fd33f88109b97569f2c5d6f1e5bb62ae",
   storeRepo: "freegamestore",
   registryKey: "games",
   developer: "FreeGameStore",
   templateRepo: "template-game-canvas",
+  r2Bucket: "fgs-games",
 };
-
-async function cfApi(env: PublishEnv, path: string, method = "GET", body?: any) {
-  const res = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
-    method,
-    headers: { Authorization: `Bearer ${env.CF_API_TOKEN}`, "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  return (await res.json()) as any;
-}
-
-async function cfDnsApi(env: PublishEnv, zoneId: string, body: any) {
-  const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records`, {
-    method: "POST",
-    headers: { "X-Auth-Email": env.CF_EMAIL, "X-Auth-Key": env.CF_GLOBAL_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  return (await res.json()) as any;
-}
 
 async function ghApi(env: PublishEnv, path: string, method = "GET", body?: any) {
   const res = await fetch(`https://api.github.com${path}`, {
@@ -72,17 +62,57 @@ async function ghApi(env: PublishEnv, path: string, method = "GET", body?: any) 
 function validateId(id: string): string | null {
   if (!id) return "ID is required";
   if (id.length > 58) return "ID must be 58 characters or less";
-  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(id)) return "ID must be lowercase letters, numbers, and dashes only. Cannot start/end with a dash.";
-  if (id.startsWith("free") || id.startsWith("pro")) return "ID must not start with 'free' or 'pro'";
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(id))
+    return "ID must be lowercase letters, numbers, and dashes only. Cannot start/end with a dash.";
+  if (id.startsWith("free") || id.startsWith("pro"))
+    return "ID must not start with 'free' or 'pro'";
   return null;
 }
 
-export async function handlePublish(req: PublishRequest, env: PublishEnv): Promise<{ steps: Step[]; success: boolean }> {
+/** Write the D1 routes row that fgs/host reads to map host → R2 prefix.
+ *  Idempotent via ON CONFLICT DO UPDATE — re-publishing the same id is a
+ *  no-op for routing. r2_prefix follows the convention `games/<id>` which
+ *  matches what the template's deploy.yml uploads to in fgs-games. */
+async function insertHostRoute(env: PublishEnv, slug: string): Promise<Step> {
+  const r2Prefix = `${STORE_CONFIG.registryKey}/${slug}`;
+  const now = Date.now();
+  if (!env.DB) {
+    return { name: "Hosting route", status: "fail", detail: "D1 binding not available" };
+  }
+  try {
+    await env.DB
+      .prepare(
+        `INSERT INTO routes (slug, zone, r2_prefix, store, hosted_on, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, 'r2', ?5, ?5)
+         ON CONFLICT (slug, zone) DO UPDATE SET
+           r2_prefix = excluded.r2_prefix,
+           store = excluded.store,
+           hosted_on = excluded.hosted_on,
+           updated_at = excluded.updated_at`,
+      )
+      .bind(slug, STORE_CONFIG.domain, r2Prefix, STORE_CONFIG.registryKey, now)
+      .run();
+    return {
+      name: "Hosting route",
+      status: "ok",
+      detail: `${slug}.${STORE_CONFIG.domain} → r2://${STORE_CONFIG.r2Bucket}/${r2Prefix}`,
+    };
+  } catch (e: any) {
+    return { name: "Hosting route", status: "fail", detail: e?.message ?? "D1 insert failed" };
+  }
+}
+
+export async function handlePublish(
+  req: PublishRequest,
+  env: PublishEnv,
+): Promise<{ steps: Step[]; success: boolean }> {
   const steps: Step[] = [];
 
-  // Validate inputs
   if (!req.id || !req.name) {
-    return { steps: [{ name: "Validation", status: "fail", detail: "id and name are required" }], success: false };
+    return {
+      steps: [{ name: "Validation", status: "fail", detail: "id and name are required" }],
+      success: false,
+    };
   }
   const idError = validateId(req.id);
   if (idError) {
@@ -90,24 +120,35 @@ export async function handlePublish(req: PublishRequest, env: PublishEnv): Promi
   }
 
   const config = STORE_CONFIG;
-  const cfProject = `free${req.id}app`;
   const subdomain = `${req.id}.${config.domain}`;
 
   // Step 1: Create GitHub repo from template
   const repoCheck = await ghApi(env, `/repos/${config.org}/${req.id}`);
   if (repoCheck.id) {
-    steps.push({ name: "GitHub repo", status: "skip", detail: `${config.org}/${req.id} already exists` });
-  } else {
-    const createRepo = await ghApi(env, `/repos/${config.org}/${config.templateRepo}/generate`, "POST", {
-      owner: config.org,
-      name: req.id,
-      private: false,
-      description: req.description,
+    steps.push({
+      name: "GitHub repo",
+      status: "skip",
+      detail: `${config.org}/${req.id} already exists`,
     });
+  } else {
+    const createRepo = await ghApi(
+      env,
+      `/repos/${config.org}/${config.templateRepo}/generate`,
+      "POST",
+      { owner: config.org, name: req.id, private: false, description: req.description },
+    );
     if (createRepo.id) {
-      steps.push({ name: "GitHub repo", status: "ok", detail: `Created ${config.org}/${req.id} from ${config.templateRepo}` });
+      steps.push({
+        name: "GitHub repo",
+        status: "ok",
+        detail: `Created ${config.org}/${req.id} from ${config.templateRepo}`,
+      });
     } else {
-      steps.push({ name: "GitHub repo", status: "fail", detail: createRepo.message || "Failed to create repo" });
+      steps.push({
+        name: "GitHub repo",
+        status: "fail",
+        detail: createRepo.message || "Failed to create repo",
+      });
       return { steps, success: false };
     }
   }
@@ -121,71 +162,42 @@ export async function handlePublish(req: PublishRequest, env: PublishEnv): Promi
       { permission: "push" },
     );
     if (collab.id || collab.invitee) {
-      steps.push({ name: "Collaborator", status: "ok", detail: `${req.creatorGithub} granted push access` });
+      steps.push({
+        name: "Collaborator",
+        status: "ok",
+        detail: `${req.creatorGithub} granted push access`,
+      });
     } else if (collab.message?.includes("already")) {
-      steps.push({ name: "Collaborator", status: "skip", detail: `${req.creatorGithub} already has access` });
+      steps.push({
+        name: "Collaborator",
+        status: "skip",
+        detail: `${req.creatorGithub} already has access`,
+      });
     } else {
-      steps.push({ name: "Collaborator", status: "fail", detail: collab.message || "Failed to add collaborator" });
+      steps.push({
+        name: "Collaborator",
+        status: "fail",
+        detail: collab.message || "Failed to add collaborator",
+      });
     }
   }
 
-  // Step 2: Create CF Pages project with GitHub source
-  const projectCheck = await cfApi(env, `/accounts/${env.CF_ACCOUNT_ID}/pages/projects/${cfProject}`);
-  if (projectCheck.success) {
-    steps.push({ name: "CF Pages project", status: "skip", detail: `${cfProject} already exists` });
-  } else {
-    const createProject = await cfApi(env, `/accounts/${env.CF_ACCOUNT_ID}/pages/projects`, "POST", {
-      name: cfProject,
-      source: {
-        type: "github",
-        config: { owner: config.org, repo_name: req.id, production_branch: "main", deployments_enabled: true, production_deployments_enabled: true },
-      },
-      build_config: { build_command: "npx pnpm@10 install && npx pnpm@10 build", destination_dir: "web/dist" },
-      deployment_configs: { production: { env_vars: { NODE_VERSION: { value: "22" } } } },
-    });
-    if (createProject.success) {
-      steps.push({ name: "CF Pages project", status: "ok", detail: `Created ${cfProject} with GitHub source` });
-    } else {
-      steps.push({ name: "CF Pages project", status: "fail", detail: createProject.errors?.[0]?.message || "Failed" });
-    }
+  // Step 2: Hosting route (Path B). Replaces the previous CF Pages project
+  // + custom domain + DNS CNAME steps. fgs/host serves from fgs-games R2
+  // at games/<slug>/, which the per-repo deploy.yml syncs on every push.
+  const hostingStep = await insertHostRoute(env, req.id);
+  steps.push(hostingStep);
+  if (hostingStep.status === "fail") {
+    return { steps, success: false };
   }
 
-  // Step 3: Add custom domain to CF Pages
-  const domainCheck = await cfApi(env, `/accounts/${env.CF_ACCOUNT_ID}/pages/projects/${cfProject}/domains`);
-  const hasDomain = domainCheck.result?.some((d: any) => d.name === subdomain);
-  if (hasDomain) {
-    steps.push({ name: "Custom domain", status: "skip", detail: `${subdomain} already configured` });
-  } else {
-    const addDomain = await cfApi(env, `/accounts/${env.CF_ACCOUNT_ID}/pages/projects/${cfProject}/domains`, "POST", { name: subdomain });
-    steps.push({
-      name: "Custom domain",
-      status: addDomain.success ? "ok" : "fail",
-      detail: addDomain.success ? `Added ${subdomain}` : (addDomain.errors?.[0]?.message || "Failed"),
-    });
-  }
-
-  // Step 4: Add DNS CNAME
-  if (env.CF_GLOBAL_KEY) {
-    const dnsResult = await cfDnsApi(env, config.zoneId, {
-      type: "CNAME",
-      name: req.id,
-      content: `${cfProject}.pages.dev`,
-      proxied: true,
-    });
-    steps.push({
-      name: "DNS CNAME",
-      status: dnsResult.success ? "ok" : "skip",
-      detail: dnsResult.success ? `${req.id} -> ${cfProject}.pages.dev` : (dnsResult.errors?.[0]?.message || "May already exist"),
-    });
-  } else {
-    steps.push({ name: "DNS CNAME", status: "skip", detail: "CF_GLOBAL_KEY not configured" });
-  }
-
-  // Step 5: Add to store registry
+  // Step 3: Add to store registry
   const registryPath = `/repos/${config.org}/${config.storeRepo}/contents/registry.json`;
   const registryFile = await ghApi(env, registryPath);
   if (registryFile.content) {
-    const rawContent = new TextDecoder().decode(Uint8Array.from(atob(registryFile.content.replace(/\n/g, "")), c => c.charCodeAt(0)));
+    const rawContent = new TextDecoder().decode(
+      Uint8Array.from(atob(registryFile.content.replace(/\n/g, "")), (c) => c.charCodeAt(0)),
+    );
     const content = JSON.parse(rawContent);
     const key = config.registryKey;
     const items = content[key] || [];
@@ -203,21 +215,26 @@ export async function handlePublish(req: PublishRequest, env: PublishEnv): Promi
         description: req.description,
         appUrl: `https://${subdomain}`,
         repo: `${config.org}/${req.id}`,
-        cfProject,
+        hostedOn: "r2",
         type: req.type || "standalone",
         developer: config.developer,
+        ...(req.creatorGithub ? { creatorGithub: req.creatorGithub } : {}),
       });
       content[key] = items;
 
       const updateResult = await ghApi(env, registryPath, "PUT", {
         message: `Add ${req.name} to games registry`,
-        content: btoa(Array.from(new TextEncoder().encode(JSON.stringify(content, null, 2))).map(b => String.fromCharCode(b)).join("")),
+        content: btoa(
+          Array.from(new TextEncoder().encode(JSON.stringify(content, null, 2)))
+            .map((b) => String.fromCharCode(b))
+            .join(""),
+        ),
         sha: registryFile.sha,
       });
       steps.push({
         name: "Store registry",
         status: updateResult.content ? "ok" : "fail",
-        detail: updateResult.content ? `Added ${req.name}` : (updateResult.message || "Failed to update"),
+        detail: updateResult.content ? `Added ${req.name}` : updateResult.message || "Failed to update",
       });
     }
   } else {
@@ -230,7 +247,8 @@ export async function handlePublish(req: PublishRequest, env: PublishEnv): Promi
 
 export function renderProvisionForm(): string {
   return `
-  <h2 style="margin-top:3rem;">Provision New Game</h2>
+  <h2 style="margin-top:3rem;">Provision New Game (Path B)</h2>
+  <p style="color:#888;margin-top:0.5rem;font-size:0.85rem;">Creates a GitHub repo from template-game-canvas, writes a D1 routes row, and adds the game to the storefront registry. No per-game CF Pages project — serves from R2 via the freegamestore-host Worker. Push to main triggers the GH Actions deploy that uploads to r2://fgs-games/games/&lt;slug&gt;/.</p>
   <form id="provisionForm" style="max-width:500px;margin-top:1rem;">
     <div style="display:grid;gap:0.75rem;">
       <input name="id" placeholder="ID (e.g. chess)" required style="padding:0.5rem;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:0.5rem;color:#e5e5e5;" />
@@ -269,7 +287,7 @@ export function renderProvisionForm(): string {
   <h2 style="margin-top:3rem;">API Reference</h2>
   <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:0.75rem;padding:1.5rem;margin-top:1rem;font-family:monospace;font-size:0.85rem;">
     <p style="margin-bottom:0.5rem;"><strong>POST /api/provision</strong></p>
-    <p style="color:#888;margin-bottom:1rem;">Creates repo, CF Pages project, DNS, custom domain, and registry entry for a game.</p>
+    <p style="color:#888;margin-bottom:1rem;">Auth: HS256 Bearer (FAS-minted session token).</p>
     <pre style="color:#e5e5e5;white-space:pre-wrap;">{
   "id": "chess",
   "name": "Chess",
@@ -278,8 +296,6 @@ export function renderProvisionForm(): string {
   "iconBg": "#ecfdf5",
   "description": "Classic chess game"
 }</pre>
-    <p style="margin-top:1rem;color:#888;">Auth: Cloudflare Access (Google sign-in). No API tokens needed.</p>
-    <p style="margin-top:0.5rem;color:#888;">For AI agents: <code>curl -X POST https://admin.freegamestore.online/api/provision -H 'Content-Type: application/json' -d '{...}'</code></p>
-    <p style="margin-top:0.5rem;color:#f87171;">Note: API is behind Cloudflare Access. AI agents cannot call it directly -- use the admin UI or the publish.sh script locally.</p>
+    <p style="margin-top:1rem;color:#888;">No CF Pages project is created — Path B serves from R2.</p>
   </div>`;
 }

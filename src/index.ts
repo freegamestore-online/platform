@@ -4,11 +4,11 @@ import { verifySession } from "./auth";
 interface Env {
   CF_ACCOUNT_ID: string;
   CF_API_TOKEN: string;
-  CF_GLOBAL_KEY: string;
-  CF_EMAIL: string;
   GITHUB_TOKEN: string;
   /** Shared with FAS auth flow — HS256 key for Bearer session tokens. */
   SESSION_SIGNING_KEY: string;
+  /** Shared `fas` D1 — fgs/host reads from this same table. */
+  DB: D1Database;
 }
 
 interface GameConfig {
