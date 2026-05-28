@@ -1,11 +1,12 @@
 import { handlePublish, renderProvisionForm } from "./publish";
-import { verifySession } from "./auth";
+import { verifySession, handleAuthExchange, handleAuthMe } from "./auth";
 
 interface Env {
   CF_ACCOUNT_ID: string;
   CF_API_TOKEN: string;
   GITHUB_TOKEN: string;
-  /** Shared with FAS auth flow — HS256 key for Bearer session tokens. */
+  /** This admin's OWN HS256 signing key — it mints + verifies its own
+   *  sessions via /v1/auth/exchange (not shared with FAS). */
   SESSION_SIGNING_KEY: string;
   /** Shared `fas` D1 — fgs/host reads from this same table. */
   DB: D1Database;
@@ -409,6 +410,15 @@ Response: {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
+    // Self-contained auth: exchange a GitHub token for an FGS admin session,
+    // then verify it. `fgs login` calls /v1/auth/exchange.
+    if (url.pathname === "/v1/auth/exchange" && request.method === "POST") {
+      return handleAuthExchange(request, env);
+    }
+    if (url.pathname === "/v1/auth/me" && request.method === "GET") {
+      return handleAuthMe(request, env);
+    }
 
     if (url.pathname === "/docs") {
       return new Response(renderApiDocs(), { headers: { "Content-Type": "text/html" } });
