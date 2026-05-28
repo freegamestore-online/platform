@@ -94,11 +94,12 @@ async function dispatchPlatform(req: Request, env: Env, slug: string, host: stri
 }
 
 /**
- * Proxy to `<cf-project>.pages.dev` for slugs that haven't been migrated
- * to Path B yet. Games use `free<slug>app` (the admin's STORE_CONFIG
- * historically said `<slug>` but the actual deployed names all have the
- * `app` suffix — registry's `cfProject` field has stale shorter values
- * that don't match reality).
+ * Proxy to `<cf-project>.pages.dev` for FGS games still on legacy CF Pages.
+ * Only slugs in GAME_PROJECT_OVERRIDES route through here — the previous
+ * `free<slug>app` formula default produced 530s for every game whose
+ * `.pages.dev` project doesn't exist (verified 2026-05-28: 7 unmigrated
+ * games + every typo were all returning 530). Clean 404 is the right
+ * answer for unknown slugs.
  */
 async function legacyFallback(req: Request, host: string): Promise<Response> {
   const cleaned = host.toLowerCase().split(":")[0];
@@ -109,7 +110,9 @@ async function legacyFallback(req: Request, host: string): Promise<Response> {
   const zone = cleaned.slice(dot + 1);
   if (zone !== "freegamestore.online") return notFound(host);
 
-  const cfProject = GAME_PROJECT_OVERRIDES[slug] ?? `free${slug}app`;
+  const cfProject = GAME_PROJECT_OVERRIDES[slug];
+  if (!cfProject) return notFound(host);
+
   const url = new URL(req.url);
   const target = `https://${cfProject}.pages.dev${url.pathname}${url.search}`;
   const headers = new Headers(req.headers);
