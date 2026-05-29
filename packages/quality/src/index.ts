@@ -164,19 +164,89 @@ export const REFERENCE_VIEWPORTS: ReadonlyArray<{
   share: number;
   kind: 'phone' | 'tablet';
 }> = [
-  { width: 320, height: 568, label: 'iPhone SE', orientation: 'portrait', share: 99, kind: 'phone' },
+  {
+    width: 320,
+    height: 568,
+    label: 'iPhone SE',
+    orientation: 'portrait',
+    share: 99,
+    kind: 'phone',
+  },
   { width: 360, height: 800, label: 'Android', orientation: 'portrait', share: 96, kind: 'phone' },
-  { width: 393, height: 852, label: 'iPhone 15', orientation: 'portrait', share: 92, kind: 'phone' },
-  { width: 414, height: 896, label: 'iPhone 11 PM', orientation: 'portrait', share: 88, kind: 'phone' },
+  {
+    width: 393,
+    height: 852,
+    label: 'iPhone 15',
+    orientation: 'portrait',
+    share: 92,
+    kind: 'phone',
+  },
+  {
+    width: 414,
+    height: 896,
+    label: 'iPhone 11 PM',
+    orientation: 'portrait',
+    share: 88,
+    kind: 'phone',
+  },
   { width: 600, height: 800, label: 'Tablet', orientation: 'portrait', share: 60, kind: 'tablet' },
   { width: 768, height: 1024, label: 'iPad', orientation: 'portrait', share: 35, kind: 'tablet' },
-  { width: 1024, height: 1366, label: 'iPad Pro', orientation: 'portrait', share: 20, kind: 'tablet' },
-  { width: 568, height: 320, label: 'iPhone SE land.', orientation: 'landscape', share: 99, kind: 'phone' },
-  { width: 667, height: 375, label: 'iPhone 8 land.', orientation: 'landscape', share: 96, kind: 'phone' },
-  { width: 736, height: 414, label: 'iPhone+ land.', orientation: 'landscape', share: 88, kind: 'phone' },
-  { width: 800, height: 600, label: 'Tablet land.', orientation: 'landscape', share: 60, kind: 'tablet' },
-  { width: 1024, height: 768, label: 'iPad land.', orientation: 'landscape', share: 35, kind: 'tablet' },
-  { width: 1366, height: 1024, label: 'iPad Pro land.', orientation: 'landscape', share: 20, kind: 'tablet' },
+  {
+    width: 1024,
+    height: 1366,
+    label: 'iPad Pro',
+    orientation: 'portrait',
+    share: 20,
+    kind: 'tablet',
+  },
+  {
+    width: 568,
+    height: 320,
+    label: 'iPhone SE land.',
+    orientation: 'landscape',
+    share: 99,
+    kind: 'phone',
+  },
+  {
+    width: 667,
+    height: 375,
+    label: 'iPhone 8 land.',
+    orientation: 'landscape',
+    share: 96,
+    kind: 'phone',
+  },
+  {
+    width: 736,
+    height: 414,
+    label: 'iPhone+ land.',
+    orientation: 'landscape',
+    share: 88,
+    kind: 'phone',
+  },
+  {
+    width: 800,
+    height: 600,
+    label: 'Tablet land.',
+    orientation: 'landscape',
+    share: 60,
+    kind: 'tablet',
+  },
+  {
+    width: 1024,
+    height: 768,
+    label: 'iPad land.',
+    orientation: 'landscape',
+    share: 35,
+    kind: 'tablet',
+  },
+  {
+    width: 1366,
+    height: 1024,
+    label: 'iPad Pro land.',
+    orientation: 'landscape',
+    share: 20,
+    kind: 'tablet',
+  },
 ];
 
 export function computeQualityIndex(
@@ -258,7 +328,8 @@ export function initQualityReporter(): ReporterHandle {
   const onMessage = (e: MessageEvent) => {
     const data = e.data as { type?: string } | null;
     // Accept both fgs and fas request messages for backwards compat
-    if (data && (data.type === 'fgs:quality:request' || data.type === 'fas:quality:request')) post();
+    if (data && (data.type === 'fgs:quality:request' || data.type === 'fas:quality:request'))
+      post();
   };
 
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
