@@ -18,7 +18,6 @@ on:
       - 'packages/games-sdk/**'
       - 'packages/fgs-cli/**'
       - 'packages/compliance/**'
-      - 'packages/quality/**'
       - '.github/workflows/publish.yml'
   workflow_dispatch:
 
@@ -32,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [games-sdk, fgs-cli, compliance, quality]
+        package: [games-sdk, fgs-cli, compliance]
     steps:
       - uses: actions/checkout@v4
 
