@@ -3,21 +3,23 @@ import type { CheckResult } from '../types.js';
 
 const TSCONFIG_PATHS = ['web/tsconfig.json', 'web/tsconfig.app.json'];
 
+/** The individual flags that `"strict": true` enables. */
+const STRICT_FLAGS = [
+  'strictNullChecks',
+  'strictFunctionTypes',
+  'strictBindCallApply',
+  'strictPropertyInitialization',
+  'noImplicitAny',
+  'noImplicitThis',
+  'alwaysStrict',
+] as const;
+
 /**
- * Every game must compile under TypeScript strict mode. This check reads
+ * Every game must compile under TypeScript strict mode. Checks
  * `web/tsconfig.json` and `web/tsconfig.app.json`, follows `extends`
- * references (one level deep), and verifies that `"strict": true` is set
- * — either directly or via the extended base config.
- *
- * The individual strict flags (`strictNullChecks`, `noImplicitAny`, etc.)
- * are also accepted as a collective substitute for `"strict": true`, but
- * only if all of them are present.
+ * one level deep, and verifies `"strict": true` is set.
  */
 export async function checkTypescriptStrict(source: FileSource): Promise<CheckResult> {
-  // Try each candidate config in order. The first one that exists and
-  // has strict mode wins. tsconfig.app.json typically extends
-  // tsconfig.json, so check it first (it's the more specific one Vite
-  // actually uses).
   for (const path of TSCONFIG_PATHS) {
     const raw = await source.read(path);
     if (raw === null) continue;
@@ -35,13 +37,8 @@ export async function checkTypescriptStrict(source: FileSource): Promise<CheckRe
     const compilerOptions = config.compilerOptions as Record<string, unknown> | undefined;
 
     // Solution-style tsconfig (only `references`, no `compilerOptions`).
-    // Skip to the next candidate — the actual config lives in the
-    // referenced files (typically tsconfig.app.json).
-    if (!compilerOptions && config.references) {
-      continue;
-    }
+    if (!compilerOptions && config.references) continue;
 
-    // Direct "strict": true in this file.
     if (compilerOptions?.strict === true) {
       return {
         name: 'TypeScript strict mode',
@@ -50,7 +47,6 @@ export async function checkTypescriptStrict(source: FileSource): Promise<CheckRe
       };
     }
 
-    // Check if all individual strict flags are enabled.
     if (hasAllStrictFlags(compilerOptions)) {
       return {
         name: 'TypeScript strict mode',
@@ -60,18 +56,15 @@ export async function checkTypescriptStrict(source: FileSource): Promise<CheckRe
     }
 
     // Follow "extends" one level deep.
-    const extendsPath = config.extends;
+    const extendsPath = config.extends as string | undefined;
     if (typeof extendsPath === 'string') {
       const basePath = resolveExtends(path, extendsPath);
       const baseRaw = await source.read(basePath);
       if (baseRaw !== null) {
         const baseConfig = tryParseJson(baseRaw);
         if (baseConfig !== null) {
-          const baseCompilerOptions = baseConfig.compilerOptions as
-            | Record<string, unknown>
-            | undefined;
-          if (baseCompilerOptions?.strict === true) {
-            // Base has strict, but check if this config explicitly overrides it.
+          const baseOpts = baseConfig.compilerOptions as Record<string, unknown> | undefined;
+          if (baseOpts?.strict === true) {
             if (compilerOptions?.strict === false) {
               return {
                 name: 'TypeScript strict mode',
@@ -86,8 +79,7 @@ export async function checkTypescriptStrict(source: FileSource): Promise<CheckRe
               detail: `${path} inherits "strict": true from ${basePath}`,
             };
           }
-
-          if (hasAllStrictFlags(baseCompilerOptions)) {
+          if (hasAllStrictFlags(baseOpts)) {
             return {
               name: 'TypeScript strict mode',
               status: 'pass',
@@ -98,7 +90,6 @@ export async function checkTypescriptStrict(source: FileSource): Promise<CheckRe
       }
     }
 
-    // Found a tsconfig but strict is not enabled.
     return {
       name: 'TypeScript strict mode',
       status: 'fail',
@@ -110,57 +101,36 @@ export async function checkTypescriptStrict(source: FileSource): Promise<CheckRe
     };
   }
 
-  // No tsconfig found at all.
   return {
     name: 'TypeScript strict mode',
     status: 'fail',
     detail: 'no web/tsconfig.json or web/tsconfig.app.json found',
     suggestions: [
       'Create a tsconfig.json in web/ with `"strict": true` in compilerOptions.',
-      'The game template includes a pre-configured tsconfig — run `fgs create` to scaffold one.',
+      'The game template includes a pre-configured tsconfig — run `fgs init` to scaffold one.',
     ],
   };
 }
 
-/** The individual flags that `"strict": true` enables. */
-const STRICT_FLAGS = [
-  'strictNullChecks',
-  'strictFunctionTypes',
-  'strictBindCallApply',
-  'strictPropertyInitialization',
-  'noImplicitAny',
-  'noImplicitThis',
-  'alwaysStrict',
-] as const;
-
-function hasAllStrictFlags(compilerOptions: Record<string, unknown> | undefined): boolean {
+function hasAllStrictFlags(
+  compilerOptions: Record<string, unknown> | undefined,
+): boolean {
   if (!compilerOptions) return false;
   return STRICT_FLAGS.every((flag) => compilerOptions[flag] === true);
 }
 
-/**
- * Resolve an `extends` path relative to the directory of the tsconfig
- * that contains it. Handles relative paths and bare package names that
- * point into node_modules.
- */
 function resolveExtends(tsconfigPath: string, extendsValue: string): string {
   const dir = tsconfigPath.slice(0, tsconfigPath.lastIndexOf('/') + 1);
   if (extendsValue.startsWith('.')) {
-    // Relative path — resolve against the tsconfig's directory.
     const combined = dir + extendsValue;
-    // Append .json if not already present (tsc resolves it automatically).
     return combined.endsWith('.json') ? combined : `${combined}.json`;
   }
-  // Bare specifier like "@tsconfig/strictest" — resolve into node_modules.
-  // Try with and without .json extension.
   const candidate = `web/node_modules/${extendsValue}`;
   return candidate.endsWith('.json') ? candidate : `${candidate}/tsconfig.json`;
 }
 
 function tryParseJson(raw: string): Record<string, unknown> | null {
   try {
-    // Strip JSON comments (tsconfig allows them) — simplistic removal
-    // of // and /* */ style comments outside strings.
     const cleaned = raw.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
     const parsed = JSON.parse(cleaned);
     return typeof parsed === 'object' && parsed !== null ? parsed : null;

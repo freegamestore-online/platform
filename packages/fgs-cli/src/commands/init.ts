@@ -10,6 +10,11 @@ const TEMPLATES = {
   canvas: 'freegamestore-online/template-game-canvas',
   grid: 'freegamestore-online/template-game-grid',
   '3d': 'freegamestore-online/template-game-3d',
+  cards: 'freegamestore-online/template-game-cards',
+  kaplay: 'freegamestore-online/template-game-kaplay',
+  phaser: 'freegamestore-online/template-game-phaser',
+  pixi: 'freegamestore-online/template-game-pixi',
+  babylon: 'freegamestore-online/template-game-babylon',
 } as const;
 
 type TemplateName = keyof typeof TEMPLATES;
