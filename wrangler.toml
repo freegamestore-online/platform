@@ -15,7 +15,7 @@ zone_name = "freegamestore.online"
 
 [[r2_buckets]]
 binding = "APPS"
-bucket_name = "fas-apps"
+bucket_name = "fgs-games"
 
 # Shares the `fas` D1 with the FAS host worker. The routes table has a
 # `zone` column for exactly this: one table, many zones, one query.
