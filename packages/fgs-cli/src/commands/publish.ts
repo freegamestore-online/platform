@@ -87,9 +87,7 @@ export const publishCommand = new Command('publish')
       if (!opts.issue) {
         const config = await readConfig();
         if (!config.session?.token) {
-          process.stdout.write(
-            '\nNot signed in. Run: fgs login\n',
-          );
+          process.stdout.write('\nNot signed in. Run: fgs login\n');
           process.exit(1);
         }
       }
@@ -435,4 +433,3 @@ export function parseGitHubRepo(url: string): string | null {
   if (!m?.[1] || !m[2]) return null;
   return `${m[1]}/${m[2]}`;
 }
-

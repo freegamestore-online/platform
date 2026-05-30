@@ -21,53 +21,63 @@ export function GameOverScreen({ score, highScore, onPlayAgain, children }: Game
   const isNewHigh = highScore !== undefined && score >= highScore && score > 0;
 
   return (
-    <div style={{
-      position: 'absolute',
-      inset: 0,
-      zIndex: 800,
-      background: 'rgba(0,0,0,0.65)',
-      backdropFilter: 'blur(6px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '1.5rem',
-    }}>
-      <div style={{
-        textAlign: 'center',
-        maxWidth: 320,
-        width: '100%',
-      }}>
-        <div style={{
-          fontSize: '0.75rem',
-          fontWeight: 700,
-          textTransform: 'uppercase',
-          letterSpacing: '0.1em',
-          color: 'rgba(255,255,255,0.6)',
-          marginBottom: '0.5rem',
-          fontFamily: '"Manrope", system-ui, sans-serif',
-        }}>
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 800,
+        background: 'rgba(0,0,0,0.65)',
+        backdropFilter: 'blur(6px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1.5rem',
+      }}
+    >
+      <div
+        style={{
+          textAlign: 'center',
+          maxWidth: 320,
+          width: '100%',
+        }}
+      >
+        <div
+          style={{
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            color: 'rgba(255,255,255,0.6)',
+            marginBottom: '0.5rem',
+            fontFamily: '"Manrope", system-ui, sans-serif',
+          }}
+        >
           Game Over
         </div>
 
-        <div style={{
-          fontSize: '3rem',
-          fontWeight: 800,
-          color: '#ffffff',
-          lineHeight: 1,
-          marginBottom: '0.25rem',
-          fontFamily: '"Fraunces", serif',
-        }}>
+        <div
+          style={{
+            fontSize: '3rem',
+            fontWeight: 800,
+            color: '#ffffff',
+            lineHeight: 1,
+            marginBottom: '0.25rem',
+            fontFamily: '"Fraunces", serif',
+          }}
+        >
           {score.toLocaleString()}
         </div>
 
         {highScore !== undefined && (
-          <div style={{
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            color: isNewHigh ? 'var(--accent, #10b981)' : 'rgba(255,255,255,0.5)',
-            marginBottom: '1rem',
-            fontFamily: '"Manrope", system-ui, sans-serif',
-          }}>
+          <div
+            style={{
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              color: isNewHigh ? 'var(--accent, #10b981)' : 'rgba(255,255,255,0.5)',
+              marginBottom: '1rem',
+              fontFamily: '"Manrope", system-ui, sans-serif',
+            }}
+          >
             {isNewHigh ? 'New high score!' : `Best: ${highScore.toLocaleString()}`}
           </div>
         )}

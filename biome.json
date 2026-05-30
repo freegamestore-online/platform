@@ -27,7 +27,9 @@
       "a11y": {
         "useButtonType": "off",
         "noSvgWithoutTitle": "off",
-        "useHtmlLang": "off"
+        "useHtmlLang": "off",
+        "noStaticElementInteractions": "off",
+        "useKeyWithClickEvents": "off"
       }
     }
   },

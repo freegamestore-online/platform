@@ -24,12 +24,7 @@ import type { CheckResult } from '../types.js';
 
 const SCAN_EXTS = new Set(['.ts', '.tsx']);
 
-const ALLOWED_DOMAINS = [
-  'freegamestore.online',
-  'freeappstore.online',
-  'localhost',
-  '127.0.0.1',
-];
+const ALLOWED_DOMAINS = ['freegamestore.online', 'freeappstore.online', 'localhost', '127.0.0.1'];
 
 /** Check if a URL string points to an allowed domain. */
 function isAllowedUrl(url: string): boolean {

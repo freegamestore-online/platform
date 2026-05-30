@@ -24,12 +24,7 @@ const PAYMENT_SDKS: PaymentSpec[] = [
   },
   {
     name: 'paypal',
-    patterns: [
-      /@paypal\//i,
-      /paypal\.com\/sdk/i,
-      /paypalobjects\.com/i,
-      /from\s+['"]@paypal\//i,
-    ],
+    patterns: [/@paypal\//i, /paypal\.com\/sdk/i, /paypalobjects\.com/i, /from\s+['"]@paypal\//i],
   },
   {
     name: 'braintree',
@@ -60,11 +55,7 @@ const PAYMENT_SDKS: PaymentSpec[] = [
   },
   {
     name: 'lemonsqueezy',
-    patterns: [
-      /@lemonsqueezy\//i,
-      /lemonsqueezy\.com/i,
-      /from\s+['"]@lemonsqueezy\//i,
-    ],
+    patterns: [/@lemonsqueezy\//i, /lemonsqueezy\.com/i, /from\s+['"]@lemonsqueezy\//i],
   },
   {
     name: 'revenuecat',

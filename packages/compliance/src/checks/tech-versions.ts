@@ -32,7 +32,12 @@ const EXPECTATIONS: VersionExpectation[] = [
   { packages: ['react'], label: 'React', minMajor: 19 },
   { packages: ['vite'], label: 'Vite', minMajor: 6 },
   { packages: ['typescript'], label: 'TypeScript', minMajor: 5, minMinor: 7 },
-  { packages: ['tailwindcss', '@tailwindcss/vite'], label: 'Tailwind CSS', minMajor: 4, optional: true },
+  {
+    packages: ['tailwindcss', '@tailwindcss/vite'],
+    label: 'Tailwind CSS',
+    minMajor: 4,
+    optional: true,
+  },
 ];
 
 /**
@@ -74,7 +79,9 @@ export async function checkTechVersions(source: FileSource): Promise<CheckResult
 
   const deps = {
     ...(typeof pkg.dependencies === 'object' && pkg.dependencies !== null ? pkg.dependencies : {}),
-    ...(typeof pkg.devDependencies === 'object' && pkg.devDependencies !== null ? pkg.devDependencies : {}),
+    ...(typeof pkg.devDependencies === 'object' && pkg.devDependencies !== null
+      ? pkg.devDependencies
+      : {}),
   } as Record<string, string>;
 
   const outdated: string[] = [];
@@ -92,14 +99,17 @@ export async function checkTechVersions(source: FileSource): Promise<CheckResult
       let isOutdated = false;
       if (ver.major < exp.minMajor) {
         isOutdated = true;
-      } else if (ver.major === exp.minMajor && exp.minMinor !== undefined && ver.minor < exp.minMinor) {
+      } else if (
+        ver.major === exp.minMajor &&
+        exp.minMinor !== undefined &&
+        ver.minor < exp.minMinor
+      ) {
         isOutdated = true;
       }
 
       if (isOutdated) {
-        const minStr = exp.minMinor !== undefined
-          ? `^${exp.minMajor}.${exp.minMinor}`
-          : `^${exp.minMajor}`;
+        const minStr =
+          exp.minMinor !== undefined ? `^${exp.minMajor}.${exp.minMinor}` : `^${exp.minMajor}`;
         outdated.push(`${exp.label}: ${range} (expected ${minStr}+)`);
       }
       break; // first matching package wins

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 const KEY = 'stores-text-size';
 type Size = 'default' | 'lg' | 'sm';

@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 
 export interface GameModalProps {
   open: boolean;
@@ -15,7 +15,9 @@ export interface GameModalProps {
 export function GameModal({ open, onClose, title, children }: GameModalProps) {
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [open, onClose]);
@@ -50,23 +52,37 @@ export function GameModal({ open, onClose, title, children }: GameModalProps) {
         }}
       >
         {title && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '0.85rem 1rem',
-            borderBottom: '1px solid var(--line, #e2e8f0)',
-          }}>
-            <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--ink, #1e293b)', fontFamily: '"Manrope", system-ui, sans-serif' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.85rem 1rem',
+              borderBottom: '1px solid var(--line, #e2e8f0)',
+            }}
+          >
+            <span
+              style={{
+                fontWeight: 700,
+                fontSize: '1rem',
+                color: 'var(--ink, #1e293b)',
+                fontFamily: '"Manrope", system-ui, sans-serif',
+              }}
+            >
               {title}
             </span>
             <button
               onClick={onClose}
               aria-label="Close"
               style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: '1.25rem', lineHeight: 1, color: 'var(--muted, #64748b)',
-                padding: '0.25rem', fontFamily: 'inherit',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '1.25rem',
+                lineHeight: 1,
+                color: 'var(--muted, #64748b)',
+                padding: '0.25rem',
+                fontFamily: 'inherit',
               }}
             >
               &times;

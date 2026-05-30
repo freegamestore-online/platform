@@ -2,7 +2,7 @@ import './index.css';
 import { GameShell, GameTopbar } from '@freegamestore/games';
 import { Footer } from './Footer.js';
 
-const highScore = localStorage.getItem('high-score');
+const _highScore = localStorage.getItem('high-score');
 
 export default function App() {
   return (

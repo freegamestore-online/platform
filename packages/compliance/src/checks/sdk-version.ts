@@ -48,7 +48,9 @@ export async function checkSdkVersion(source: FileSource): Promise<CheckResult> 
 
   const deps = {
     ...(typeof pkg.dependencies === 'object' && pkg.dependencies !== null ? pkg.dependencies : {}),
-    ...(typeof pkg.devDependencies === 'object' && pkg.devDependencies !== null ? pkg.devDependencies : {}),
+    ...(typeof pkg.devDependencies === 'object' && pkg.devDependencies !== null
+      ? pkg.devDependencies
+      : {}),
   } as Record<string, string>;
 
   const range = deps[SDK_PKG];

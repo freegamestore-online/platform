@@ -105,9 +105,7 @@ export async function checkGameNaming(source: FileSource): Promise<CheckResult> 
   return {
     name: 'Game naming conventions',
     status: 'warn',
-    detail: issues
-      .map((i) => `${i.field}: "${i.value}" — ${i.problem}`)
-      .join('; '),
+    detail: issues.map((i) => `${i.field}: "${i.value}" — ${i.problem}`).join('; '),
     suggestions: [
       'Package names should be lowercase, hyphen-separated, without reserved prefixes (free*, pro*).',
       'The publish flow derives the subdomain and GitHub repo name from the package name — clean names prevent issues.',

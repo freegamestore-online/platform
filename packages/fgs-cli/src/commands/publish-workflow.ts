@@ -45,11 +45,11 @@ jobs:
           AWS_DEFAULT_REGION: auto
           R2_ACCOUNT_ID: \${{ secrets.R2_ACCOUNT_ID }}
         run: |
-          aws s3 sync ./web/dist "s3://fas-apps/games/\$\{GITHUB_REPOSITORY##*/}/" \\
+          aws s3 sync ./web/dist "s3://fas-apps/games/$\{GITHUB_REPOSITORY##*/}/" \\
             --endpoint-url "https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com" \\
             --delete \\
             --no-progress
-          echo "Deployed games/\$\{GITHUB_REPOSITORY##*/} from \$\{GITHUB_SHA::7}"
+          echo "Deployed games/$\{GITHUB_REPOSITORY##*/} from $\{GITHUB_SHA::7}"
 `;
 
 export async function ensureDeployWorkflow(): Promise<boolean> {

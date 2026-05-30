@@ -47,9 +47,7 @@ export async function checkUsesGameSdk(source: FileSource): Promise<CheckResult>
     //        import { GameShell, ... } from '@freegamestore/games'
     //        import { ..., GameShell } from '@freegamestore/games'
     if (
-      /import\s+\{[^}]*\bGameShell\b[^}]*\}\s+from\s+['"]@freegamestore\/games['"]/i.test(
-        content,
-      )
+      /import\s+\{[^}]*\bGameShell\b[^}]*\}\s+from\s+['"]@freegamestore\/games['"]/i.test(content)
     ) {
       hasGameShellImport = true;
       break;
@@ -75,7 +73,7 @@ export async function checkUsesGameSdk(source: FileSource): Promise<CheckResult>
   if (!hasGameShellImport) {
     issues.push('no GameShell import found in web/src/');
     suggestions.push(
-      'Import and use GameShell in your entry point: `import { GameShell } from \'@freegamestore/games\';`',
+      "Import and use GameShell in your entry point: `import { GameShell } from '@freegamestore/games';`",
     );
     suggestions.push(
       'GameShell provides the standard game chrome (back, fullscreen, mute), lifecycle hooks, and platform integration.',

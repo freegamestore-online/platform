@@ -6,8 +6,8 @@ import { createRequire } from 'node:module';
 import { extname, join, normalize, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Command } from 'commander';
-import { computeCoverage, pickMatrix } from './screencheck-matrix.js';
 import type { ViewportTest } from './screencheck-matrix.js';
+import { computeCoverage, pickMatrix } from './screencheck-matrix.js';
 import { renderCoverage, renderResult } from './screencheck-render.js';
 
 /**
