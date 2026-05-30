@@ -29,6 +29,7 @@ type PlatformDispatch =
  */
 const PLATFORM_SUBDOMAINS: Record<string, PlatformDispatch> = {
   www: { type: "redirect", to: "https://freegamestore.online", status: 301 },
+  publish: { type: "proxy", target: "https://freegamestore-publisher.pages.dev" },
 };
 
 // GAME_PROJECT_OVERRIDES + legacyFallback removed 2026-05-28: every FGS
