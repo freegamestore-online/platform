@@ -1,11 +1,7 @@
 export interface Env {
   DB: D1Database;
   APPS: R2Bucket;
-  /** Service binding placeholder. FGS doesn't have a `api.freegamestore.online`
-   *  yet — games make API calls against the shared FAS backend at
-   *  `api.freeappstore.online`, which is on its own zone and never hits
-   *  this worker's wildcard route. Kept in the interface so adding an FGS
-   *  backend later doesn't break the type. */
+  /** Service binding placeholder for a future FGS API worker. */
   API?: Fetcher;
 }
 
@@ -86,21 +82,17 @@ export function securityHeaders(opts: { htmlCache: boolean }): Headers {
   } else {
     headers.set("cache-control", "public, max-age=31536000, immutable");
   }
-  // FGS-specific origins:
-  //  - script-src + connect-src allow api.freeappstore.online (the shared
-  //    backend; FGS doesn't have its own api.freegamestore.online yet).
-  //  - frame-ancestors lets the freegamestore.online storefront iframe
-  //    games for previews. Same FAS-pages.dev preview is NOT allowed —
-  //    that's the FAS storefront's responsibility, not this zone's.
+  // frame-ancestors lets the freegamestore.online storefront iframe
+  // games for previews.
   const csp = [
     "default-src 'self' https: data: blob:",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https: https://api.freeappstore.online https://static.cloudflareinsights.com https://www.googletagmanager.com https://plausible.io",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https: https://static.cloudflareinsights.com",
     "style-src 'self' 'unsafe-inline' https:",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data: https:",
-    "connect-src 'self' https: wss: https://api.freeappstore.online https://cloudflareinsights.com https://www.google-analytics.com https://plausible.io",
+    "connect-src 'self' https: wss: https://cloudflareinsights.com",
     "frame-src 'self' https:",
-    "frame-ancestors 'self' https://freegamestore.online https://freegamestore.pages.dev https://*.freegamestore.online",
+    "frame-ancestors 'self' https://freegamestore.online https://*.freegamestore.online",
     "base-uri 'self'",
     "object-src 'none'",
     "upgrade-insecure-requests",
