@@ -2,6 +2,8 @@ interface Env {
   DB: D1Database;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
+  GITHUB_CLIENT_ID: string;
+  GITHUB_CLIENT_SECRET: string;
   JWT_SECRET: string;
 }
 
@@ -11,7 +13,9 @@ const COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo";
-const CALLBACK_PATH = "/callback";
+const GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize";
+const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
+const GITHUB_USER_URL = "https://api.github.com/user";
 
 // --- JWT utilities (HMAC-SHA256, no dependencies) ---
 
@@ -237,6 +241,108 @@ function handleLogout(request: Request): Response {
   });
 }
 
+// --- GitHub OAuth handlers ---
+
+async function handleGitHubLogin(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const redirect = url.searchParams.get("redirect") ?? "https://freegamestore.online";
+  const state = base64urlEncode(JSON.stringify({ redirect }));
+
+  const params = new URLSearchParams({
+    client_id: env.GITHUB_CLIENT_ID,
+    redirect_uri: `${url.origin}/callback/github`,
+    scope: "read:user",
+    state,
+  });
+
+  return new Response(null, {
+    status: 302,
+    headers: { Location: `${GITHUB_AUTH_URL}?${params}` },
+  });
+}
+
+async function handleGitHubCallback(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+  const stateParam = url.searchParams.get("state");
+
+  if (!code || !stateParam) {
+    return new Response("Missing code or state", { status: 400 });
+  }
+
+  let redirect = "https://freegamestore.online";
+  try {
+    const state = JSON.parse(base64urlDecode(stateParam)) as { redirect?: string };
+    if (state.redirect) redirect = state.redirect;
+  } catch { /* fall through */ }
+
+  // Exchange code for access token
+  const tokenRes = await fetch(GITHUB_TOKEN_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      client_id: env.GITHUB_CLIENT_ID,
+      client_secret: env.GITHUB_CLIENT_SECRET,
+      code,
+    }),
+  });
+
+  if (!tokenRes.ok) {
+    return new Response("Token exchange failed", { status: 502 });
+  }
+
+  const tokens = (await tokenRes.json()) as { access_token: string };
+
+  // Fetch GitHub user
+  const userRes = await fetch(GITHUB_USER_URL, {
+    headers: {
+      Authorization: `Bearer ${tokens.access_token}`,
+      "User-Agent": "freegamestore-auth",
+    },
+  });
+
+  if (!userRes.ok) {
+    return new Response("Failed to fetch user info", { status: 502 });
+  }
+
+  const ghUser = (await userRes.json()) as { id: number; login: string; avatar_url: string; name?: string };
+
+  // Upsert user — use github:<id> as the user ID to avoid collisions with Google users
+  const userId = `github:${ghUser.id}`;
+  const displayName = ghUser.name ?? ghUser.login;
+  await env.DB.prepare(
+    `INSERT INTO users (id, name, avatar_url) VALUES (?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET name = excluded.name, avatar_url = excluded.avatar_url, last_seen = datetime('now')`,
+  )
+    .bind(userId, displayName, ghUser.avatar_url)
+    .run();
+
+  // Create JWT
+  const now = Math.floor(Date.now() / 1000);
+  const token = await jwtSign(
+    {
+      sub: userId,
+      name: displayName,
+      login: ghUser.login,
+      avatar: ghUser.avatar_url,
+      iat: now,
+      exp: now + COOKIE_MAX_AGE,
+    },
+    env.JWT_SECRET,
+  );
+
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: redirect,
+      "Set-Cookie": setTokenCookie(token),
+    },
+  });
+}
+
 // --- Main ---
 
 export default {
@@ -249,12 +355,18 @@ export default {
       return new Response(null, { status: 204, headers: cors(request) });
     }
 
-    // GET /login
+    // GitHub OAuth (primary — used by console + CLI)
     if (request.method === "GET" && path === "/login") {
-      return handleLogin(request, env);
+      return handleGitHubLogin(request, env);
+    }
+    if (request.method === "GET" && path === "/callback/github") {
+      return handleGitHubCallback(request, env);
     }
 
-    // GET /callback
+    // Google OAuth (legacy — used by games for player auth)
+    if (request.method === "GET" && path === "/login/google") {
+      return handleLogin(request, env);
+    }
     if (request.method === "GET" && path === "/callback") {
       return handleCallback(request, env);
     }
