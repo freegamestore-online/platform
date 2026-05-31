@@ -18,8 +18,8 @@ pnpm exec wrangler dev
 Secrets required locally (set via `wrangler secret put` or `.dev.vars`):
 
 - `CF_API_TOKEN` — Cloudflare API token
-- `CF_GLOBAL_KEY` — Cloudflare global key
-- `CF_EMAIL` — Cloudflare account email
+- `# (removed)` — Cloudflare global key
+- `# (removed)` — Cloudflare account email
 - `GITHUB_TOKEN` — GitHub personal access token
 
 ## Deploy
