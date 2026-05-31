@@ -26,8 +26,8 @@ Required secrets (set with `wrangler secret put <NAME>`):
 |---|---|
 | `GITHUB_TOKEN` | Org-level PAT for repo provisioning and code push |
 | `CF_API_TOKEN` | Cloudflare API token for Pages and DNS |
-| `CF_GLOBAL_KEY` | Cloudflare Global API key (DNS) |
-| `CF_EMAIL` | Cloudflare account email (DNS) |
+| `# (removed)` | Cloudflare Global API key (DNS) |
+| `# (removed)` | Cloudflare account email (DNS) |
 
 ## Deploy
 
