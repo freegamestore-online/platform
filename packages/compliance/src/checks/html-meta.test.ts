@@ -3,17 +3,40 @@ import { mapFileSource } from '../lib/file-source.js';
 import { checkHtmlMeta } from './html-meta.js';
 
 describe('checkHtmlMeta', () => {
-  it('passes with all three: lang, viewport, title', async () => {
+  it('passes with all three: lang, viewport (zoom disabled), title', async () => {
     const files = new Map([
       [
         'web/index.html',
         `<!doctype html>
 <html lang="en">
   <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <title>My App</title>
   </head>
 </html>`,
+      ],
+    ]);
+    const r = await checkHtmlMeta(mapFileSource(files));
+    expect(r.status).toBe('pass');
+  });
+
+  it('fails when the viewport meta allows zoom (no user-scalable=no)', async () => {
+    const files = new Map([
+      [
+        'web/index.html',
+        `<html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1" /><title>t</title></head></html>`,
+      ],
+    ]);
+    const r = await checkHtmlMeta(mapFileSource(files));
+    expect(r.status).toBe('fail');
+    expect(r.detail).toMatch(/disable zoom/);
+  });
+
+  it('accepts maximum-scale=1 as disabling zoom', async () => {
+    const files = new Map([
+      [
+        'web/index.html',
+        `<html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" /><title>t</title></head></html>`,
       ],
     ]);
     const r = await checkHtmlMeta(mapFileSource(files));
@@ -53,7 +76,7 @@ describe('checkHtmlMeta', () => {
     const files = new Map([
       [
         'web/index.html',
-        '<html lang="en"><head><meta name="viewport" content="x"/><title> My App</title></head></html>',
+        '<html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/><title> My App</title></head></html>',
       ],
     ]);
     const r = await checkHtmlMeta(mapFileSource(files));
@@ -91,7 +114,7 @@ describe('checkHtmlMeta', () => {
         'web/index.html',
         `<html lang="en">
 <head>
-  <meta name="viewport" content="x" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
   <title>
     My App
   </title>

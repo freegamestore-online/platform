@@ -91,7 +91,7 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
     "name": "HTML meta tags",
     "status": "fail",
     "suggestions": [
-      "Restore the canonical <head>: \`<html lang="en">\`, \`<meta name="viewport" content="width=device-width, initial-scale=1" />\`, \`<title>App name</title>\`.",
+      "Restore the canonical <head>: \`<html lang="en">\`, \`<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />\`, \`<title>App name</title>\`.",
     ],
   },
   {
