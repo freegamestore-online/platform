@@ -281,14 +281,30 @@ function runComplianceCheck(files: Map<string, string>, config: StoreConfig): st
     else fail("CSS variables", "Missing --paper, --ink, or --accent in index.css");
   }
 
-  // HTML meta tags
+  // HTML meta tags. Mirror @freegamestore/compliance checkHtmlMeta: the
+  // viewport must not just exist, it must disable pinch/double-tap zoom
+  // (user-scalable=no or maximum-scale=1) so taps during gameplay don't
+  // accidentally zoom the board.
   const html = files.get("web/index.html") || "";
   const hasLang = /lang=/.test(html);
-  const hasViewport = /viewport/.test(html);
+  const viewportTag = html.match(/<meta[^>]*name=["']viewport["'][^>]*>/i)?.[0] || "";
+  const hasViewport = viewportTag !== "";
+  const viewportNoZoom =
+    /user-scalable\s*=\s*(no|0)/i.test(viewportTag) || /maximum-scale\s*=\s*1(\.0+)?\b/i.test(viewportTag);
   const hasTitle = /<title>/.test(html);
-  if (hasLang && hasViewport && hasTitle) pass("HTML meta tags (lang, viewport, title)");
+  if (hasLang && hasViewport && viewportNoZoom && hasTitle) pass("HTML meta tags (lang, viewport, title)");
   else
-    fail("HTML meta tags", `Missing: ${[!hasLang && "lang", !hasViewport && "viewport", !hasTitle && "title"].filter(Boolean).join(", ")}`);
+    fail(
+      "HTML meta tags",
+      `Missing: ${[
+        !hasLang && "lang",
+        !hasViewport && "viewport",
+        hasViewport && !viewportNoZoom && "viewport must disable zoom (user-scalable=no)",
+        !hasTitle && "title",
+      ]
+        .filter(Boolean)
+        .join(", ")}`,
+    );
 
   // PWA manifest
   const manifest = files.get("web/public/manifest.json") || "";
