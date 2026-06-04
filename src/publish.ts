@@ -226,55 +226,76 @@ export async function handlePublish(
     return { steps, success: false };
   }
 
-  // Step 3: Add to store registry
+  // Step 3: Add to store registry — with retry-once-on-409. Two concurrent
+  // provisions both GET the same sha and both PUT; GitHub rejects the second
+  // with 409. Retry once: re-GET (fresh sha), re-check alreadyListed (the other
+  // writer may already have added our entry), re-PUT. Mirrors the FAS admin's
+  // writeRegistryWithRetry (vendored, not shared).
   const registryPath = `/repos/${config.org}/${config.storeRepo}/contents/registry.json`;
-  const registryFile = await ghApi(env, registryPath);
-  if (registryFile.content) {
+  const key = config.registryKey;
+  const attemptRegistry = async (
+    isRetry: boolean,
+  ): Promise<{ name: string; status: string; detail: string } | null> => {
+    const registryFile = await ghApi(env, registryPath);
+    if (!registryFile.content) {
+      return { name: "Store registry", status: "fail", detail: "Could not read registry.json" };
+    }
     const rawContent = new TextDecoder().decode(
       Uint8Array.from(atob(registryFile.content.replace(/\n/g, "")), (c) => c.charCodeAt(0)),
     );
     const content = JSON.parse(rawContent);
-    const key = config.registryKey;
     const items = content[key] || [];
-    const alreadyListed = items.some((a: any) => a.id === id);
-
-    if (alreadyListed) {
-      steps.push({ name: "Store registry", status: "skip", detail: "Already listed" });
-    } else {
-      items.push({
-        id,
-        name: req.name,
-        category: req.category,
-        icon,
-        iconBg,
-        description,
-        appUrl: `https://${subdomain}`,
-        repo: `${config.org}/${id}`,
-        hostedOn: "r2",
-        type: req.type || "standalone",
-        developer: config.developer,
-        ...(req.creatorGithub ? { creatorGithub: req.creatorGithub } : {}),
-      });
-      content[key] = items;
-
-      const updateResult = await ghApi(env, registryPath, "PUT", {
-        message: `Add ${req.name} to games registry`,
-        content: btoa(
-          Array.from(new TextEncoder().encode(JSON.stringify(content, null, 2)))
-            .map((b) => String.fromCharCode(b))
-            .join(""),
-        ),
-        sha: registryFile.sha,
-      });
-      steps.push({
+    if (items.some((a: any) => a.id === id)) {
+      return {
         name: "Store registry",
-        status: updateResult.content ? "ok" : "fail",
-        detail: updateResult.content ? `Added ${req.name}` : updateResult.message || "Failed to update",
-      });
+        status: "skip",
+        detail: isRetry ? "Added by a concurrent provision" : "Already listed",
+      };
     }
-  } else {
-    steps.push({ name: "Store registry", status: "fail", detail: "Could not read registry.json" });
-  }
+    items.push({
+      id,
+      name: req.name,
+      category: req.category,
+      icon,
+      iconBg,
+      description,
+      appUrl: `https://${subdomain}`,
+      repo: `${config.org}/${id}`,
+      hostedOn: "r2",
+      type: req.type || "standalone",
+      developer: config.developer,
+      ...(req.creatorGithub ? { creatorGithub: req.creatorGithub } : {}),
+    });
+    content[key] = items;
+
+    const updateResult = await ghApi(env, registryPath, "PUT", {
+      message: `Add ${req.name} to games registry`,
+      content: btoa(
+        Array.from(new TextEncoder().encode(JSON.stringify(content, null, 2)))
+          .map((b) => String.fromCharCode(b))
+          .join(""),
+      ),
+      sha: registryFile.sha,
+    });
+    if (updateResult.content) {
+      return { name: "Store registry", status: "ok", detail: `Added ${req.name}` };
+    }
+    if (updateResult.__status === 409) {
+      return null; // contended — caller retries once
+    }
+    return { name: "Store registry", status: "fail", detail: updateResult.message || "Failed to update" };
+  };
+
+  const firstReg = await attemptRegistry(false);
+  const regStep =
+    firstReg !== null
+      ? firstReg
+      : ((await attemptRegistry(true)) ?? {
+          name: "Store registry",
+          status: "fail",
+          detail: "Registry write contended twice — please retry the provision",
+        });
+  steps.push(regStep);
 
   const success = steps.every((s) => s.status !== "fail");
   return {
