@@ -70,7 +70,20 @@ async function ghApi(env: PublishEnv, path: string, method = "GET", body?: any) 
     },
     body: body ? JSON.stringify(body) : undefined,
   });
-  return (await res.json()) as any;
+  // Some endpoints (e.g. PUT collaborators when the user already has access)
+  // return 204 No Content — an empty body. Don't crash res.json() on it; expose
+  // the status so callers can branch (the collaborator step relies on this).
+  const text = await res.text();
+  let json: any = {};
+  if (text) {
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = { __raw: text };
+    }
+  }
+  json.__status = res.status;
+  return json;
 }
 
 function validateId(id: string): string | null {
@@ -181,13 +194,13 @@ export async function handlePublish(
       "PUT",
       { permission: "push" },
     );
-    if (collab.id || collab.invitee) {
+    if (collab.id || collab.invitee || collab.__status === 201) {
       steps.push({
         name: "Collaborator",
         status: "ok",
         detail: `${req.creatorGithub} granted push access`,
       });
-    } else if (collab.message?.includes("already")) {
+    } else if (collab.__status === 204 || collab.message?.includes("already")) {
       steps.push({
         name: "Collaborator",
         status: "skip",
