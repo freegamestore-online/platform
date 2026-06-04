@@ -195,10 +195,12 @@ export async function handlePublish(
       { permission: "push" },
     );
     if (collab.id || collab.invitee || collab.__status === 201) {
+      // 201 = an outside collaborator was INVITED. They must accept the invite
+      // (GitHub email/notification) before they can push — surface that.
       steps.push({
         name: "Collaborator",
         status: "ok",
-        detail: `${req.creatorGithub} granted push access`,
+        detail: `${req.creatorGithub} invited as push collaborator — accept the GitHub invite to https://github.com/${config.org}/${id}/invitations (check email/notifications) before pushing`,
       });
     } else if (collab.__status === 204 || collab.message?.includes("already")) {
       steps.push({

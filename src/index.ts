@@ -476,7 +476,13 @@ export default {
       }
       try {
         const body = await request.json() as any;
-        const result = await handlePublish(body, env as any);
+        // Inject the creator from the VERIFIED session (not just the client body),
+        // so the "add creator as push collaborator" step always runs and the
+        // registry records ownership. Without this, CLI/agent/form publishes (which
+        // don't send creatorGithub) leave the creator with no push access → 403,
+        // and the MCP's ownership gate has nothing to match. Session login can't be
+        // spoofed; an explicit body value (e.g. admin form) still wins if present.
+        const result = await handlePublish({ ...body, creatorGithub: body.creatorGithub || login }, env as any);
         return new Response(JSON.stringify(result), {
           status: result.success ? 200 : 400,
           headers: { "Content-Type": "application/json" },
