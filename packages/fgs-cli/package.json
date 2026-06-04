@@ -1,6 +1,6 @@
 {
   "name": "@freegamestore/cli",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "fgs — CLI for publishing free games to freegamestore.online",
   "license": "MIT",
   "type": "module",
@@ -33,6 +33,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "dev": "tsc --watch"
   },
   "dependencies": {
@@ -43,6 +44,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/prompts": "^2.4.9",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.5"
   }
 }

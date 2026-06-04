@@ -1,6 +1,6 @@
 {
   "name": "@freegamestore/compliance",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Compliance checks for games published on freegamestore.online — used by the CLI for local feedback and by CI for gating.",
   "license": "MIT",
   "type": "module",
@@ -37,11 +37,13 @@
   },
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.5"
   },
   "sideEffects": false
 }

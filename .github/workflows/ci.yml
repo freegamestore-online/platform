@@ -26,3 +26,7 @@ jobs:
       - run: pnpm -r build
       - run: pnpm lint
       - run: pnpm -r typecheck
+      # Gate on the package test suites (compliance + cli). Previously absent,
+      # which let the compliance suite sit red unnoticed after checks were
+      # accidentally unwired from runChecksOn.
+      - run: pnpm -r test

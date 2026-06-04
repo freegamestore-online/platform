@@ -52,7 +52,11 @@ export async function checkHtmlMeta(source: FileSource): Promise<CheckResult> {
   if (!titleMatch || titleMatch[1]!.trim() === '') missing.push('non-empty <title>');
 
   if (missing.length === 0) {
-    return { name: 'HTML meta tags', status: 'pass', detail: 'lang + viewport (zoom disabled) + title present' };
+    return {
+      name: 'HTML meta tags',
+      status: 'pass',
+      detail: 'lang + viewport (zoom disabled) + title present',
+    };
   }
   return {
     name: 'HTML meta tags',
