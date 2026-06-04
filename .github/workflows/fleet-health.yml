@@ -1,0 +1,30 @@
+name: Fleet health
+
+# Probes every game in the registry for the failure modes that have silently
+# taken the catalog down (lockfile drift → no deploy, CI red, down, registry
+# drift). Runs daily and on demand; the report lands in the job summary.
+on:
+  schedule:
+    - cron: "0 13 * * *" # daily 13:00 UTC
+  workflow_dispatch:
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Probe fleet
+        env:
+          # Org-scoped read token (repo contents + actions). Set from Doppler
+          # GH_ADMIN_TOKEN. The default GITHUB_TOKEN only sees this repo.
+          GH_TOKEN: ${{ secrets.FLEET_HEALTH_GH_TOKEN }}
+        run: |
+          {
+            echo '## FreeGameStore fleet health'
+            echo '```'
+            node scripts/fleet-health.mjs || true
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
