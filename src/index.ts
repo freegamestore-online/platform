@@ -1,4 +1,4 @@
-import { handlePublish, renderProvisionForm } from "./publish";
+import { handlePublish, handleUpdateGame, renderProvisionForm } from "./publish";
 import { verifySession, handleAuthExchange, handleAuthMe } from "./auth";
 
 interface Env {
@@ -10,6 +10,45 @@ interface Env {
   SESSION_SIGNING_KEY: string;
   /** Shared `fas` D1 — fgs/host reads from this same table. */
   DB: D1Database;
+}
+
+/** Extract the authenticated GitHub login from:
+ *  1. Bearer admin session token (CLI / MCP)
+ *  2. fgs_token cookie verified via auth worker /me (console) */
+async function authenticateLogin(request: Request, env: Env): Promise<string | null> {
+  // Try Bearer first (admin-minted JWT)
+  const auth = request.headers.get("Authorization") ?? "";
+  if (auth.startsWith("Bearer ")) {
+    const login = await verifySession(auth.slice(7), env.SESSION_SIGNING_KEY);
+    if (login) return login;
+  }
+  // Fall back to fgs_token cookie — verify by calling auth worker's /me
+  const cookie = request.headers.get("Cookie") ?? "";
+  if (cookie.includes("fgs_token=")) {
+    try {
+      const meRes = await fetch("https://auth.freegamestore.online/me", {
+        headers: { Cookie: cookie },
+      });
+      if (meRes.ok) {
+        const user = await meRes.json() as { id?: string; name?: string };
+        // Auth worker /me returns { id, name, avatar }. The id is the GitHub user id
+        // (e.g. "github:12345" for GH users). Extract the login from it.
+        // For GitHub users the login isn't in /me — but we stored it in the JWT.
+        // Parse the cookie JWT payload to get login (unsigned, just for the login value —
+        // the auth worker already verified the signature by returning 200).
+        const token = cookie.match(/fgs_token=([^;]*)/)?.[1];
+        if (token) {
+          const parts = token.split(".");
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1]!.replace(/-/g, "+").replace(/_/g, "/"))) as { login?: string; sub?: string };
+            return payload.login ?? payload.sub ?? null;
+          }
+        }
+        return user.id ?? null;
+      }
+    } catch { /* fall through */ }
+  }
+  return null;
 }
 
 interface GameConfig {
@@ -407,9 +446,35 @@ Response: {
 </html>`;
 }
 
+const CORS_ORIGIN = /^https:\/\/[\w-]+\.freegamestore\.online$/;
+
+function corsHeaders(request: Request): Record<string, string> {
+  const origin = request.headers.get("Origin") ?? "";
+  const allowed = CORS_ORIGIN.test(origin) || origin === "https://freegamestore.online" || origin === "http://localhost:5173";
+  return {
+    "Access-Control-Allow-Origin": allowed ? origin : "",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Max-Age": "86400",
+  };
+}
+
+function jsonResponse(data: unknown, status: number, request: Request): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json", ...corsHeaders(request) },
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
+    // CORS preflight
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders(request) });
+    }
 
     // Self-contained auth: exchange a GitHub token for an FGS admin session,
     // then verify it. `fgs login` calls /v1/auth/exchange.
@@ -454,6 +519,22 @@ export default {
         return new Response(null, { status: 204 });
       }
       return new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
+    }
+
+    // PATCH /api/games/:id — update game metadata (name, description, category)
+    const gameMatch = url.pathname.match(/^\/api\/games\/([a-z0-9][a-z0-9-]*)$/);
+    if (gameMatch && request.method === "PATCH") {
+      const login = await authenticateLogin(request, env);
+      if (!login) {
+        return jsonResponse({ error: "unauthorized" }, 401, request);
+      }
+      try {
+        const body = await request.json() as Record<string, unknown>;
+        const result = await handleUpdateGame(gameMatch[1]!, login, body, env as any);
+        return jsonResponse(result, result.error ? 400 : 200, request);
+      } catch (e) {
+        return jsonResponse({ error: String(e) }, 500, request);
+      }
     }
 
     if ((url.pathname === "/api/provision" || url.pathname === "/api/publish") && request.method === "POST") {

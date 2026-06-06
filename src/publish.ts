@@ -306,6 +306,60 @@ export async function handlePublish(
   };
 }
 
+/** Update a game's metadata in registry.json. Only the game's creator can update. */
+export async function handleUpdateGame(
+  gameId: string,
+  login: string,
+  updates: Record<string, unknown>,
+  env: PublishEnv,
+): Promise<{ ok?: boolean; error?: string }> {
+  const config = STORE_CONFIG;
+  const registryPath = `/repos/${config.org}/${config.storeRepo}/contents/registry.json`;
+  const registryFile = await ghApi(env, registryPath);
+  if (!registryFile.content) return { error: "Could not read registry.json" };
+
+  const rawContent = new TextDecoder().decode(
+    Uint8Array.from(atob(registryFile.content.replace(/\n/g, "")), (c) => c.charCodeAt(0)),
+  );
+  const content = JSON.parse(rawContent);
+  const items: Array<Record<string, unknown>> = content[config.registryKey] || [];
+  const idx = items.findIndex((g) => g.id === gameId);
+  if (idx < 0) return { error: `Game "${gameId}" not found in registry` };
+
+  const game = items[idx]!;
+  // Only the creator can update
+  if (game.creatorGithub && game.creatorGithub !== login) {
+    return { error: `Only the creator (${game.creatorGithub}) can update this game` };
+  }
+
+  // Allow updating these fields only
+  const allowed = ["name", "description", "category", "icon", "iconBg"];
+  let changed = false;
+  for (const key of allowed) {
+    if (key in updates && typeof updates[key] === "string" && updates[key] !== game[key]) {
+      game[key] = updates[key];
+      changed = true;
+    }
+  }
+  if (!changed) return { error: "No changes" };
+
+  items[idx] = game;
+  content[config.registryKey] = items;
+
+  const updateResult = await ghApi(env, registryPath, "PUT", {
+    message: `Update ${gameId} metadata (${allowed.filter(k => k in updates).join(", ")})`,
+    content: btoa(
+      Array.from(new TextEncoder().encode(JSON.stringify(content, null, 2)))
+        .map((b) => String.fromCharCode(b))
+        .join(""),
+    ),
+    sha: registryFile.sha,
+  });
+
+  if (!updateResult.content) return { error: updateResult.message || "Failed to update registry" };
+  return { ok: true };
+}
+
 export function renderProvisionForm(): string {
   return `
   <h2 style="margin-top:3rem;">Provision New Game (Path B)</h2>
