@@ -101,7 +101,7 @@ async function serve(bucket: R2Bucket, route: Route, url: URL, req: Request, _ct
     if (obj) return respond(obj, "text/html; charset=utf-8", req);
   }
 
-  if (!obj) return notFound(url.pathname, route.slug);
+  if (!obj) return notFound(`${route.slug}.${route.zone}`, url.pathname);
 
   return respond(obj, contentType(key), req);
 }
@@ -119,10 +119,10 @@ function respond(obj: R2ObjectBody, ct: string, req: Request): Response {
   return new Response(req.method === "HEAD" ? null : obj.body, { headers });
 }
 
-function notFound(host: string, slug?: string): Response {
-  const body = slug
-    ? `Not Found: ${slug}.${host.split(".").slice(1).join(".")} has no asset at this path.\n`
-    : `Not Found: no game registered at ${host}.\n`;
+function notFound(domain: string, path?: string): Response {
+  const body = path
+    ? `Not Found: ${domain} has no asset at ${path}\n`
+    : `Not Found: no game registered at ${domain}.\n`;
   return new Response(body, {
     status: 404,
     headers: { "content-type": "text/plain; charset=utf-8" },
