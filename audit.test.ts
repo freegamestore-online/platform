@@ -58,15 +58,3 @@ describe("computeIndex", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Auditor integration tests (require live URLs)
-// ---------------------------------------------------------------------------
-
-describe("Auditor fixtures", () => {
-  // These are integration tests -- they hit live URLs
-  // Skip in CI unless AUDIT_LIVE=true
-
-  it.todo("fits fixture scores 99/99");
-  it.todo("scroll-y fixture scores 0/99");
-  it.todo("scroll-x fixture scores 0/99");
-});
