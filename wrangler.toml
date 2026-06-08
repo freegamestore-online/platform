@@ -12,4 +12,8 @@ database_name = "leaderboard"
 database_id = "165c4cb7-d93e-4afc-8ac0-7d48e627efaa"
 migrations_dir = "migrations"
 
+[[routes]]
+pattern = "leaderboard.freegamestore.online/*"
+zone_name = "freegamestore.online"
+
 # JWT_SECRET must be set via `wrangler secret put JWT_SECRET`
