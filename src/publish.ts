@@ -263,7 +263,7 @@ export async function handlePublish(
       repo: `${config.org}/${id}`,
       hostedOn: "r2",
       type: req.type || "standalone",
-      developer: config.developer,
+      developer: req.creatorGithub || config.developer,
       ...(req.creatorGithub ? { creatorGithub: req.creatorGithub } : {}),
     });
     content[key] = items;
