@@ -493,32 +493,32 @@ export default {
       const detail = url.searchParams.get("detail") === "true";
       if (detail) {
         const data = await fetchAllStatus(env);
-        return new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
+        return jsonResponse(data, 200, request);
       }
       const games = await fetchRegistry();
-      return new Response(JSON.stringify(games), { headers: { "Content-Type": "application/json" } });
+      return jsonResponse(games, 200, request);
     }
 
     if (url.pathname === "/api/status/game") {
       const id = url.searchParams.get("id");
       if (!id) {
-        return new Response(JSON.stringify({ error: "id required" }), { status: 400, headers: { "Content-Type": "application/json" } });
+        return jsonResponse({ error: "id required" }, 400, request);
       }
       const games = await fetchRegistry();
       const game = games.find(g => g.id === id);
       if (!game) {
-        return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+        return jsonResponse({ error: "not found" }, 404, request);
       }
       const status = await fetchGameStatus(game, env);
-      return new Response(JSON.stringify({ ...game, ...status }), { headers: { "Content-Type": "application/json" } });
+      return jsonResponse({ ...game, ...status }, 200, request);
     }
 
     if (url.pathname === "/api/quality") {
       const data = await fetchQuality();
       if (!data) {
-        return new Response(null, { status: 204 });
+        return new Response(null, { status: 204, headers: corsHeaders(request) });
       }
-      return new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
+      return jsonResponse(data, 200, request);
     }
 
     // PATCH /api/games/:id — update game metadata (name, description, category)
@@ -543,36 +543,18 @@ export default {
       // and mint CF resources. Add CF Access in front for defense-in-depth.
       const authHeader = request.headers.get("Authorization");
       if (!authHeader?.startsWith("Bearer ")) {
-        return new Response(JSON.stringify({ error: "unauthorized" }), {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: "unauthorized" }, 401, request);
       }
       const login = await verifySession(authHeader.slice(7), env.SESSION_SIGNING_KEY);
       if (!login) {
-        return new Response(JSON.stringify({ error: "invalid or expired session" }), {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: "invalid or expired session" }, 401, request);
       }
       try {
         const body = await request.json() as any;
-        // Inject the creator from the VERIFIED session (not just the client body),
-        // so the "add creator as push collaborator" step always runs and the
-        // registry records ownership. Without this, CLI/agent/form publishes (which
-        // don't send creatorGithub) leave the creator with no push access → 403,
-        // and the MCP's ownership gate has nothing to match. Session login can't be
-        // spoofed; an explicit body value (e.g. admin form) still wins if present.
         const result = await handlePublish({ ...body, creatorGithub: body.creatorGithub || login }, env as any);
-        return new Response(JSON.stringify(result), {
-          status: result.success ? 200 : 400,
-          headers: { "Content-Type": "application/json" },
-        });
+        return jsonResponse(result, result.success ? 200 : 400, request);
       } catch (e) {
-        return new Response(JSON.stringify({ error: String(e), stack: (e as Error).stack }), {
-          status: 500,
-          headers: { "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: String(e) }, 500, request);
       }
     }
 
