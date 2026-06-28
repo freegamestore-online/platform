@@ -1,4 +1,13 @@
-# BUG: game creators get 403 pushing to their own repo (no collaborator added)
+# [RESOLVED] BUG: game creators get 403 pushing to their own repo (no collaborator added)
+
+> **Status (2026-06-28): code fix shipped.** `src/index.ts` now calls
+> `handlePublish({ ...body, creatorGithub: body.creatorGithub || login }, env)`
+> in the `/api/provision` handler, so every provision sources the creator from
+> the verified session and adds them as a push collaborator; the registry write
+> records `creatorGithub` (`src/publish.ts`). Provisioning drift (e.g. a route
+> with no registry entry) is now caught hourly by the reconcile cron
+> (`scheduled` handler + `GET /api/reconcile`). The **backfill** notes below
+> still apply to games provisioned before the fix (e.g. `uno`).
 
 **Severity:** high — every new creator is blocked from pushing and has to ask an
 org owner for manual access. (Reported by Dawson re: `freegamestore-online/uno`.)

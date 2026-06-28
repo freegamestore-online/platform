@@ -57,6 +57,7 @@ interface GameConfig {
   org: string;
   cfProject: string;
   domain: string;
+  hostedOn: string;
 }
 
 interface QualityGame {
@@ -87,6 +88,7 @@ async function fetchRegistry(): Promise<GameConfig[]> {
     org: ORG,
     cfProject: item.cfProject || `free${item.id}app`,
     domain: `${item.id}.${DOMAIN}`,
+    hostedOn: item.hostedOn || "pages",
   }));
 }
 
@@ -101,6 +103,18 @@ async function fetchQuality(): Promise<QualityData | null> {
 }
 
 async function fetchGameStatus(game: GameConfig, env: Env) {
+  // Path B (R2) games have no CF Pages project — querying one always 404s and
+  // reports a bogus "no_project" error. Every current FGS game is on Path B,
+  // so without this short-circuit the whole dashboard reads as broken.
+  if (game.hostedOn === "r2") {
+    return {
+      cf: {
+        deploy: { status: "r2", time: null, url: `https://${game.domain}`, error: null },
+        domain: { status: "active", cert: "active", error: null },
+        source: null,
+      },
+    };
+  }
   try {
     const res = await fetch(
       `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/pages/projects/${game.cfProject}`,
@@ -467,9 +481,70 @@ function jsonResponse(data: unknown, status: number, request: Request): Response
   });
 }
 
+interface ReconcileReport {
+  ts: string;
+  registryCount: number;
+  routeCount: number;
+  /** In the storefront registry but no D1 route → host returns 404 / CF 1014. */
+  missingRoute: string[];
+  /** Has a D1 route but isn't in the registry → drift (provision half-done or unlisted). */
+  orphanRoute: string[];
+  drift: boolean;
+}
+
+/** Compare the storefront registry against the D1 `routes` table and surface
+ *  provisioning drift. A registry entry with no route is the CF-1014 symptom
+ *  (game listed but unservable); a route with no registry entry is a half-done
+ *  provision. Report-only — logs a structured report for `wrangler tail`; it
+ *  never mutates, so a bad read can't cascade into deleting live routes. */
+async function reconcile(env: Env): Promise<ReconcileReport> {
+  const games = await fetchRegistry();
+  const registryIds = new Set(games.map((g) => g.id).filter(Boolean));
+
+  const routeRows = env.DB
+    ? await env.DB
+        .prepare(`SELECT slug FROM routes WHERE zone = ? AND hosted_on = 'r2'`)
+        .bind(DOMAIN)
+        .all<{ slug: string }>()
+    : { results: [] as { slug: string }[] };
+  const routeSlugs = new Set((routeRows.results ?? []).map((r) => r.slug));
+
+  const missingRoute = [...registryIds].filter((id) => !routeSlugs.has(id)).sort();
+  const orphanRoute = [...routeSlugs].filter((slug) => !registryIds.has(slug)).sort();
+
+  const report: ReconcileReport = {
+    ts: new Date().toISOString(),
+    registryCount: registryIds.size,
+    routeCount: routeSlugs.size,
+    missingRoute,
+    orphanRoute,
+    drift: missingRoute.length > 0 || orphanRoute.length > 0,
+  };
+
+  if (report.drift) {
+    console.error(`[reconcile] DRIFT detected: ${JSON.stringify(report)}`);
+  } else {
+    console.log(`[reconcile] clean: ${report.registryCount} games, ${report.routeCount} routes`);
+  }
+  return report;
+}
+
 export default {
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(reconcile(env));
+  },
+
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
+    // GET /api/reconcile — on-demand drift report (same logic as the cron).
+    if (url.pathname === "/api/reconcile" && request.method === "GET") {
+      const login = await authenticateLogin(request, env);
+      if (!login) {
+        return jsonResponse({ error: "unauthorized" }, 401, request);
+      }
+      return jsonResponse(await reconcile(env), 200, request);
+    }
 
     // CORS preflight
     if (request.method === "OPTIONS") {

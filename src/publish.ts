@@ -235,7 +235,7 @@ export async function handlePublish(
   const key = config.registryKey;
   const attemptRegistry = async (
     isRetry: boolean,
-  ): Promise<{ name: string; status: string; detail: string } | null> => {
+  ): Promise<Step | null> => {
     const registryFile = await ghApi(env, registryPath);
     if (!registryFile.content) {
       return { name: "Store registry", status: "fail", detail: "Could not read registry.json" };

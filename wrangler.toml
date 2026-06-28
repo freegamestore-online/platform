@@ -10,6 +10,13 @@ CF_ACCOUNT_ID = "c1089bfcc43c1c6c2aa89e584e86f0bc"
 pattern = "admin.freegamestore.online/*"
 zone_name = "freegamestore.online"
 
+# Hourly reconcile: compares the storefront registry against the D1 routes table
+# and logs provisioning drift (registry entry with no route = CF 1014 symptom;
+# route with no registry entry = half-done provision). Report-only; see the
+# `scheduled` handler + GET /api/reconcile in src/index.ts.
+[triggers]
+crons = ["0 * * * *"]
+
 # Path B: publish writes a D1 routes row to the shared `fas` D1. The fgs/host
 # worker (same DB binding) reads it + serves from the fgs-games R2 bucket
 # at games/<slug>/. Replaces the previous CF Pages provisioning that capped
