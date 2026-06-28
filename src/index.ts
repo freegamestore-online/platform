@@ -17,6 +17,21 @@ const MAX_SCORE = 999_999_999;
 const RATE_LIMIT_SECONDS = 10;
 const LEADERBOARD_LIMIT = 50;
 
+// Per-game sanity caps. A submitted score above the game's cap is rejected as
+// implausible — the cheapest anti-cheat layer there is. Games not listed here
+// fall back to MAX_SCORE. Client games can never be fully trusted; this just
+// keeps the obviously-forged 999,999,999 entries off the boards. Tune as games
+// establish real high-score ranges.
+const DEFAULT_MAX_SCORE = MAX_SCORE;
+const PER_GAME_MAX: Record<string, number> = {
+  coinflip: 1000,
+  dice: 1000,
+  highlow: 1000,
+  simon: 1000,
+  whackamole: 100_000,
+  "2048": 5_000_000,
+};
+
 // Valid game IDs — update when adding new games
 const VALID_GAMES = new Set([
   "chess", "puzzle", "tetris", "snake", "minesweeper", "2048",
@@ -99,8 +114,9 @@ async function verifyJWT(request: Request, secret: string): Promise<JWTPayload |
     // Decode payload
     const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(parts[1]))) as JWTPayload;
 
-    // Check expiration
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
+    // Check expiration (typeof guard matches auth's jwtVerify — a token with a
+    // missing/non-numeric exp must not be treated as non-expiring).
+    if (typeof payload.exp === "number" && payload.exp < Math.floor(Date.now() / 1000)) return null;
 
     return payload;
   } catch {
@@ -117,7 +133,7 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
     return json({ error: "Invalid JSON" }, 400, request);
   }
 
-  const { game, name, score } = body as Record<string, unknown>;
+  const { game, score } = body as Record<string, unknown>;
 
   if (typeof game !== "string" || !VALID_GAMES.has(game)) {
     return json({ error: "Invalid game" }, 400, request);
@@ -126,35 +142,39 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
     return json({ error: "Invalid score" }, 400, request);
   }
 
+  // Authentication is required to submit. Anonymous posts were trivially
+  // spoofable (any client could POST a name + score), so the boards only
+  // accept signed-in users now.
+  const jwtPayload = await verifyJWT(request, env.JWT_SECRET);
+  if (!jwtPayload) {
+    return json({ error: "Sign in to submit a score" }, 401, request);
+  }
+  const userId = jwtPayload.sub;
+  const playerName =
+    jwtPayload.name.trim().slice(0, MAX_NAME_LENGTH).replace(/[<>&"']/g, "") || "Anonymous";
+
+  // Per-game sanity cap — reject implausibly high scores outright.
+  const cap = PER_GAME_MAX[game] ?? DEFAULT_MAX_SCORE;
+  if (score > cap) {
+    return json({ error: "Score exceeds the maximum for this game" }, 422, request);
+  }
+
   const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
   const ipHash = await hashIP(ip);
 
-  // Rate limit: 1 submission per game per RATE_LIMIT_SECONDS
+  // Rate limit: 1 submission per user per game per RATE_LIMIT_SECONDS.
+  // Keyed on the authenticated user (not IP) so a shared network isn't
+  // throttled collectively; ip_hash is still stored for abuse forensics.
   const recent = await env.DB.prepare(
     `SELECT COUNT(*) as cnt FROM scores
-     WHERE ip_hash = ? AND game_id = ?
+     WHERE user_id = ? AND game_id = ?
      AND created_at > datetime('now', ?)`,
   )
-    .bind(ipHash, game, `-${RATE_LIMIT_SECONDS} seconds`)
+    .bind(userId, game, `-${RATE_LIMIT_SECONDS} seconds`)
     .first<{ cnt: number }>();
 
   if (recent && recent.cnt > 0) {
     return json({ error: "Too fast, wait a few seconds" }, 429, request);
-  }
-
-  // Check JWT for authenticated user
-  const jwtPayload = await verifyJWT(request, env.JWT_SECRET);
-
-  let playerName: string;
-  let userId: string | null = null;
-
-  if (jwtPayload) {
-    userId = jwtPayload.sub;
-    playerName = jwtPayload.name.trim().slice(0, MAX_NAME_LENGTH).replace(/[<>&"']/g, "") || "Anonymous";
-  } else {
-    playerName = typeof name === "string"
-      ? name.trim().slice(0, MAX_NAME_LENGTH).replace(/[<>&"']/g, "") || "Anonymous"
-      : "Anonymous";
   }
 
   await env.DB.prepare(
@@ -163,9 +183,11 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
     .bind(game, playerName, score, ipHash, userId)
     .run();
 
-  // Return the player's rank (among authenticated users only)
+  // Return the player's rank (count of distinct users who beat this score —
+  // COUNT(*) would double-count a player who holds several higher scores,
+  // inflating the rank. Matches getUserGameScore's COUNT(DISTINCT user_id).)
   const rank = await env.DB.prepare(
-    `SELECT COUNT(*) as rank FROM scores WHERE game_id = ? AND score > ? AND user_id IS NOT NULL`,
+    `SELECT COUNT(DISTINCT user_id) as rank FROM scores WHERE game_id = ? AND score > ? AND user_id IS NOT NULL`,
   )
     .bind(game, score)
     .first<{ rank: number }>();
@@ -280,7 +302,10 @@ async function getUserGameScore(game: string, userId: string, request: Request, 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    const path = url.pathname;
+    // Versioned alias: /v1/* maps to the same handlers as the unversioned
+    // paths. Old game bundles call the unversioned routes; new ones use /v1.
+    // Both must keep working — see platform/docs/API-CONTRACT.md (additive-only).
+    const path = url.pathname.startsWith("/v1/") ? url.pathname.slice(3) : url.pathname;
 
     // CORS preflight
     if (request.method === "OPTIONS") {

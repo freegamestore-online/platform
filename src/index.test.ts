@@ -62,6 +62,42 @@ describe("score validation", () => {
   });
 });
 
+// --- per-game sanity cap ---
+// Mirrors PER_GAME_MAX / DEFAULT_MAX_SCORE in index.ts. A submitted score
+// above the game's cap is rejected (422) as implausible — the cheapest
+// anti-cheat layer. Unlisted games fall back to the global max.
+const DEFAULT_MAX_SCORE = MAX_SCORE;
+const PER_GAME_MAX: Record<string, number> = {
+  coinflip: 1000,
+  dice: 1000,
+  highlow: 1000,
+  simon: 1000,
+  whackamole: 100_000,
+  "2048": 5_000_000,
+};
+
+function withinCap(game: string, score: number): boolean {
+  return score <= (PER_GAME_MAX[game] ?? DEFAULT_MAX_SCORE);
+}
+
+describe("per-game score cap", () => {
+  it("rejects a forged high score on a bounded game", () => {
+    expect(withinCap("coinflip", 999_999_999)).toBe(false);
+    expect(withinCap("coinflip", 1000)).toBe(true);
+    expect(withinCap("coinflip", 1001)).toBe(false);
+  });
+
+  it("allows large-but-plausible scores under the per-game cap", () => {
+    expect(withinCap("2048", 5_000_000)).toBe(true);
+    expect(withinCap("2048", 5_000_001)).toBe(false);
+  });
+
+  it("falls back to the global max for unlisted games", () => {
+    expect(withinCap("chess", MAX_SCORE)).toBe(true);
+    expect(withinCap("chess", 12345)).toBe(true);
+  });
+});
+
 // --- name sanitisation ---
 const MAX_NAME_LENGTH = 20;
 
