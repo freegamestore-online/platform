@@ -349,7 +349,11 @@ async function handleGitHubCallback(request: Request, env: Env): Promise<Respons
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    const path = url.pathname;
+    // Versioned alias: /v1/me, /v1/logout, etc. resolve to the same handlers
+    // as their unversioned paths so older game bundles keep working while new
+    // ones can adopt /v1. OAuth redirect URIs are always unversioned. See
+    // platform/docs/API-CONTRACT.md (additive-only contract).
+    const path = url.pathname.startsWith("/v1/") ? url.pathname.slice(3) : url.pathname;
 
     // CORS preflight
     if (request.method === "OPTIONS") {
