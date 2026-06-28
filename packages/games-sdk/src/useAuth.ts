@@ -18,7 +18,9 @@ export function useAuth(): {
   useEffect(() => {
     let cancelled = false;
     // Fire-and-forget with terminal .catch/.finally; `void` marks the non-await.
-    void fetch('https://auth.freegamestore.online/me', { credentials: 'include' })
+    // Versioned endpoint (additive-only contract — see platform/docs/API-CONTRACT.md).
+    // The worker still serves the unversioned /me, so older bundles keep working.
+    void fetch('https://auth.freegamestore.online/v1/me', { credentials: 'include' })
       .then((res) => {
         if (!cancelled && res.ok) return res.json();
         return null;
@@ -42,7 +44,7 @@ export function useAuth(): {
   }, []);
 
   const signOut = useCallback(() => {
-    void fetch('https://auth.freegamestore.online/logout', {
+    void fetch('https://auth.freegamestore.online/v1/logout', {
       method: 'POST',
       credentials: 'include',
     })

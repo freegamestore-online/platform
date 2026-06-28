@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-const API_BASE = 'https://leaderboard.freegamestore.online';
+// Versioned endpoint (additive-only contract — see platform/docs/API-CONTRACT.md).
+// The worker also serves the unversioned paths, so games built against older
+// SDK releases keep working.
+const API_BASE = 'https://leaderboard.freegamestore.online/v1';
 
 export interface LeaderboardEntry {
   player_name: string;
@@ -37,6 +40,11 @@ export function useLeaderboard(gameId: string): {
   const [topScores, setTopScores] = useState<LeaderboardEntry[]>([]);
   const [recentScores, setRecentScores] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  // Guards against setState after unmount. load() is called both from the
+  // mount effect and from submitScore(); a ref covers every caller, unlike a
+  // per-effect cancelled flag.
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -60,6 +68,7 @@ export function useLeaderboard(gameId: string): {
         })
         .catch(() => [] as LeaderboardEntry[]),
     ]).then(([top, recent]) => {
+      if (!mountedRef.current) return;
       setTopScores(top);
       setRecentScores(recent);
       setLoading(false);

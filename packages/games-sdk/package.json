@@ -1,6 +1,6 @@
 {
   "name": "@freegamestore/games",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "Shared React UI primitives for games on FreeGameStore — GameShell, GameTopbar, etc. Brand-consistent, scroll-free.",
   "license": "MIT",
   "type": "module",

@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useSound } from './SoundContext.js';
 
 /**
@@ -9,6 +9,15 @@ import { useSound } from './SoundContext.js';
 export function useGameSounds() {
   const { muted } = useSound();
   const ctxRef = useRef<AudioContext | null>(null);
+
+  // Release the AudioContext when the game unmounts so it isn't leaked
+  // (browsers cap concurrent contexts).
+  useEffect(() => {
+    return () => {
+      void ctxRef.current?.close();
+      ctxRef.current = null;
+    };
+  }, []);
 
   const getCtx = useCallback((): AudioContext | null => {
     if (muted) return null;
