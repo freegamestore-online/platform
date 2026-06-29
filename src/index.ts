@@ -1,3 +1,5 @@
+import { vaultList, vaultSet, vaultGet, vaultDelete } from "./vault";
+
 interface Env {
   DB: D1Database;
   GOOGLE_CLIENT_ID: string;
@@ -231,6 +233,41 @@ async function handleMe(request: Request, env: Env): Promise<Response> {
   );
 }
 
+// --- AI key vault (requires a valid session) ---
+
+async function handleVault(request: Request, env: Env, path: string): Promise<Response> {
+  const token = getCookie(request, COOKIE_NAME);
+  const payload = token ? await jwtVerify(token, env.JWT_SECRET) : null;
+  if (!payload?.sub) return json({ error: "Not signed in" }, 401, request);
+  const userId = payload.sub as string;
+
+  if (request.method === "GET" && path === "/vault") {
+    return json({ providers: await vaultList(env.DB, userId) }, 200, request);
+  }
+
+  if (request.method === "POST" && path === "/vault/set") {
+    const body = (await request.json().catch(() => ({}))) as { provider?: string; key?: string };
+    if (!body.provider || !body.key) return json({ error: "provider and key required" }, 400, request);
+    await vaultSet(env.DB, env.JWT_SECRET, userId, body.provider, body.key);
+    return json({ ok: true }, 200, request);
+  }
+
+  if (request.method === "POST" && path === "/vault/get") {
+    const body = (await request.json().catch(() => ({}))) as { provider?: string };
+    if (!body.provider) return json({ error: "provider required" }, 400, request);
+    return json({ key: await vaultGet(env.DB, env.JWT_SECRET, userId, body.provider) }, 200, request);
+  }
+
+  if (request.method === "POST" && path === "/vault/delete") {
+    const body = (await request.json().catch(() => ({}))) as { provider?: string };
+    if (!body.provider) return json({ error: "provider required" }, 400, request);
+    await vaultDelete(env.DB, userId, body.provider);
+    return json({ ok: true }, 200, request);
+  }
+
+  return json({ error: "Not found" }, 404, request);
+}
+
 function handleLogout(request: Request): Response {
   const referrer = request.headers.get("Referer") ?? "https://freegamestore.online";
   return new Response(null, {
@@ -384,6 +421,11 @@ export default {
     // POST /logout
     if (request.method === "POST" && path === "/logout") {
       return handleLogout(request);
+    }
+
+    // AI key vault — /vault, /vault/set, /vault/get, /vault/delete
+    if (path === "/vault" || path.startsWith("/vault/")) {
+      return handleVault(request, env, path);
     }
 
     return json({ error: "Not found" }, 404, request);
