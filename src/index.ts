@@ -26,14 +26,15 @@ async function authenticateLogin(request: Request, env: Env): Promise<string | n
     if (login) return login;
   }
 
-  // 2. fgs_token — prefer the cookie (console), else treat the Bearer as one (MCP).
-  //    The auth worker's /me verifies the signature; we read the login from the payload.
+  // 2. fgs_token — via X-FGS-Token (MCP, worker-to-worker), cookie (console),
+  //    or the Bearer fallback. The auth worker's /me verifies the signature.
   const cookie = request.headers.get("Cookie") ?? "";
-  const fgsToken = cookie.match(/fgs_token=([^;]*)/)?.[1] || bearer;
+  const fgsToken = request.headers.get("X-FGS-Token") || cookie.match(/fgs_token=([^;]*)/)?.[1] || bearer;
   if (fgsToken) {
     try {
+      // X-FGS-Token survives the worker-to-worker hop (Authorization/Cookie don't).
       const meRes = await fetch("https://auth.freegamestore.online/me", {
-        headers: { Cookie: `fgs_token=${fgsToken}` },
+        headers: { "X-FGS-Token": fgsToken },
       });
       if (meRes.ok) {
         const user = await meRes.json() as { id?: string };
