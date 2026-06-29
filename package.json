@@ -2,6 +2,7 @@
   "name": "freegamestore-leaderboard",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.11.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/freegamestore-online/leaderboard"
