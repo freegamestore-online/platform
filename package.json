@@ -9,6 +9,7 @@
   "engines": {
     "node": ">=22"
   },
+  "packageManager": "pnpm@10.30.3",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
