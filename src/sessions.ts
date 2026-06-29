@@ -32,8 +32,15 @@ async function ensureSchema(db: D1Database): Promise<void> {
 }
 
 async function resolveUser(request: Request, domain: string): Promise<{ id: string; name: string } | null> {
-  const cookie = request.headers.get("Cookie");
-  if (!cookie) return null;
+  // The fgs_token may arrive as a Cookie (browser/console) or as an Authorization
+  // Bearer (worker-to-worker, e.g. the MCP — Workers can't reliably set Cookie on
+  // a subrequest). Normalise to a Cookie header for the auth worker's /me.
+  let cookie = request.headers.get("Cookie") ?? "";
+  const authz = request.headers.get("Authorization") ?? "";
+  if (!cookie.includes("fgs_token=") && authz.startsWith("Bearer ")) {
+    cookie = `fgs_token=${authz.slice(7).trim()}`;
+  }
+  if (!cookie.includes("fgs_token=")) return null;
   try {
     const r = await fetch(`https://auth.${domain}/me`, { headers: { Cookie: cookie } });
     if (!r.ok) return null;
