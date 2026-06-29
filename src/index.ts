@@ -29,6 +29,15 @@ type PlatformDispatch =
  */
 const PLATFORM_SUBDOMAINS: Record<string, PlatformDispatch> = {
   www: { type: "redirect", to: "https://freegamestore.online", status: 301 },
+  // Both `console` and `publish` serve the same combined publisher app
+  // (React frontend + Pages Functions for /api/* and /auth/*). Unlike FAS —
+  // where `console` is a separate static-only repo synced to R2 and `publish`
+  // is the Pages API — FGS ships one combined Pages project, so we proxy both
+  // host names to it. This is the canonical, always-fresh source of truth.
+  // `console` is the user-facing entry (VibeCode chat at /create, profile,
+  // dashboard) and the default CORS origin; proxying here supersedes the stale
+  // one-time R2 snapshot that used to answer `console.freegamestore.online`.
+  console: { type: "proxy", target: "https://freegamestore-publisher.pages.dev" },
   publish: { type: "proxy", target: "https://freegamestore-publisher.pages.dev" },
 };
 
