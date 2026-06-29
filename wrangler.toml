@@ -26,6 +26,12 @@ binding = "DB"
 database_name = "fas"
 database_id = "a32701c0-5a56-4a12-810d-485166202e39"
 
+# Direct invocation of the auth worker (verifies fgs_token via /me). Service
+# binding bypasses the public edge — fetching auth's hostname loops back (CF 522).
+[[services]]
+binding = "AUTH"
+service = "freegamestore-auth"
+
 # Secrets (set via `wrangler secret put`):
 #   GITHUB_TOKEN          repo create + collaborator + registry write
 #   CF_API_TOKEN          (kept for future CF API calls; not used by publish)

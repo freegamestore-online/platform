@@ -10,6 +10,8 @@ interface Env {
   SESSION_SIGNING_KEY: string;
   /** Shared `fas` D1 — fgs/host reads from this same table. */
   DB: D1Database;
+  /** Service binding to the auth worker (verify fgs_token via /me). */
+  AUTH: Fetcher;
 }
 
 /** Extract the authenticated GitHub login from either credential the platform issues:
@@ -32,8 +34,8 @@ async function authenticateLogin(request: Request, env: Env): Promise<string | n
   const fgsToken = request.headers.get("X-FGS-Token") || cookie.match(/fgs_token=([^;]*)/)?.[1] || bearer;
   if (fgsToken) {
     try {
-      // X-FGS-Token survives the worker-to-worker hop (Authorization/Cookie don't).
-      const meRes = await fetch("https://auth.freegamestore.online/me", {
+      // Service binding (not a public-hostname fetch — that loops back, CF 522).
+      const meRes = await env.AUTH.fetch("https://auth.freegamestore.online/me", {
         headers: { "X-FGS-Token": fgsToken },
       });
       if (meRes.ok) {
