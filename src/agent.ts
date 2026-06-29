@@ -21,6 +21,11 @@ function createAdapter(config: AIConfig): ProviderAdapter {
       return new GoogleAdapter(config.apiKey, config.model, temp, maxTok);
     case "github":
       return new GitHubModelsAdapter(config.apiKey, config.model, temp, maxTok);
+    default:
+      // config originates from the request/stored config, so an unknown
+      // provider can slip past the type. Fail loudly instead of returning
+      // undefined and crashing later with "cannot read 'run' of undefined".
+      throw new Error(`Unknown AI provider: ${config.provider}`);
   }
 }
 
