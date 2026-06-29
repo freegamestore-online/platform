@@ -216,7 +216,13 @@ async function handleCallback(request: Request, env: Env): Promise<Response> {
 }
 
 async function handleMe(request: Request, env: Env): Promise<Response> {
-  const token = getCookie(request, COOKIE_NAME);
+  // Accept the token from the cookie (browser) OR an Authorization Bearer
+  // (worker-to-worker, e.g. agent/admin verifying an fgs_token — Workers can't
+  // reliably set the Cookie header on a subrequest).
+  // X-FGS-Token (worker-to-worker — Cloudflare strips Authorization/Cookie on
+  // those hops), then Authorization Bearer, then the browser cookie.
+  const authz = request.headers.get("Authorization") ?? "";
+  const token = request.headers.get("X-FGS-Token") || (authz.startsWith("Bearer ") ? authz.slice(7).trim() : "") || getCookie(request, COOKIE_NAME);
   if (!token) {
     return json({ error: "Not signed in" }, 401, request);
   }
