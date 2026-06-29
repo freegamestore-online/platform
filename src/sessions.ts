@@ -32,17 +32,17 @@ async function ensureSchema(db: D1Database): Promise<void> {
 }
 
 async function resolveUser(request: Request, domain: string): Promise<{ id: string; name: string } | null> {
-  // The fgs_token may arrive as a Cookie (browser/console) or as an Authorization
-  // Bearer (worker-to-worker, e.g. the MCP — Workers can't reliably set Cookie on
-  // a subrequest). Normalise to a Cookie header for the auth worker's /me.
-  let cookie = request.headers.get("Cookie") ?? "";
+  // The fgs_token may arrive as a Cookie (browser/console) or an Authorization
+  // Bearer (the MCP). Pull whichever is present and verify it via the auth
+  // worker's /me — forwarded as a Bearer, since Workers can't reliably set Cookie.
   const authz = request.headers.get("Authorization") ?? "";
-  if (!cookie.includes("fgs_token=") && authz.startsWith("Bearer ")) {
-    cookie = `fgs_token=${authz.slice(7).trim()}`;
-  }
-  if (!cookie.includes("fgs_token=")) return null;
+  const xfgs = request.headers.get("X-FGS-Token") ?? "";
+  const cookieToken = (request.headers.get("Cookie") ?? "").match(/fgs_token=([^;]*)/)?.[1];
+  const token = xfgs || (authz.startsWith("Bearer ") ? authz.slice(7).trim() : "") || cookieToken;
+  if (!token) return null;
   try {
-    const r = await fetch(`https://auth.${domain}/me`, { headers: { Cookie: cookie } });
+    // X-FGS-Token survives the worker-to-worker hop (Authorization/Cookie don't).
+    const r = await fetch(`https://auth.${domain}/me`, { headers: { "X-FGS-Token": token } });
     if (!r.ok) return null;
     const u = (await r.json()) as { id?: string; name?: string };
     return u?.id ? { id: u.id, name: u.name || "" } : null;
