@@ -31,18 +31,18 @@ async function ensureSchema(db: D1Database): Promise<void> {
   schemaReady = true;
 }
 
-async function resolveUser(request: Request, domain: string): Promise<{ id: string; name: string } | null> {
-  // The fgs_token may arrive as a Cookie (browser/console) or an Authorization
-  // Bearer (the MCP). Pull whichever is present and verify it via the auth
-  // worker's /me — forwarded as a Bearer, since Workers can't reliably set Cookie.
+async function resolveUser(request: Request, auth: Fetcher): Promise<{ id: string; name: string } | null> {
+  // The fgs_token arrives as X-FGS-Token (MCP), an Authorization Bearer, or the
+  // fgs_token cookie (console). Verify it via the auth worker's /me — over a
+  // SERVICE BINDING, since fetching auth's public hostname from a Worker loops
+  // back through the edge and times out (CF 522).
   const authz = request.headers.get("Authorization") ?? "";
   const xfgs = request.headers.get("X-FGS-Token") ?? "";
   const cookieToken = (request.headers.get("Cookie") ?? "").match(/fgs_token=([^;]*)/)?.[1];
   const token = xfgs || (authz.startsWith("Bearer ") ? authz.slice(7).trim() : "") || cookieToken;
   if (!token) return null;
   try {
-    // X-FGS-Token survives the worker-to-worker hop (Authorization/Cookie don't).
-    const r = await fetch(`https://auth.${domain}/me`, { headers: { "X-FGS-Token": token } });
+    const r = await auth.fetch("https://auth.freegamestore.online/me", { headers: { "X-FGS-Token": token } });
     if (!r.ok) return null;
     const u = (await r.json()) as { id?: string; name?: string };
     return u?.id ? { id: u.id, name: u.name || "" } : null;
@@ -69,7 +69,7 @@ export async function handleSessionsApi(
 
   if (!env.DB) return json({ error: "database not configured" }, 500);
 
-  const user = await resolveUser(request, domain);
+  const user = await resolveUser(request, env.AUTH);
   if (!user) return json({ error: "unauthorized" }, 401);
 
   await ensureSchema(env.DB);

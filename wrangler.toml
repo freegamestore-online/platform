@@ -12,6 +12,13 @@ bindings = [
   { name = "SESSION", class_name = "AgentSession" }
 ]
 
+# Direct worker-to-worker invocation of the auth worker (verifies fgs_token via
+# /me). A service binding bypasses the public edge — fetching auth's public
+# hostname from here loops back and times out (CF error 522).
+[[services]]
+binding = "AUTH"
+service = "freegamestore-auth"
+
 # Shared with auth + leaderboard. Holds the per-user `agent_sessions` index
 # (session metadata only; conversation state stays in the Durable Object).
 [[d1_databases]]

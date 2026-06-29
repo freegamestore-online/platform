@@ -8,6 +8,7 @@ export { AgentSession } from "./session";
 export interface Env {
   SESSION: DurableObjectNamespace;
   DB: D1Database;
+  AUTH: Fetcher;
   GITHUB_TOKEN: string;
   CF_API_TOKEN: string;
   CF_ACCOUNT_ID: string;
