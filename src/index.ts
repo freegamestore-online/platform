@@ -1,11 +1,13 @@
 /** Worker entry — routes requests to the correct Durable Object session. */
 
 import { getConfig } from "./config";
+import { handleSessionsApi } from "./sessions";
 
 export { AgentSession } from "./session";
 
 export interface Env {
   SESSION: DurableObjectNamespace;
+  DB: D1Database;
   GITHUB_TOKEN: string;
   CF_API_TOKEN: string;
   CF_ACCOUNT_ID: string;
@@ -28,7 +30,7 @@ function corsHeaders(request: Request, domain: string): Record<string, string> {
       : `https://${domain}`;
   return {
     "Access-Control-Allow-Origin": allowed,
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Credentials": "true",
   };
@@ -44,6 +46,10 @@ export default {
 
     const url = new URL(request.url);
     const path = url.pathname;
+
+    // Per-user session list (D1) — /sessions, /sessions/:id
+    const sessionsResp = await handleSessionsApi(request, env, config.domain, corsHeaders(request, config.domain));
+    if (sessionsResp) return sessionsResp;
 
     // Health check
     if (path === "/" || path === "/health") {

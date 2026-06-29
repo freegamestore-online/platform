@@ -12,6 +12,13 @@ bindings = [
   { name = "SESSION", class_name = "AgentSession" }
 ]
 
+# Shared with auth + leaderboard. Holds the per-user `agent_sessions` index
+# (session metadata only; conversation state stays in the Durable Object).
+[[d1_databases]]
+binding = "DB"
+database_name = "leaderboard"
+database_id = "165c4cb7-d93e-4afc-8ac0-7d48e627efaa"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["AgentSession"]
