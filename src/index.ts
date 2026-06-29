@@ -12,37 +12,35 @@ interface Env {
   DB: D1Database;
 }
 
-/** Extract the authenticated GitHub login from:
- *  1. Bearer admin session token (CLI / MCP)
- *  2. fgs_token cookie verified via auth worker /me (console) */
+/** Extract the authenticated GitHub login from either credential the platform issues:
+ *  1. Bearer admin session token (CLI `fgs login`)
+ *  2. fgs_token — as an Authorization Bearer (MCP) OR an fgs_token cookie (console),
+ *     verified by the auth worker's /me (single uniform identity, like the other stores). */
 async function authenticateLogin(request: Request, env: Env): Promise<string | null> {
-  // Try Bearer first (admin-minted JWT)
   const auth = request.headers.get("Authorization") ?? "";
-  if (auth.startsWith("Bearer ")) {
-    const login = await verifySession(auth.slice(7), env.SESSION_SIGNING_KEY);
+  const bearer = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+
+  // 1. Admin-minted session token (CLI).
+  if (bearer) {
+    const login = await verifySession(bearer, env.SESSION_SIGNING_KEY);
     if (login) return login;
   }
-  // Fall back to fgs_token cookie — verify by calling auth worker's /me
+
+  // 2. fgs_token — prefer the cookie (console), else treat the Bearer as one (MCP).
+  //    The auth worker's /me verifies the signature; we read the login from the payload.
   const cookie = request.headers.get("Cookie") ?? "";
-  if (cookie.includes("fgs_token=")) {
+  const fgsToken = cookie.match(/fgs_token=([^;]*)/)?.[1] || bearer;
+  if (fgsToken) {
     try {
       const meRes = await fetch("https://auth.freegamestore.online/me", {
-        headers: { Cookie: cookie },
+        headers: { Cookie: `fgs_token=${fgsToken}` },
       });
       if (meRes.ok) {
-        const user = await meRes.json() as { id?: string; name?: string };
-        // Auth worker /me returns { id, name, avatar }. The id is the GitHub user id
-        // (e.g. "github:12345" for GH users). Extract the login from it.
-        // For GitHub users the login isn't in /me — but we stored it in the JWT.
-        // Parse the cookie JWT payload to get login (unsigned, just for the login value —
-        // the auth worker already verified the signature by returning 200).
-        const token = cookie.match(/fgs_token=([^;]*)/)?.[1];
-        if (token) {
-          const parts = token.split(".");
-          if (parts.length === 3) {
-            const payload = JSON.parse(atob(parts[1]!.replace(/-/g, "+").replace(/_/g, "/"))) as { login?: string; sub?: string };
-            return payload.login ?? payload.sub ?? null;
-          }
+        const user = await meRes.json() as { id?: string };
+        const parts = fgsToken.split(".");
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1]!.replace(/-/g, "+").replace(/_/g, "/"))) as { login?: string; sub?: string };
+          return payload.login ?? payload.sub ?? null;
         }
         return user.id ?? null;
       }
@@ -613,16 +611,12 @@ export default {
     }
 
     if ((url.pathname === "/api/provision" || url.pathname === "/api/publish") && request.method === "POST") {
-      // HS256 Bearer session check. Without this, anyone reachable to
-      // admin.freegamestore.online can provision repos in freegamestore-online
-      // and mint CF resources. Add CF Access in front for defense-in-depth.
-      const authHeader = request.headers.get("Authorization");
-      if (!authHeader?.startsWith("Bearer ")) {
-        return jsonResponse({ error: "unauthorized" }, 401, request);
-      }
-      const login = await verifySession(authHeader.slice(7), env.SESSION_SIGNING_KEY);
+      // Auth required (admin session, or fgs_token from MCP/console). Without this,
+      // anyone reachable to admin.freegamestore.online can provision repos in
+      // freegamestore-online and mint CF resources. CF Access adds defense-in-depth.
+      const login = await authenticateLogin(request, env);
       if (!login) {
-        return jsonResponse({ error: "invalid or expired session" }, 401, request);
+        return jsonResponse({ error: "unauthorized" }, 401, request);
       }
       try {
         const body = await request.json() as any;
