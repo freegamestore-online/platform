@@ -1,0 +1,29 @@
+name: Deploy leaderboard worker
+
+# Ships the freegamestore-leaderboard Worker via GitHub Actions. This repo had
+# no CI — fixes (including the production route + /v1 alias) shipped only via
+# local `wrangler deploy`, so the worker drifted undeployed and
+# leaderboard.freegamestore.online 404'd through the host wildcard. wrangler's
+# bundle step is the build gate. Requires org secrets CLOUDFLARE_API_TOKEN +
+# CLOUDFLARE_ACCOUNT_ID (synced from Doppler).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
