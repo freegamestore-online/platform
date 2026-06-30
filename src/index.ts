@@ -1,7 +1,7 @@
 /** Worker entry — routes requests to the correct Durable Object session. */
 
 import { getConfig } from "./config";
-import { handleSessionsApi } from "./sessions";
+import { handleSessionsApi, resolveUser } from "./sessions";
 
 export { AgentSession } from "./session";
 
@@ -19,16 +19,18 @@ export interface Env {
   VAPID_PRIVATE_KEY: string;
 }
 
+// Dev origins only — exact host match so e.g. `http://localhost.evil.com` (a
+// prefix match) can't slip through and make credentialed requests.
+const DEV_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
 function corsHeaders(request: Request, domain: string): Record<string, string> {
   const origin = request.headers.get("Origin");
+  // Credentialed CORS (cookie auth) is restricted to the store's own domain +
+  // subdomains and localhost dev. No `*.pages.dev` wildcard — any attacker can
+  // deploy a Pages site, and reflecting it back with credentials would let it
+  // ride a signed-in user's fgs_token cookie.
   const allowed =
-    origin &&
-    (origin.endsWith(`.${domain}`) ||
-      origin === `https://${domain}` ||
-      origin.endsWith(".pages.dev") ||
-      origin.startsWith("http://localhost"))
-      ? origin
-      : `https://${domain}`;
+    origin && (origin === `https://${domain}` || origin.endsWith(`.${domain}`) || DEV_ORIGIN.test(origin)) ? origin : `https://${domain}`;
   return {
     "Access-Control-Allow-Origin": allowed,
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -76,14 +78,30 @@ export default {
     }
 
     const [, sessionId, route] = match;
+
+    // Authenticate: every /session/* route requires a valid FGS session. The DO
+    // (one per session) has no edge route of its own, so identity is established
+    // here — verified via the auth worker's /me over the service binding — and
+    // the DO binds the session to its owner (trust-on-first-use).
+    const user = await resolveUser(request, env.AUTH);
+    if (!user) {
+      return new Response(JSON.stringify({ error: "unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json", ...corsHeaders(request, config.domain) },
+      });
+    }
+
     const subpath = `/${route}`;
     const doId = env.SESSION.idFromName(sessionId);
     const stub = env.SESSION.get(doId);
 
-    // Forward the request to the Durable Object (DO has env via constructor)
+    // Forward to the DO with the worker-verified identity. set() overwrites any
+    // client-supplied X-Auth-User, so a caller can't spoof session ownership.
+    const fwdHeaders = new Headers(request.headers);
+    fwdHeaders.set("X-Auth-User", user.id);
     const doRequest = new Request(`https://do${subpath}`, {
       method: request.method,
-      headers: request.headers,
+      headers: fwdHeaders,
       body: request.method === "POST" ? request.body : undefined,
     });
 

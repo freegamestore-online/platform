@@ -76,6 +76,20 @@ export class AgentSession implements DurableObject {
     }
 
     try {
+      // Ownership gate. The worker has already verified identity and set
+      // X-Auth-User; bind this session to the first authenticated caller
+      // (trust-on-first-use) and reject everyone else. Without this, anyone who
+      // learns a session id could read its transcript (/history), wipe it
+      // (/reset), or drive the agent.
+      const caller = request.headers.get("X-Auth-User");
+      if (!caller) return json({ error: "unauthorized" }, 401, request, this.config.domain);
+      const owner = await this.state.storage.get<string>("owner");
+      if (!owner) {
+        await this.state.storage.put("owner", caller);
+      } else if (owner !== caller) {
+        return json({ error: "forbidden" }, 403, request, this.config.domain);
+      }
+
       if (path === "/chat" && request.method === "POST") {
         return this.handleChat(request);
       }
@@ -348,16 +362,16 @@ export class AgentSession implements DurableObject {
   }
 }
 
+// Dev origins only — exact host match so e.g. `http://localhost.evil.com` (a
+// prefix match) can't slip through and make credentialed requests.
+const DEV_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
 function corsHeaders(request: Request, domain: string): Record<string, string> {
   const origin = request.headers.get("Origin");
+  // Credentialed CORS restricted to the store's own domain + subdomains and
+  // localhost dev — no `*.pages.dev` wildcard (any attacker can deploy one).
   const allowed =
-    origin &&
-    (origin.endsWith(`.${domain}`) ||
-      origin === `https://${domain}` ||
-      origin.endsWith(".pages.dev") ||
-      origin.startsWith("http://localhost"))
-      ? origin
-      : `https://${domain}`;
+    origin && (origin === `https://${domain}` || origin.endsWith(`.${domain}`) || DEV_ORIGIN.test(origin)) ? origin : `https://${domain}`;
   return {
     "Access-Control-Allow-Origin": allowed,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",

@@ -31,7 +31,7 @@ async function ensureSchema(db: D1Database): Promise<void> {
   schemaReady = true;
 }
 
-async function resolveUser(request: Request, auth: Fetcher): Promise<{ id: string; name: string } | null> {
+export async function resolveUser(request: Request, auth: Fetcher): Promise<{ id: string; name: string } | null> {
   // The fgs_token arrives as X-FGS-Token (MCP), an Authorization Bearer, or the
   // fgs_token cookie (console). Verify it via the auth worker's /me — over a
   // SERVICE BINDING, since fetching auth's public hostname from a Worker loops
