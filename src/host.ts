@@ -84,15 +84,34 @@ export function securityHeaders(opts: { htmlCache: boolean }): Headers {
   }
   // frame-ancestors lets the freegamestore.online storefront iframe
   // games for previews.
+  // Games are untrusted user content. The two CSP directives that used a blanket
+  // `https:` — script-src and connect-src — were the real runtime holes: a
+  // malicious game could load arbitrary external JS, or exfiltrate data
+  // (gameplay, a stolen token) to any host via fetch/XHR/beacon/WebSocket.
+  // Games are self-contained bundles served from their own origin and only need
+  // to talk to the platform (*.freegamestore.online: auth, leaderboard, rooms)
+  // plus CF analytics, so we drop the wildcards. This is enforced at serve time,
+  // so a creator can't bypass it the way they can a CI check. (img/style/font
+  // keep https: — loading external media is common and low-risk; the residual
+  // GET-in-URL exfil channel is far narrower than connect-src.)
+  // Trusted external origins: the platform analytics loader + the opt-in BYO
+  // analytics vendors (Cloudflare / GA4 / Plausible) games may legitimately
+  // load. Everything else is dropped — script-src and connect-src no longer
+  // carry a blanket `https:`, so a malicious game can't inject arbitrary
+  // external JS or exfiltrate data to an attacker host. Platform calls go to
+  // *.freegamestore.online (auth, leaderboard, rooms).
+  const analyticsScript = "https://static.cloudflareinsights.com https://api.freeappstore.online https://www.googletagmanager.com https://plausible.io";
+  const analyticsConnect = "https://cloudflareinsights.com https://api.freeappstore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io";
   const csp = [
     "default-src 'self' https: data: blob:",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https: https://static.cloudflareinsights.com",
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${analyticsScript}`,
+    "worker-src 'self' blob:",
     "style-src 'self' 'unsafe-inline' https:",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data: https:",
-    "connect-src 'self' https: wss: https://cloudflareinsights.com",
+    `connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online ${analyticsConnect}`,
     "frame-src 'self' https:",
-    "frame-ancestors 'self' https://freegamestore.online https://*.freegamestore.online",
+    "frame-ancestors 'self' https://freegamestore.online https://*.freegamestore.online https://freegamestore.pages.dev",
     "base-uri 'self'",
     "object-src 'none'",
     "upgrade-insecure-requests",
