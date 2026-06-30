@@ -49,6 +49,7 @@ function cors(request: Request): Record<string, string> {
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400",
+    Vary: "Origin",
   };
 }
 
@@ -114,9 +115,9 @@ async function verifyJWT(request: Request, secret: string): Promise<JWTPayload |
     // Decode payload
     const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(parts[1]))) as JWTPayload;
 
-    // Check expiration (typeof guard matches auth's jwtVerify — a token with a
-    // missing/non-numeric exp must not be treated as non-expiring).
-    if (typeof payload.exp === "number" && payload.exp < Math.floor(Date.now() / 1000)) return null;
+    // Check expiration (matches auth's jwtVerify — a token with a missing or
+    // non-numeric exp must not be treated as non-expiring, so require a number).
+    if (typeof payload.exp !== "number" || payload.exp < Math.floor(Date.now() / 1000)) return null;
 
     return payload;
   } catch {
@@ -204,12 +205,18 @@ async function getLeaderboard(game: string, url: URL, request: Request, env: Env
   const limitParam = url.searchParams.get("limit");
   const limit = Math.min(Math.max(parseInt(limitParam ?? "10", 10) || 10, 1), LEADERBOARD_LIMIT);
 
+  // One row per user (their personal best). GROUP BY user_id with MAX(score)
+  // relies on SQLite's documented "bare columns take values from the max row"
+  // behaviour, so player_name/created_at come from each user's top score.
+  // Without this, a single player's 50 best scores fill every board slot — and
+  // it would also disagree with the COUNT(DISTINCT user_id) rank math elsewhere.
   const results = await env.DB.prepare(
-    `SELECT s.player_name, s.score, s.created_at, s.user_id, u.avatar_url
+    `SELECT s.player_name, MAX(s.score) AS score, s.created_at, s.user_id, u.avatar_url
      FROM scores s
      LEFT JOIN users u ON s.user_id = u.id
      WHERE s.game_id = ? AND s.user_id IS NOT NULL
-     ORDER BY s.score DESC LIMIT ?`,
+     GROUP BY s.user_id
+     ORDER BY score DESC LIMIT ?`,
   )
     .bind(game, limit)
     .all<{ player_name: string; score: number; created_at: string; user_id: string; avatar_url: string | null }>();
