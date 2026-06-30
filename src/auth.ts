@@ -22,6 +22,9 @@ async function verifyGithubToken(token: string): Promise<GitHubUser | null> {
 }
 
 async function mintSessionToken(login: string, signingKey: string): Promise<string> {
+  // Fail closed: an unset/empty key would make TextEncoder.encode() hash the
+  // literal "undefined" — a known, forgeable HMAC key anyone could mint with.
+  if (!signingKey) throw new Error("SESSION_SIGNING_KEY is not configured");
   const payload = {
     sub: login,
     iat: Math.floor(Date.now() / 1000),
@@ -45,6 +48,8 @@ async function mintSessionToken(login: string, signingKey: string): Promise<stri
 
 export async function verifySession(token: string, signingKey: string): Promise<string | null> {
   try {
+    // Fail closed if the key is missing — never verify against a "undefined" key.
+    if (!signingKey) return null;
     const parts = token.split(".");
     if (parts.length !== 3) return null;
     const encoder = new TextEncoder();
@@ -64,7 +69,7 @@ export async function verifySession(token: string, signingKey: string): Promise<
     );
     if (!valid) return null;
     const payload = JSON.parse(atob(parts[1]!)) as { sub: string; exp: number };
-    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+    if (typeof payload.exp !== "number" || payload.exp < Math.floor(Date.now() / 1000)) return null;
     return payload.sub;
   } catch {
     return null;

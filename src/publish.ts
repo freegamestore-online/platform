@@ -157,6 +157,7 @@ export async function handlePublish(
 
   // Step 1: Create GitHub repo from template
   const repoCheck = await ghApi(env, `/repos/${config.org}/${id}`);
+  const repoExisted = Boolean(repoCheck.id);
   if (repoCheck.id) {
     steps.push({
       name: "GitHub repo",
@@ -186,8 +187,27 @@ export async function handlePublish(
     }
   }
 
-  // Step 1b: Add creator as collaborator with push access
-  if (req.creatorGithub) {
+  // Step 1b: Add creator as collaborator with push access.
+  //
+  // SECURITY: only ever grant push on a repo we just CREATED in this call. The
+  // provision endpoint authenticates the caller but does not verify ownership of
+  // a pre-existing game, so adding a collaborator to an already-existing repo
+  // would let any caller grant themselves (or an arbitrary `creatorGithub`) push
+  // access to someone else's live game and ship code to its domain. Collaborator
+  // changes on existing repos must go through an ownership-checked path, not here.
+  // `creatorGithub` is also validated against GitHub's username grammar before it
+  // reaches the API URL (it is otherwise attacker-controlled and interpolated
+  // into a privileged github.com path + written to the registry).
+  const VALID_GH_LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
+  if (req.creatorGithub && !VALID_GH_LOGIN.test(req.creatorGithub)) {
+    steps.push({ name: "Collaborator", status: "fail", detail: "Invalid creatorGithub username" });
+  } else if (req.creatorGithub && repoExisted) {
+    steps.push({
+      name: "Collaborator",
+      status: "skip",
+      detail: `${config.org}/${id} already exists — collaborator access unchanged (granting push on an existing repo requires an ownership-checked request)`,
+    });
+  } else if (req.creatorGithub) {
     const collab = await ghApi(
       env,
       `/repos/${config.org}/${id}/collaborators/${req.creatorGithub}`,
@@ -327,9 +347,17 @@ export async function handleUpdateGame(
   if (idx < 0) return { error: `Game "${gameId}" not found in registry` };
 
   const game = items[idx]!;
-  // Only the creator can update
-  if (game.creatorGithub && game.creatorGithub !== login) {
-    return { error: `Only the creator (${game.creatorGithub}) can update this game` };
+  // Only the creator can update. Default-deny: a game with no recorded
+  // creatorGithub (legacy / dashboard-provisioned without the field) is NOT
+  // editable via this self-service path — otherwise any authenticated user
+  // could deface unowned listings. Such games must be fixed by backfilling
+  // ownership (or an admin editing the registry directly).
+  if (!game.creatorGithub || game.creatorGithub !== login) {
+    return {
+      error: game.creatorGithub
+        ? `Only the creator (${game.creatorGithub}) can update this game`
+        : `This game has no recorded owner and can't be edited here`,
+    };
   }
 
   // Allow updating these fields only
