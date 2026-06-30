@@ -18,7 +18,7 @@ const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo";
 const GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize";
 const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
 const GITHUB_USER_URL = "https://api.github.com/user";
-const CALLBACK_PATH = "/callback";
+const CALLBACK_PATH = "/callback"; // Google OAuth callback route (see fetch router)
 
 // --- JWT utilities (HMAC-SHA256, no dependencies) ---
 
@@ -109,6 +109,36 @@ function getCookie(request: Request, name: string): string | null {
   return match ? match[1] : null;
 }
 
+// --- OAuth state / redirect safety ---
+
+const OAUTH_STATE_COOKIE = "fgs_oauth_state";
+
+/** SECURITY: allowlist the post-login redirect to our own origins. An
+ *  attacker-controlled `redirect` param would otherwise be reflected into the
+ *  Location header (open redirect / phishing). */
+function safeRedirect(raw: string | null | undefined): string {
+  const fallback = "https://freegamestore.online";
+  if (!raw) return fallback;
+  try {
+    const u = new URL(raw);
+    const h = u.hostname;
+    if (u.protocol === "https:" && (h === "freegamestore.online" || h.endsWith(".freegamestore.online"))) {
+      return u.toString();
+    }
+    if ((u.protocol === "http:" || u.protocol === "https:") && (h === "localhost" || h === "127.0.0.1")) {
+      return u.toString();
+    }
+  } catch {
+    /* not a valid absolute URL */
+  }
+  return fallback;
+}
+
+/** Short-lived, browser-bound nonce cookie for OAuth CSRF protection. */
+function setStateCookie(nonce: string): string {
+  return `${OAUTH_STATE_COOKIE}=${nonce}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`;
+}
+
 // --- Route handlers ---
 
 function getRedirectUri(request: Request): string {
@@ -118,9 +148,9 @@ function getRedirectUri(request: Request): string {
 
 async function handleLogin(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
-  const redirect = url.searchParams.get("redirect") ?? "https://freegamestore.online";
-
-  const state = base64urlEncode(JSON.stringify({ redirect }));
+  const redirect = safeRedirect(url.searchParams.get("redirect"));
+  const nonce = crypto.randomUUID();
+  const state = base64urlEncode(JSON.stringify({ redirect, nonce }));
 
   const params = new URLSearchParams({
     client_id: env.GOOGLE_CLIENT_ID,
@@ -133,7 +163,7 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
 
   return new Response(null, {
     status: 302,
-    headers: { Location: `${GOOGLE_AUTH_URL}?${params}` },
+    headers: { Location: `${GOOGLE_AUTH_URL}?${params}`, "Set-Cookie": setStateCookie(nonce) },
   });
 }
 
@@ -146,13 +176,20 @@ async function handleCallback(request: Request, env: Env): Promise<Response> {
     return new Response("Missing code or state", { status: 400 });
   }
 
-  // Parse state to get redirect URL
+  // SECURITY: validate the CSRF nonce (state must match the cookie set at /login)
+  // and allowlist the redirect. Prevents login-CSRF / session fixation + open redirect.
+  const cookieNonce = getCookie(request, OAUTH_STATE_COOKIE);
   let redirect = "https://freegamestore.online";
+  let stateNonce: string | undefined;
   try {
-    const state = JSON.parse(base64urlDecode(stateParam)) as { redirect?: string };
-    if (state.redirect) redirect = state.redirect;
+    const state = JSON.parse(base64urlDecode(stateParam)) as { redirect?: string; nonce?: string };
+    redirect = safeRedirect(state.redirect);
+    stateNonce = state.nonce;
   } catch {
     // fall through with default redirect
+  }
+  if (!cookieNonce || !stateNonce || cookieNonce !== stateNonce) {
+    return new Response("Invalid OAuth state", { status: 403 });
   }
 
   // Exchange code for tokens
@@ -275,7 +312,7 @@ async function handleVault(request: Request, env: Env, path: string): Promise<Re
 }
 
 function handleLogout(request: Request): Response {
-  const referrer = request.headers.get("Referer") ?? "https://freegamestore.online";
+  const referrer = safeRedirect(request.headers.get("Referer"));
   return new Response(null, {
     status: 302,
     headers: {
@@ -289,8 +326,9 @@ function handleLogout(request: Request): Response {
 
 async function handleGitHubLogin(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
-  const redirect = url.searchParams.get("redirect") ?? "https://freegamestore.online";
-  const state = base64urlEncode(JSON.stringify({ redirect }));
+  const redirect = safeRedirect(url.searchParams.get("redirect"));
+  const nonce = crypto.randomUUID();
+  const state = base64urlEncode(JSON.stringify({ redirect, nonce }));
 
   const params = new URLSearchParams({
     client_id: env.GITHUB_CLIENT_ID,
@@ -301,7 +339,7 @@ async function handleGitHubLogin(request: Request, env: Env): Promise<Response> 
 
   return new Response(null, {
     status: 302,
-    headers: { Location: `${GITHUB_AUTH_URL}?${params}` },
+    headers: { Location: `${GITHUB_AUTH_URL}?${params}`, "Set-Cookie": setStateCookie(nonce) },
   });
 }
 
@@ -314,11 +352,18 @@ async function handleGitHubCallback(request: Request, env: Env): Promise<Respons
     return new Response("Missing code or state", { status: 400 });
   }
 
+  // SECURITY: validate the CSRF nonce + allowlist the redirect (see Google callback).
+  const cookieNonce = getCookie(request, OAUTH_STATE_COOKIE);
   let redirect = "https://freegamestore.online";
+  let stateNonce: string | undefined;
   try {
-    const state = JSON.parse(base64urlDecode(stateParam)) as { redirect?: string };
-    if (state.redirect) redirect = state.redirect;
+    const state = JSON.parse(base64urlDecode(stateParam)) as { redirect?: string; nonce?: string };
+    redirect = safeRedirect(state.redirect);
+    stateNonce = state.nonce;
   } catch { /* fall through */ }
+  if (!cookieNonce || !stateNonce || cookieNonce !== stateNonce) {
+    return new Response("Invalid OAuth state", { status: 403 });
+  }
 
   // Exchange code for access token
   const tokenRes = await fetch(GITHUB_TOKEN_URL, {
