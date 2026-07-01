@@ -28,7 +28,7 @@ async function cfApi(token: string, _accountId: string, path: string) {
 export async function checkDeployStatus(appId: string, env: DeployEnv, config: StoreConfig): Promise<string> {
   if (config.pathB) {
     const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
-    const runs = await ghApi(`/repos/${config.org}/${appId}/actions/runs?per_page=1`);
+    const runs = await ghApi(`/repos/${config.org}/${appId}/actions/workflows/deploy.yml/runs?per_page=1`);
     const run = runs.workflow_runs?.[0];
     if (!run) return `No deploy runs found for ${config.org}/${appId}. The ${config.noun} may not be provisioned yet.`;
     const state = run.status === "completed" ? run.conclusion : run.status;
@@ -77,7 +77,7 @@ export async function fetchUrl(url: string, method: string, agentName: string): 
 export async function getBuildLogs(appId: string, env: DeployEnv, config: StoreConfig): Promise<string> {
   if (config.pathB) {
     const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
-    const runs = await ghApi(`/repos/${config.org}/${appId}/actions/runs?per_page=1`);
+    const runs = await ghApi(`/repos/${config.org}/${appId}/actions/workflows/deploy.yml/runs?per_page=1`);
     const run = runs.workflow_runs?.[0];
     if (!run) return `No deploy runs found for ${config.org}/${appId}.`;
     const jobs = await ghApi(`/repos/${config.org}/${appId}/actions/runs/${run.id}/jobs`);

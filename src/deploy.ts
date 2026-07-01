@@ -320,7 +320,10 @@ async function waitForActionsDeploy(
   while (Date.now() < deadline) {
     await sleep(8000);
     try {
-      const runs = await ghApi(`/repos/${config.org}/${repoId}/actions/runs?per_page=1`);
+      // Filter to the deploy workflow specifically — a repo can carry several
+      // workflows (ci/compliance/deploy), so "latest run of any workflow" would
+      // read the wrong conclusion.
+      const runs = await ghApi(`/repos/${config.org}/${repoId}/actions/workflows/deploy.yml/runs?per_page=1`);
       const run = runs.workflow_runs?.[0];
       if (!run || run.status !== "completed") continue;
       if (run.conclusion === "success") {
