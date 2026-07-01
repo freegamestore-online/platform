@@ -305,7 +305,10 @@ async function handleMe(request: Request, env: Env): Promise<Response> {
   }
 
   return json(
-    { id: payload.sub, name: payload.name, avatar: payload.avatar },
+    // `login` is the GitHub username (distinct from `id`/`sub` = "github:<id>").
+    // Consumers that provision GitHub resources for the signed-in creator (e.g.
+    // the agent adding them as a repo collaborator) need the login, not the sub.
+    { id: payload.sub, name: payload.name, avatar: payload.avatar, login: payload.login ?? null },
     200,
     request,
   );
