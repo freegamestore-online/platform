@@ -28,11 +28,23 @@ export function useGameSounds() {
         return null;
       }
     }
+    // resume() returns a promise that can reject if called outside a user
+    // gesture; handle it so it never surfaces as an unhandled rejection.
     if (ctxRef.current.state === 'suspended') {
-      ctxRef.current.resume();
+      void ctxRef.current.resume().catch(() => {});
     }
     return ctxRef.current;
   }, [muted]);
+
+  // Warm up (create + resume) the AudioContext the moment the user unmutes.
+  // Unmuting is itself a user gesture, so resume() succeeds here and the
+  // context is running before the first playXxx() call — otherwise that first
+  // sound can fire against a still-suspended context and be silent under
+  // strict autoplay policies.
+  useEffect(() => {
+    if (muted) return;
+    getCtx();
+  }, [muted, getCtx]);
 
   const tone = useCallback(
     (freq: number, duration: number, type: OscillatorType = 'sine', volume = 0.15) => {

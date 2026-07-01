@@ -20,9 +20,10 @@ interface LeaderboardResponse {
   scores: LeaderboardEntry[];
 }
 
-// POST /api/scores response — the rank lookup runs against signed-in
-// users only, so an anonymous submit returns `authenticated: false`
-// with no rank.
+// POST /api/scores response. Submitting requires a signed-in user: the Worker
+// returns 401 for unauthenticated posts (anonymous submits were trivially
+// spoofable). `authenticated` is therefore always true on a 2xx response, and
+// `rank` is the submitter's position among signed-in players.
 interface SubmitScoreResponse {
   ok?: boolean;
   rank?: number;
@@ -93,8 +94,9 @@ export function useLeaderboard(gameId: string): {
   const submitScore = useCallback(
     async (score: number): Promise<{ ok: boolean; rank?: number }> => {
       try {
-        // The Worker wants `{ game, score }` (and an optional `name` if not
-        // signed in; signed-in users get their name from the cookie JWT).
+        // The Worker wants `{ game, score }`. Submitting requires auth: the
+        // player name comes from the cookie JWT, and an unauthenticated post
+        // is rejected with 401 (handled by the `!res.ok` check below).
         const res = await fetch(`${API_BASE}/api/scores`, {
           method: 'POST',
           credentials: 'include',

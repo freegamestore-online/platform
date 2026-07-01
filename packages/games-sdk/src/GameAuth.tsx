@@ -58,6 +58,10 @@ export function GameAuth(): React.JSX.Element {
   }
 
   const firstName = user.name.split(' ')[0] ?? user.name;
+  // Google accounts without a profile picture have an empty avatar URL;
+  // render an initial-letter circle instead of a broken <img>.
+  const avatarUrl = user.avatar?.trim();
+  const initial = (firstName.charAt(0) || '?').toUpperCase();
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -79,19 +83,42 @@ export function GameAuth(): React.JSX.Element {
           touchAction: 'manipulation',
         }}
       >
-        <img
-          src={user.avatar}
-          alt=""
-          width={24}
-          height={24}
-          style={{
-            width: '24px',
-            height: '24px',
-            borderRadius: '50%',
-            objectFit: 'cover',
-            flexShrink: 0,
-          }}
-        />
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt=""
+            width={24}
+            height={24}
+            style={{
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              objectFit: 'cover',
+              flexShrink: 0,
+            }}
+          />
+        ) : (
+          <span
+            aria-hidden="true"
+            style={{
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              flexShrink: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'var(--accent, #6b7280)',
+              color: '#fff',
+              fontFamily: '"Manrope", system-ui, sans-serif',
+              fontSize: '0.65rem',
+              fontWeight: 700,
+              lineHeight: 1,
+            }}
+          >
+            {initial}
+          </span>
+        )}
         <span
           style={{
             fontFamily: '"Manrope", system-ui, sans-serif',
