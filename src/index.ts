@@ -12,6 +12,17 @@ interface Env {
   DB: D1Database;
   /** Service binding to the auth worker (verify fgs_token via /me). */
   AUTH: Fetcher;
+  /** Shared secret for trusted worker-to-worker provision calls (the agent has
+   *  no user fgs_token at deploy time). Presented as X-Internal-Token. */
+  INTERNAL_TOKEN?: string;
+}
+
+/** Length-checked constant-time-ish string compare for the internal token. */
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 /** Extract the authenticated GitHub login from either credential the platform issues:
@@ -617,13 +628,24 @@ export default {
       // Auth required (admin session, or fgs_token from MCP/console). Without this,
       // anyone reachable to admin.freegamestore.online can provision repos in
       // freegamestore-online and mint CF resources. CF Access adds defense-in-depth.
-      const login = await authenticateLogin(request, env);
-      if (!login) {
+      //
+      // Trusted worker-to-worker path: the agent (VibeCode deploy) holds no user
+      // fgs_token at deploy time, so it presents the shared INTERNAL_TOKEN via
+      // X-Internal-Token. In that case the owner comes from the request body's
+      // creatorGithub (validated downstream against GitHub's username grammar).
+      const internal = request.headers.get("X-Internal-Token");
+      const trusted = !!(internal && env.INTERNAL_TOKEN && safeEqual(internal, env.INTERNAL_TOKEN));
+      const login = trusted ? null : await authenticateLogin(request, env);
+      if (!trusted && !login) {
         return jsonResponse({ error: "unauthorized" }, 401, request);
       }
       try {
         const body = await request.json() as any;
-        const result = await handlePublish({ ...body, creatorGithub: body.creatorGithub || login }, env as any);
+        const owner = body.creatorGithub || login;
+        if (trusted && !owner) {
+          return jsonResponse({ error: "creatorGithub required for internal provision" }, 400, request);
+        }
+        const result = await handlePublish({ ...body, creatorGithub: owner }, env as any);
         return jsonResponse(result, result.success ? 200 : 400, request);
       } catch (e) {
         return jsonResponse({ error: String(e) }, 500, request);
