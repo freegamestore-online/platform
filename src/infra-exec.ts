@@ -122,7 +122,7 @@ async function executePushUpdate(tc: ToolCall, ctx: ExecContext): Promise<string
   ctx.onDeployStatus({ phase: "pushing", progress: "Pushing update..." });
   const result = await pushUpdate(tc.input.id as string, ctx.files, (tc.input.message as string) || "Update", ctx.env, ctx.config);
   if (!result.startsWith("Error")) {
-    ctx.onDeployStatus({ phase: "building", deployUrl: `https://${tc.input.id as string}.freegamestore.online` });
+    ctx.onDeployStatus({ phase: "building", deployUrl: `https://${tc.input.id as string}.${ctx.config.domain}` });
   }
   return result;
 }

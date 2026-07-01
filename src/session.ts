@@ -203,6 +203,13 @@ export class AgentSession implements DurableObject {
                     this.sendPush("Your build is live!");
                   } else if (status.phase === "error") {
                     this.sendPush("Build failed");
+                    // onAppDeployed runs before the deploy resolves, so a failed
+                    // initial deploy left appId set — which would tell the next
+                    // turn the game is already deployed and block a retry. Clear
+                    // it so the agent can deploy again.
+                    session.appId = null;
+                    session.appName = null;
+                    this.state.storage.put("session", session);
                   }
                 },
                 onAppDeployed: (id, name) => {
@@ -220,14 +227,18 @@ export class AgentSession implements DurableObject {
             infraResults.push({ id: tc.id, content: toolResult.slice(0, 3000) });
           }
 
-          // Build a single tool_result message with all infra results
-          // (matches the assistant message that had the tool calls)
-          const infraResultMsg: Message = {
-            role: "tool_result",
-            content: "",
-            toolResults: infraResults,
-          };
-          session.messages.push(infraResultMsg);
+          // Merge infra results into the tool_result message the agent already
+          // appended for this turn's file tools, if any. A single assistant
+          // message can carry BOTH file and infra tool_uses; splitting their
+          // results across two separate tool_result messages leaves the infra
+          // tool_use unpaired on the next turn → a hard 400 from the provider
+          // ("tool_use without tool_result") that bricks the session until reset.
+          const lastMsg = session.messages[session.messages.length - 1];
+          if (lastMsg?.role === "tool_result" && lastMsg.toolResults) {
+            lastMsg.toolResults.push(...infraResults);
+          } else {
+            session.messages.push({ role: "tool_result", content: "", toolResults: infraResults });
+          }
 
           // Persist state after all infra tools complete
           session.files = Object.fromEntries(files);
