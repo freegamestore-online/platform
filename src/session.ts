@@ -174,6 +174,10 @@ export class AgentSession implements DurableObject {
 
         session.messages.push(...result.newMessages);
         session.files = Object.fromEntries(files);
+        // Accumulate this turn's token usage into the persisted running total
+        // so /status and /history report real figures (not {input:0,output:0}).
+        session.tokenUsage.input += result.tokenUsage.input;
+        session.tokenUsage.output += result.tokenUsage.output;
         await this.save();
 
         // Execute infra tools server-side and feed results back to agent

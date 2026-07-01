@@ -111,33 +111,40 @@ export async function deployApp(
     deployment_configs: { production: { env_vars: { NODE_VERSION: { value: "22" } } } },
   });
 
-  const candidates = [deployConfig.id, `${deployConfig.id}-${Date.now() % 10000}`];
+  // The CF Pages project name is the SINGLE source of truth shared with the
+  // status/build-log lookups (infra.ts uses config.cfProjectName too). Deriving
+  // it here — instead of a raw id or a nondeterministic `${id}-${Date.now()}`
+  // fallback — guarantees the name we CREATE always equals the name those
+  // lookups RECOMPUTE, so they can never diverge. For games this is the id
+  // unchanged; for apps it's the free…app form the lookups already expect.
+  const cfProjectName = config.cfProjectName(deployConfig.id);
 
   let cfProject = "";
-  for (const name of candidates) {
-    // Check if we already own this project
-    const check = await cfApi(env.CF_API_TOKEN, env.CF_ACCOUNT_ID, `/accounts/${env.CF_ACCOUNT_ID}/pages/projects/${name}`);
-    if (check.success) {
-      cfProject = name;
-      steps.push({ name: "CF Pages", status: "skip", detail: `${name}.pages.dev` });
-      break;
-    }
-    // Try creating it
-    const result = await cfApi(env.CF_API_TOKEN, env.CF_ACCOUNT_ID, `/accounts/${env.CF_ACCOUNT_ID}/pages/projects`, "POST", cfBody(name));
+  // Check if we already own this project
+  const check = await cfApi(env.CF_API_TOKEN, env.CF_ACCOUNT_ID, `/accounts/${env.CF_ACCOUNT_ID}/pages/projects/${cfProjectName}`);
+  if (check.success) {
+    cfProject = cfProjectName;
+    steps.push({ name: "CF Pages", status: "skip", detail: `${cfProjectName}.pages.dev` });
+  } else {
+    const result = await cfApi(
+      env.CF_API_TOKEN,
+      env.CF_ACCOUNT_ID,
+      `/accounts/${env.CF_ACCOUNT_ID}/pages/projects`,
+      "POST",
+      cfBody(cfProjectName),
+    );
     if (result.success) {
-      cfProject = name;
-      steps.push({ name: "CF Pages", status: "ok", detail: `${name}.pages.dev` });
-      break;
+      cfProject = cfProjectName;
+      steps.push({ name: "CF Pages", status: "ok", detail: `${cfProjectName}.pages.dev` });
+    } else {
+      // No renamed fallback: a project the lookups can't address by the
+      // canonical name is worse than a clear failure (status/logs and the
+      // custom-domain publish step would all point at the wrong project).
+      const detail = result.errors?.[0]?.message || "Failed";
+      steps.push({ name: "CF Pages", status: "fail", detail });
+      onStatus({ phase: "error", error: `Could not create CF Pages project "${cfProjectName}": ${detail}` });
+      return;
     }
-    // "already exists" means squatted by someone else — try next candidate
-    if (result.errors?.[0]?.message?.includes("already")) continue;
-    // Other error — fail
-    steps.push({ name: "CF Pages", status: "fail", detail: result.errors?.[0]?.message || "Failed" });
-    break;
-  }
-  if (!cfProject) {
-    onStatus({ phase: "error", error: "Could not create CF Pages project — all name candidates taken." });
-    return;
   }
   onStatus({ phase: "provisioning", steps: [...steps] });
 

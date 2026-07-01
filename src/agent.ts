@@ -5,7 +5,7 @@ import { AnthropicAdapter } from "./providers/anthropic";
 import { GitHubModelsAdapter } from "./providers/github";
 import { GoogleAdapter } from "./providers/google";
 import { OpenAIAdapter } from "./providers/openai";
-import type { AIConfig, Message, ProviderAdapter, StreamEvent, ToolCall, ToolResult } from "./providers/types";
+import type { AIConfig, Message, ProviderAdapter, StreamEvent, TokenUsage, ToolCall, ToolResult } from "./providers/types";
 import { getSystemPrompt } from "./template";
 import { executeTool, getToolDefinitions, INFRA_TOOLS } from "./tools";
 
@@ -37,6 +37,8 @@ export interface AgentTurnResult {
   newMessages: Message[];
   /** Infra tool calls that need server-side execution by the session */
   infraRequests: InfraRequest[];
+  /** Token counts summed across every provider round in this turn */
+  tokenUsage: TokenUsage;
 }
 
 export interface SessionContext {
@@ -136,6 +138,10 @@ export async function runAgentTurn(
   const messages: Message[] = [...cleaned, { role: "user", content: userMessage }];
   const newMessages: Message[] = [{ role: "user", content: userMessage }];
   const infraRequests: InfraRequest[] = [];
+  // Accumulate token usage across every provider round of this turn. Adapters
+  // emit "usage" StreamEvents (input on message_start, output on message_delta,
+  // etc.); we sum them here so the session can persist real totals.
+  const tokenUsage: TokenUsage = { input: 0, output: 0 };
 
   async function send(event: StreamEvent) {
     const line = `data: ${JSON.stringify(event)}\n\n`;
@@ -169,10 +175,18 @@ export async function runAgentTurn(
           assistantText += event.data;
         } else if (event.type === "tool_call") {
           toolCalls.push(JSON.parse(event.data));
+        } else if (event.type === "usage") {
+          try {
+            const u = JSON.parse(event.data) as Partial<TokenUsage>;
+            tokenUsage.input += u.input || 0;
+            tokenUsage.output += u.output || 0;
+          } catch {
+            // Malformed usage payload — ignore, it's display-only.
+          }
         } else if (event.type === "error") {
           const errMsg: Message = { role: "assistant", content: event.data };
           newMessages.push(errMsg);
-          return { newMessages, infraRequests };
+          return { newMessages, infraRequests, tokenUsage };
         }
       }
     } catch (err) {
@@ -254,5 +268,5 @@ export async function runAgentTurn(
   if (infraRequests.length === 0) {
     await send({ type: "done", data: "" });
   }
-  return { newMessages, infraRequests };
+  return { newMessages, infraRequests, tokenUsage };
 }
