@@ -88,7 +88,7 @@ const FIRST_PARTY_ORIGINS = new Set([
   "http://localhost:5173",
 ]);
 
-function isFirstParty(origin: string): boolean {
+export function isFirstParty(origin: string): boolean {
   return FIRST_PARTY_ORIGINS.has(origin);
 }
 
@@ -109,7 +109,7 @@ function cors(request: Request): Record<string, string> {
 }
 
 // Strict CORS for the vault — first-party origins only, never game subdomains.
-function corsVault(request: Request): Record<string, string> {
+export function corsVault(request: Request): Record<string, string> {
   const origin = request.headers.get("Origin") ?? "";
   return {
     "Access-Control-Allow-Origin": isFirstParty(origin) ? origin : "",

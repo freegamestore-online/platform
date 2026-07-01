@@ -53,3 +53,34 @@ test("CORS allowed origin regex accepts *.freegamestore.online", () => {
   assert.equal(ALLOWED_ORIGIN.test("https://evil.com"), false);
   assert.equal(ALLOWED_ORIGIN.test("https://freegamestore.online"), false); // apex handled separately
 });
+
+// --- Vault CORS lock (regression guard for the BYO-key exfil fix) ---
+// A published game at <game>.freegamestore.online must NEVER be a trusted
+// origin for /vault/*, or it could read the player's decrypted API keys.
+import { corsVault, isFirstParty } from "./index";
+
+test("isFirstParty trusts console/storefront/localhost, rejects game subdomains", () => {
+  assert.equal(isFirstParty("https://console.freegamestore.online"), true);
+  assert.equal(isFirstParty("https://freegamestore.online"), true);
+  assert.equal(isFirstParty("http://localhost:5173"), true);
+  // The whole point: an arbitrary game subdomain is NOT first-party.
+  assert.equal(isFirstParty("https://evilgame.freegamestore.online"), false);
+  // And a look-alike suffix must not slip through.
+  assert.equal(isFirstParty("https://freegamestore.online.evil.com"), false);
+});
+
+test("vault CORS returns no Allow-Origin to a game origin, allows the console", () => {
+  const gameOrigin = corsVault(
+    new Request("https://auth.freegamestore.online/vault/get", {
+      headers: { Origin: "https://evilgame.freegamestore.online" },
+    }),
+  );
+  assert.equal(gameOrigin["Access-Control-Allow-Origin"], "");
+
+  const consoleOrigin = corsVault(
+    new Request("https://auth.freegamestore.online/vault/get", {
+      headers: { Origin: "https://console.freegamestore.online" },
+    }),
+  );
+  assert.equal(consoleOrigin["Access-Control-Allow-Origin"], "https://console.freegamestore.online");
+});
