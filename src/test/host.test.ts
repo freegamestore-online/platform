@@ -149,6 +149,20 @@ describe("securityHeaders", () => {
     expect(csp).toContain("https://plausible.io");
   });
 
+  it("CSP has NO wildcard https:/wss: in script-src or connect-src (games can't inject/exfil)", () => {
+    const csp = html.get("content-security-policy") ?? "";
+    const sources = (name: string) =>
+      (csp.split(";").map((d) => d.trim()).find((d) => d.startsWith(`${name} `)) ?? "").split(/\s+/).slice(1);
+    // A bare `https:`/`wss:` source would let a malicious game load arbitrary
+    // external scripts or exfiltrate data to any host. Only the named
+    // platform + analytics allowlist may appear.
+    expect(sources("script-src")).not.toContain("https:");
+    expect(sources("connect-src")).not.toContain("https:");
+    expect(sources("connect-src")).not.toContain("wss:");
+    // ...but the sanctioned platform origin is still reachable.
+    expect(sources("connect-src")).toContain("https://*.freegamestore.online");
+  });
+
   it("CSP locks down object-src and base-uri (defense-in-depth)", () => {
     const csp = html.get("content-security-policy") ?? "";
     expect(csp).toMatch(/object-src 'none'/);
