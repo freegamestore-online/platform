@@ -31,7 +31,10 @@ async function ensureSchema(db: D1Database): Promise<void> {
   schemaReady = true;
 }
 
-export async function resolveUser(request: Request, auth: Fetcher): Promise<{ id: string; name: string } | null> {
+export async function resolveUser(
+  request: Request,
+  auth: Fetcher,
+): Promise<{ id: string; name: string; login: string | null } | null> {
   // The fgs_token arrives as X-FGS-Token (MCP), an Authorization Bearer, or the
   // fgs_token cookie (console). Verify it via the auth worker's /me — over a
   // SERVICE BINDING, since fetching auth's public hostname from a Worker loops
@@ -44,8 +47,8 @@ export async function resolveUser(request: Request, auth: Fetcher): Promise<{ id
   try {
     const r = await auth.fetch("https://auth.freegamestore.online/me", { headers: { "X-FGS-Token": token } });
     if (!r.ok) return null;
-    const u = (await r.json()) as { id?: string; name?: string };
-    return u?.id ? { id: u.id, name: u.name || "" } : null;
+    const u = (await r.json()) as { id?: string; name?: string; login?: string | null };
+    return u?.id ? { id: u.id, name: u.name || "", login: u.login ?? null } : null;
   } catch {
     return null;
   }

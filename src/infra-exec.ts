@@ -11,6 +11,8 @@ interface ExecContext {
   files: Map<string, string>;
   env: DeployEnv;
   config: StoreConfig;
+  /** GitHub login of the signed-in creator; added as a repo collaborator on deploy. */
+  creatorLogin?: string;
   onDeployStatus: (status: DeployStatus) => void;
   onAppDeployed: (id: string, name: string) => void;
 }
@@ -107,6 +109,7 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
       ctx.onDeployStatus(status);
       if (status.phase === "live") liveUrl = status.appUrl;
     },
+    ctx.creatorLogin,
   ).catch((err) => {
     deployError = String(err);
   });

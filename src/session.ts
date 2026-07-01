@@ -136,6 +136,10 @@ export class AgentSession implements DurableObject {
     const session = await this.load();
     const files = new Map(Object.entries(session.files));
 
+    // The signed-in creator's GitHub login (worker-verified header), used to add
+    // them as a collaborator on the repo the platform bot creates at deploy.
+    const creatorLogin = request.headers.get("X-Auth-Login") || undefined;
+
     const { readable, writable } = new TransformStream<Uint8Array>();
     const writer = writable.getWriter();
 
@@ -199,6 +203,7 @@ export class AgentSession implements DurableObject {
                 files,
                 env: deployEnv,
                 config,
+                creatorLogin,
                 onDeployStatus: (status) => {
                   session.deployStatus = status;
                   this.state.storage.put("session", session);

@@ -59,18 +59,25 @@ function makeGhApi(token: string, agentName: string) {
 
 /** Deploy = create repo + push code. No CF Pages, no DNS, no registry.
  *  Those are for PUBLISH (separate action). */
+// GitHub username: 1–39 chars, alphanumerics + single hyphens, no leading/
+// trailing hyphen. Validated before interpolating into the collaborators API
+// path so a malformed login can't alter the request.
+const VALID_GH_LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
+
 export async function deployApp(
   deployConfig: DeployConfig,
   files: Map<string, string>,
   env: DeployEnv,
   config: StoreConfig,
   onStatus: (status: DeployStatus) => void,
+  creatorLogin?: string,
 ): Promise<void> {
   const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
   const steps: DeployStep[] = [];
   onStatus({ phase: "provisioning", steps: [] });
 
   // Step 1: Create GitHub repo
+  let repoCreated = false;
   const repoCheck = await ghApi(`/repos/${config.org}/${deployConfig.id}`);
   if (repoCheck.id) {
     steps.push({ name: "GitHub repo", status: "skip", detail: `${config.org}/${deployConfig.id} already exists` });
@@ -85,6 +92,7 @@ export async function deployApp(
       has_wiki: false,
     });
     if (createRepo.id) {
+      repoCreated = true;
       steps.push({ name: "GitHub repo", status: "ok", detail: `Created ${config.org}/${deployConfig.id}` });
     } else {
       steps.push({ name: "GitHub repo", status: "fail", detail: createRepo.message || "Failed" });
@@ -93,6 +101,39 @@ export async function deployApp(
     }
   }
   onStatus({ phase: "provisioning", steps: [...steps] });
+
+  // Step 1b: Give the signed-in creator push access to the repo the bot just
+  // created for them. Only on a freshly-created repo (don't silently re-grant
+  // access to a repo that already existed — the creator may have removed a
+  // collaborator deliberately). Non-fatal: a failure here must not fail deploy.
+  if (repoCreated && creatorLogin && VALID_GH_LOGIN.test(creatorLogin)) {
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/${config.org}/${deployConfig.id}/collaborators/${creatorLogin}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+            Accept: "application/vnd.github+json",
+            "User-Agent": config.agentName,
+            "X-GitHub-Api-Version": "2022-11-28",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ permission: "push" }),
+        },
+      );
+      // 201 = invitation created (outside collaborator), 204 = added directly
+      // (already an org member). Both are success.
+      steps.push({
+        name: "Collaborator",
+        status: res.ok ? "ok" : "fail",
+        detail: res.ok ? `${creatorLogin} (push)` : `Could not add ${creatorLogin} (HTTP ${res.status})`,
+      });
+    } catch (err) {
+      steps.push({ name: "Collaborator", status: "fail", detail: `Could not add ${creatorLogin}: ${String(err)}` });
+    }
+    onStatus({ phase: "provisioning", steps: [...steps] });
+  }
 
   // Step 2: Create CF Pages project — try clean name first, prefix if squatted
   const cfBody = (name: string) => ({

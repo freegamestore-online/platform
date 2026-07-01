@@ -99,6 +99,10 @@ export default {
     // client-supplied X-Auth-User, so a caller can't spoof session ownership.
     const fwdHeaders = new Headers(request.headers);
     fwdHeaders.set("X-Auth-User", user.id);
+    // The GitHub login (username) — used at deploy time to add the creator as a
+    // collaborator on the repo the platform bot creates for them. set() so a
+    // client can't spoof it. Blank when the session predates login capture.
+    fwdHeaders.set("X-Auth-Login", user.login ?? "");
     const doRequest = new Request(`https://do${subpath}`, {
       method: request.method,
       headers: fwdHeaders,
