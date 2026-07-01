@@ -31,7 +31,18 @@ interface PublishRequest {
   oneliner?: string;
   type?: string;
   creatorGithub?: string;
+  /** Starter template key (canvas|grid|cards|3d). Defaults to canvas. */
+  template?: string;
 }
+
+// Starter templates the creator can pick from. Maps the short key the Dashboard
+// sends to the actual template repo generated from. Unknown/absent → canvas.
+const TEMPLATE_REPOS: Record<string, string> = {
+  canvas: "template-game-canvas",
+  grid: "template-game-grid",
+  cards: "template-game-cards",
+  "3d": "template-game-3d",
+};
 
 /** Lowercase a display name into a valid slug (matches validateId rules). */
 function slugify(name: string): string {
@@ -146,7 +157,9 @@ export async function handlePublish(
   const id = req.id ?? slugify(req.name);
   const icon = req.icon ?? "🎮";
   const iconBg = req.iconBg ?? "#ecfdf5";
+  const category = req.category ?? "casual";
   const description = req.description ?? req.oneliner ?? req.name;
+  const templateRepo = TEMPLATE_REPOS[req.template ?? ""] ?? STORE_CONFIG.templateRepo;
   const idError = validateId(id);
   if (idError) {
     return { steps: [{ name: "Validation", status: "fail", detail: idError }], success: false };
@@ -167,7 +180,7 @@ export async function handlePublish(
   } else {
     const createRepo = await ghApi(
       env,
-      `/repos/${config.org}/${config.templateRepo}/generate`,
+      `/repos/${config.org}/${templateRepo}/generate`,
       "POST",
       { owner: config.org, name: id, private: false, description },
     );
@@ -175,7 +188,7 @@ export async function handlePublish(
       steps.push({
         name: "GitHub repo",
         status: "ok",
-        detail: `Created ${config.org}/${id} from ${config.templateRepo}`,
+        detail: `Created ${config.org}/${id} from ${templateRepo}`,
       });
     } else {
       steps.push({
@@ -275,7 +288,7 @@ export async function handlePublish(
     items.push({
       id,
       name: req.name,
-      category: req.category,
+      category,
       icon,
       iconBg,
       description,
