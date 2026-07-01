@@ -17,6 +17,10 @@ export interface DeployEnv {
   CF_ACCOUNT_ID: string;
   CF_GLOBAL_KEY: string;
   CF_EMAIL: string;
+  /** Path B only: service binding to the admin worker + shared internal token,
+   *  used to register the D1 host route + store registry entry. */
+  ADMIN?: Fetcher;
+  INTERNAL_TOKEN?: string;
 }
 
 interface DeployStep {
@@ -135,6 +139,29 @@ export async function deployApp(
     onStatus({ phase: "provisioning", steps: [...steps] });
   }
 
+  // ── Path B (FGS games): push code (repo carries its own R2 deploy.yml),
+  // register the D1 host route + store registry entry via admin, then wait for
+  // the GitHub Actions deploy to publish to R2. No CF Pages project. ──
+  if (config.pathB) {
+    onStatus({ phase: "pushing", progress: "Creating file tree..." });
+    await pushFilesToGitHub(deployConfig.id, files, env.GITHUB_TOKEN, config);
+    steps.push({ name: "Pushing code", status: "ok", detail: "Code pushed" });
+    onStatus({ phase: "provisioning", steps: [...steps] });
+
+    const reg = await registerViaAdmin(deployConfig, env, config, creatorLogin);
+    steps.push(reg);
+    onStatus({ phase: "provisioning", steps: [...steps] });
+    if (reg.status === "fail") {
+      onStatus({ phase: "error", error: `Could not register the ${config.noun}: ${reg.detail}` });
+      return;
+    }
+
+    const appUrl = `https://${deployConfig.id}.${config.domain}`;
+    onStatus({ phase: "building", deployUrl: appUrl });
+    await waitForActionsDeploy(deployConfig.id, env, config, onStatus, appUrl);
+    return;
+  }
+
   // Step 2: Create CF Pages project — try clean name first, prefix if squatted
   const cfBody = (name: string) => ({
     name,
@@ -233,6 +260,87 @@ export async function deployApp(
     } catch {}
   }
   onStatus({ phase: "live", appUrl: previewUrl }); // timeout — assume building
+}
+
+/** Path B: register the D1 host route + store registry entry via the admin
+ *  Worker (which owns the shared `fas` D1 + registry). The agent already created
+ *  the repo, so admin's provision is idempotent here — it skips repo creation
+ *  and just writes the route + registry. Auth is the shared internal token
+ *  (the agent holds no user fgs_token at deploy time). */
+async function registerViaAdmin(
+  deployConfig: DeployConfig,
+  env: DeployEnv,
+  config: StoreConfig,
+  creatorLogin?: string,
+): Promise<DeployStep> {
+  if (!env.ADMIN || !env.INTERNAL_TOKEN) {
+    return { name: "Store registry", status: "fail", detail: "admin binding / internal token not configured" };
+  }
+  try {
+    const res = await env.ADMIN.fetch(`https://admin.${config.domain}/api/provision`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Internal-Token": env.INTERNAL_TOKEN },
+      body: JSON.stringify({
+        id: deployConfig.id,
+        name: deployConfig.name,
+        category: deployConfig.category,
+        icon: deployConfig.icon,
+        iconBg: deployConfig.iconBg,
+        description: deployConfig.description,
+        ...(creatorLogin ? { creatorGithub: creatorLogin } : {}),
+      }),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      success?: boolean;
+      steps?: { name: string; status: string; detail: string }[];
+      error?: string;
+    };
+    if (res.ok && data.success) {
+      return { name: "Store registry", status: "ok", detail: `${deployConfig.id} listed + host route written` };
+    }
+    const failed = data.steps?.find((s) => s.status === "fail");
+    return { name: "Store registry", status: "fail", detail: failed?.detail || data.error || `admin returned HTTP ${res.status}` };
+  } catch (err) {
+    return { name: "Store registry", status: "fail", detail: String(err) };
+  }
+}
+
+/** Path B: poll the repo's GitHub Actions runs until the deploy workflow (build
+ *  → R2 sync) finishes. Success → live; failure → surface the failing job/step.
+ *  Replaces CF Pages deployment polling. */
+async function waitForActionsDeploy(
+  repoId: string,
+  env: DeployEnv,
+  config: StoreConfig,
+  onStatus: (s: DeployStatus) => void,
+  appUrl: string,
+): Promise<void> {
+  const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
+  const deadline = Date.now() + 180_000; // 3 min — compliance + build + R2 sync
+  while (Date.now() < deadline) {
+    await sleep(8000);
+    try {
+      const runs = await ghApi(`/repos/${config.org}/${repoId}/actions/runs?per_page=1`);
+      const run = runs.workflow_runs?.[0];
+      if (!run || run.status !== "completed") continue;
+      if (run.conclusion === "success") {
+        onStatus({ phase: "live", appUrl });
+        return;
+      }
+      if (["failure", "cancelled", "timed_out"].includes(run.conclusion)) {
+        let detail = "";
+        try {
+          const jobs = await ghApi(`/repos/${config.org}/${repoId}/actions/runs/${run.id}/jobs`);
+          const failedJob = (jobs.jobs || []).find((j: any) => j.conclusion === "failure");
+          const failedStep = failedJob?.steps?.find((s: any) => s.conclusion === "failure");
+          detail = failedJob ? `${failedJob.name}${failedStep ? " › " + failedStep.name : ""}` : "";
+        } catch {}
+        onStatus({ phase: "error", error: `Deploy workflow ${run.conclusion}${detail ? `: ${detail}` : ""}. See ${run.html_url || "the repo's Actions tab"} for logs.` });
+        return;
+      }
+    } catch {}
+  }
+  onStatus({ phase: "live", appUrl }); // timed out — the run may still finish
 }
 
 /** Push all files as a single commit via the Git Data API (tree + commit + ref). */

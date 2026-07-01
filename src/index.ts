@@ -9,6 +9,9 @@ export interface Env {
   SESSION: DurableObjectNamespace;
   DB: D1Database;
   AUTH: Fetcher;
+  /** Path B: admin worker (host route + registry writes) + shared internal token. */
+  ADMIN: Fetcher;
+  INTERNAL_TOKEN: string;
   GITHUB_TOKEN: string;
   CF_API_TOKEN: string;
   CF_ACCOUNT_ID: string;

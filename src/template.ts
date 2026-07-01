@@ -397,8 +397,85 @@ SOFTWARE.`,
 
 // ── Public API ──
 
+/** Path B deploy workflow: on push to main, gate on compliance, build web/dist,
+ *  and sync it to R2 at <r2Prefix>/<repo>/ — the prefix the host Worker serves.
+ *  Uses --no-frozen-lockfile: the agent authors package.json with no committed
+ *  lockfile, and AI edits change deps, so a frozen install would break the whole
+ *  fleet's deploys. Org secrets R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY/R2_ACCOUNT_ID
+ *  are set once on the org. */
+function pathBWorkflow(config: StoreConfig): string {
+  const bucket = config.r2Bucket ?? "fgs-games";
+  const prefix = config.r2Prefix ?? "games";
+  return `name: Deploy to R2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-\${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  compliance:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: No external <script src> (games must be self-contained)
+        run: |
+          if grep -rhiE '<script[^>]*src=[^>]*https?://' web/*.html 2>/dev/null \\
+             | grep -viE '${config.domain.replace(/\./g, "\\.")}|cloudflareinsights\\.com|googletagmanager\\.com|plausible\\.io'; then
+            echo "::error::external <script src> is not allowed in a published ${config.noun}"; exit 1
+          fi
+      - name: No tracking SDKs in source
+        run: |
+          if grep -rE 'google-analytics|gtag\\(|amplitude|mixpanel|segment|hotjar|plausible|posthog' web/src/ 2>/dev/null; then
+            echo "::error::tracking SDK found in web/src — analytics is platform-provided"; exit 1
+          fi
+
+  deploy:
+    needs: compliance
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install
+        run: pnpm install --no-frozen-lockfile
+      - name: Build
+        run: pnpm build
+      - name: Verify build output
+        run: |
+          test -d ./web/dist || { echo "::error::No build output at web/dist"; exit 1; }
+          test -n "$(ls -A ./web/dist)" || { echo "::error::web/dist is empty"; exit 1; }
+      - name: Upload to R2
+        env:
+          AWS_ACCESS_KEY_ID: \${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: \${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: \${{ secrets.R2_ACCOUNT_ID }}
+        run: |
+          aws s3 sync ./web/dist "s3://${bucket}/${prefix}/\${GITHUB_REPOSITORY##*/}/" \\
+            --endpoint-url "https://\${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" \\
+            --delete \\
+            --no-progress
+          echo "Deployed ${prefix}/\${GITHUB_REPOSITORY##*/} from \${GITHUB_SHA::7}"
+`;
+}
+
 export function getTemplateFiles(config: StoreConfig): Record<string, string> {
-  return { ...SHARED_FILES, ...(config.store === "games" ? GAME_FILES : APP_FILES) };
+  const base = { ...SHARED_FILES, ...(config.store === "games" ? GAME_FILES : APP_FILES) };
+  // Path B repos carry their own R2 deploy workflow (no CF Pages build).
+  if (config.pathB) base[".github/workflows/deploy.yml"] = pathBWorkflow(config);
+  return base;
 }
 
 export function substituteAppName(files: Record<string, string>, appId: string, displayName: string): Record<string, string> {

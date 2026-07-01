@@ -24,8 +24,16 @@ async function cfApi(token: string, _accountId: string, path: string) {
   return res.json() as Promise<any>;
 }
 
-/** Check the latest deployment status on CF Pages. */
+/** Check the latest deployment status. Path B → GitHub Actions run; else CF Pages. */
 export async function checkDeployStatus(appId: string, env: DeployEnv, config: StoreConfig): Promise<string> {
+  if (config.pathB) {
+    const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
+    const runs = await ghApi(`/repos/${config.org}/${appId}/actions/runs?per_page=1`);
+    const run = runs.workflow_runs?.[0];
+    if (!run) return `No deploy runs found for ${config.org}/${appId}. The ${config.noun} may not be provisioned yet.`;
+    const state = run.status === "completed" ? run.conclusion : run.status;
+    return `Latest deploy (${run.name || "Deploy to R2"}): ${state}\nURL: https://${appId}.${config.domain}\nCommit: ${run.head_sha?.slice(0, 7) || "?"}\nRun: ${run.html_url}`;
+  }
   const cfProject = config.cfProjectName(appId);
   const res = await cfApi(
     env.CF_API_TOKEN,
@@ -65,8 +73,24 @@ export async function fetchUrl(url: string, method: string, agentName: string): 
   }
 }
 
-/** Get CF Pages build logs for the latest deployment. */
+/** Get build logs for the latest deployment. Path B → GitHub Actions jobs/steps; else CF Pages. */
 export async function getBuildLogs(appId: string, env: DeployEnv, config: StoreConfig): Promise<string> {
+  if (config.pathB) {
+    const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
+    const runs = await ghApi(`/repos/${config.org}/${appId}/actions/runs?per_page=1`);
+    const run = runs.workflow_runs?.[0];
+    if (!run) return `No deploy runs found for ${config.org}/${appId}.`;
+    const jobs = await ghApi(`/repos/${config.org}/${appId}/actions/runs/${run.id}/jobs`);
+    const lines: string[] = [];
+    for (const j of jobs.jobs || []) {
+      lines.push(`Job "${j.name}": ${j.status === "completed" ? j.conclusion : j.status}`);
+      for (const s of j.steps || []) {
+        const st = s.status === "completed" ? s.conclusion : s.status;
+        lines.push(`  ${st === "success" ? "PASS" : st === "failure" ? "FAIL" : String(st || "").toUpperCase()}: ${s.name}`);
+      }
+    }
+    return `Deploy run ${String(run.id).slice(0, 8)} — ${run.status === "completed" ? run.conclusion : run.status}\n${lines.join("\n")}\n\nFull logs: ${run.html_url}`;
+  }
   const cfProject = config.cfProjectName(appId);
   const deps = await cfApi(
     env.CF_API_TOKEN,

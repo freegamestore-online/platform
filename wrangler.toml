@@ -19,6 +19,14 @@ bindings = [
 binding = "AUTH"
 service = "freegamestore-auth"
 
+# Path B provisioning: register the D1 host route + store registry entry through
+# the admin worker (it owns the shared `fas` routes D1 + registry writes). The
+# agent holds no user fgs_token at deploy time, so it authenticates with the
+# shared INTERNAL_TOKEN secret (X-Internal-Token) instead.
+[[services]]
+binding = "ADMIN"
+service = "freegamestore-admin"
+
 # Shared with auth + leaderboard. Holds the per-user `agent_sessions` index
 # (session metadata only; conversation state stays in the Durable Object).
 [[d1_databases]]
@@ -36,7 +44,8 @@ STORE = "games"
 VAPID_PUBLIC_KEY = "BB9nIKmrVFJQJWZ4MiXzv3eN2UfGtuXESqVlQMobPiZiTmS8cQuldiXNreIV03dCo3Jkkflk6UDoAzWMvhNXCuw"
 
 # Secrets (set via `wrangler secret put`):
-# GITHUB_TOKEN       — org-level PAT for provisioning + pushing code
-# CF_API_TOKEN       — Cloudflare API token for Pages/DNS
+# GITHUB_TOKEN       — org-level PAT for provisioning + pushing code (needs `workflow` scope for Path B)
+# CF_API_TOKEN       — Cloudflare API token for Pages/DNS (legacy apps/CF-Pages flow)
 # CF_GLOBAL_KEY      — Cloudflare Global API key (for DNS)
 # CF_EMAIL           — Cloudflare account email (for DNS)
+# INTERNAL_TOKEN     — shared secret to auth Path B provision calls to the admin worker

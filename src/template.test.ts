@@ -86,8 +86,12 @@ describe("getTemplateFiles", () => {
     }
   });
 
-  it("both templates have the same number of files", () => {
-    expect(Object.keys(appsFiles).length).toBe(Object.keys(gamesFiles).length);
+  it("apps and games share the same base files; games adds the Path B deploy workflow", () => {
+    // Games are on Path B: their repo carries its own R2 deploy.yml (apps still
+    // build via CF Pages, so they don't). Otherwise the file sets match.
+    expect(gamesFiles[".github/workflows/deploy.yml"]).toBeTruthy();
+    expect(appsFiles[".github/workflows/deploy.yml"]).toBeUndefined();
+    expect(Object.keys(gamesFiles).length).toBe(Object.keys(appsFiles).length + 1);
   });
 });
 
