@@ -184,13 +184,14 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
     .bind(game, playerName, score, ipHash, userId)
     .run();
 
-  // Return the player's rank (count of distinct users who beat this score —
-  // COUNT(*) would double-count a player who holds several higher scores,
-  // inflating the rank. Matches getUserGameScore's COUNT(DISTINCT user_id).)
+  // Return the player's rank (count of distinct OTHER users who beat this score).
+  // Excluding the submitter (user_id != ?) matters when they post a score below
+  // their own existing best — otherwise their higher rows satisfy `score > ?`
+  // and they'd count themselves, inflating the rank (e.g. sole player → rank 2).
   const rank = await env.DB.prepare(
-    `SELECT COUNT(DISTINCT user_id) as rank FROM scores WHERE game_id = ? AND score > ? AND user_id IS NOT NULL`,
+    `SELECT COUNT(DISTINCT user_id) as rank FROM scores WHERE game_id = ? AND score > ? AND user_id IS NOT NULL AND user_id != ?`,
   )
-    .bind(game, score)
+    .bind(game, score, userId)
     .first<{ rank: number }>();
 
   return json({ ok: true, rank: (rank?.rank ?? 0) + 1, authenticated: !!userId }, 201, request);
@@ -237,7 +238,7 @@ async function getRecent(game: string, url: URL, request: Request, env: Env): Pr
     `SELECT s.player_name, s.score, s.created_at, s.user_id, u.avatar_url
      FROM scores s
      LEFT JOIN users u ON s.user_id = u.id
-     WHERE s.game_id = ? ORDER BY s.created_at DESC LIMIT ?`,
+     WHERE s.game_id = ? ORDER BY s.created_at DESC, s.id DESC LIMIT ?`,
   )
     .bind(game, limit)
     .all<{ player_name: string; score: number; created_at: string; user_id: string | null; avatar_url: string | null }>();
@@ -250,12 +251,20 @@ async function getOverallLeaderboard(url: URL, request: Request, env: Env): Prom
   const limitParam = url.searchParams.get("limit");
   const limit = Math.min(Math.max(parseInt(limitParam ?? "10", 10) || 10, 1), LEADERBOARD_LIMIT);
 
+  // Sum each user's BEST score per game — not every submission. SUM(s.score)
+  // over raw rows is farmable by resubmitting the same game, and contradicts the
+  // per-user-best model getLeaderboard uses. The inner query collapses to one
+  // best row per (user, game) first.
   const results = await env.DB.prepare(
-    `SELECT s.user_id, u.name, u.avatar_url, SUM(s.score) as total_score, COUNT(DISTINCT s.game_id) as games_played
-     FROM scores s
-     JOIN users u ON s.user_id = u.id
-     WHERE s.user_id IS NOT NULL
-     GROUP BY s.user_id
+    `SELECT t.user_id, u.name, u.avatar_url, SUM(t.best) as total_score, COUNT(*) as games_played
+     FROM (
+       SELECT user_id, game_id, MAX(score) as best
+       FROM scores
+       WHERE user_id IS NOT NULL
+       GROUP BY user_id, game_id
+     ) t
+     JOIN users u ON t.user_id = u.id
+     GROUP BY t.user_id
      ORDER BY total_score DESC
      LIMIT ?`,
   )
