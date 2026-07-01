@@ -24,9 +24,6 @@ const LEADERBOARD_LIMIT = 50;
 // establish real high-score ranges.
 const DEFAULT_MAX_SCORE = MAX_SCORE;
 const PER_GAME_MAX: Record<string, number> = {
-  coinflip: 1000,
-  dice: 1000,
-  highlow: 1000,
   simon: 1000,
   whackamole: 100_000,
   "2048": 5_000_000,
