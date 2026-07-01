@@ -54,7 +54,10 @@ export default {
     const dot = cleaned.indexOf(".");
     const slug = dot > 0 ? cleaned.slice(0, dot) : "";
 
-    if (slug in PLATFORM_SUBDOMAINS) {
+    // hasOwnProperty, not `in`: `slug in obj` walks the prototype chain, so a
+    // game published at constructor./toString./__proto__.freegamestore.online
+    // would falsely match and never reach its real R2 route.
+    if (Object.prototype.hasOwnProperty.call(PLATFORM_SUBDOMAINS, slug)) {
       return await dispatchPlatform(req, env, slug, host);
     }
 
@@ -103,7 +106,11 @@ async function serve(bucket: R2Bucket, route: Route, url: URL, req: Request, _ct
   }
 
   const key = r2KeyFor(route, url.pathname);
-  let obj = await bucket.get(key);
+  // Honour Range on GET so media (<video>/<audio>) can seek — Safari refuses to
+  // play video that isn't range-served. R2 parses the Range header for us and
+  // sets obj.range on the returned body.
+  const wantsRange = req.method === "GET" && req.headers.has("range");
+  let obj = await bucket.get(key, wantsRange ? { range: req.headers } : undefined);
 
   if (!obj && !/\.[a-z0-9]+$/i.test(url.pathname)) {
     obj = await bucket.get(`${route.r2_prefix}/index.html`);
@@ -125,6 +132,15 @@ function respond(obj: R2ObjectBody, ct: string, req: Request): Response {
   const headers = securityHeaders({ htmlCache: ct.startsWith("text/html") });
   headers.set("content-type", ct);
   headers.set("etag", obj.httpEtag);
+  headers.set("accept-ranges", "bytes");
+  // Partial content: R2 populated obj.range because the request carried a Range.
+  const range = obj.range as { offset?: number; length?: number } | undefined;
+  if (range && req.method === "GET") {
+    const offset = range.offset ?? 0;
+    const length = range.length ?? obj.size - offset;
+    headers.set("content-range", `bytes ${offset}-${offset + length - 1}/${obj.size}`);
+    return new Response(obj.body, { status: 206, headers });
+  }
   return new Response(req.method === "HEAD" ? null : obj.body, { headers });
 }
 
