@@ -317,7 +317,11 @@ export async function handlePublish(
         });
   steps.push(regStep);
 
-  const success = steps.every((s) => s.status !== "fail");
+  // The collaborator invite is informational — a transient GitHub failure there
+  // must NOT fail the whole provision, or the caller sees success:false (→ HTTP
+  // 400) even though the repo + host route + registry entry all succeeded,
+  // leaving a listed-but-unserved game.
+  const success = steps.every((s) => s.status !== "fail" || s.name === "Collaborator");
   return {
     steps,
     success,
