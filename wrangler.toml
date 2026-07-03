@@ -45,7 +45,6 @@ VAPID_PUBLIC_KEY = "BB9nIKmrVFJQJWZ4MiXzv3eN2UfGtuXESqVlQMobPiZiTmS8cQuldiXNreIV
 
 # Secrets (set via `wrangler secret put`):
 # GITHUB_TOKEN       — org-level PAT for provisioning + pushing code (needs `workflow` scope for Path B)
-# CF_API_TOKEN       — Cloudflare API token for Pages/DNS (legacy apps/CF-Pages flow)
-# CF_GLOBAL_KEY      — Cloudflare Global API key (for DNS)
-# CF_EMAIL           — Cloudflare account email (for DNS)
+# CF_API_TOKEN       — Cloudflare API token; used ONLY by the legacy FAS apps CF Pages branch
 # INTERNAL_TOKEN     — shared secret to auth Path B provision calls to the admin worker
+# (FGS games are Path B: R2 + D1 host route via the admin worker — no CF Pages.)

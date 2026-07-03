@@ -150,8 +150,6 @@ export class AgentSession implements DurableObject {
             GITHUB_TOKEN: this.env.GITHUB_TOKEN,
             CF_API_TOKEN: this.env.CF_API_TOKEN,
             CF_ACCOUNT_ID: this.env.CF_ACCOUNT_ID,
-            CF_GLOBAL_KEY: this.env.CF_GLOBAL_KEY,
-            CF_EMAIL: this.env.CF_EMAIL,
             // Path B (games): register host route + registry via admin.
             ADMIN: this.env.ADMIN,
             INTERNAL_TOKEN: this.env.INTERNAL_TOKEN,

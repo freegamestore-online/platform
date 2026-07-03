@@ -15,8 +15,6 @@ export interface DeployEnv {
   GITHUB_TOKEN: string;
   CF_API_TOKEN: string;
   CF_ACCOUNT_ID: string;
-  CF_GLOBAL_KEY: string;
-  CF_EMAIL: string;
   /** Path B only: service binding to the admin worker + shared internal token,
    *  used to register the D1 host route + store registry entry. */
   ADMIN?: Fetcher;
@@ -444,7 +442,7 @@ export async function pushUpdate(
   });
   if (!refUpdate.ref) return `Error: failed to update ref for ${repo}: ${refUpdate.message || "unknown"}`;
 
-  return `Pushed update to ${repo} (${commit.sha?.slice(0, 7)}). CF Pages will auto-deploy.`;
+  return `Pushed update to ${repo} (${commit.sha?.slice(0, 7)}). CI will build and deploy.`;
 }
 
 function sleep(ms: number) {
