@@ -107,14 +107,32 @@ export function useProjects() {
         // "start or open a game" state) instead of spawning a blank "New Game"
         // session on every visit — those unbound shells piled up and made it
         // look like chat had vanished when switching between them.
-        setProjects(server);
-        if (server.length === 0) {
-          setCurrentId(null);
+        const stored = localStorage.getItem(CURRENT_KEY);
+        const storedInList = !!stored && server.some((project) => project.id === stored);
+
+        // Never abandon the open session on reload. The transcript lives in the
+        // Durable Object keyed by `stored`; the D1 list is only a convenience
+        // index. If that index is missing this row (a create/import whose
+        // upsert failed or raced the reload), switching to server[0] threw the
+        // user onto a DIFFERENT session — which read as "all my messages
+        // vanished." Keep `stored` and add a lightweight placeholder so the
+        // picker/toolbar have an entry; loadHistory() fills in the real
+        // transcript + name from the DO.
+        if (stored && !storedInList) {
+          const placeholder: Project = {
+            id: stored,
+            name: "Current game",
+            createdAt: new Date().toISOString(),
+            updatedAt: Date.now(),
+            deployed: false,
+          };
+          setProjects([placeholder, ...server]);
+          setCurrentId(stored);
           return;
         }
-        const stored = localStorage.getItem(CURRENT_KEY);
-        const validStored = stored && server.some((project) => project.id === stored);
-        setCurrentId(validStored ? stored : server[0]!.id);
+
+        setProjects(server);
+        setCurrentId(server.length === 0 ? null : storedInList ? stored : server[0]!.id);
       })
       .catch((err) => {
         if ((err as Error).name !== "AbortError") {

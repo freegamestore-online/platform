@@ -213,7 +213,18 @@ export function Create() {
           )}
           <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2" style={{ minHeight: 0 }}>
             <div className="flex-1" />
-            {agent.messages.map((m, i) => <ChatMessage key={i} role={m.role} content={m.content} />)}
+            {agent.messages.length > agent.visibleCount && (
+              <button
+                onClick={agent.showEarlier}
+                className="self-center text-xs font-semibold rounded-full px-4 py-1.5 mb-1"
+                style={{ background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)", cursor: "pointer" }}
+              >
+                ↑ Load earlier messages ({agent.messages.length - agent.visibleCount} older)
+              </button>
+            )}
+            {agent.messages.slice(Math.max(0, agent.messages.length - agent.visibleCount)).map((m, i) => (
+              <ChatMessage key={Math.max(0, agent.messages.length - agent.visibleCount) + i} role={m.role} content={m.content} />
+            ))}
             <div ref={messagesEndRef} />
           </div>
           <div className="flex gap-2 shrink-0" style={{ padding: "0.5rem 0.75rem", borderTop: "1px solid var(--border)", background: "var(--surface)" }}>

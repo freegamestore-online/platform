@@ -29,6 +29,14 @@ export function useAgent() {
   const projectsMgr = useProjects();
   const sessionId = projectsMgr.currentId;
   const [messages, setMessages] = useState<AgentMessage[]>(DEFAULT_MESSAGES);
+  // Chat pagination. A refreshed session restores its FULL transcript from the
+  // DO, but we only render the last INITIAL_VISIBLE bubbles; "show earlier"
+  // reveals PAGE more at a time (scrolling up). Keeps a long build history from
+  // dumping hundreds of bubbles at once while never losing any.
+  const INITIAL_VISIBLE = 20;
+  const PAGE = 10;
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
+  const showEarlier = useCallback(() => setVisibleCount((c) => c + PAGE), []);
   const [isStreaming, setIsStreaming] = useState(false);
   const [tokensIn, setTokensIn] = useState(0);
   const [tokensOut, setTokensOut] = useState(0);
@@ -50,6 +58,7 @@ export function useAgent() {
 
   const resetUI = useCallback(() => {
     setMessages(DEFAULT_MESSAGES);
+    setVisibleCount(INITIAL_VISIBLE);
     setDeployState(null);
     setTokensIn(0);
     setTokensOut(0);
@@ -98,6 +107,7 @@ export function useAgent() {
         const restored = restoreMessages(historyData.messages || []);
         if (restored.length > 0) {
           setMessages(restored);
+          setVisibleCount(INITIAL_VISIBLE); // show the last 20 on restore
           setDeployState(historyData.deployStatus ?? null);
           if (historyData.deployStatus?.phase === "live" && historyData.appId) {
             projectsMgr.markDeployed(sessionId, historyData.appId, historyData.deployStatus.appUrl || "");
@@ -285,7 +295,7 @@ export function useAgent() {
   const dismissError = useCallback(() => setError(null), []);
 
   return {
-    messages, isStreaming, tokensIn, tokensOut, deployState, error, dismissError,
+    messages, visibleCount, showEarlier, isStreaming, tokensIn, tokensOut, deployState, error, dismissError,
     projects: projectsMgr.projects, currentProjectId: projectsMgr.currentId,
     projectsError: projectsMgr.loadError, projectsLoading: projectsMgr.loading, reloadProjects: projectsMgr.reload,
     sendMessage, createProject, switchProject, openGame, loadHistory,
