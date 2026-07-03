@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PROVIDERS, getSavedKeys, saveKey, type ProviderConfig } from "../lib/ai-keys";
+import { Button, Badge, Input } from "./ui";
 
 /** Reusable AI provider settings panel.
  *  Shows all providers with API key inputs.
@@ -76,16 +77,8 @@ function ProviderRow({
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <strong className="text-sm">{p.name}</strong>
-            {p.free && (
-              <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ background: "color-mix(in srgb, var(--success) 15%, var(--panel))", color: "var(--success)" }}>
-                Free
-              </span>
-            )}
-            {hasKey && !p.free && (
-              <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ background: "color-mix(in srgb, var(--accent) 15%, var(--panel))", color: "var(--accent)" }}>
-                Connected
-              </span>
-            )}
+            {p.free && <Badge tone="success">Free</Badge>}
+            {hasKey && !p.free && <Badge tone="accent">Connected</Badge>}
           </div>
           <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{p.description}</p>
           <div className="flex flex-wrap gap-1 mt-2">
@@ -103,13 +96,13 @@ function ProviderRow({
             {hasKey && !isEditing ? (
               <div className="flex items-center gap-2">
                 <code className="text-xs" style={{ color: "var(--muted)" }}>{maskedKey}</code>
-                <button onClick={onStartEdit} className="text-xs font-semibold" style={{ color: "var(--accent)", background: "none", border: "none", cursor: "pointer" }}>Edit</button>
-                <button onClick={onRemove} className="text-xs font-semibold" style={{ color: "var(--error)", background: "none", border: "none", cursor: "pointer" }}>Remove</button>
+                <Button variant="ghost" size="sm" onClick={onStartEdit}>Edit</Button>
+                <Button variant="danger-outline" size="sm" onClick={onRemove}>Remove</Button>
               </div>
             ) : !isEditing ? (
-              <button onClick={onStartEdit} className="text-xs px-3 py-1.5 rounded-lg font-semibold" style={{ background: "var(--accent)", color: "white", border: "none", cursor: "pointer" }}>
+              <Button variant="primary" size="sm" onClick={onStartEdit}>
                 Add Key
-              </button>
+              </Button>
             ) : null}
           </div>
         )}
@@ -117,18 +110,17 @@ function ProviderRow({
 
       {isEditing && (
         <div className="flex gap-2 mt-3">
-          <input
+          <Input
             type="password"
             value={inputValue}
             onChange={(e) => onInputChange(e.target.value)}
             placeholder={p.keyPlaceholder}
             aria-label={`API key for ${p.name}`}
-            className="flex-1 p-2 rounded-lg border text-sm"
-            style={{ background: "var(--paper)", borderColor: "var(--line)", color: "var(--ink)", fontFamily: "monospace" }}
+            className="flex-1 font-mono"
             onKeyDown={(e) => { if (e.key === "Enter") onSave(); if (e.key === "Escape") onCancel(); }}
           />
-          <button onClick={onSave} className="px-3 py-2 rounded-lg text-xs font-semibold text-white" style={{ background: "var(--accent)", border: "none", cursor: "pointer" }}>Save</button>
-          <button onClick={onCancel} className="px-3 py-2 rounded-lg text-xs font-semibold" style={{ background: "var(--panel)", border: "1px solid var(--line)", cursor: "pointer", color: "var(--ink)" }}>Cancel</button>
+          <Button variant="primary" size="sm" onClick={onSave}>Save</Button>
+          <Button variant="secondary" size="sm" onClick={onCancel}>Cancel</Button>
         </div>
       )}
 

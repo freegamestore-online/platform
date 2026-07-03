@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { X } from "lucide-react";
 import type { Project } from "../hooks/useProjects";
+import { Button, IconButton, Input } from "./ui";
 
 interface ProjectPickerProps {
   projects: Project[];
@@ -44,7 +46,7 @@ export function ProjectPicker({ projects, currentId, loadError, onRetry, onSelec
         {/* Header */}
         <div className="flex items-center justify-between p-4 shrink-0" style={{ borderBottom: "1px solid var(--line)" }}>
           <h2 className="text-lg font-bold">Sessions</h2>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "1.2rem", cursor: "pointer" }}>✕</button>
+          <IconButton variant="ghost" onClick={onClose} aria-label="Close"><X className="w-5 h-5" /></IconButton>
         </div>
 
         {/* Tabs */}
@@ -60,13 +62,11 @@ export function ProjectPicker({ projects, currentId, loadError, onRetry, onSelec
         {/* Search (sessions tab) */}
         {tab === "sessions" && projects.length > 0 && (
           <div className="px-3 pt-3 shrink-0">
-            <input
+            <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search sessions..."
               aria-label="Search sessions"
-              className="w-full p-2 rounded-lg border text-sm"
-              style={{ background: "var(--paper)", borderColor: "var(--line)", color: "var(--ink)" }}
             />
           </div>
         )}
@@ -80,9 +80,9 @@ export function ProjectPicker({ projects, currentId, loadError, onRetry, onSelec
                   <p style={{ color: "#ef4444" }}>Couldn't load your sessions.</p>
                   <p className="mt-1">You may need to sign in again.</p>
                   {onRetry && (
-                    <button onClick={onRetry} className="mt-2 px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: "var(--accent)", color: "#000", border: "none", cursor: "pointer" }}>
+                    <Button variant="primary" size="sm" onClick={onRetry} className="mt-2">
                       Retry
-                    </button>
+                    </Button>
                   )}
                 </div>
               )}
@@ -110,18 +110,17 @@ export function ProjectPicker({ projects, currentId, loadError, onRetry, onSelec
             /* New session */
             <div className="py-4">
               <p className="text-sm mb-3" style={{ color: "var(--muted)" }}>Start a new game from scratch. To keep editing an existing game, open it from <a href="/" className="hover:underline" style={{ color: "var(--accent)" }}>My Games</a>.</p>
-              <input
+              <Input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Game name..."
                 aria-label="New game name"
-                className="w-full p-2.5 rounded-lg border mb-3 text-sm"
-                style={{ background: "var(--paper)", borderColor: "var(--line)", color: "var(--ink)" }}
+                className="mb-3"
                 onKeyDown={(e) => { if (e.key === "Enter") handleCreateNew(); }}
               />
-              <button onClick={handleCreateNew} disabled={!newName.trim()} className="w-full p-2.5 rounded-lg font-semibold text-sm text-white" style={{ background: "var(--accent)", border: "none", cursor: "pointer", opacity: newName.trim() ? 1 : 0.5 }}>
+              <Button variant="primary" onClick={handleCreateNew} disabled={!newName.trim()} className="w-full">
                 Create Game
-              </button>
+              </Button>
             </div>
           )}
         </div>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Settings, Bot, Plus, ChevronDown, Copy, Check, ArrowUp, X, Send } from "lucide-react";
+import { Button, buttonClass, Select, Input } from "../components/ui";
 import { Nav } from "../components/Nav";
 import { ChatMessage } from "../components/ChatMessage";
 import { DeployLog } from "../components/DeployLog";
@@ -157,16 +158,10 @@ export function Create() {
             Start a new game and describe it to the AI, or open one of your games to keep editing it.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <button
-              onClick={() => agent.createProject("New Game")}
-              className="px-6 rounded-full font-semibold"
-              style={{ minHeight: 44, background: "var(--accent)", color: "#000", border: "none", cursor: "pointer" }}
-            >
-              New Game
-            </button>
-            <a href="/" className="px-6 rounded-full font-semibold no-underline flex items-center" style={{ minHeight: 44, border: "1px solid var(--border)", color: "var(--ink)" }}>
-              My Games
-            </a>
+            <Button variant="primary" onClick={() => agent.createProject("New Game")}>
+              <Plus className="w-4 h-4" /> New Game
+            </Button>
+            <a href="/" className={buttonClass("secondary", "md", "no-underline")}>My Games</a>
           </div>
         </main>
       </div>
@@ -196,7 +191,8 @@ export function Create() {
               <span style={{ flex: 1 }}>Add an API key to start building — sends are blocked until then.</span>
               <button
                 onClick={() => setSettingsOpen(true)}
-                style={{ background: "var(--warning, #d97706)", color: "#000", border: "none", borderRadius: "0.375rem", padding: "0.2rem 0.6rem", cursor: "pointer", fontWeight: 600, fontSize: "0.78rem", minHeight: 28 }}
+                className="shrink-0 inline-flex items-center rounded-md px-3 h-9 text-sm font-semibold"
+                style={{ background: "var(--warning, #d97706)", color: "#000", border: "none", cursor: "pointer" }}
               >
                 Add key
               </button>
@@ -243,12 +239,12 @@ export function Create() {
               placeholder="Build me a space invaders game..."
               aria-label="Describe your game"
               rows={1}
-              className="flex-1 resize-none text-sm"
-              style={{ border: "1px solid var(--border)", borderRadius: "0.5rem", padding: "0.55rem 0.7rem", background: "var(--bg)", color: "var(--ink)", minHeight: 44, maxHeight: 100, fontFamily: "Manrope, system-ui, sans-serif" }}
+              className="flex-1 resize-none rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] text-sm px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:border-[var(--accent)]"
+              style={{ minHeight: 44, maxHeight: 100, fontFamily: "Manrope, system-ui, sans-serif" }}
             />
-            <button onClick={handleSend} disabled={agent.isStreaming} className="self-end inline-flex items-center gap-1.5 text-sm font-semibold" style={{ padding: "0.55rem 1rem", background: "var(--accent)", color: "#000", border: "none", borderRadius: "0.5rem", cursor: "pointer", minHeight: 44, opacity: agent.isStreaming ? 0.5 : 1 }}>
+            <Button variant="primary" onClick={handleSend} disabled={agent.isStreaming} className="self-end">
               <Send className="w-4 h-4" /> Send
-            </button>
+            </Button>
           </div>
         </div>
         {/* Preview */}
@@ -297,29 +293,23 @@ interface ToolbarProps {
   setPickerOpen: (v: boolean) => void;
 }
 
-// One shared button style — Tailwind classes (with theme CSS vars via arbitrary
-// values), 14px text, real hover/disabled states. No more per-button inline
-// style objects.
-const TB_BTN = "inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-transparent px-2.5 py-1.5 text-sm text-[var(--ink)] transition-colors hover:bg-[var(--bg)] disabled:opacity-50 disabled:cursor-not-allowed";
-const TB_SELECT = "rounded-md border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-sm text-[var(--ink)]";
-
 function Toolbar({ agent, currentProject, provider, setProvider, model, setModel, apiKey, setApiKey, temperature, setTemperature, settingsOpen, setSettingsOpen, setPickerOpen }: ToolbarProps) {
   return (
     <>
       <div className="flex items-center gap-2 shrink-0 px-3 py-2 border-b border-[var(--border)] bg-[var(--surface)]">
-        <button onClick={() => setPickerOpen(true)} disabled={agent.isStreaming} className={`${TB_BTN} max-w-[190px]`} title={agent.isStreaming ? "Finish the current build to switch games" : "Switch game"}>
+        <Button size="sm" onClick={() => setPickerOpen(true)} disabled={agent.isStreaming} className="max-w-[190px]" title={agent.isStreaming ? "Finish the current build to switch games" : "Switch game"}>
           {currentProject?.deployed && <span className="w-2 h-2 rounded-full bg-[var(--accent)] shrink-0" />}
           <span className="truncate">{currentProject?.name || "Select game"}</span>
           <ChevronDown className="w-4 h-4 shrink-0 opacity-60" />
-        </button>
-        <button onClick={() => agent.createProject("New Game")} disabled={agent.isStreaming} className={TB_BTN} title="Start a new game">
+        </Button>
+        <Button size="sm" onClick={() => agent.createProject("New Game")} disabled={agent.isStreaming} title="Start a new game">
           <Plus className="w-4 h-4" /> New
-        </button>
+        </Button>
         {/* Always reachable: deployed game → its settings (rename / artwork /
             DELETE); otherwise → My Games. Accent-styled so it isn't lost. */}
         <Link
           to={currentProject?.appId ? `/game/${currentProject.appId}` : "/"}
-          className={`${TB_BTN} border-[var(--accent)] text-[var(--accent)] font-semibold no-underline hover:opacity-80`}
+          className={buttonClass("secondary", "sm", "no-underline border-[var(--accent)] text-[var(--accent)]")}
           title={currentProject?.appId ? "Game settings — rename, artwork, delete" : "Open My Games to manage a game"}
         >
           <Settings className="w-4 h-4" /> Settings
@@ -328,25 +318,25 @@ function Toolbar({ agent, currentProject, provider, setProvider, model, setModel
           In <strong className="text-[var(--ink)]">{agent.tokensIn.toLocaleString()}</strong> · Out <strong className="text-[var(--ink)]">{agent.tokensOut.toLocaleString()}</strong>
         </span>
         <CopyLogButton agent={agent} provider={provider} model={model} />
-        <button onClick={() => setSettingsOpen(!settingsOpen)} className={TB_BTN} title="AI model & API key">
+        <Button size="sm" onClick={() => setSettingsOpen(!settingsOpen)} title="AI model & API key">
           <Bot className="w-4 h-4" /> AI
-        </button>
+        </Button>
       </div>
       {settingsOpen && (
         <div className="flex flex-wrap items-center gap-2 shrink-0 px-3 py-2 border-b border-[var(--border)] bg-[var(--surface)]">
-          <select aria-label="AI provider" value={provider} onChange={(e) => { setProvider(e.target.value); setModel(MODEL_OPTIONS[e.target.value]?.[0]?.value || ""); }} className={TB_SELECT}>
+          <Select aria-label="AI provider" value={provider} onChange={(e) => { setProvider(e.target.value); setModel(MODEL_OPTIONS[e.target.value]?.[0]?.value || ""); }} className="w-auto h-9">
             <option value="github">GitHub Models</option><option value="openrouter">OpenRouter</option><option value="anthropic">Anthropic</option><option value="openai">OpenAI</option><option value="google">Google</option>
-          </select>
-          <select aria-label="AI model" value={model} onChange={(e) => setModel(e.target.value)} className={TB_SELECT}>
+          </Select>
+          <Select aria-label="AI model" value={model} onChange={(e) => setModel(e.target.value)} className="w-auto h-9">
             {(MODEL_OPTIONS[provider] || []).map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-          </select>
+          </Select>
           {getKey(provider)
             ? <span className="text-sm text-[var(--success)]">Key saved</span>
-            : <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="API key" aria-label="API key" className={`${TB_SELECT} w-48`} />
+            : <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="API key" aria-label="API key" className="w-48 h-9" />
           }
-          <select aria-label="Temperature" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className={TB_SELECT}>
+          <Select aria-label="Temperature" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-auto h-9">
             <option value={0}>Temp 0</option><option value={0.3}>Temp 0.3</option><option value={0.7}>Temp 0.7</option><option value={1}>Temp 1</option>
-          </select>
+          </Select>
         </div>
       )}
     </>
@@ -371,9 +361,9 @@ function CopyLogButton({ agent, provider, model }: { agent: ReturnType<typeof us
   }
 
   return (
-    <button onClick={copy} title="Copy conversation as JSON" className={`${TB_BTN} ${copied ? "text-[var(--success)] border-[var(--success)]" : "text-[var(--muted)]"}`}>
+    <Button size="sm" onClick={copy} title="Copy conversation as JSON" className={copied ? "text-[var(--success)] border-[var(--success)]" : "text-[var(--muted)]"}>
       {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
       <span className="hidden sm:inline">{copied ? "Copied" : "Copy"}</span>
-    </button>
+    </Button>
   );
 }

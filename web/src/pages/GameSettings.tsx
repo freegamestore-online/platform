@@ -4,6 +4,7 @@ import { Nav } from "../components/Nav";
 import { LoadingShell, SignInShell, ErrorShell } from "../components/PageShell";
 import { useAuth } from "../hooks/useAuth";
 import { decodeIcon, formatDate, formatRelative } from "../lib/format";
+import { Button, Card, Badge, Field, Input, Select, Textarea } from "../components/ui";
 
 const CATEGORIES = ["arcade", "puzzle", "strategy", "racing", "sports", "cards", "board", "rpg", "action", "casual"];
 
@@ -97,9 +98,6 @@ export function GameSettings() {
     }
   };
 
-  const label: React.CSSProperties = { fontSize: "0.8rem", fontWeight: 600, color: "var(--muted)", display: "block", marginBottom: 4 };
-  const input: React.CSSProperties = { width: "100%", padding: "0.5rem 0.7rem", borderRadius: "0.6rem", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontFamily: "inherit", fontSize: "0.9rem" };
-
   return (
     <>
       <Nav />
@@ -112,7 +110,7 @@ export function GameSettings() {
           </span>
           <div className="min-w-0">
             <h1 className="text-2xl font-bold truncate">{name || game.id}</h1>
-            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "var(--accent-soft, #1a2e26)", color: "var(--accent)" }}>Live</span>
+            <Badge tone="accent">Live</Badge>
           </div>
         </div>
 
@@ -131,39 +129,34 @@ export function GameSettings() {
         )}
 
         {/* Details */}
-        <section className="flex flex-col gap-4 p-5 rounded-2xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+        <Card className="flex flex-col gap-4">
           <h2 className="text-lg font-semibold">Details</h2>
-          <div>
-            <label style={label} htmlFor="g-name">Name</label>
-            <input id="g-name" style={input} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
-          </div>
-          <div>
-            <label style={label} htmlFor="g-desc">Description</label>
-            <textarea id="g-desc" style={{ ...input, minHeight: 80, resize: "vertical" }} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={300} />
-          </div>
-          <div>
-            <label style={label} htmlFor="g-cat">Category</label>
-            <select id="g-cat" style={input} value={category} onChange={(e) => setCategory(e.target.value)}>
+          <Field label="Name" htmlFor="g-name">
+            <Input id="g-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
+          </Field>
+          <Field label="Description" htmlFor="g-desc">
+            <Textarea id="g-desc" className="min-h-20" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={300} />
+          </Field>
+          <Field label="Category" htmlFor="g-cat">
+            <Select id="g-cat" value={category} onChange={(e) => setCategory(e.target.value)}>
               {CATEGORIES.map((c) => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
-            </select>
-          </div>
+            </Select>
+          </Field>
           <div className="flex gap-4">
-            <div style={{ flex: "0 0 auto" }}>
-              <label style={label} htmlFor="g-icon">Icon</label>
-              <input id="g-icon" style={{ ...input, width: 72, textAlign: "center", fontSize: "1.3rem" }} value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="🎮" maxLength={4} />
-            </div>
-            <div style={{ flex: "0 0 auto" }}>
-              <label style={label} htmlFor="g-bg">Icon background</label>
-              <input id="g-bg" type="color" style={{ ...input, width: 72, height: 40, padding: 2 }} value={iconBg || "#10b981"} onChange={(e) => setIconBg(e.target.value)} />
-            </div>
+            <Field label="Icon" htmlFor="g-icon">
+              <Input id="g-icon" style={{ width: 72, textAlign: "center", fontSize: "1.3rem" }} value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="🎮" maxLength={4} />
+            </Field>
+            <Field label="Icon background" htmlFor="g-bg">
+              <Input id="g-bg" type="color" style={{ width: 72, height: 40, padding: 2 }} value={iconBg || "#10b981"} onChange={(e) => setIconBg(e.target.value)} />
+            </Field>
           </div>
           <p className="text-xs" style={{ color: "var(--muted)" }}>Icon + background are the game's artwork in the store. Free-tier games use an emoji icon (no image uploads).</p>
           <div>
-            <button onClick={save} disabled={saving} className="px-6 rounded-xl font-semibold disabled:opacity-50" style={{ minHeight: 44, background: "var(--accent)", color: "#000", border: "none", cursor: "pointer" }}>
+            <Button variant="primary" onClick={save} disabled={saving} className="px-6">
               {saving ? "Saving…" : "Save changes"}
-            </button>
+            </Button>
           </div>
-        </section>
+        </Card>
 
         {/* Danger zone */}
         <section className="flex flex-col gap-3 p-5 rounded-2xl mt-6" style={{ background: "color-mix(in srgb, #ef4444 5%, var(--surface))", border: "1px solid color-mix(in srgb, #ef4444 30%, var(--border))" }}>
@@ -173,19 +166,19 @@ export function GameSettings() {
           </p>
           {!confirmDelete ? (
             <div>
-              <button onClick={() => setConfirmDelete(true)} className="px-5 rounded-xl font-semibold" style={{ minHeight: 44, background: "transparent", color: "#ef4444", border: "1px solid #ef4444", cursor: "pointer" }}>
+              <Button variant="danger-outline" onClick={() => setConfirmDelete(true)} className="px-5">
                 Delete this game
-              </button>
+              </Button>
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-3">
               <span className="text-sm font-semibold">Really delete “{game.name}”?</span>
-              <button onClick={del} disabled={deleting} className="px-5 rounded-xl font-semibold disabled:opacity-50" style={{ minHeight: 44, background: "#ef4444", color: "#fff", border: "none", cursor: "pointer" }}>
+              <Button variant="danger" onClick={del} disabled={deleting} className="px-5">
                 {deleting ? "Deleting…" : "Yes, delete"}
-              </button>
-              <button onClick={() => setConfirmDelete(false)} disabled={deleting} className="px-5 rounded-xl font-semibold" style={{ minHeight: 44, background: "transparent", color: "var(--ink)", border: "1px solid var(--border)", cursor: "pointer" }}>
+              </Button>
+              <Button variant="secondary" onClick={() => setConfirmDelete(false)} disabled={deleting} className="px-5">
                 Cancel
-              </button>
+              </Button>
             </div>
           )}
         </section>

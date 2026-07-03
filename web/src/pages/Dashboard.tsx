@@ -6,6 +6,7 @@ import { CreateGameForm } from "../components/CreateGameForm";
 import { LoadingShell, SignInShell, ErrorShell } from "../components/PageShell";
 import { useAuth, type GameRepo } from "../hooks/useAuth";
 import { decodeIcon, formatDate, formatRelative } from "../lib/format";
+import { Button, Badge, buttonClass } from "../components/ui";
 
 export function Dashboard() {
   const { user, creator, creatorError, loading, error, fetchCreator, reloadCreator, signIn } = useAuth();
@@ -51,26 +52,23 @@ export function Dashboard() {
             <h2 className="text-2xl font-bold">Signed in as @{user.github}</h2>
             <p style={{ color: "var(--muted)" }} className="text-sm mt-1">Publish and manage your games</p>
           </div>
-          <span
-            className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium shrink-0"
-            style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
-          >
+          <Badge tone="accent" className="shrink-0 text-sm px-3 py-1.5">
             {creator.remaining} of {creator.maxGames} slots
-          </span>
+          </Badge>
         </div>
 
         {creator.games.length > 0 && <GameList games={creator.games} />}
 
         {!showForm && (
           <>
-            <button
+            <Button
+              variant="primary"
               onClick={() => setShowForm(true)}
               disabled={creator.remaining <= 0}
-              className="w-full sm:w-auto px-6 font-semibold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ minHeight: 44, background: "var(--accent)", color: "#000", border: "none", cursor: "pointer" }}
+              className="w-full sm:w-auto px-6"
             >
               Create Game
-            </button>
+            </Button>
             {creator.remaining <= 0 && (
               <p className="text-sm mt-2" style={{ color: "var(--muted)" }}>
                 You've used all your slots. Request more by opening an issue on GitHub.
@@ -118,12 +116,7 @@ function GameList({ games }: { games: GameRepo[] }) {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <p className="font-semibold truncate">{game.name}</p>
-                <span
-                  className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
-                  style={{ background: "var(--accent-soft, #1a2e26)", color: "var(--accent)" }}
-                >
-                  Live
-                </span>
+                <Badge tone="accent" className="shrink-0">Live</Badge>
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm mt-1" style={{ color: "var(--muted)" }}>
                 <a href={game.liveUrl} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--accent)" }}>Play</a>
@@ -135,16 +128,14 @@ function GameList({ games }: { games: GameRepo[] }) {
             <div className="flex items-center gap-2 shrink-0">
               <Link
                 to={`/create?game=${game.id}`}
-                className="px-3 font-semibold rounded-lg text-sm no-underline flex items-center"
-                style={{ minHeight: 44, background: "var(--accent)", color: "#000" }}
+                className={buttonClass("primary", "md")}
               >
                 Edit
               </Link>
               <Link
                 to={`/game/${game.id}`}
                 aria-label={`Settings for ${game.name}`}
-                className="font-semibold rounded-lg no-underline flex items-center justify-center"
-                style={{ minHeight: 44, minWidth: 44, background: "var(--bg)", color: "var(--ink)", border: "1px solid var(--border)" }}
+                className={buttonClass("secondary", "md", "w-11 px-0")}
               >
                 <Settings className="w-5 h-5" />
               </Link>

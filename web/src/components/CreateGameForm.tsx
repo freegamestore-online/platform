@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button, Card, Input, Select, Label } from "./ui";
 
 interface ProvisionStep {
   name: string;
@@ -41,8 +42,6 @@ function StatusDot({ status }: { status: string }) {
     "bg-red-500";
   return <span className={`inline-block w-2.5 h-2.5 rounded-full ${color}`} />;
 }
-
-const inputStyle = { minHeight: 44, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" };
 
 interface CreateGameFormProps {
   /** Called on a successful create with the new game id — the Dashboard reloads
@@ -98,7 +97,7 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
 
   if (result) {
     return (
-      <div className="rounded-xl p-6 space-y-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+      <Card className="p-6 space-y-4">
         <h3 className="text-lg font-semibold">
           {result.success ? "Game Created" : "Provisioning Failed"}
         </h3>
@@ -117,64 +116,63 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
             <p>Edit your code at <a href={`https://github.com/freegamestore-online/${gameId}`} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }} className="hover:underline">github.com/freegamestore-online/{gameId}</a></p>
           </div>
         )}
-        <button onClick={onClose} className="px-6 font-semibold rounded-xl" style={{ minHeight: 44, background: "var(--accent)", color: "#000", border: "none", cursor: "pointer" }}>
+        <Button variant="primary" onClick={onClose}>
           Done
-        </button>
-      </div>
+        </Button>
+      </Card>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-xl p-6 space-y-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+    <form onSubmit={handleSubmit}>
+      <Card className="p-6 space-y-5">
       <h3 className="text-lg font-semibold">Create a New Game</h3>
 
       <div>
-        <label htmlFor="game-id" className="block text-sm font-medium mb-1.5">Game ID</label>
-        <input id="game-id" type="text" value={gameId}
+        <Label htmlFor="game-id">Game ID</Label>
+        <Input id="game-id" type="text" value={gameId}
           onChange={(e) => setGameId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
           placeholder="my-game" required
-          className="w-full px-3 rounded-lg outline-none focus:ring-2"
-          style={{ ...inputStyle, ...(idError ? { borderColor: "var(--error)" } : {}) }}
+          style={idError ? { borderColor: "var(--error)" } : undefined}
         />
         {idError && <p className="text-sm mt-1" style={{ color: "var(--error)" }}>{idError}</p>}
         {gameId && !idError && <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>{gameId}.freegamestore.online</p>}
       </div>
 
       <div>
-        <label htmlFor="game-name" className="block text-sm font-medium mb-1.5">Display Name</label>
-        <input id="game-name" type="text" value={gameName} onChange={(e) => setGameName(e.target.value)}
-          placeholder="My Game" required className="w-full px-3 rounded-lg outline-none focus:ring-2" style={inputStyle} />
+        <Label htmlFor="game-name">Display Name</Label>
+        <Input id="game-name" type="text" value={gameName} onChange={(e) => setGameName(e.target.value)}
+          placeholder="My Game" required />
       </div>
 
       <div>
-        <label htmlFor="game-category" className="block text-sm font-medium mb-1.5">Category</label>
-        <select id="game-category" value={category} onChange={(e) => setCategory(e.target.value)}
-          className="w-full px-3 rounded-lg outline-none focus:ring-2 appearance-none" style={inputStyle}>
+        <Label htmlFor="game-category">Category</Label>
+        <Select id="game-category" value={category} onChange={(e) => setCategory(e.target.value)}>
           {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-        </select>
+        </Select>
       </div>
 
       <div className="flex gap-4">
         <div className="flex-1">
-          <label htmlFor="game-icon" className="block text-sm font-medium mb-1.5">Icon (emoji)</label>
-          <input id="game-icon" type="text" value={icon} onChange={(e) => setIcon(e.target.value)}
-            className="w-full px-3 rounded-lg outline-none focus:ring-2 text-center text-2xl" style={inputStyle} />
+          <Label htmlFor="game-icon">Icon (emoji)</Label>
+          <Input id="game-icon" type="text" value={icon} onChange={(e) => setIcon(e.target.value)}
+            className="text-center text-2xl" />
         </div>
         <div className="flex-1">
-          <label htmlFor="game-icon-bg" className="block text-sm font-medium mb-1.5">Icon Background</label>
+          <Label htmlFor="game-icon-bg">Icon Background</Label>
           <div className="flex items-center gap-2">
             <input type="color" value={iconBg} onChange={(e) => setIconBg(e.target.value)}
               aria-label="Icon background color picker" className="w-11 h-11 rounded-lg border-0 cursor-pointer p-0" />
-            <input id="game-icon-bg" type="text" value={iconBg} onChange={(e) => setIconBg(e.target.value)}
-              className="flex-1 px-3 rounded-lg outline-none focus:ring-2 font-mono text-sm" style={inputStyle} />
+            <Input id="game-icon-bg" type="text" value={iconBg} onChange={(e) => setIconBg(e.target.value)}
+              className="flex-1 font-mono" />
           </div>
         </div>
       </div>
 
       <div>
-        <label htmlFor="game-desc" className="block text-sm font-medium mb-1.5">One-line Description</label>
-        <input id="game-desc" type="text" value={description} onChange={(e) => setDescription(e.target.value)}
-          placeholder="A fun and addictive puzzle game" className="w-full px-3 rounded-lg outline-none focus:ring-2" style={inputStyle} />
+        <Label htmlFor="game-desc">One-line Description</Label>
+        <Input id="game-desc" type="text" value={description} onChange={(e) => setDescription(e.target.value)}
+          placeholder="A fun and addictive puzzle game" />
       </div>
 
       <fieldset>
@@ -197,17 +195,14 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
       {submitError && <p className="text-sm font-medium" style={{ color: "var(--error)" }}>{submitError}</p>}
 
       <div className="flex gap-3 pt-2">
-        <button type="submit" disabled={submitting || !gameId || !gameName || !!idError}
-          className="px-6 font-semibold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed"
-          style={{ minHeight: 44, background: "var(--accent)", color: "#000", border: "none", cursor: "pointer" }}>
+        <Button type="submit" variant="primary" disabled={submitting || !gameId || !gameName || !!idError}>
           {submitting ? "Creating..." : "Create Game"}
-        </button>
-        <button type="button" onClick={onClose} disabled={submitting}
-          className="px-6 font-semibold rounded-xl"
-          style={{ minHeight: 44, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)", cursor: "pointer" }}>
+        </Button>
+        <Button type="button" variant="secondary" onClick={onClose} disabled={submitting}>
           Cancel
-        </button>
+        </Button>
       </div>
+      </Card>
     </form>
   );
 }
