@@ -3,10 +3,12 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
 const NAV_LINKS: { to: string; label: string; external: boolean }[] = [
-  { to: "https://freegamestore.online", label: "Games", external: true },
-  { to: "https://freeappstore.online", label: "Apps", external: true },
-  { to: "https://freegamestore.online/contribute.html", label: "Build", external: true },
+  // Dashboard is the publisher's home (manage your games) — it had no desktop
+  // nav entry before, only the logo and a mobile-drawer link.
+  { to: "/", label: "Dashboard", external: false },
   { to: "/create", label: "VibeCode", external: false },
+  { to: "https://freegamestore.online", label: "Store", external: true },
+  { to: "https://freegamestore.online/contribute.html", label: "Build", external: true },
 ];
 
 const mobileLink: React.CSSProperties = {
