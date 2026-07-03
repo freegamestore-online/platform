@@ -117,6 +117,13 @@ export function useAgent() {
           setMessages(restored);
           setVisibleCount(INITIAL_VISIBLE); // show the last 20 on restore
           setDeployState(historyData.deployStatus ?? null);
+          // Restore the running token totals too — /history reports them, but
+          // they weren't being read, so a reloaded session always showed
+          // "In 0 · Out 0" even after a long build.
+          if (historyData.tokenUsage) {
+            setTokensIn(historyData.tokenUsage.input ?? 0);
+            setTokensOut(historyData.tokenUsage.output ?? 0);
+          }
           if (historyData.deployStatus?.phase === "live" && historyData.appId) {
             projectsMgr.markDeployed(sessionId, historyData.appId, historyData.deployStatus.appUrl || "");
           } else if (historyData.appName) {

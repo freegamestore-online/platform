@@ -101,8 +101,7 @@ export function Create() {
     );
   }
 
-  const handleSend = async () => {
-    const msg = inputValue.trim();
+  const sendPrompt = async (msg: string) => {
     if (!msg || agent.isStreaming) return;
     const key = apiKey || getKey(provider);
     if (!key) {
@@ -111,8 +110,14 @@ export function Create() {
       setSettingsOpen(true);
       return;
     }
-    setInputValue("");
     await agent.sendMessage(msg, { provider, model, apiKey: key, temperature, maxTokens: 16384 } as AIConfig);
+  };
+
+  const handleSend = async () => {
+    const msg = inputValue.trim();
+    if (!msg || agent.isStreaming) return;
+    setInputValue("");
+    await sendPrompt(msg);
   };
 
   // Preview URL: the deployed game's own URL. FGS games are Path B — they serve
@@ -261,7 +266,19 @@ export function Create() {
           <div className="flex-1 flex items-center justify-center" style={{ background: "var(--bg)", minHeight: 0, overflow: "hidden" }}>
             {showPreview ? <iframe src={previewUrl} title="Preview" className="w-full h-full border-0" style={{ background: "var(--bg)" }} /> :
              agent.deployState ? <DeployLog state={agent.deployState} /> :
-             <div className="text-center p-8" style={{ color: "var(--muted)" }}><p>Your game will appear here once deployed.</p></div>}
+             <div className="text-center p-8 flex flex-col items-center gap-3 max-w-sm" style={{ color: "var(--muted)" }}>
+               {agent.messages.length > 1 ? (
+                 <>
+                   <p className="text-sm">This game <strong>hasn't been deployed yet</strong> — that's why there's no preview. The AI builds in-session; it only goes live once it deploys.</p>
+                   <Button variant="primary" onClick={() => sendPrompt("Deploy the game now so I can see the live preview.")} disabled={agent.isStreaming}>
+                     <Send className="w-4 h-4" /> Deploy now
+                   </Button>
+                   <p className="text-xs">…or just type <span className="font-mono">deploy</span> in the chat.</p>
+                 </>
+               ) : (
+                 <p className="text-sm">Describe your game in the chat to start building — it appears here once the AI deploys it.</p>
+               )}
+             </div>}
           </div>
         </div>
       </div>
