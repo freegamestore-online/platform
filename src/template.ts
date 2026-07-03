@@ -578,6 +578,14 @@ The session starts pre-loaded with the real game template. Its shape:
 - web/src/index.css — CSS variables (--paper, --ink, --muted, --accent, --surface, --border, --radius, plus light/dark). Body is already fullscreen, no-scroll, no-select.
 Keep this structure. Build your game primarily in App.tsx + new files under web/src/ (components/, lib/, etc.).
 
+## Platform-managed files — NEVER edit these
+The template ships infrastructure the PLATFORM owns. Do NOT read-and-"fix" them, do NOT edit them to satisfy a check:
+- \`package.json\`, \`web/package.json\`, \`pnpm-lock.yaml\`, \`pnpm-workspace.yaml\`
+- \`.github/**\` (all workflows, including compliance.yml), \`*.config.*\` (vite/ts/tailwind), \`wrangler*\`, \`LICENSE\`, \`CLAUDE.md\`
+- Any analytics/tracking file (e.g. lib/track.ts) — platform analytics is injected by the host
+\`APPNAME\` appears in package.json, the manifest, and \`<title>\`s. It is a PLACEHOLDER the platform substitutes with your game's real id/name AT DEPLOY. Leave every \`APPNAME\` exactly as-is — never rename it, never "fix" it.
+If you catch yourself editing a workflow, package.json, a config, or renaming something to pass a grep — STOP immediately. That is the platform's job, not yours. Your job is game code in web/src/, then deploy.
+
 ## Brand + game rules (mandatory)
 - Fonts: Manrope (body/UI) + Fraunces (display/headings only) — loaded in index.html.
 - Style with Tailwind + the CSS variables above. Respect light AND dark mode.
@@ -604,8 +612,8 @@ Keep this structure. Build your game primarily in App.tsx + new files under web/
 2. Build the game by writing/editing files with write_file — mostly web/src/App.tsx plus new files under web/src/.
 3. Reuse the provided hooks + canvas helpers instead of rewriting input/loop/highscore/draw code.
 4. Your code MUST typecheck — the deploy build runs \`tsc -b && vite build\` under strict mode. No unused vars/params, handle nullable values.
-5. BEFORE deploying, run run_compliance_check and fix any failures.
-6. After compliance passes, IMMEDIATELY deploy — do NOT ask "ready to deploy?". Pick a sensible game ID, name, category, icon, and description from what you built.
+5. BEFORE deploying, run run_compliance_check. Fix ONLY genuine problems in YOUR game code (web/src game files). IGNORE any failure caused by the \`APPNAME\` placeholder, by package/config/workflow files, or by a source-vs-built-output check — the platform substitutes APPNAME and runs the REAL compliance on the built output at deploy. Never edit infra to satisfy the local check. If the only failures are those, just deploy.
+6. Deploy quickly. Don't spend many turns "perfecting" — build a playable game, then deploy. After compliance passes (or only has platform-handled warnings), IMMEDIATELY deploy — do NOT ask "ready to deploy?". Pick a sensible game ID, name, category, icon, and description from what you built.
 7. Never wait for user confirmation to deploy. Build -> compliance -> deploy.
 8. After the first deploy, use push_update to push changes (not deploy again).
 9. After pushing, use check_deploy_status / get_build_logs to monitor the build.

@@ -140,9 +140,9 @@ describe("run_compliance_check", () => {
     expect(result.content).toContain("PASS: PWA manifest");
     // Fraunces is in index.html + component inline styles, not index.css — known gap
     expect(result.content).toContain("FAIL: Brand fonts");
-    // APPNAME placeholders remain until deploy time
-    expect(result.content).toContain("FAIL: APPNAME placeholders");
-    expect(result.content).toContain("10 pass, 2 fail");
+    // APPNAME placeholders are platform-substituted at deploy → a NOTE, not a FAIL
+    expect(result.content).toContain("NOTE: APPNAME placeholders");
+    expect(result.content).toContain("10 pass, 1 fail");
   });
 
   it("games template passes games compliance (except APPNAME + Fraunces)", () => {
@@ -155,8 +155,8 @@ describe("run_compliance_check", () => {
     expect(result.content).toContain("PASS: pnpm workspace");
     expect(result.content).toContain("PASS: PWA manifest");
     expect(result.content).toContain("FAIL: Brand fonts");
-    expect(result.content).toContain("FAIL: APPNAME placeholders");
-    expect(result.content).toContain("10 pass, 2 fail");
+    expect(result.content).toContain("NOTE: APPNAME placeholders");
+    expect(result.content).toContain("10 pass, 1 fail");
   });
 
   it("apps template would fail games compliance (--bg)", () => {
@@ -170,13 +170,14 @@ describe("run_compliance_check", () => {
     const files = new Map(Object.entries(getTemplateFiles(gamesConfig)));
     const result = executeTool({ id: "1", name: "run_compliance_check", input: {} }, files, appsConfig);
     expect(result.content).toContain("FAIL: CSS variables");
-    expect(result.content).toContain("FAIL: FreeAppStore link");
+    // The link check is now a NOTE (SDK provides it in the built output), not a FAIL
+    expect(result.content).toContain("NOTE: FreeAppStore link");
   });
 
-  it("detects APPNAME placeholders", () => {
+  it("surfaces APPNAME placeholders as a non-failing note (platform substitutes them at deploy)", () => {
     const files = new Map(Object.entries(getTemplateFiles(appsConfig)));
-    // Template files still have APPNAME (they're replaced at deploy time)
     const result = executeTool({ id: "1", name: "run_compliance_check", input: {} }, files, appsConfig);
-    expect(result.content).toContain("FAIL: APPNAME placeholders");
+    expect(result.content).toContain("NOTE: APPNAME placeholders");
+    expect(result.content).not.toContain("FAIL: APPNAME placeholders");
   });
 });

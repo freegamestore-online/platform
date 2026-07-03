@@ -239,6 +239,12 @@ function runComplianceCheck(files: Map<string, string>, config: StoreConfig): st
   const results: string[] = [];
   const pass = (name: string) => results.push(`PASS: ${name}`);
   const fail = (name: string, detail: string) => results.push(`FAIL: ${name} — ${detail}`);
+  // Platform-handled: surfaced for visibility but NOT a failure. These are
+  // resolved by the deploy pipeline (APPNAME substitution) or verified by the
+  // real CI on the built output (the SDK-provided store link), which the local
+  // source-only check can't see. Reporting them as FAIL made agents rabbit-hole
+  // editing infra/placeholders instead of deploying.
+  const note = (name: string, detail: string) => results.push(`NOTE: ${name} — ${detail}`);
 
   // MIT License
   const license = files.get("LICENSE");
@@ -249,8 +255,10 @@ function runComplianceCheck(files: Map<string, string>, config: StoreConfig): st
   if (!files.has(".env.production") && !files.has("web/.env.production")) pass("No .env.production");
   else fail("No .env.production", ".env.production found in project");
 
-  // No tracking SDKs
-  const forbidden = /google-analytics|gtag|amplitude|mixpanel|segment|hotjar|plausible|posthog/i;
+  // No tracking SDKs. Match real SDK signatures, not bare English/code words:
+  // "segment" (line segments), "amplitude" (waves/audio) are legitimate in game
+  // code, so pin those to their product domains/APIs.
+  const forbidden = /google-analytics|googletagmanager|gtag\s*\(|mixpanel|segment\.(com|io)|segmentio|hotjar|plausible\.io|posthog|amplitude\.(com|getInstance|init)/i;
   let hasTracking = false;
   for (const [path, content] of files) {
     if (path.startsWith("web/src/") && forbidden.test(content)) {
@@ -326,7 +334,7 @@ function runComplianceCheck(files: Map<string, string>, config: StoreConfig): st
     }
   }
   if (hasStoreLink) pass(`${config.storeName} link in source`);
-  else fail(`${config.storeName} link`, `No reference to ${config.domain} in web/src/`);
+  else note(`${config.storeName} link`, `Not in web/src/ — that's fine: the SDK's GameShell renders it into the built output, where the real CI verifies it. Don't hand-add a link.`);
 
   // Store-specific checks
   if (config.store === "games") {
@@ -363,9 +371,11 @@ function runComplianceCheck(files: Map<string, string>, config: StoreConfig): st
     }
   }
   if (!hasPlaceholder) pass("No APPNAME placeholders");
-  else fail("APPNAME placeholders", "Found unreplaced APPNAME placeholder in project files");
+  else note("APPNAME placeholders", "Present — the platform substitutes these with your game's real id/name at deploy. Leave them as-is; do NOT edit package.json/manifest/titles to 'fix' them.");
 
   const passes = results.filter((r) => r.startsWith("PASS")).length;
   const fails = results.filter((r) => r.startsWith("FAIL")).length;
-  return `Compliance: ${passes} pass, ${fails} fail\n\n${results.join("\n")}`;
+  const notes = results.filter((r) => r.startsWith("NOTE")).length;
+  const verdict = fails === 0 ? "OK to deploy" : "fix the FAILs, then deploy";
+  return `Compliance: ${passes} pass, ${fails} fail, ${notes} note — ${verdict}\n(NOTEs are platform-handled — do not act on them.)\n\n${results.join("\n")}`;
 }
