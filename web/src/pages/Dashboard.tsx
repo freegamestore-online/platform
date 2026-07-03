@@ -4,7 +4,7 @@ import { Nav } from "../components/Nav";
 import { CreateGameForm } from "../components/CreateGameForm";
 import { LoadingShell, SignInShell, ErrorShell } from "../components/PageShell";
 import { useAuth, type GameRepo } from "../hooks/useAuth";
-import { formatDate, formatRelative } from "../lib/format";
+import { decodeIcon, formatDate, formatRelative } from "../lib/format";
 
 export function Dashboard() {
   const { user, creator, creatorError, loading, error, fetchCreator, reloadCreator, signIn } = useAuth();
@@ -112,7 +112,7 @@ function GameList({ games }: { games: GameRepo[] }) {
             style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
           >
             <span className="flex items-center justify-center rounded-xl shrink-0" style={{ width: 40, height: 40, background: game.iconBg || "var(--bg)", fontSize: "1.3rem" }}>
-              {game.icon || "🎮"}
+              {decodeIcon(game.icon) || "🎮"}
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Nav } from "../components/Nav";
 import { ChatMessage } from "../components/ChatMessage";
 import { DeployLog } from "../components/DeployLog";
@@ -289,11 +289,16 @@ function Toolbar({ agent, currentProject, provider, setProvider, model, setModel
           {currentProject?.deployed ? "● " : ""}{currentProject?.name || "Select game"} ▾
         </button>
         <button onClick={() => agent.createProject("New Game")} style={btn} title="Start a new game">+ New</button>
+        {currentProject?.appId && (
+          <Link to={`/game/${currentProject.appId}`} style={{ ...btn, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }} title="Game settings — name, artwork, delete">
+            &#9881; Settings
+          </Link>
+        )}
         <span className="ml-auto" style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
           In: <strong>{agent.tokensIn.toLocaleString()}</strong> Out: <strong>{agent.tokensOut.toLocaleString()}</strong>
         </span>
         <CopyLogButton agent={agent} provider={provider} model={model} />
-        <button onClick={() => setSettingsOpen(!settingsOpen)} style={btn}>&#9881;</button>
+        <button onClick={() => setSettingsOpen(!settingsOpen)} style={btn} title="AI model & API key">&#129302; AI</button>
       </div>
       {settingsOpen && (
         <div className="flex flex-wrap items-center gap-2 shrink-0" style={{ padding: "0.35rem 0.75rem", borderBottom: "1px solid var(--border)", background: "var(--surface)", fontSize: "0.78rem" }}>

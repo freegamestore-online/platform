@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Nav } from "../components/Nav";
 import { LoadingShell, SignInShell, ErrorShell } from "../components/PageShell";
 import { useAuth } from "../hooks/useAuth";
-import { formatDate, formatRelative } from "../lib/format";
+import { decodeIcon, formatDate, formatRelative } from "../lib/format";
 
 const CATEGORIES = ["arcade", "puzzle", "strategy", "racing", "sports", "cards", "board", "rpg", "action", "casual"];
 
@@ -32,7 +32,9 @@ export function GameSettings() {
     setName(game.name);
     setDescription(game.description);
     setCategory(game.category || "arcade");
-    setIcon(game.icon);
+    // Normalize the agent's HTML-entity icons to the raw emoji so the field is
+    // editable and a save stores clean data going forward.
+    setIcon(decodeIcon(game.icon));
     setIconBg(game.iconBg || "#10b981");
   }, [game?.id]);
 

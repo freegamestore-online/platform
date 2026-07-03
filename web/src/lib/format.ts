@@ -1,3 +1,20 @@
+/** Decode numeric HTML entities (e.g. "&#128133;" → 💅). The AI agent emits
+ *  game icons as HTML entities; React renders text escaped, so without this the
+ *  raw "&#128133;" shows instead of the emoji. Safe on already-decoded strings. */
+export function decodeIcon(s: string): string {
+  if (!s) return "";
+  return s
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => cp(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, n) => cp(Number(n)));
+}
+function cp(n: number): string {
+  try {
+    return Number.isFinite(n) && n > 0 ? String.fromCodePoint(n) : "";
+  } catch {
+    return "";
+  }
+}
+
 /** "Jun 30, 2026" from an ISO string; "" if empty/invalid. */
 export function formatDate(iso: string): string {
   if (!iso) return "";
