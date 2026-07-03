@@ -1,11 +1,14 @@
 import type { DeployState } from "../types";
 
+// FGS games deploy on Path B: admin provisions (repo from template + host route
+// + registry), the agent pushes its game code, then GitHub Actions builds and
+// syncs to R2. There is no CF Pages step — the old "GitHub repo / CF Pages"
+// pipeline painted phantom ✗ rows for steps this flow never emits.
 const DEPLOY_PIPELINE = [
-  { key: "repo", label: "GitHub repo", phases: ["provisioning"] },
-  { key: "cf", label: "CF Pages", phases: ["provisioning"] },
+  { key: "provision", label: "Provisioning", phases: ["provisioning"] },
   { key: "push", label: "Pushing code", phases: ["pushing"] },
-  { key: "build", label: "Building", phases: ["building"] },
-  { key: "live", label: "Preview ready", phases: ["live"] },
+  { key: "build", label: "Building & deploying", phases: ["building"] },
+  { key: "live", label: "Live", phases: ["live"] },
 ];
 
 const PHASE_ORDER = ["provisioning", "pushing", "building", "live"];
@@ -71,9 +74,9 @@ export function DeployLog({ state }: { state: DeployState }) {
         <div className="mt-4 p-3 rounded-xl flex items-center gap-2" style={{ background: "color-mix(in srgb, #22c55e 10%, var(--surface))", border: "1px solid color-mix(in srgb, #22c55e 25%, var(--border))" }}>
           <span style={{ fontSize: "1.1rem" }}>&#127881;</span>
           <div>
-            <div className="font-bold text-sm" style={{ color: "#22c55e" }}>Preview is live!</div>
+            <div className="font-bold text-sm" style={{ color: "#22c55e" }}>Your game is live!</div>
             <a href={state.appUrl} target="_blank" rel="noopener" className="text-xs" style={{ color: "#22c55e" }}>{state.appUrl.replace("https://", "")}</a>
-            <div className="text-xs mt-1" style={{ color: "var(--muted)" }}>To publish to the store, use the Publish page.</div>
+            <div className="text-xs mt-1" style={{ color: "var(--muted)" }}>It's already listed in the store. Keep chatting to make changes, then deploy again.</div>
           </div>
         </div>
       )}
