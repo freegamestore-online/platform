@@ -57,8 +57,25 @@ const ghHeaders = (token: string) => ({
   "User-Agent": "freegamestore-publisher",
 });
 
-/** Fetch the store registry (source of truth for games). Empty on failure. */
-export async function getRegistry(): Promise<RegistryGame[]> {
+/** Fetch the store registry (source of truth for games). Empty on failure.
+ *  Prefers the authenticated GitHub contents API, which is NOT CDN-cached, so a
+ *  game created/edited seconds ago appears immediately. `raw.githubusercontent.com`
+ *  (the fallback) is cached ~5min, which made fresh games and their just-saved
+ *  settings look empty. Falls back to the raw URL if the token call fails. */
+export async function getRegistry(token?: string): Promise<RegistryGame[]> {
+  if (token) {
+    try {
+      const res = await fetch(`https://api.github.com/repos/${ORG}/freegamestore/contents/registry.json`, {
+        headers: { ...ghHeaders(token), Accept: "application/vnd.github.raw+json" },
+      });
+      if (res.ok) {
+        const reg = (await res.json()) as { games?: RegistryGame[] };
+        return reg.games ?? [];
+      }
+    } catch {
+      /* fall through to the raw CDN URL */
+    }
+  }
   try {
     const res = await fetch(REGISTRY_URL, { headers: { "User-Agent": "freegamestore-publisher" } });
     if (res.ok) {
@@ -101,16 +118,33 @@ export function registryToRepo(g: RegistryGame, published: boolean): GameRepo {
   };
 }
 
-/** The repo's last push (last code change / deploy) — for the "last edited"
- *  timestamp. Best-effort: "" on any failure so the list still renders. */
-async function fetchPushedAt(env: GhEnv, repoId: string): Promise<string> {
+/** The repo's created_at + pushed_at — sources for the "created" (fallback) and
+ *  "last edited" timestamps. Best-effort: nulls on any failure so the list still
+ *  renders. One call feeds both timestamps. */
+async function fetchRepoTimes(env: GhEnv, repoId: string): Promise<{ createdAt: string; pushedAt: string }> {
   try {
     const res = await fetch(`https://api.github.com/repos/${ORG}/${repoId}`, { headers: ghHeaders(env.GITHUB_TOKEN) });
-    if (!res.ok) return "";
-    return ((await res.json()) as { pushed_at?: string }).pushed_at || "";
+    if (!res.ok) return { createdAt: "", pushedAt: "" };
+    const j = (await res.json()) as { created_at?: string; pushed_at?: string };
+    return { createdAt: j.created_at || "", pushedAt: j.pushed_at || "" };
   } catch {
-    return "";
+    return { createdAt: "", pushedAt: "" };
   }
+}
+
+/** Fill `lastEditedAt` (repo pushed_at) and, when the registry has no
+ *  firstPublished, `createdAt` (repo created_at) for a set of games. One repo
+ *  fetch per game, run in parallel. Capped so the org-member admin-all view
+ *  (potentially the whole catalog) can't fan out unbounded. */
+const ENRICH_CAP = 100;
+async function enrichTimes(env: GhEnv, games: GameRepo[]): Promise<void> {
+  await Promise.all(
+    games.slice(0, ENRICH_CAP).map(async (game) => {
+      const { createdAt, pushedAt } = await fetchRepoTimes(env, game.id);
+      game.lastEditedAt = pushedAt;
+      if (!game.createdAt) game.createdAt = createdAt;
+    }),
+  );
 }
 
 /**
@@ -127,9 +161,13 @@ export async function listUserGames(
   env: GhEnv,
   login: string,
 ): Promise<{ owned: GameRepo[]; isOrgMember: boolean; adminAll: GameRepo[] }> {
-  const [games, member] = await Promise.all([getRegistry(), isOrgMember(env, login)]);
+  const [games, member] = await Promise.all([getRegistry(env.GITHUB_TOKEN), isOrgMember(env, login)]);
   const adminAll = games.map((g) => registryToRepo(g, true));
   if (member) {
+    // Org members get the admin-all view — but they still need real timestamps.
+    // (This was the gap: the enrichment used to run only on the non-member path,
+    // so a member never saw a "last edited" time.)
+    await enrichTimes(env, adminAll);
     return { owned: adminAll, isOrgMember: true, adminAll };
   }
 
@@ -157,8 +195,8 @@ export async function listUserGames(
 
   const owned = games.filter((g) => ownedIds.has(g.id)).map((g) => registryToRepo(g, true));
   // Enrich the owned set (small — capped by the per-creator slot limit) with the
-  // repo's last-push time. Skipped for the org-member admin-all view, which can
-  // be the whole catalog.
-  await Promise.all(owned.map(async (game) => { game.lastEditedAt = await fetchPushedAt(env, game.id); }));
+  // repo's last-push time + a created_at fallback for legacy games missing
+  // firstPublished.
+  await enrichTimes(env, owned);
   return { owned, isOrgMember: false, adminAll };
 }
