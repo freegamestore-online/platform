@@ -146,12 +146,13 @@ export function useProjects() {
   // rather than overwriting it with a blank scaffold — the bug the old picker's
   // "create empty session linked to repo" path caused). Returns the session id.
   const openGame = useCallback(async (gameId: string): Promise<string> => {
+    // Reuse the existing session for this game (keeps its chat transcript), but
+    // ALWAYS re-import: the endpoint re-syncs the session's files from the repo
+    // HEAD, so changes made directly (update_files / git / another session)
+    // since you last opened it are picked up. Import is cheap when the repo
+    // hasn't moved (it short-circuits server-side).
     const existing = projects.find((p) => p.appId === gameId);
-    if (existing) {
-      setCurrentId(existing.id);
-      return existing.id;
-    }
-    const id = crypto.randomUUID();
+    const id = existing?.id ?? crypto.randomUUID();
     const res = await fetch(`${AGENT_URL}/session/${id}/import`, {
       method: "POST",
       credentials: "include",
@@ -166,7 +167,7 @@ export function useProjects() {
     const project: Project = {
       id,
       name: data.name || gameId,
-      createdAt: new Date().toISOString(),
+      createdAt: existing?.createdAt ?? new Date().toISOString(),
       updatedAt: Date.now(),
       deployed: true,
       appId: gameId,
