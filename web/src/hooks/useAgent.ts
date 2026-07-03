@@ -219,6 +219,13 @@ export function useAgent() {
               case "tool_call": {
                 const tc = JSON.parse(evt.data);
                 setMessages((prev) => [...prev, { role: "tool", content: toolLabel(tc) }]);
+                // The AI names the game in its deploy call — reflect that in the
+                // project picker immediately, so a session stops showing
+                // "New Game" in the dropdown without waiting for a reload.
+                const named = tc?.input?.name;
+                if (tc?.name === "deploy" && typeof named === "string" && named.trim() && sessionId) {
+                  projectsMgr.rename(sessionId, named.trim());
+                }
                 pendingNewAssistant = true;
                 break;
               }
