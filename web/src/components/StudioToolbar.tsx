@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Settings, Bot, Plus, ChevronDown, Copy, Check, Play, Trash2 } from "lucide-react";
+import { Settings, Bot, Plus, ChevronDown, Copy, Check, Play } from "lucide-react";
 import { Button, buttonClass, Select, Input } from "./ui";
 import type { useAgent, Project } from "../hooks/useAgent";
 import { getKey } from "../lib/ai-keys";
@@ -48,45 +48,32 @@ export function StudioToolbar({
         <Button size="sm" onClick={() => agent.createProject("New Game")} disabled={agent.isStreaming} title="Start a new game">
           <Plus className="w-4 h-4" /> New
         </Button>
-        {/* Actions for THIS game — always usable, never a dead end.
-            Deployed → Play + Settings (its settings page: rename / artwork /
-            DELETE). Draft (no live game yet) → Discard, which removes the
-            in-progress session (what you'd want for a game that isn't working). */}
-        {currentProject?.appId ? (
+        {/* Actions for THIS game. Settings is ALWAYS available — for a live game
+            it opens rename/artwork/delete; for a draft it opens the draft's
+            settings (rename + discard). Play is shown only once the game is live.
+            Settings targets the game id when deployed, else the session id — the
+            settings page resolves either. */}
+        {currentProject && (
           <>
-            <a
-              href={currentProject.appUrl || `https://${currentProject.appId}.freegamestore.online`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={buttonClass("secondary", "sm", "no-underline")}
-              title="Play the live game"
-            >
-              <Play className="w-4 h-4" /> Play
-            </a>
+            {currentProject.appId && (
+              <a
+                href={currentProject.appUrl || `https://${currentProject.appId}.freegamestore.online`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonClass("secondary", "sm", "no-underline")}
+                title="Play the live game"
+              >
+                <Play className="w-4 h-4" /> Play
+              </a>
+            )}
             <Link
-              to={`/game/${currentProject.appId}`}
+              to={`/game/${currentProject.appId ?? currentProject.id}`}
               className={buttonClass("secondary", "sm", "no-underline border-[var(--accent)] text-[var(--accent)]")}
-              title={`Settings for ${currentProject.name} — rename, artwork, delete`}
+              title={`Settings for ${currentProject.name}`}
             >
               <Settings className="w-4 h-4" /> Settings
             </Link>
           </>
-        ) : (
-          currentProject && (
-            <Button
-              size="sm"
-              variant="danger-outline"
-              disabled={agent.isStreaming}
-              onClick={() => {
-                if (confirm(`Discard draft "${currentProject.name}"? This removes the in-progress game and can't be undone.`)) {
-                  agent.deleteProject(currentProject.id);
-                }
-              }}
-              title="Discard this in-progress draft (it hasn't deployed to a live game)"
-            >
-              <Trash2 className="w-4 h-4" /> Discard
-            </Button>
-          )
         )}
         <span className="ml-auto hidden sm:inline text-sm text-[var(--muted)] tabular-nums">
           In <strong className="text-[var(--ink)]">{agent.tokensIn.toLocaleString()}</strong> · Out <strong className="text-[var(--ink)]">{agent.tokensOut.toLocaleString()}</strong>
@@ -98,7 +85,7 @@ export function StudioToolbar({
       </div>
       {settingsOpen && (
         <div className="flex flex-wrap items-center gap-2 shrink-0 px-3 py-2 border-b border-[var(--border)] bg-[var(--surface)]">
-          <Select aria-label="AI provider" value={provider} onChange={(e) => { setProvider(e.target.value); setModel(firstModelFor(e.target.value)); }} className="w-auto h-9">
+          <Select aria-label="AI provider" value={provider} onChange={(e) => { setProvider(e.target.value); setModel(firstModelFor(e.target.value)); setApiKey(""); }} className="w-auto h-9">
             <option value="github">GitHub Models</option><option value="openrouter">OpenRouter</option><option value="anthropic">Anthropic</option><option value="openai">OpenAI</option><option value="google">Google</option>
           </Select>
           <Select aria-label="AI model" value={model} onChange={(e) => setModel(e.target.value)} className="w-auto h-9">
@@ -129,9 +116,13 @@ function CopyLogButton({ agent, provider, model }: { agent: ReturnType<typeof us
       messages: agent.messages,
       exportedAt: new Date().toISOString(),
     }, null, 2);
-    await navigator.clipboard.writeText(json);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(json);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard blocked (insecure context / denied) — leave button as-is */
+    }
   }
 
   return (

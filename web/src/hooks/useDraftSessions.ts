@@ -45,5 +45,22 @@ export function useDraftSessions() {
     await fetch(`${AGENT_URL}/sessions/${id}`, { method: "DELETE", credentials: "include" }).catch(() => {});
   }, []);
 
-  return { drafts, loading, refresh, discard };
+  // Rename a draft session. `deployed:false` is sent explicitly: the agent's PUT
+  // overwrites the deployed flag (not COALESCE'd), and a draft is by definition
+  // not deployed — so this can't accidentally flip a live game's state.
+  const rename = useCallback(async (id: string, title: string): Promise<boolean> => {
+    const res = await fetch(`${AGENT_URL}/sessions/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ title, deployed: false }),
+    }).catch(() => null);
+    if (res?.ok) {
+      setDrafts((prev) => prev.map((d) => (d.id === id ? { ...d, name: title } : d)));
+      return true;
+    }
+    return false;
+  }, []);
+
+  return { drafts, loading, refresh, discard, rename };
 }

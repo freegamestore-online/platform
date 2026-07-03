@@ -42,14 +42,25 @@ export function SignInShell({ onSignIn, message }: { onSignIn: () => void; messa
   );
 }
 
-/** Full-page error message with Nav. */
-export function ErrorShell({ message }: { message: string }) {
+/** Full-page error message with Nav. When `onRetry` is given, offers a retry
+ *  button — `/api/me` returns a retryable 503 on a registry blip, and without a
+ *  control the whole page dead-ends until a manual browser reload. */
+export function ErrorShell({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <>
       <Nav />
       <div className="flex items-center justify-center px-4" style={centerStyle}>
-        <div className="text-center">
-          <p className="text-lg font-semibold" style={{ color: "var(--error)" }}>{message}</p>
+        <div className="text-center max-w-md">
+          <p className="text-lg font-semibold mb-4" style={{ color: "var(--error)" }}>{message}</p>
+          {onRetry && (
+            <button
+              onClick={onRetry}
+              className="px-6 font-semibold rounded-xl"
+              style={{ minHeight: 44, background: "var(--accent)", color: "#000", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+            >
+              Try again
+            </button>
+          )}
         </div>
       </div>
     </>

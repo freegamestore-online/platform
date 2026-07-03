@@ -4,11 +4,19 @@
 
 /** Allow only http(s)/mailto and same-origin relative links; reject
  *  javascript:, data:, vbscript:, etc. from untrusted assistant output. */
-function isSafeHref(url: string): boolean {
+export function isSafeHref(url: string): boolean {
   const u = url.trim();
+  // Reject any control character or internal whitespace FIRST. Browsers strip
+  // tab/CR/LF while parsing a URL, so `java\tscript:` parses as `javascript:` —
+  // a hand-rolled "scheme-like prefix" regex is defeated by the embedded tab and
+  // would wrongly pass it. Killing these chars up front closes that bypass.
+  if (/[\u0000-\u0020\u007F-\u009F]/.test(u) || /\s/.test(u)) return false;
+  // Positive allowlist: explicit safe schemes …
   if (/^(https?:|mailto:)/i.test(u)) return true;
-  // Relative or anchor links (no scheme) are safe; a leading scheme-like token is not.
-  return /^(\/|#|\.\/|\.\.\/)/.test(u) || !/^[a-z][a-z0-9+.-]*:/i.test(u);
+  // … any OTHER scheme-like prefix (foo:) is unsafe …
+  if (/^[a-z][a-z0-9+.-]*:/i.test(u)) return false;
+  // … otherwise it's scheme-less (relative / anchor / plain), which is safe.
+  return true;
 }
 
 export function Markdown({ text }: { text: string }) {

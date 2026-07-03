@@ -26,7 +26,7 @@ export function Dashboard() {
     return <SignInShell onSignIn={signIn} message="Sign in with GitHub to publish games on FreeGameStore." />;
   }
   if (!creator) {
-    return creatorError ? <ErrorShell message={creatorError} /> : <LoadingShell />;
+    return creatorError ? <ErrorShell message={creatorError} onRetry={reloadCreator} /> : <LoadingShell />;
   }
 
   if (creator.banned) {
