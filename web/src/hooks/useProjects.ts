@@ -103,21 +103,15 @@ export function useProjects() {
 
     fetchSessions(ctrl.signal)
       .then((server) => {
+        // No phantom auto-create: an empty list stays empty (the studio shows a
+        // "start or open a game" state) instead of spawning a blank "New Game"
+        // session on every visit — those unbound shells piled up and made it
+        // look like chat had vanished when switching between them.
+        setProjects(server);
         if (server.length === 0) {
-          const initial: Project = {
-            id: crypto.randomUUID(),
-            name: "New Game",
-            createdAt: new Date().toISOString(),
-            updatedAt: Date.now(),
-            deployed: false,
-          };
-          putSession(initial);
-          setProjects([initial]);
-          setCurrentId(initial.id);
+          setCurrentId(null);
           return;
         }
-
-        setProjects(server);
         const stored = localStorage.getItem(CURRENT_KEY);
         const validStored = stored && server.some((project) => project.id === stored);
         setCurrentId(validStored ? stored : server[0]!.id);

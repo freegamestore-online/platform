@@ -98,7 +98,9 @@ export function Create() {
     if (!msg || agent.isStreaming) return;
     const key = apiKey || getKey(provider);
     if (!key) {
-      alert(`No API key for ${provider}. Add one in the settings panel (gear icon).`);
+      // Open the settings panel (where the key input lives) rather than firing a
+      // dismissable alert the user misses — the persistent banner explains why.
+      setSettingsOpen(true);
       return;
     }
     setInputValue("");
@@ -112,6 +114,10 @@ export function Create() {
   const currentProject = agent.projects.find((p) => p.id === agent.currentProjectId);
   const previewUrl = currentProject?.appUrl || agent.deployState?.appUrl || null;
   const showPreview = previewUrl && (agent.deployState?.phase === "live" || agent.deployState?.phase === "building" || currentProject?.deployed);
+  // The studio is bring-your-own-key. If none is set for the current provider,
+  // every send is blocked before it leaves the browser — so make that the loud,
+  // persistent reason nothing happens, not an easy-to-miss alert.
+  const needsKey = !apiKey && !getKey(provider);
 
   if (!user) {
     return (
@@ -131,6 +137,35 @@ export function Create() {
     );
   }
 
+  // No session open (fresh account, or every session was deleted). Show a clear
+  // start point instead of a bare, broken-looking chat — the phantom "New Game"
+  // auto-create used to hide this and spawn unbound blank sessions.
+  if (!agent.currentProjectId) {
+    return (
+      <div className="flex flex-col" style={{ height: "100dvh", overflow: "hidden" }}>
+        <Nav />
+        <main className="flex flex-col items-center justify-center text-center flex-1" style={{ padding: "2rem 1.5rem" }}>
+          <h1 className="text-3xl font-extrabold tracking-tight mb-3" style={{ fontFamily: "Fraunces, serif" }}>VibeCode</h1>
+          <p className="text-base mb-6" style={{ color: "var(--muted)", maxWidth: 420 }}>
+            Start a new game and describe it to the AI, or open one of your games to keep editing it.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => agent.createProject("New Game")}
+              className="px-6 rounded-full font-semibold"
+              style={{ minHeight: 44, background: "var(--accent)", color: "#000", border: "none", cursor: "pointer" }}
+            >
+              New Game
+            </button>
+            <a href="/" className="px-6 rounded-full font-semibold no-underline flex items-center" style={{ minHeight: 44, border: "1px solid var(--border)", color: "var(--ink)" }}>
+              My Games
+            </a>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col" style={{ height: "100dvh", overflow: "hidden" }}>
       <Nav />
@@ -146,6 +181,20 @@ export function Create() {
             settingsOpen={settingsOpen} setSettingsOpen={setSettingsOpen}
             setPickerOpen={setPickerOpen}
           />
+          {needsKey && (
+            <div
+              className="shrink-0 flex items-center gap-2 px-3 py-2 text-sm"
+              style={{ background: "rgba(217,119,6,0.12)", borderBottom: "1px solid var(--warning, #d97706)", color: "var(--warning, #d97706)" }}
+            >
+              <span style={{ flex: 1 }}>Add an API key to start building — sends are blocked until then.</span>
+              <button
+                onClick={() => setSettingsOpen(true)}
+                style={{ background: "var(--warning, #d97706)", color: "#000", border: "none", borderRadius: "0.375rem", padding: "0.2rem 0.6rem", cursor: "pointer", fontWeight: 600, fontSize: "0.78rem", minHeight: 28 }}
+              >
+                Add key
+              </button>
+            </div>
+          )}
           {agent.error && (
             <div
               role="alert"
@@ -209,7 +258,6 @@ export function Create() {
           onRetry={agent.reloadProjects}
           onSelect={(id) => agent.switchProject(id)}
           onCreate={(name, appId) => agent.createProject(name, appId)}
-          onOpenGame={(gameId) => agent.openGame(gameId)}
           onClose={() => setPickerOpen(false)}
         />
       )}
@@ -237,9 +285,10 @@ function Toolbar({ agent, currentProject, provider, setProvider, model, setModel
   return (
     <>
       <div className="flex items-center gap-2 shrink-0" style={{ padding: "0.35rem 0.75rem", borderBottom: "1px solid var(--border)", background: "var(--surface)", fontSize: "0.78rem" }}>
-        <button onClick={() => setPickerOpen(true)} style={{ ...btn, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <button onClick={() => setPickerOpen(true)} style={{ ...btn, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {currentProject?.deployed ? "● " : ""}{currentProject?.name || "Select game"} ▾
         </button>
+        <button onClick={() => agent.createProject("New Game")} style={btn} title="Start a new game">+ New</button>
         <span className="ml-auto" style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
           In: <strong>{agent.tokensIn.toLocaleString()}</strong> Out: <strong>{agent.tokensOut.toLocaleString()}</strong>
         </span>

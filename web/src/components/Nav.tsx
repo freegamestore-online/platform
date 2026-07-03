@@ -3,9 +3,9 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
 const NAV_LINKS: { to: string; label: string; external: boolean }[] = [
-  // Dashboard is the publisher's home (manage your games) — it had no desktop
-  // nav entry before, only the logo and a mobile-drawer link.
-  { to: "/", label: "Dashboard", external: false },
+  // "My Games" is the overview (list + slots + play/code/edit); "VibeCode" is
+  // the studio. Labelled so the hierarchy reads overview → build, not two apps.
+  { to: "/", label: "My Games", external: false },
   { to: "/create", label: "VibeCode", external: false },
   { to: "https://freegamestore.online", label: "Store", external: true },
   { to: "https://freegamestore.online/contribute.html", label: "Build", external: true },
@@ -83,7 +83,6 @@ function MobileDrawer({ user, signIn, onClose }: {
         {NAV_LINKS.map((link) => (
           <NavLink key={link.to} link={link} className="block py-2 text-base font-semibold no-underline" style={mobileLink} onClick={onClose} />
         ))}
-        <Link to="/" className="block py-2 text-base font-semibold no-underline" style={mobileLink} onClick={onClose}>Dashboard</Link>
         {user ? (
           <Link to="/profile" className="flex items-center gap-2 mt-4 no-underline" style={{ minHeight: 44 }} onClick={onClose}>
             <img src={user.avatarUrl} alt={user.github} className="rounded-full" style={{ width: 24, height: 24 }} />
