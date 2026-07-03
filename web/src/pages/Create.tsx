@@ -7,6 +7,7 @@ import { ChatMessage } from "../components/ChatMessage";
 import { DeployLog } from "../components/DeployLog";
 import { ProjectPicker } from "../components/ProjectPicker";
 import { StudioToolbar } from "../components/StudioToolbar";
+import { NewGameModal } from "../components/NewGameModal";
 import { useAuth } from "../hooks/useAuth";
 import { useAgent, type AIConfig } from "../hooks/useAgent";
 import { getKey, providerUsable, resolveInitialProvider } from "../lib/ai-keys";
@@ -28,6 +29,7 @@ export function Create() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const openedGameRef = useRef<string | null>(null);
   const openedSessionRef = useRef<string | null>(null);
@@ -146,12 +148,13 @@ export function Create() {
             Start a new game and describe it to the AI, or open one of your games to keep editing it.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <Button variant="primary" onClick={() => agent.createProject("New Game")}>
+            <Button variant="primary" onClick={() => setNewOpen(true)}>
               <Plus className="w-4 h-4" /> New Game
             </Button>
             <a href="/" className={buttonClass("secondary", "md", "no-underline")}>My Games</a>
           </div>
         </main>
+        <NewGameModal open={newOpen} onClose={() => setNewOpen(false)} />
       </div>
     );
   }
@@ -170,6 +173,7 @@ export function Create() {
             temperature={temperature} setTemperature={setTemperature}
             settingsOpen={settingsOpen} setSettingsOpen={setSettingsOpen}
             setPickerOpen={setPickerOpen}
+            onNewGame={() => setNewOpen(true)}
           />
           {needsKey && (
             <div
@@ -272,10 +276,13 @@ export function Create() {
           loadError={agent.projectsError}
           onRetry={agent.reloadProjects}
           onSelect={(id) => agent.switchProject(id)}
-          onCreate={(name, appId) => agent.createProject(name, appId)}
+          // Unified: "new" from the picker opens the one template picker, not a
+          // blank canvas session.
+          onCreate={() => { setPickerOpen(false); setNewOpen(true); }}
           onClose={() => setPickerOpen(false)}
         />
       )}
+      <NewGameModal open={newOpen} onClose={() => setNewOpen(false)} />
     </div>
   );
 }

@@ -20,6 +20,7 @@ interface StudioToolbarProps {
   settingsOpen: boolean;
   setSettingsOpen: (v: boolean) => void;
   setPickerOpen: (v: boolean) => void;
+  onNewGame: () => void;
 }
 
 export function StudioToolbar({
@@ -36,6 +37,7 @@ export function StudioToolbar({
   settingsOpen,
   setSettingsOpen,
   setPickerOpen,
+  onNewGame,
 }: StudioToolbarProps) {
   return (
     <>
@@ -45,7 +47,7 @@ export function StudioToolbar({
           <span className="truncate">{currentProject?.name || "Select game"}</span>
           <ChevronDown className="w-4 h-4 shrink-0 opacity-60" />
         </Button>
-        <Button size="sm" onClick={() => agent.createProject("New Game")} disabled={agent.isStreaming} title="Start a new game" aria-label="Start a new game">
+        <Button size="sm" onClick={onNewGame} disabled={agent.isStreaming} title="Start a new game" aria-label="Start a new game">
           <Plus className="w-4 h-4" />
         </Button>
         {/* Actions for THIS game. Settings is ALWAYS available — for a live game

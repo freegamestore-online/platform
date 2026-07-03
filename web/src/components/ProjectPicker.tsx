@@ -21,7 +21,6 @@ interface ProjectPickerProps {
  * duplicated that list and drifted from it.
  */
 export function ProjectPicker({ projects, currentId, loadError, onRetry, onSelect, onCreate, onClose }: ProjectPickerProps) {
-  const [newName, setNewName] = useState("");
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"sessions" | "new">("sessions");
 
@@ -34,8 +33,7 @@ export function ProjectPicker({ projects, currentId, loadError, onRetry, onSelec
   }
 
   function handleCreateNew() {
-    if (!newName.trim()) return;
-    onCreate(newName.trim());
+    onCreate("");
     onClose();
   }
 
@@ -107,19 +105,11 @@ export function ProjectPicker({ projects, currentId, loadError, onRetry, onSelec
               )}
             </>
           ) : (
-            /* New session */
+            /* New game — routes to the one create flow (name + template picker). */
             <div className="py-4">
-              <p className="text-sm mb-3" style={{ color: "var(--muted)" }}>Start a new game from scratch. To keep editing an existing game, open it from <a href="/" className="hover:underline" style={{ color: "var(--accent)" }}>My Games</a>.</p>
-              <Input
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Game name..."
-                aria-label="New game name"
-                className="mb-3"
-                onKeyDown={(e) => { if (e.key === "Enter") handleCreateNew(); }}
-              />
-              <Button variant="primary" onClick={handleCreateNew} disabled={!newName.trim()} className="w-full">
-                Create Game
+              <p className="text-sm mb-3" style={{ color: "var(--muted)" }}>Start a new game — you'll pick a name and a template (2D canvas, grid, cards, or 3D). To keep editing an existing game, open it from <a href="/" className="hover:underline" style={{ color: "var(--accent)" }}>My Games</a>.</p>
+              <Button variant="primary" onClick={handleCreateNew} className="w-full">
+                New Game
               </Button>
             </div>
           )}
