@@ -111,6 +111,26 @@ export function useAgent() {
     }
   }, [sessionId, projectsMgr.markDeployed, projectsMgr.rename]);
 
+  // After the SSE stream drops mid-deploy, the game's GitHub Actions build keeps
+  // running (it's independent of the connection). Poll the session status so a
+  // successful deploy resolves to "live" instead of a scary "unknown" — the DO
+  // writes deployStatus as the build finishes.
+  const pollDeployStatus = useCallback(async (sid: string, deployUrl?: string) => {
+    for (let i = 0; i < 18; i++) { // ~3 min at 10s
+      await new Promise((r) => setTimeout(r, 10000));
+      if (sessionIdRef.current !== sid) return; // user switched projects
+      try {
+        const res = await fetch(`${AGENT_URL}/session/${sid}/status`, { credentials: "include" });
+        if (!res.ok) continue;
+        const ds = ((await res.json()) as { deployStatus?: DeployState | null }).deployStatus;
+        if (ds?.phase === "live") { setDeployState(ds); setError(null); return; }
+        if (ds?.phase === "error") { setDeployState(ds); setError(ds.error || "Deploy failed."); return; }
+      } catch { /* keep polling */ }
+    }
+    const where = deployUrl ? ` at ${deployUrl.replace("https://", "")}` : "";
+    setError(`Still building — your game will go live${where} in a minute or two. Reload to confirm.`);
+  }, []);
+
   const sendMessage = useCallback(async (message: string, aiConfig: AIConfig) => {
     if (!sessionId || isStreaming) return;
     setIsStreaming(true);
@@ -250,13 +270,17 @@ export function useAgent() {
       // recoverable error state. Terminal phases (live/error) are left as-is.
       setDeployState((prev) => {
         if (prev && prev.phase !== "live" && prev.phase !== "error") {
-          setError("Deploy status unknown — the connection ended before the deploy finished. Reload to check whether it completed.");
-          return { ...prev, phase: "error", failedPhase: prev.phase, error: "Deploy status unknown — the connection ended before the deploy finished. Reload to check whether it completed." };
+          // Don't declare failure — the Actions build finishes independent of
+          // this stream. Keep the in-progress view and poll status; the poll
+          // resolves it to live/error or a friendly "still building" note.
+          const deployUrl = (prev as { deployUrl?: string }).deployUrl;
+          if (sessionId) void pollDeployStatus(sessionId, deployUrl);
+          return prev;
         }
         return prev;
       });
     }
-  }, [sessionId, isStreaming, projectsMgr]);
+  }, [sessionId, isStreaming, projectsMgr, pollDeployStatus]);
 
   const dismissError = useCallback(() => setError(null), []);
 
