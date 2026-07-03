@@ -191,8 +191,18 @@ export class AgentSession implements DurableObject {
           fileCount: files.size,
           fileList: [...files.keys()].sort().join(", "),
         };
-        const result = await runAgentTurn(body.aiConfig, session.messages, body.message, files, writer, config, sessionCtx).catch((err) => {
+        const result = await runAgentTurn(body.aiConfig, session.messages, body.message, files, writer, config, sessionCtx).catch(async (err) => {
           this.logError("agent", String(err));
+          // Persist the user's message + the failure so the turn survives a
+          // reload. Without this, a hard failure (network/provider throw)
+          // discarded everything the user typed — it looked like "the chat
+          // wasn't preserved". Handled provider errors already persist via
+          // newMessages; this covers the throw path.
+          session.messages.push(
+            { role: "user", content: body.message },
+            { role: "assistant", content: `Error: ${String(err)}` },
+          );
+          await this.save();
           throw err;
         });
 
