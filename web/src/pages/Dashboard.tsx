@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Settings } from "lucide-react";
 import { Nav } from "../components/Nav";
 import { CreateGameForm } from "../components/CreateGameForm";
 import { LoadingShell, SignInShell, ErrorShell } from "../components/PageShell";
@@ -145,7 +146,7 @@ function GameList({ games }: { games: GameRepo[] }) {
                 className="font-semibold rounded-lg no-underline flex items-center justify-center"
                 style={{ minHeight: 44, minWidth: 44, background: "var(--bg)", color: "var(--ink)", border: "1px solid var(--border)" }}
               >
-                ⚙
+                <Settings className="w-5 h-5" />
               </Link>
             </div>
           </div>

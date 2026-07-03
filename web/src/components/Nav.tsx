@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { Menu, X } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
 const NAV_LINKS: { to: string; label: string; external: boolean }[] = [
@@ -55,8 +56,8 @@ export function Nav() {
         </nav>
 
         <button className="sm:hidden" onClick={() => setMenuOpen(true)} aria-label="Menu"
-          style={{ background: "none", border: "none", fontSize: "1.2rem", color: "var(--ink)", cursor: "pointer", minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          &#9776;
+          style={{ background: "none", border: "none", color: "var(--ink)", cursor: "pointer", minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Menu className="w-6 h-6" />
         </button>
       </div>
 
@@ -76,9 +77,9 @@ function MobileDrawer({ user, signIn, onClose }: {
         onClick={onClose} onKeyDown={(e) => { if (e.key === "Escape") onClose(); }} role="presentation" />
       <nav className="fixed top-0 right-0 z-50 flex flex-col gap-1 p-4"
         style={{ width: 220, height: "100dvh", background: "var(--surface)", borderLeft: "1px solid var(--border)", boxShadow: "-4px 0 20px rgba(0,0,0,0.3)" }}>
-        <button onClick={onClose} className="self-end mb-2" aria-label="Close menu"
-          style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "1rem", cursor: "pointer", minWidth: 44, minHeight: 44 }}>
-          &#10005;
+        <button onClick={onClose} className="self-end mb-2 flex items-center justify-center" aria-label="Close menu"
+          style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", minWidth: 44, minHeight: 44 }}>
+          <X className="w-5 h-5" />
         </button>
         {NAV_LINKS.map((link) => (
           <NavLink key={link.to} link={link} className="block py-2 text-base font-semibold no-underline" style={mobileLink} onClick={onClose} />

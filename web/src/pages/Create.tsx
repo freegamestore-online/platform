@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { Settings, Bot, Plus, ChevronDown, Copy, Check, ArrowUp, X, Send } from "lucide-react";
 import { Nav } from "../components/Nav";
 import { ChatMessage } from "../components/ChatMessage";
 import { DeployLog } from "../components/DeployLog";
@@ -211,9 +212,10 @@ export function Create() {
               <button
                 onClick={agent.dismissError}
                 aria-label="Dismiss error"
-                style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "1rem", lineHeight: 1, padding: "0 0.25rem" }}
+                className="shrink-0 p-0.5 rounded hover:bg-black/10"
+                style={{ background: "none", border: "none", color: "inherit", cursor: "pointer" }}
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
           )}
@@ -222,10 +224,10 @@ export function Create() {
             {agent.messages.length > agent.visibleCount && (
               <button
                 onClick={agent.showEarlier}
-                className="self-center text-xs font-semibold rounded-full px-4 py-1.5 mb-1"
+                className="self-center inline-flex items-center gap-1.5 text-sm font-semibold rounded-full px-4 py-1.5 mb-1 hover:bg-[var(--bg)]"
                 style={{ background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)", cursor: "pointer" }}
               >
-                ↑ Load earlier messages ({agent.messages.length - agent.visibleCount} older)
+                <ArrowUp className="w-4 h-4" /> Load earlier messages ({agent.messages.length - agent.visibleCount} older)
               </button>
             )}
             {agent.messages.slice(Math.max(0, agent.messages.length - agent.visibleCount)).map((m, i) => (
@@ -241,11 +243,11 @@ export function Create() {
               placeholder="Build me a space invaders game..."
               aria-label="Describe your game"
               rows={1}
-              className="flex-1 resize-none"
-              style={{ border: "1px solid var(--border)", borderRadius: "0.5rem", padding: "0.4rem 0.6rem", background: "var(--bg)", color: "var(--ink)", fontSize: "0.86rem", minHeight: 44, maxHeight: 100, fontFamily: "Manrope, system-ui, sans-serif" }}
+              className="flex-1 resize-none text-sm"
+              style={{ border: "1px solid var(--border)", borderRadius: "0.5rem", padding: "0.55rem 0.7rem", background: "var(--bg)", color: "var(--ink)", minHeight: 44, maxHeight: 100, fontFamily: "Manrope, system-ui, sans-serif" }}
             />
-            <button onClick={handleSend} disabled={agent.isStreaming} className="self-end" style={{ padding: "0.4rem 0.85rem", background: "var(--accent)", color: "#000", border: "none", borderRadius: "0.5rem", fontWeight: 600, fontSize: "0.86rem", cursor: "pointer", fontFamily: "inherit", minHeight: 44, opacity: agent.isStreaming ? 0.5 : 1 }}>
-              Send
+            <button onClick={handleSend} disabled={agent.isStreaming} className="self-end inline-flex items-center gap-1.5 text-sm font-semibold" style={{ padding: "0.55rem 1rem", background: "var(--accent)", color: "#000", border: "none", borderRadius: "0.5rem", cursor: "pointer", minHeight: 44, opacity: agent.isStreaming ? 0.5 : 1 }}>
+              <Send className="w-4 h-4" /> Send
             </button>
           </div>
         </div>
@@ -295,46 +297,54 @@ interface ToolbarProps {
   setPickerOpen: (v: boolean) => void;
 }
 
-function Toolbar({ agent, currentProject, provider, setProvider, model, setModel, apiKey, setApiKey, temperature, setTemperature, settingsOpen, setSettingsOpen, setPickerOpen }: ToolbarProps) {
-  const sel: React.CSSProperties = { padding: "0.2rem 0.4rem", border: "1px solid var(--border)", borderRadius: "0.3rem", background: "var(--bg)", color: "var(--ink)", fontFamily: "inherit", fontSize: "0.78rem" };
-  const btn: React.CSSProperties = { background: "none", border: "1px solid var(--border)", borderRadius: "0.3rem", padding: "0.15rem 0.4rem", cursor: "pointer", color: "var(--ink)", fontSize: "0.78rem", minHeight: 28 };
+// One shared button style — Tailwind classes (with theme CSS vars via arbitrary
+// values), 14px text, real hover/disabled states. No more per-button inline
+// style objects.
+const TB_BTN = "inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-transparent px-2.5 py-1.5 text-sm text-[var(--ink)] transition-colors hover:bg-[var(--bg)] disabled:opacity-50 disabled:cursor-not-allowed";
+const TB_SELECT = "rounded-md border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5 text-sm text-[var(--ink)]";
 
+function Toolbar({ agent, currentProject, provider, setProvider, model, setModel, apiKey, setApiKey, temperature, setTemperature, settingsOpen, setSettingsOpen, setPickerOpen }: ToolbarProps) {
   return (
     <>
-      <div className="flex items-center gap-2 shrink-0" style={{ padding: "0.35rem 0.75rem", borderBottom: "1px solid var(--border)", background: "var(--surface)", fontSize: "0.78rem" }}>
-        <button onClick={() => setPickerOpen(true)} disabled={agent.isStreaming} style={{ ...btn, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: agent.isStreaming ? 0.5 : 1, cursor: agent.isStreaming ? "not-allowed" : "pointer" }} title={agent.isStreaming ? "Finish the current build to switch games" : "Switch game"}>
-          {currentProject?.deployed ? "● " : ""}{currentProject?.name || "Select game"} ▾
+      <div className="flex items-center gap-2 shrink-0 px-3 py-2 border-b border-[var(--border)] bg-[var(--surface)]">
+        <button onClick={() => setPickerOpen(true)} disabled={agent.isStreaming} className={`${TB_BTN} max-w-[190px]`} title={agent.isStreaming ? "Finish the current build to switch games" : "Switch game"}>
+          {currentProject?.deployed && <span className="w-2 h-2 rounded-full bg-[var(--accent)] shrink-0" />}
+          <span className="truncate">{currentProject?.name || "Select game"}</span>
+          <ChevronDown className="w-4 h-4 shrink-0 opacity-60" />
         </button>
-        <button onClick={() => agent.createProject("New Game")} disabled={agent.isStreaming} style={{ ...btn, opacity: agent.isStreaming ? 0.5 : 1, cursor: agent.isStreaming ? "not-allowed" : "pointer" }} title="Start a new game">+ New</button>
-        {/* Always reachable: for a deployed game go straight to its settings
-            (rename / artwork / DELETE); otherwise send them to My Games where
-            every game has the same gear. Prominent + labelled so it isn't lost. */}
+        <button onClick={() => agent.createProject("New Game")} disabled={agent.isStreaming} className={TB_BTN} title="Start a new game">
+          <Plus className="w-4 h-4" /> New
+        </button>
+        {/* Always reachable: deployed game → its settings (rename / artwork /
+            DELETE); otherwise → My Games. Accent-styled so it isn't lost. */}
         <Link
           to={currentProject?.appId ? `/game/${currentProject.appId}` : "/"}
-          style={{ ...btn, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4, borderColor: "var(--accent)", color: "var(--accent)", fontWeight: 600 }}
+          className={`${TB_BTN} border-[var(--accent)] text-[var(--accent)] font-semibold no-underline hover:opacity-80`}
           title={currentProject?.appId ? "Game settings — rename, artwork, delete" : "Open My Games to manage a game"}
         >
-          &#9881; Settings
+          <Settings className="w-4 h-4" /> Settings
         </Link>
-        <span className="ml-auto" style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
-          In: <strong>{agent.tokensIn.toLocaleString()}</strong> Out: <strong>{agent.tokensOut.toLocaleString()}</strong>
+        <span className="ml-auto hidden sm:inline text-sm text-[var(--muted)] tabular-nums">
+          In <strong className="text-[var(--ink)]">{agent.tokensIn.toLocaleString()}</strong> · Out <strong className="text-[var(--ink)]">{agent.tokensOut.toLocaleString()}</strong>
         </span>
         <CopyLogButton agent={agent} provider={provider} model={model} />
-        <button onClick={() => setSettingsOpen(!settingsOpen)} style={btn} title="AI model & API key">&#129302; AI</button>
+        <button onClick={() => setSettingsOpen(!settingsOpen)} className={TB_BTN} title="AI model & API key">
+          <Bot className="w-4 h-4" /> AI
+        </button>
       </div>
       {settingsOpen && (
-        <div className="flex flex-wrap items-center gap-2 shrink-0" style={{ padding: "0.35rem 0.75rem", borderBottom: "1px solid var(--border)", background: "var(--surface)", fontSize: "0.78rem" }}>
-          <select aria-label="AI provider" value={provider} onChange={(e) => { setProvider(e.target.value); setModel(MODEL_OPTIONS[e.target.value]?.[0]?.value || ""); }} style={sel}>
+        <div className="flex flex-wrap items-center gap-2 shrink-0 px-3 py-2 border-b border-[var(--border)] bg-[var(--surface)]">
+          <select aria-label="AI provider" value={provider} onChange={(e) => { setProvider(e.target.value); setModel(MODEL_OPTIONS[e.target.value]?.[0]?.value || ""); }} className={TB_SELECT}>
             <option value="github">GitHub Models</option><option value="openrouter">OpenRouter</option><option value="anthropic">Anthropic</option><option value="openai">OpenAI</option><option value="google">Google</option>
           </select>
-          <select aria-label="AI model" value={model} onChange={(e) => setModel(e.target.value)} style={sel}>
+          <select aria-label="AI model" value={model} onChange={(e) => setModel(e.target.value)} className={TB_SELECT}>
             {(MODEL_OPTIONS[provider] || []).map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
           </select>
           {getKey(provider)
-            ? <span className="text-xs" style={{ color: "var(--success)" }}>Key saved</span>
-            : <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="API key" aria-label="API key" style={{ ...sel, width: 180 }} />
+            ? <span className="text-sm text-[var(--success)]">Key saved</span>
+            : <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="API key" aria-label="API key" className={`${TB_SELECT} w-48`} />
           }
-          <select aria-label="Temperature" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} style={sel}>
+          <select aria-label="Temperature" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className={TB_SELECT}>
             <option value={0}>Temp 0</option><option value={0.3}>Temp 0.3</option><option value={0.7}>Temp 0.7</option><option value={1}>Temp 1</option>
           </select>
         </div>
@@ -345,7 +355,6 @@ function Toolbar({ agent, currentProject, provider, setProvider, model, setModel
 
 function CopyLogButton({ agent, provider, model }: { agent: ReturnType<typeof useAgent>; provider: string; model: string }) {
   const [copied, setCopied] = useState(false);
-  const btn: React.CSSProperties = { background: "none", border: "1px solid var(--border)", borderRadius: "0.3rem", padding: "0.15rem 0.4rem", cursor: "pointer", color: copied ? "var(--success)" : "var(--muted)", fontSize: "0.72rem", minHeight: 28 };
 
   async function copy() {
     const json = JSON.stringify({
@@ -361,5 +370,10 @@ function CopyLogButton({ agent, provider, model }: { agent: ReturnType<typeof us
     setTimeout(() => setCopied(false), 1500);
   }
 
-  return <button onClick={copy} title="Copy conversation as JSON" style={btn}>{copied ? "✓" : "Copy"}</button>;
+  return (
+    <button onClick={copy} title="Copy conversation as JSON" className={`${TB_BTN} ${copied ? "text-[var(--success)] border-[var(--success)]" : "text-[var(--muted)]"}`}>
+      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+      <span className="hidden sm:inline">{copied ? "Copied" : "Copy"}</span>
+    </button>
+  );
 }
