@@ -4,7 +4,7 @@
 import { runAgentTurn } from "./agent";
 import type { StoreConfig } from "./config";
 import { getConfig } from "./config";
-import { fetchRepoFiles, fetchTemplateSeed, type DeployEnv, type DeployStatus } from "./deploy";
+import { fetchRepoFiles, fetchRepoHeadSha, fetchTemplateSeed, type DeployEnv, type DeployStatus } from "./deploy";
 import type { Env } from "./index";
 import { executeInfraTool } from "./infra-exec";
 import { ownsGame } from "./ownership";
@@ -29,6 +29,11 @@ interface SessionState {
   deployStatus: DeployStatus | null;
   appId: string | null;
   appName: string | null;
+  /** The repo commit SHA the session's files were last imported from (set when
+   *  opening an existing game). Lets a re-open skip the tree+blob walk when the
+   *  repo hasn't changed, and forces a re-sync when it HAS (e.g. someone edited
+   *  the repo directly via update_files/git between VibeCode sessions). */
+  importedSha?: string;
   errors: ErrorEntry[];
 }
 
@@ -409,6 +414,35 @@ export class AgentSession implements DurableObject {
     if (!game) return json({ error: `game "${id}" not found` }, 404, request, this.config.domain);
     if (!owns) return json({ error: `you don't have access to "${id}"` }, 403, request, this.config.domain);
 
+    const appUrl = game.appUrl || `https://${id}.${this.config.domain}`;
+
+    // Re-sync unless the repo is provably unchanged since our last import. This
+    // is what makes "edit directly, then VibeCode again" pick up the latest
+    // repo state: if someone pushed to the repo (update_files, git, another
+    // session) the HEAD sha moved, so we re-fetch. If nothing changed AND we
+    // already hold this game's files, skip the heavy walk and keep the session
+    // as-is (preserving any in-progress, not-yet-deployed edits).
+    const headSha = await fetchRepoHeadSha(id, this.env.GITHUB_TOKEN, this.config);
+    const alreadyCurrent =
+      session.appId === id &&
+      !!session.importedSha &&
+      !!headSha &&
+      session.importedSha === headSha &&
+      Object.keys(session.files || {}).length > 0;
+
+    if (alreadyCurrent) {
+      // Ensure the binding/liveness is set even on the fast path.
+      session.appName = game.name || id;
+      session.deployStatus = { phase: "live", appUrl };
+      await this.save();
+      return json(
+        { ok: true, id, name: session.appName, appUrl, unchanged: true, fileCount: Object.keys(session.files).length },
+        200,
+        request,
+        this.config.domain,
+      );
+    }
+
     let files: Map<string, string>;
     try {
       files = await fetchRepoFiles(id, this.env.GITHUB_TOKEN, this.config);
@@ -416,10 +450,10 @@ export class AgentSession implements DurableObject {
       return json({ error: `import failed: ${String(err)}` }, 502, request, this.config.domain);
     }
 
-    const appUrl = game.appUrl || `https://${id}.${this.config.domain}`;
     session.files = Object.fromEntries(files);
     session.appId = id;
     session.appName = game.name || id;
+    session.importedSha = headSha ?? undefined;
     // The game is already live (it's in the registry) — reflect that so the
     // studio shows the preview + a deployed indicator, and infra tools treat it
     // as an existing app (push_update, not a fresh deploy).

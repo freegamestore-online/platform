@@ -563,6 +563,20 @@ const IMPORT_MAX_FILES = 200;
  *  blobs). Skips build/dep dirs, lockfiles, and binaries, and enforces
  *  per-file / total / file-count caps so an import can't blow the DO's
  *  storage. Throws on an empty repo or a tree with no importable files. */
+/** Current commit SHA of a repo's main branch (one cheap ref call). Used to
+ *  decide whether a bound session needs a re-import: if the repo HEAD hasn't
+ *  moved since the last import, the session's files are already current and we
+ *  can skip the (much heavier) tree+blob walk. Returns null if unreachable. */
+export async function fetchRepoHeadSha(repoId: string, token: string, config: StoreConfig): Promise<string | null> {
+  const ghApi = makeGhApi(token, config.agentName);
+  try {
+    const ref = await ghApi(`/repos/${config.org}/${repoId}/git/ref/heads/main`);
+    return typeof ref.object?.sha === "string" ? ref.object.sha : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchRepoFiles(repoId: string, token: string, config: StoreConfig): Promise<Map<string, string>> {
   const ghApi = makeGhApi(token, config.agentName);
   const repo = `${config.org}/${repoId}`;
