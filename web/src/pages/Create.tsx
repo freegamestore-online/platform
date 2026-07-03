@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Settings, Bot, Plus, ChevronDown, Copy, Check, ArrowUp, X, Send } from "lucide-react";
+import { Settings, Bot, Plus, ChevronDown, Copy, Check, ArrowUp, X, Send, Play } from "lucide-react";
 import { Button, buttonClass, Select, Input } from "../components/ui";
 import { Nav } from "../components/Nav";
 import { ChatMessage } from "../components/ChatMessage";
@@ -335,15 +335,39 @@ function Toolbar({ agent, currentProject, provider, setProvider, model, setModel
         <Button size="sm" onClick={() => agent.createProject("New Game")} disabled={agent.isStreaming} title="Start a new game">
           <Plus className="w-4 h-4" /> New
         </Button>
-        {/* Always reachable: deployed game → its settings (rename / artwork /
-            DELETE); otherwise → My Games. Accent-styled so it isn't lost. */}
-        <Link
-          to={currentProject?.appId ? `/game/${currentProject.appId}` : "/"}
-          className={buttonClass("secondary", "sm", "no-underline border-[var(--accent)] text-[var(--accent)]")}
-          title={currentProject?.appId ? "Game settings — rename, artwork, delete" : "Open My Games to manage a game"}
-        >
-          <Settings className="w-4 h-4" /> Settings
-        </Link>
+        {/* Settings for THIS game. A deployed game → its own settings page
+            (rename / artwork / DELETE) and a Play link. A draft has no live game
+            yet, so Settings is disabled with a reason — it never dumps you onto
+            the games list, which was the confusing old behavior. */}
+        {currentProject?.appId ? (
+          <>
+            <a
+              href={currentProject.appUrl || `https://${currentProject.appId}.freegamestore.online`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={buttonClass("secondary", "sm", "no-underline")}
+              title="Play the live game"
+            >
+              <Play className="w-4 h-4" /> Play
+            </a>
+            <Link
+              to={`/game/${currentProject.appId}`}
+              className={buttonClass("secondary", "sm", "no-underline border-[var(--accent)] text-[var(--accent)]")}
+              title={`Settings for ${currentProject.name} — rename, artwork, delete`}
+            >
+              <Settings className="w-4 h-4" /> Settings
+            </Link>
+          </>
+        ) : (
+          <Button
+            size="sm"
+            disabled
+            className="opacity-60"
+            title="Deploy this game first — rename, artwork and delete unlock once it's live. To remove a draft, use Discard on My Games."
+          >
+            <Settings className="w-4 h-4" /> Settings
+          </Button>
+        )}
         <span className="ml-auto hidden sm:inline text-sm text-[var(--muted)] tabular-nums">
           In <strong className="text-[var(--ink)]">{agent.tokensIn.toLocaleString()}</strong> · Out <strong className="text-[var(--ink)]">{agent.tokensOut.toLocaleString()}</strong>
         </span>
