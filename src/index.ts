@@ -69,8 +69,9 @@ export default {
       );
     }
 
-    // Routes: /session/:id/chat, /session/:id/status, /session/:id/files, /session/:id/reset
-    const match = path.match(/^\/session\/([a-zA-Z0-9_-]{1,64})\/(chat|status|files|history|errors|reset|push-subscribe)$/);
+    // Routes: /session/:id/chat, /session/:id/status, /session/:id/files,
+    // /session/:id/import (bind to an existing game), /session/:id/reset, …
+    const match = path.match(/^\/session\/([a-zA-Z0-9_-]{1,64})\/(chat|status|files|history|errors|reset|import|push-subscribe)$/);
     if (!match) {
       return new Response(JSON.stringify({ error: "not found", hint: "Use /session/:id/chat" }), {
         status: 404,

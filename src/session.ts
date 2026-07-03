@@ -4,9 +4,10 @@
 import { runAgentTurn } from "./agent";
 import type { StoreConfig } from "./config";
 import { getConfig } from "./config";
-import type { DeployEnv, DeployStatus } from "./deploy";
+import { fetchRepoFiles, type DeployEnv, type DeployStatus } from "./deploy";
 import type { Env } from "./index";
 import { executeInfraTool } from "./infra-exec";
+import { ownsGame } from "./ownership";
 import type { AIConfig, Message, TokenUsage } from "./providers/types";
 import { type PushSubscription, sendWebPush } from "./push";
 import { getTemplateFiles } from "./template";
@@ -104,6 +105,9 @@ export class AgentSession implements DurableObject {
       }
       if (path === "/errors" && request.method === "GET") {
         return this.handleErrors(request);
+      }
+      if (path === "/import" && request.method === "POST") {
+        return this.handleImport(request);
       }
       if (path === "/reset" && request.method === "POST") {
         return this.handleReset(request);
@@ -339,6 +343,69 @@ export class AgentSession implements DurableObject {
         tokenUsage: session.tokenUsage,
         fileCount: Object.keys(session.files).length,
       },
+      200,
+      request,
+      this.config.domain,
+    );
+  }
+
+  /** POST /import { id } — bind this session to an EXISTING game by importing
+   *  its committed repo files. This is how you "open" a game in VibeCode: the
+   *  session's files become the real repo contents, so a later edit +
+   *  push_update updates the game rather than overwriting it with a fresh
+   *  scaffold. Ownership-gated (registry creatorGithub / member / legacy
+   *  collaborator). Refuses to re-point a session already bound elsewhere. */
+  private async handleImport(request: Request): Promise<Response> {
+    const body = await request.json<{ id?: string }>().catch(() => ({}) as { id?: string });
+    const id = (body.id || "").trim();
+    // GAME id grammar (lowercase slug, ≤58) — the registry lookup is the real
+    // gate; this just rejects obviously malformed input before any API calls.
+    if (!/^[a-z0-9](?:[a-z0-9-]{0,56}[a-z0-9])?$/.test(id)) {
+      return json({ error: "a valid game id is required" }, 400, request, this.config.domain);
+    }
+
+    // The worker-verified GitHub login (set() in index.ts, un-spoofable). The
+    // session owner is trust-on-first-use (X-Auth-User); ownership of the GAME
+    // is a separate check — you must own the repo you're importing.
+    const login = request.headers.get("X-Auth-Login") || "";
+    if (!login) {
+      return json({ error: "your GitHub login is unavailable — sign in again" }, 403, request, this.config.domain);
+    }
+
+    const session = await this.load();
+    // Refuse to re-point a session already bound to a different game — its files
+    // and history belong to that game; importing another would clobber them.
+    if (session.appId && session.appId !== id) {
+      return json({ error: `this session is already bound to "${session.appId}"` }, 409, request, this.config.domain);
+    }
+
+    const { owns, game } = await ownsGame(this.config, this.env.GITHUB_TOKEN, id, login);
+    if (!game) return json({ error: `game "${id}" not found` }, 404, request, this.config.domain);
+    if (!owns) return json({ error: `you don't have access to "${id}"` }, 403, request, this.config.domain);
+
+    let files: Map<string, string>;
+    try {
+      files = await fetchRepoFiles(id, this.env.GITHUB_TOKEN, this.config);
+    } catch (err) {
+      return json({ error: `import failed: ${String(err)}` }, 502, request, this.config.domain);
+    }
+
+    const appUrl = game.appUrl || `https://${id}.${this.config.domain}`;
+    session.files = Object.fromEntries(files);
+    session.appId = id;
+    session.appName = game.name || id;
+    // The game is already live (it's in the registry) — reflect that so the
+    // studio shows the preview + a deployed indicator, and infra tools treat it
+    // as an existing app (push_update, not a fresh deploy).
+    session.deployStatus = { phase: "live", appUrl };
+    await this.save();
+
+    // NOTE: the D1 session index (agent_sessions) is owned by the worker +
+    // frontend (the DO has no session-id string and never writes D1). The
+    // frontend's putSession/markDeployed after this import keeps that row in
+    // sync, so we don't upsert it here.
+    return json(
+      { ok: true, id, name: session.appName, appUrl, fileCount: files.size },
       200,
       request,
       this.config.domain,

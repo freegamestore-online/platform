@@ -445,6 +445,58 @@ export async function pushUpdate(
   return `Pushed update to ${repo} (${commit.sha?.slice(0, 7)}). CI will build and deploy.`;
 }
 
+// ── Repo import (open-existing) — read a game's committed text source so a
+// VibeCode session can bind to it and push_update instead of overwrite. ──
+const IMPORT_SKIP_DIRS = ["node_modules/", "dist/", "build/", ".git/", ".wrangler/"];
+const IMPORT_SKIP_BASENAMES = new Set(["pnpm-lock.yaml", "package-lock.json", "yarn.lock", "bun.lockb"]);
+// Binary/asset extensions we don't import (they stay in the repo; a base_tree
+// push preserves them). SVG is text/XML, so it's intentionally NOT here.
+const IMPORT_BINARY_EXT = /\.(png|jpe?g|gif|webp|ico|bmp|woff2?|ttf|otf|eot|mp3|wav|ogg|m4a|mp4|webm|mov|pdf|zip|gz|tar|wasm|bin)$/i;
+const IMPORT_PER_FILE_MAX = 512 * 1024;
+const IMPORT_TOTAL_MAX = 2 * 1024 * 1024;
+const IMPORT_MAX_FILES = 200;
+
+/** Read a repo's committed text files via the Git Data API (recursive tree +
+ *  blobs). Skips build/dep dirs, lockfiles, and binaries, and enforces
+ *  per-file / total / file-count caps so an import can't blow the DO's
+ *  storage. Throws on an empty repo or a tree with no importable files. */
+export async function fetchRepoFiles(repoId: string, token: string, config: StoreConfig): Promise<Map<string, string>> {
+  const ghApi = makeGhApi(token, config.agentName);
+  const repo = `${config.org}/${repoId}`;
+
+  const ref = await ghApi(`/repos/${repo}/git/ref/heads/main`);
+  const headSha = ref.object?.sha;
+  if (!headSha) throw new Error(`no main branch for ${repo} — is the ${config.noun} deployed?`);
+
+  const tree = await ghApi(`/repos/${repo}/git/trees/${headSha}?recursive=1`);
+  if (!Array.isArray(tree.tree)) throw new Error(`could not read repo tree for ${repo}`);
+
+  const files = new Map<string, string>();
+  let total = 0;
+  for (const entry of tree.tree) {
+    if (entry.type !== "blob" || typeof entry.path !== "string") continue;
+    const path: string = entry.path;
+    if (IMPORT_SKIP_DIRS.some((d) => path.startsWith(d) || path.includes(`/${d}`))) continue;
+    if (IMPORT_SKIP_BASENAMES.has(path.split("/").pop() || "")) continue;
+    if (IMPORT_BINARY_EXT.test(path)) continue;
+    if (typeof entry.size === "number" && entry.size > IMPORT_PER_FILE_MAX) continue;
+    if (files.size >= IMPORT_MAX_FILES) break;
+
+    const blob = await ghApi(`/repos/${repo}/git/blobs/${entry.sha}`);
+    if (blob.encoding !== "base64" || typeof blob.content !== "string") continue;
+    const bytes = Uint8Array.from(atob(blob.content.replace(/\n/g, "")), (c) => c.charCodeAt(0));
+    if (bytes.includes(0)) continue; // NUL byte → binary, skip
+    if (total + bytes.length > IMPORT_TOTAL_MAX) break;
+    total += bytes.length;
+    // Default TextDecoder is non-fatal (invalid bytes → U+FFFD), which is fine
+    // — we've already skipped NUL-containing blobs as binary above.
+    files.set(path, new TextDecoder("utf-8").decode(bytes));
+  }
+
+  if (files.size === 0) throw new Error(`no importable text files found in ${repo}`);
+  return files;
+}
+
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
