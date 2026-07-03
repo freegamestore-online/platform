@@ -89,10 +89,12 @@ export function Create() {
     await agent.sendMessage(msg, { provider, model, apiKey: key, temperature, maxTokens: 16384 } as AIConfig);
   };
 
-  // Preview URL comes from deploy status (dynamic CF Pages project name)
+  // Preview URL: the deployed game's own URL. FGS games are Path B — they serve
+  // from R2 at https://<id>.freegamestore.online (NOT pages.dev). Prefer the
+  // persisted project URL; during a live deploy fall back to the deploy status's
+  // appUrl so the preview appears before markDeployed persists.
   const currentProject = agent.projects.find((p) => p.id === agent.currentProjectId);
-  const previewUrl = currentProject?.appUrl
-    || (agent.deployState?.appUrl?.includes("pages.dev") ? agent.deployState.appUrl : null);
+  const previewUrl = currentProject?.appUrl || agent.deployState?.appUrl || null;
   const showPreview = previewUrl && (agent.deployState?.phase === "live" || agent.deployState?.phase === "building" || currentProject?.deployed);
 
   if (!user) {

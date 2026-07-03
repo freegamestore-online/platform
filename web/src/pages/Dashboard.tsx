@@ -87,6 +87,11 @@ export function Dashboard() {
 }
 
 function GameList({ games }: { games: GameRepo[] }) {
+  // Every game surfaced here comes from the store registry, and provisioning
+  // registers a game the instant it's created — so a listed game is always Live.
+  // (The old Draft state + inline Publish button were unreachable: registry-
+  // primary ownership always returns published=true. In-progress, not-yet-
+  // deployed work lives as a VibeCode session in the studio picker, not here.)
   return (
     <section className="mb-8">
       <h3 className="text-lg font-semibold mb-3">Your Games</h3>
@@ -102,40 +107,17 @@ function GameList({ games }: { games: GameRepo[] }) {
                 <p className="font-semibold truncate">{game.name}</p>
                 <span
                   className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
-                  style={{
-                    background: game.published ? "var(--accent-soft, #1a2e26)" : "var(--surface)",
-                    color: game.published ? "var(--accent)" : "var(--muted)",
-                    border: game.published ? "none" : "1px solid var(--border)",
-                  }}
+                  style={{ background: "var(--accent-soft, #1a2e26)", color: "var(--accent)" }}
                 >
-                  {game.published ? "Live" : "Draft"}
+                  Live
                 </span>
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm mt-1" style={{ color: "var(--muted)" }}>
-                <a href={game.previewUrl} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--accent)" }}>Preview</a>
-                {game.published && (
-                  <a href={game.liveUrl} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--accent)" }}>Live</a>
-                )}
+                <a href={game.liveUrl} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--accent)" }}>Open</a>
                 <a href={game.repoUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">Code</a>
-                <span>{game.createdAt}</span>
+                {game.createdAt && <span>{game.createdAt}</span>}
               </div>
             </div>
-            {!game.published && (
-              <button
-                onClick={async () => {
-                  const publishRes = await fetch("/api/publish", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ id: game.id, name: game.name }),
-                  });
-                  if (publishRes.ok) window.location.reload();
-                }}
-                className="shrink-0 px-4 font-semibold rounded-lg text-sm"
-                style={{ minHeight: 44, background: "var(--accent)", color: "#000", border: "none", cursor: "pointer" }}
-              >
-                Publish
-              </button>
-            )}
           </div>
         ))}
       </div>
