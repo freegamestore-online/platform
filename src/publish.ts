@@ -488,6 +488,7 @@ export async function handleUpdateGame(
     }
   }
   if (!changed) return { error: "No changes" };
+  game.updatedAt = new Date().toISOString();
 
   items[idx] = game;
   content[config.registryKey] = items;
@@ -503,6 +504,72 @@ export async function handleUpdateGame(
   });
 
   if (!updateResult.content) return { error: updateResult.message || "Failed to update registry" };
+  return { ok: true };
+}
+
+/**
+ * Delete a game the caller owns: remove its registry entry, drop its D1 host
+ * route, and ARCHIVE (not hard-delete) its GitHub repo — matching the workspace
+ * "archive, never hard-delete" policy. Ownership is the same registry-primary,
+ * default-deny check as handleUpdateGame.
+ */
+export async function handleDeleteGame(
+  gameId: string,
+  login: string,
+  env: PublishEnv,
+): Promise<{ ok?: boolean; error?: string }> {
+  const config = STORE_CONFIG;
+  const registryPath = `/repos/${config.org}/${config.storeRepo}/contents/registry.json`;
+  const registryFile = await ghApi(env, registryPath);
+  if (!registryFile.content) return { error: "Could not read registry.json" };
+
+  const rawContent = new TextDecoder().decode(
+    Uint8Array.from(atob(registryFile.content.replace(/\n/g, "")), (c) => c.charCodeAt(0)),
+  );
+  const content = JSON.parse(rawContent);
+  const items: Array<Record<string, unknown>> = content[config.registryKey] || [];
+  const idx = items.findIndex((g) => g.id === gameId);
+  if (idx < 0) return { error: `Game "${gameId}" not found in registry` };
+
+  const game = items[idx]!;
+  const owner = typeof game.creatorGithub === "string" ? game.creatorGithub : "";
+  if (!owner || owner.toLowerCase() !== login.toLowerCase()) {
+    return {
+      error: owner
+        ? `Only the creator (${owner}) can delete this game`
+        : `This game has no recorded owner and can't be deleted here`,
+    };
+  }
+
+  // 1. Remove the registry entry (delists it from the store + the dashboard).
+  items.splice(idx, 1);
+  content[config.registryKey] = items;
+  const updateResult = await ghApi(env, registryPath, "PUT", {
+    message: `Delete ${gameId} from games registry`,
+    content: btoa(
+      Array.from(new TextEncoder().encode(JSON.stringify(content, null, 2)))
+        .map((b) => String.fromCharCode(b))
+        .join(""),
+    ),
+    sha: registryFile.sha,
+  });
+  if (!updateResult.content) return { error: updateResult.message || "Failed to update registry" };
+
+  // 2. Drop the D1 host route so <id>.<domain> stops resolving. Non-fatal: the
+  //    registry delist already removes it everywhere user-facing.
+  try {
+    await env.DB?.prepare("DELETE FROM routes WHERE slug = ? AND zone = ?").bind(gameId, config.domain).run();
+  } catch {
+    /* route cleanup is best-effort */
+  }
+
+  // 3. Archive (never hard-delete) the repo. Non-fatal.
+  try {
+    await ghApi(env, `/repos/${config.org}/${gameId}`, "PATCH", { archived: true });
+  } catch {
+    /* archive is best-effort */
+  }
+
   return { ok: true };
 }
 

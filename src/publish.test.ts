@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { verifySession } from "./auth";
-import { handlePublish, handleUpdateGame } from "./publish";
+import { handleDeleteGame, handlePublish, handleUpdateGame } from "./publish";
 
 // Regression guards for the admin authz fixes:
 //  - provision must not grant push on a repo it didn't just create
@@ -67,6 +67,41 @@ describe("handleUpdateGame ownership", () => {
     const res = await handleUpdateGame("chess", "serge-the-dev", { name: "New Name" }, env);
     expect(res.ok).toBe(true);
     expect(putBody).not.toBeNull(); // a write happened → ownership passed despite casing
+  });
+});
+
+describe("handleDeleteGame ownership", () => {
+  it("refuses to delete a game the caller doesn't own (no registry/repo writes)", async () => {
+    const registry = { games: [{ id: "chess", name: "Chess", creatorGithub: "someone-else" }] };
+    const writes: string[] = [];
+    vi.stubGlobal("fetch", async (input: unknown, init?: { method?: string }) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (init?.method && init.method !== "GET") writes.push(`${init.method} ${url}`);
+      return new Response(JSON.stringify({ content: btoa(JSON.stringify(registry)), sha: "s" }), { status: 200 });
+    });
+    const env = { GITHUB_TOKEN: "x", DB: undefined } as unknown as Parameters<typeof handleDeleteGame>[2];
+    const res = await handleDeleteGame("chess", "serge-the-dev", env);
+    expect(res.error).toMatch(/only the creator/i);
+    expect(writes).toHaveLength(0); // nothing delisted, archived, or route-deleted
+  });
+
+  it("deletes a game the caller owns (delists it via a registry PUT)", async () => {
+    const registry = { games: [{ id: "chess", name: "Chess", creatorGithub: "serge-the-dev" }] };
+    let putBody: any = null;
+    const dbRun = vi.fn(async () => {});
+    vi.stubGlobal("fetch", async (input: unknown, init?: { method?: string; body?: string }) => {
+      if (init?.method === "PUT") { putBody = JSON.parse(init.body!); return new Response(JSON.stringify({ content: {} }), { status: 200 }); }
+      if (init?.method === "PATCH") return new Response(JSON.stringify({ archived: true }), { status: 200 }); // repo archive
+      return new Response(JSON.stringify({ content: btoa(JSON.stringify(registry)), sha: "s" }), { status: 200 });
+    });
+    const env = {
+      GITHUB_TOKEN: "x",
+      DB: { prepare: () => ({ bind: () => ({ run: dbRun }) }) },
+    } as unknown as Parameters<typeof handleDeleteGame>[2];
+    const res = await handleDeleteGame("chess", "serge-the-dev", env);
+    expect(res.ok).toBe(true);
+    expect(putBody.content).toBeDefined(); // registry rewritten (entry removed)
+    expect(dbRun).toHaveBeenCalled(); // route deletion attempted
   });
 });
 

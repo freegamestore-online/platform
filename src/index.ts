@@ -1,4 +1,4 @@
-import { handlePublish, handleUpdateGame, renderProvisionForm } from "./publish";
+import { handleDeleteGame, handlePublish, handleUpdateGame, renderProvisionForm } from "./publish";
 import { verifySession, handleAuthExchange, handleAuthMe } from "./auth";
 
 interface Env {
@@ -618,6 +618,21 @@ export default {
       try {
         const body = await request.json() as Record<string, unknown>;
         const result = await handleUpdateGame(gameMatch[1]!, login, body, env as any);
+        return jsonResponse(result, result.error ? 400 : 200, request);
+      } catch (e) {
+        return jsonResponse({ error: String(e) }, 500, request);
+      }
+    }
+
+    // DELETE /api/games/:id — delete a game the caller owns (delist + drop route
+    // + archive repo).
+    if (gameMatch && request.method === "DELETE") {
+      const login = await authenticateLogin(request, env);
+      if (!login) {
+        return jsonResponse({ error: "unauthorized" }, 401, request);
+      }
+      try {
+        const result = await handleDeleteGame(gameMatch[1]!, login, env as any);
         return jsonResponse(result, result.error ? 400 : 200, request);
       } catch (e) {
         return jsonResponse({ error: String(e) }, 500, request);
