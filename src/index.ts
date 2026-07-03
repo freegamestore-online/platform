@@ -73,6 +73,21 @@ async function fgsPost(apiBase: string, path: string, token: string, body: unkno
   return json;
 }
 
+// DELETE against an FGS worker (admin or agent). Same header trio as fgsPost —
+// X-FGS-Token survives worker-to-worker hops (CF strips Authorization there),
+// Authorization covers the direct path. Ownership is enforced server-side.
+async function fgsDelete(base: string, path: string, token: string) {
+  const res = await fetch(`${base}${path}`, {
+    method: "DELETE",
+    headers: { "X-FGS-Token": token, Authorization: `Bearer ${token}` },
+  });
+  const text = await res.text();
+  let json: any = {};
+  try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
+  if (!res.ok) return { error: json.error ?? `API ${res.status}`, detail: json.detail ?? text, status: res.status };
+  return json;
+}
+
 const txt = (text: string) => ({ content: [{ type: "text" as const, text }] });
 
 // Scope VibeCode agent sessions to the caller.
@@ -653,6 +668,43 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
         });
         const header = data.appName || data.appId ? `Game: **${data.appName || data.appId}**\n\n` : "";
         return txt(`Transcript of \`${session_id}\` (${msgs.length} messages):\n\n${header}${out.join("\n\n")}`);
+      },
+    );
+
+    // -- delete_game (delete a live game you own) --
+    this.server.tool(
+      "delete_game",
+      "Delete a LIVE game you own: delists it from the store, drops its host route (stops serving at <game_id>.freegamestore.online), and archives its GitHub repo. Frees a creator slot. Ownership is enforced server-side (registry creatorGithub). Irreversible from here. For an in-progress VibeCode draft that never deployed, use discard_session instead.",
+      { game_id: z.string().describe("Game id / slug, e.g. 'ts-probe'") },
+      async ({ game_id }) => {
+        const token = this.props.token;
+        if (!token) return txt("Not authenticated. Connect with a FGS session token.");
+        const id = game_id.trim().toLowerCase();
+        if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) return txt(`Invalid game id: \`${game_id}\`.`);
+        const result = await fgsDelete(this.env.API_BASE, `/api/games/${id}`, token);
+        if (result?.error) {
+          const hint = result.status === 401 ? " (your token may be expired — re-connect)"
+            : result.status === 403 || /own|permission/i.test(String(result.error)) ? " (you can only delete games you own)"
+            : "";
+          return txt(`Could not delete \`${id}\`: ${result.error}${result.detail ? ` — ${result.detail}` : ""}${hint}`);
+        }
+        return txt(`Deleted **${id}** — delisted from the store, route dropped, repo archived. A creator slot is now free.`);
+      },
+    );
+
+    // -- discard_session (remove an in-progress VibeCode draft) --
+    this.server.tool(
+      "discard_session",
+      "Discard an in-progress VibeCode session (a DRAFT that never deployed to a live game). Removes it from your session list. Use list_sessions to find the id. This does NOT delete a published game — for that use delete_game.",
+      { session_id: z.string().describe("VibeCode session id (from list_sessions)") },
+      async ({ session_id }) => {
+        const token = this.props.token;
+        if (!token) return txt("Not authenticated. Connect with a FGS session token.");
+        const id = session_id.trim();
+        if (!/^[a-zA-Z0-9_-]{1,64}$/.test(id)) return txt(`Invalid session id: \`${session_id}\`.`);
+        const result = await fgsDelete(this.env.AGENT_BASE, `/sessions/${id}`, token);
+        if (result?.error) return txt(`Could not discard session \`${id}\`: ${result.error}${result.detail ? ` — ${result.detail}` : ""}`);
+        return txt(`Discarded draft session \`${id}\`.`);
       },
     );
   }
