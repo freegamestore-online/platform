@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Settings, Bot, Plus, ChevronDown, Copy, Check, Play } from "lucide-react";
+import { Settings, Bot, Plus, ChevronDown, Copy, Check, Play, Trash2 } from "lucide-react";
 import { Button, buttonClass, Select, Input } from "./ui";
 import type { useAgent, Project } from "../hooks/useAgent";
 import { getKey } from "../lib/ai-keys";
@@ -48,10 +48,10 @@ export function StudioToolbar({
         <Button size="sm" onClick={() => agent.createProject("New Game")} disabled={agent.isStreaming} title="Start a new game">
           <Plus className="w-4 h-4" /> New
         </Button>
-        {/* Settings for THIS game. A deployed game → its own settings page
-            (rename / artwork / DELETE) and a Play link. A draft has no live game
-            yet, so Settings is disabled with a reason — it never dumps you onto
-            the games list, which was the confusing old behavior. */}
+        {/* Actions for THIS game — always usable, never a dead end.
+            Deployed → Play + Settings (its settings page: rename / artwork /
+            DELETE). Draft (no live game yet) → Discard, which removes the
+            in-progress session (what you'd want for a game that isn't working). */}
         {currentProject?.appId ? (
           <>
             <a
@@ -72,14 +72,21 @@ export function StudioToolbar({
             </Link>
           </>
         ) : (
-          <Button
-            size="sm"
-            disabled
-            className="opacity-60"
-            title="Deploy this game first — rename, artwork and delete unlock once it's live. To remove a draft, use Discard on My Games."
-          >
-            <Settings className="w-4 h-4" /> Settings
-          </Button>
+          currentProject && (
+            <Button
+              size="sm"
+              variant="danger-outline"
+              disabled={agent.isStreaming}
+              onClick={() => {
+                if (confirm(`Discard draft "${currentProject.name}"? This removes the in-progress game and can't be undone.`)) {
+                  agent.deleteProject(currentProject.id);
+                }
+              }}
+              title="Discard this in-progress draft (it hasn't deployed to a live game)"
+            >
+              <Trash2 className="w-4 h-4" /> Discard
+            </Button>
+          )
         )}
         <span className="ml-auto hidden sm:inline text-sm text-[var(--muted)] tabular-nums">
           In <strong className="text-[var(--ink)]">{agent.tokensIn.toLocaleString()}</strong> · Out <strong className="text-[var(--ink)]">{agent.tokensOut.toLocaleString()}</strong>

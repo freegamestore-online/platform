@@ -215,6 +215,21 @@ export function useProjects() {
     });
   }, []);
 
+  // Remove a session (a draft, or any session you no longer want in the studio).
+  // Deletes the D1 index row; the DO transcript is left orphaned but unreachable.
+  // Moves you to the next session (or the empty state) so the studio never sits
+  // pointed at a session that no longer exists.
+  const deleteProject = useCallback((id: string) => {
+    setProjects((prev) => {
+      const remaining = prev.filter((p) => p.id !== id);
+      if (currentId === id) setCurrentId(remaining[0]?.id ?? null);
+      return remaining;
+    });
+    fetch(`${AGENT_URL}/sessions/${id}`, { method: "DELETE", credentials: "include" }).catch(() => {
+      // Best-effort; the next reload reconciles from the server.
+    });
+  }, [currentId, setCurrentId]);
+
   const markDeployed = useCallback((sessionId: string, appId: string, appUrl: string) => {
     setProjects((prev) => {
       const existing = prev.find((project) => project.id === sessionId);
@@ -231,5 +246,5 @@ export function useProjects() {
     });
   }, []);
 
-  return { projects, currentId, loading, loadError, reload, create, switchTo, openGame, rename, markDeployed };
+  return { projects, currentId, loading, loadError, reload, create, switchTo, openGame, rename, markDeployed, deleteProject };
 }

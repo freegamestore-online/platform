@@ -326,6 +326,7 @@ export function useAgent() {
     projects: projectsMgr.projects, currentProjectId: projectsMgr.currentId,
     projectsError: projectsMgr.loadError, projectsLoading: projectsMgr.loading, reloadProjects: projectsMgr.reload,
     sendMessage, createProject, switchProject, openGame, loadHistory,
+    deleteProject: projectsMgr.deleteProject,
   };
 }
 
