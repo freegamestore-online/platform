@@ -110,9 +110,9 @@ export async function handleSessionsApi(
         `INSERT INTO agent_sessions (user_id, session_id, title, game_id, game_url, deployed, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
          ON CONFLICT(user_id, session_id) DO UPDATE SET
-           title = excluded.title,
-           game_id = excluded.game_id,
-           game_url = excluded.game_url,
+           title = COALESCE(excluded.title, agent_sessions.title),
+           game_id = COALESCE(excluded.game_id, agent_sessions.game_id),
+           game_url = COALESCE(excluded.game_url, agent_sessions.game_url),
            deployed = excluded.deployed,
            updated_at = datetime('now')`,
       )
