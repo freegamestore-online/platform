@@ -478,21 +478,6 @@ export function getTemplateFiles(config: StoreConfig): Record<string, string> {
   return base;
 }
 
-export function substituteAppName(files: Record<string, string>, appId: string, displayName: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [path, content] of Object.entries(files)) {
-    out[path] = content.replace(/APPNAME/g, path.includes("package.json") || path.includes("pnpm-workspace") ? appId : displayName);
-  }
-  // Fix package.json files to use the ID (lowercase, no spaces)
-  if (out["package.json"]) {
-    out["package.json"] = out["package.json"].replace(new RegExp(displayName, "g"), appId);
-  }
-  if (out["web/package.json"]) {
-    out["web/package.json"] = out["web/package.json"].replace(new RegExp(displayName, "g"), appId);
-  }
-  return out;
-}
-
 // ── System prompts ──
 
 const APP_SYSTEM_PROMPT = `You are the FreeAppStore AI agent. You build free, high-quality web apps that deploy to freeappstore.online.
