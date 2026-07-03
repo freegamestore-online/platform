@@ -329,16 +329,7 @@ export async function handlePublish(
     }
   }
 
-  // Step 2: Hosting route (Path B). Replaces the previous CF Pages project
-  // + custom domain + DNS CNAME steps. fgs/host serves from fgs-games R2
-  // at games/<slug>/, which the per-repo deploy.yml syncs on every push.
-  const hostingStep = await insertHostRoute(env, id);
-  steps.push(hostingStep);
-  if (hostingStep.status === "fail") {
-    return { steps, success: false };
-  }
-
-  // Step 3: Add to store registry — with retry-once-on-409. Two concurrent
+  // Step 2: Add to store registry — with retry-once-on-409. Two concurrent
   // provisions both GET the same sha and both PUT; GitHub rejects the second
   // with 409. Retry once: re-GET (fresh sha), re-check alreadyListed (the other
   // writer may already have added our entry), re-PUT. Mirrors the FAS admin's
@@ -410,6 +401,29 @@ export async function handlePublish(
           detail: "Registry write contended twice — please retry the provision",
         });
   steps.push(regStep);
+
+  // If the registry write failed the game isn't listed anywhere — do NOT then
+  // create a host route for it, or we'd serve a game that's invisible on every
+  // dashboard (served-but-invisible, the worst partial state). Bail now; the
+  // repo + any route are absent, so an idempotent re-provision starts clean.
+  if (regStep.status === "fail") {
+    return {
+      steps,
+      success: false,
+      appUrl: `https://${subdomain}`,
+      repoUrl: `https://github.com/${config.org}/${id}`,
+    };
+  }
+
+  // Step 3: Hosting route (Path B) — deliberately AFTER the registry write.
+  // fgs/host serves from fgs-games R2 at games/<slug>/, which the per-repo
+  // deploy.yml syncs on every push. Ordering repo → registry → route means the
+  // worst partial failure is *listed-but-unserved* (a visible 404 that an
+  // idempotent re-provision + reconcile() self-heal) rather than
+  // served-but-invisible. A route failure is therefore NON-fatal to the entry
+  // existing, but still counts as fail in `success` so the caller retries.
+  const hostingStep = await insertHostRoute(env, id);
+  steps.push(hostingStep);
 
   // The collaborator invite is informational — a transient GitHub failure there
   // must NOT fail the whole provision, or the caller sees success:false (→ HTTP
