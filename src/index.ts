@@ -641,7 +641,13 @@ export default {
       }
       try {
         const body = await request.json() as any;
-        const owner = body.creatorGithub || login;
+        // Ownership is caller-derived for user-authenticated calls: a normal
+        // authenticated caller must NOT be able to register a game owned by an
+        // arbitrary `creatorGithub` they put in the body (that would be ownership
+        // spoofing once registry `creatorGithub` becomes the ownership signal).
+        // Only the trusted worker-to-worker path (agent deploy, internal token)
+        // may specify the owner in the body — it passes the real creator's login.
+        const owner = trusted ? body.creatorGithub : login;
         if (trusted && !owner) {
           return jsonResponse({ error: "creatorGithub required for internal provision" }, 400, request);
         }

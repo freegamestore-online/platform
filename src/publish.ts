@@ -107,6 +107,11 @@ function validateId(id: string): string | null {
   return null;
 }
 
+// GitHub username grammar. `creatorGithub` is attacker-influenced (interpolated
+// into a privileged github.com path + written to the registry as the ownership
+// key), so an invalid value must abort the whole provision — never be persisted.
+const VALID_GH_LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
+
 /** Write the D1 routes row that fgs/host reads to map host → R2 prefix.
  *  Idempotent via ON CONFLICT DO UPDATE — re-publishing the same id is a
  *  no-op for routing. r2_prefix follows the convention `games/<id>` which
@@ -140,6 +145,76 @@ async function insertHostRoute(env: PublishEnv, slug: string): Promise<Step> {
   }
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** After a template `/generate`, GitHub copies files verbatim — so `APPNAME`
+ *  placeholders survive. Rewrite them in ONE commit (slug for package names +
+ *  analytics, display name for titles/manifest) so the FIRST Actions deploy
+ *  builds a correctly-named game. deploy.yml uses concurrency cancel-in-progress,
+ *  so if the generate commit already kicked a run, this commit's run supersedes
+ *  it. Non-fatal: a game that keeps "APPNAME" still works, just mis-titled. */
+async function substituteTemplatePlaceholders(
+  env: PublishEnv,
+  org: string,
+  id: string,
+  name: string,
+): Promise<Step> {
+  const repo = `${org}/${id}`;
+  const targets: Array<{ path: string; rewrite: (s: string) => string }> = [
+    { path: "package.json", rewrite: (s) => s.replace(/APPNAME/g, id) },
+    { path: "web/package.json", rewrite: (s) => s.replace(/APPNAME/g, id) },
+    // index.html carries BOTH the analytics slug (?app=APPNAME) and the <title>.
+    { path: "web/index.html", rewrite: (s) => s.replace(/app=APPNAME/g, `app=${id}`).replace(/APPNAME/g, name) },
+    { path: "web/src/App.tsx", rewrite: (s) => s.replace(/APPNAME/g, name) },
+    { path: "web/vite.config.ts", rewrite: (s) => s.replace(/APPNAME/g, name) },
+    { path: "CLAUDE.md", rewrite: (s) => s.replace(/APPNAME/g, name) },
+  ];
+  try {
+    // Generate is async — poll for the repo's main ref before committing.
+    let headSha = "";
+    for (let i = 0; i < 12; i++) {
+      const ref = await ghApi(env, `/repos/${repo}/git/ref/heads/main`);
+      if (ref.object?.sha) { headSha = ref.object.sha; break; }
+      await sleep(1500);
+    }
+    if (!headSha) return { name: "Naming", status: "fail", detail: "repo not ready for substitution" };
+    const headCommit = await ghApi(env, `/repos/${repo}/git/commits/${headSha}`);
+    const baseTree = headCommit.tree?.sha;
+    if (!baseTree) return { name: "Naming", status: "fail", detail: "could not read base tree" };
+
+    const treeItems: Array<{ path: string; mode: string; type: string; sha: string }> = [];
+    for (const t of targets) {
+      const file = await ghApi(env, `/repos/${repo}/contents/${t.path}`);
+      if (!file.content) continue; // not in this template variant
+      const original = new TextDecoder().decode(
+        Uint8Array.from(atob(file.content.replace(/\n/g, "")), (c) => c.charCodeAt(0)),
+      );
+      if (!original.includes("APPNAME")) continue;
+      const blob = await ghApi(env, `/repos/${repo}/git/blobs`, "POST", {
+        content: t.rewrite(original),
+        encoding: "utf-8",
+      });
+      if (blob.sha) treeItems.push({ path: t.path, mode: "100644", type: "blob", sha: blob.sha });
+    }
+    if (treeItems.length === 0) return { name: "Naming", status: "skip", detail: "no placeholders found" };
+
+    const tree = await ghApi(env, `/repos/${repo}/git/trees`, "POST", { base_tree: baseTree, tree: treeItems });
+    if (!tree.sha) return { name: "Naming", status: "fail", detail: "tree create failed" };
+    const commit = await ghApi(env, `/repos/${repo}/git/commits`, "POST", {
+      message: `Set game name to "${name}"`,
+      tree: tree.sha,
+      parents: [headSha],
+    });
+    if (!commit.sha) return { name: "Naming", status: "fail", detail: "commit failed" };
+    const upd = await ghApi(env, `/repos/${repo}/git/refs/heads/main`, "PATCH", { sha: commit.sha });
+    return upd.ref
+      ? { name: "Naming", status: "ok", detail: `substituted APPNAME in ${treeItems.length} files` }
+      : { name: "Naming", status: "fail", detail: "ref update failed" };
+  } catch (e: any) {
+    return { name: "Naming", status: "fail", detail: e?.message ?? "substitution error" };
+  }
+}
+
 export async function handlePublish(
   req: PublishRequest,
   env: PublishEnv,
@@ -164,9 +239,15 @@ export async function handlePublish(
   if (idError) {
     return { steps: [{ name: "Validation", status: "fail", detail: idError }], success: false };
   }
+  // Abort BEFORE any repo/route/registry write if the owner is malformed — never
+  // persist an un-matchable `creatorGithub` (it is the ownership key downstream).
+  if (req.creatorGithub && !VALID_GH_LOGIN.test(req.creatorGithub)) {
+    return { steps: [{ name: "Validation", status: "fail", detail: "Invalid creatorGithub username" }], success: false };
+  }
 
   const config = STORE_CONFIG;
   const subdomain = `${id}.${config.domain}`;
+  const nowIso = new Date().toISOString();
 
   // Step 1: Create GitHub repo from template
   const repoCheck = await ghApi(env, `/repos/${config.org}/${id}`);
@@ -190,6 +271,8 @@ export async function handlePublish(
         status: "ok",
         detail: `Created ${config.org}/${id} from ${templateRepo}`,
       });
+      // Rewrite APPNAME placeholders (only meaningful on a fresh generate).
+      steps.push(await substituteTemplatePlaceholders(env, config.org, id, req.name));
     } else {
       steps.push({
         name: "GitHub repo",
@@ -208,13 +291,9 @@ export async function handlePublish(
   // would let any caller grant themselves (or an arbitrary `creatorGithub`) push
   // access to someone else's live game and ship code to its domain. Collaborator
   // changes on existing repos must go through an ownership-checked path, not here.
-  // `creatorGithub` is also validated against GitHub's username grammar before it
-  // reaches the API URL (it is otherwise attacker-controlled and interpolated
-  // into a privileged github.com path + written to the registry).
-  const VALID_GH_LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
-  if (req.creatorGithub && !VALID_GH_LOGIN.test(req.creatorGithub)) {
-    steps.push({ name: "Collaborator", status: "fail", detail: "Invalid creatorGithub username" });
-  } else if (req.creatorGithub && repoExisted) {
+  // `creatorGithub` grammar is already validated + aborted at the top of this
+  // function, so it is safe to interpolate into the collaborator API path here.
+  if (req.creatorGithub && repoExisted) {
     steps.push({
       name: "Collaborator",
       status: "skip",
@@ -298,6 +377,8 @@ export async function handlePublish(
       type: req.type || "standalone",
       developer: req.creatorGithub || config.developer,
       ...(req.creatorGithub ? { creatorGithub: req.creatorGithub } : {}),
+      // Set once, on first add. `me.ts` reads this for the game's createdAt.
+      firstPublished: nowIso,
     });
     content[key] = items;
 
@@ -334,7 +415,9 @@ export async function handlePublish(
   // must NOT fail the whole provision, or the caller sees success:false (→ HTTP
   // 400) even though the repo + host route + registry entry all succeeded,
   // leaving a listed-but-unserved game.
-  const success = steps.every((s) => s.status !== "fail" || s.name === "Collaborator");
+  const success = steps.every(
+    (s) => s.status !== "fail" || s.name === "Collaborator" || s.name === "Naming",
+  );
   return {
     steps,
     success,
@@ -369,10 +452,14 @@ export async function handleUpdateGame(
   // editable via this self-service path — otherwise any authenticated user
   // could deface unowned listings. Such games must be fixed by backfilling
   // ownership (or an admin editing the registry directly).
-  if (!game.creatorGithub || game.creatorGithub !== login) {
+  // Case-insensitive match, consistent with the view path (me.ts) — GitHub logins
+  // are case-insensitive, so a casing difference must not make an owned game
+  // uneditable.
+  const owner = typeof game.creatorGithub === "string" ? game.creatorGithub : "";
+  if (!owner || owner.toLowerCase() !== login.toLowerCase()) {
     return {
-      error: game.creatorGithub
-        ? `Only the creator (${game.creatorGithub}) can update this game`
+      error: owner
+        ? `Only the creator (${owner}) can update this game`
         : `This game has no recorded owner and can't be edited here`,
     };
   }

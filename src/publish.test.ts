@@ -55,4 +55,36 @@ describe("handleUpdateGame ownership", () => {
     const res = await handleUpdateGame("orphan", "anyone", { name: "Hacked" }, env);
     expect(res.error).toMatch(/no recorded owner/i);
   });
+
+  it("matches the owner case-insensitively (GitHub logins are case-insensitive)", async () => {
+    const registry = { games: [{ id: "chess", name: "Chess", creatorGithub: "Serge-The-Dev" }] };
+    let putBody: any = null;
+    vi.stubGlobal("fetch", async (input: unknown, init?: { method?: string; body?: string }) => {
+      if (init?.method === "PUT") { putBody = JSON.parse(init.body!); return new Response(JSON.stringify({ content: {} }), { status: 200 }); }
+      return new Response(JSON.stringify({ content: btoa(JSON.stringify(registry)), sha: "s" }), { status: 200 });
+    });
+    const env = { GITHUB_TOKEN: "x" } as unknown as Parameters<typeof handleUpdateGame>[3];
+    const res = await handleUpdateGame("chess", "serge-the-dev", { name: "New Name" }, env);
+    expect(res.ok).toBe(true);
+    expect(putBody).not.toBeNull(); // a write happened → ownership passed despite casing
+  });
+});
+
+describe("handlePublish owner validation", () => {
+  it("aborts before any repo/registry write when creatorGithub is malformed", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", async (input: unknown) => {
+      calls.push(typeof input === "string" ? input : (input as Request).url);
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+    const env = { GITHUB_TOKEN: "x", DB: undefined } as unknown as Parameters<typeof handlePublish>[1];
+    const res = await handlePublish(
+      { id: "chess", name: "Chess", category: "arcade", creatorGithub: "bad name!!" },
+      env,
+    );
+    expect(res.success).toBe(false);
+    expect(res.steps[0]!.detail).toMatch(/invalid creatorgithub/i);
+    // Nothing touched GitHub — no repo check, no generate, no registry write.
+    expect(calls).toHaveLength(0);
+  });
 });
