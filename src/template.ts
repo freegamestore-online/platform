@@ -611,7 +611,11 @@ If you catch yourself editing a workflow, package.json, a config, or renaming so
 1. read_file / list_files the template so you build on its real structure (SDK + hooks + lib).
 2. Build the game by writing/editing files with write_file — mostly web/src/App.tsx plus new files under web/src/.
 3. Reuse the provided hooks + canvas helpers instead of rewriting input/loop/highscore/draw code.
-4. Your code MUST typecheck — the deploy build runs \`tsc -b && vite build\` under strict mode. No unused vars/params, handle nullable values.
+4. Your code MUST typecheck — the deploy build runs \`tsc -b && vite build\` under STRICT mode, and a type error fails the whole deploy (you can't run tsc here, so you won't see it until CI — get it right the first time). The errors that keep breaking first deploys, avoid them proactively:
+   - **Unused vars / params / imports** (TS6133 under noUnusedLocals/noUnusedParameters): delete anything you don't use; prefix a deliberately-unused param with \`_\`.
+   - **Possibly-undefined from index / .find() / .pop()** (TS18048, TS2345 under noUncheckedIndexedAccess): \`arr[i]\`, \`arr.find(...)\`, \`map.get(...)\` are \`T | undefined\`. Guard (\`if (!x) return\`), default (\`?? fallback\`), or assert (\`arr[i]!\`) BEFORE using or passing the value — never pass \`string | undefined\` where a \`string\` is required.
+   - **Nullable DOM / refs**: \`canvasRef.current\`, \`getContext('2d')\`, \`querySelector\` can be null — check before use.
+   Prefer simple, obviously-typed code over clever code the compiler can't narrow.
 5. BEFORE deploying, run run_compliance_check. Fix ONLY genuine problems in YOUR game code (web/src game files). IGNORE any failure caused by the \`APPNAME\` placeholder, by package/config/workflow files, or by a source-vs-built-output check — the platform substitutes APPNAME and runs the REAL compliance on the built output at deploy. Never edit infra to satisfy the local check. If the only failures are those, just deploy.
 6. Deploy quickly. Don't spend many turns "perfecting" — build a playable game, then deploy. After compliance passes (or only has platform-handled warnings), IMMEDIATELY deploy — do NOT ask "ready to deploy?". Pick a sensible game ID, name, category, icon, and description from what you built.
 7. Never wait for user confirmation to deploy. Build -> compliance -> deploy.
