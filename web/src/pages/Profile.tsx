@@ -7,15 +7,27 @@ import { useAuth } from "../hooks/useAuth";
 export function Profile() {
   const { user, creator, loading, signIn, signOut } = useAuth();
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function handleDeleteAccount() {
     if (!confirm("Are you sure you want to delete your account? This cannot be undone.")) return;
     if (!confirm("This will permanently remove all your data. Last chance -- continue?")) return;
     setDeleting(true);
+    setDeleteError(null);
     try {
-      await fetch("/auth/delete", { method: "POST" });
-    } finally {
+      const res = await fetch("/auth/delete", { method: "POST", credentials: "include" });
+      if (!res.ok) {
+        // Never redirect as if it worked — a silent "/" redirect made a failed
+        // delete look successful, so the account was actually still live.
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        setDeleteError(data.error || `Couldn't delete your account (${res.status}). Please try again.`);
+        setDeleting(false);
+        return;
+      }
       window.location.href = "/";
+    } catch (e) {
+      setDeleteError(`Couldn't delete your account: ${e instanceof Error ? e.message : "network error"}`);
+      setDeleting(false);
     }
   }
 
@@ -145,6 +157,9 @@ export function Profile() {
           >
             {deleting ? "Deleting..." : "Delete my account"}
           </button>
+          {deleteError && (
+            <p className="text-sm mt-3 font-medium" style={{ color: "var(--error)" }}>{deleteError}</p>
+          )}
         </div>
       </div>
     </>

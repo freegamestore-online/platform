@@ -1,7 +1,7 @@
 {
-  "name": "FreeGameStore Publisher",
-  "short_name": "FGS Publisher",
-  "description": "Publish and manage your games on FreeGameStore.",
+  "name": "FreeGameStore — Creator Console",
+  "short_name": "FreeGameStore",
+  "description": "Build, publish and manage your web games on FreeGameStore.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
