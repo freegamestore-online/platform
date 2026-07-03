@@ -5,11 +5,13 @@ import { Nav } from "../components/Nav";
 import { CreateGameForm } from "../components/CreateGameForm";
 import { LoadingShell, SignInShell, ErrorShell } from "../components/PageShell";
 import { useAuth, type GameRepo } from "../hooks/useAuth";
+import { useDraftSessions, type DraftSession } from "../hooks/useDraftSessions";
 import { decodeIcon, formatDate, formatRelative } from "../lib/format";
 import { Button, Badge, buttonClass } from "../components/ui";
 
 export function Dashboard() {
   const { user, creator, creatorError, loading, error, fetchCreator, reloadCreator, signIn } = useAuth();
+  const { drafts, discard } = useDraftSessions();
   const [showForm, setShowForm] = useState(false);
   const navigate = useNavigate();
 
@@ -58,6 +60,8 @@ export function Dashboard() {
         </div>
 
         {creator.games.length > 0 && <GameList games={creator.games} />}
+
+        {drafts.length > 0 && <DraftList drafts={drafts} onDiscard={discard} />}
 
         {!showForm && (
           <>
@@ -139,6 +143,56 @@ function GameList({ games }: { games: GameRepo[] }) {
               >
                 <Settings className="w-5 h-5" />
               </Link>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// In-progress VibeCode sessions that haven't deployed yet. They live in the
+// studio, not the registry, so they'd otherwise be invisible here — which made
+// a game you were still building look lost. "Open" resumes the exact session.
+function DraftList({ drafts, onDiscard }: { drafts: DraftSession[]; onDiscard: (id: string) => void }) {
+  return (
+    <section className="mb-8">
+      <div className="flex items-center gap-2 mb-3">
+        <h3 className="text-lg font-semibold">Drafts</h3>
+        <span className="text-sm" style={{ color: "var(--muted)" }}>in progress — not published yet</span>
+      </div>
+      <div className="flex flex-col gap-2">
+        {drafts.map((draft) => (
+          <div
+            key={draft.id}
+            className="flex items-center justify-between p-4 rounded-xl gap-3"
+            style={{ background: "var(--surface)", border: "1px dashed var(--border)" }}
+          >
+            <span className="flex items-center justify-center rounded-xl shrink-0" style={{ width: 40, height: 40, background: "var(--bg)", fontSize: "1.3rem" }}>
+              🚧
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="font-semibold truncate">{draft.name}</p>
+                <Badge tone="muted" className="shrink-0">Draft</Badge>
+              </div>
+              {draft.createdAt && (
+                <div className="text-sm mt-1" style={{ color: "var(--muted)" }}>
+                  <span title={new Date(draft.createdAt).toLocaleString()}>Started {formatDate(draft.createdAt)}</span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link to={`/create?session=${draft.id}`} className={buttonClass("primary", "md")}>
+                Open
+              </Link>
+              <Button
+                variant="secondary"
+                onClick={() => { if (confirm(`Discard draft "${draft.name}"? This can't be undone.`)) onDiscard(draft.id); }}
+                aria-label={`Discard draft ${draft.name}`}
+              >
+                Discard
+              </Button>
             </div>
           </div>
         ))}

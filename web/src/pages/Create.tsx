@@ -62,6 +62,7 @@ export function Create() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const openedGameRef = useRef<string | null>(null);
+  const openedSessionRef = useRef<string | null>(null);
 
   // Deep-link: /create?game=<id> opens an existing game in the studio. Wait for
   // the session list to load first (so an already-open game switches instead of
@@ -75,6 +76,18 @@ export function Create() {
       setSearchParams({}, { replace: true });
     });
   }, [searchParams, agent.projectsLoading, agent.openGame, setSearchParams]);
+
+  // Deep-link: /create?session=<id> resumes an in-progress draft session (opened
+  // from the dashboard's Drafts list). Unlike ?game=, a draft has no live repo to
+  // import — its transcript already lives in the DO keyed by this id, so we just
+  // switch to it and loadHistory() fills in the messages.
+  useEffect(() => {
+    const sessionId = searchParams.get("session");
+    if (!sessionId || agent.projectsLoading || openedSessionRef.current === sessionId) return;
+    openedSessionRef.current = sessionId;
+    agent.switchProject(sessionId);
+    setSearchParams({}, { replace: true });
+  }, [searchParams, agent.projectsLoading, agent.switchProject, setSearchParams]);
 
   useEffect(() => { agent.loadHistory(); }, [agent.currentProjectId]);
   useEffect(() => {
