@@ -563,6 +563,105 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       },
     );
 
+    // -- edit_game (open an EXISTING game in VibeCode; always re-syncs the repo) --
+    this.server.tool(
+      "edit_game",
+      "Open one of YOUR existing games in VibeCode and (optionally) tell the agent what to change. Imports the game's CURRENT repo files into a session — so it ALWAYS picks up changes made directly (update_files / git / the web console) since last time — then, if you pass a prompt + api_key, the platform's agent edits and redeploys via push_update (files it doesn't touch are preserved). Direct editing (update_files) and VibeCode are two ways to work on the SAME game; this is the VibeCode entry point for an existing one. Ownership-gated. Returns a session_id — poll agent_status.",
+      {
+        game_id: z.string().describe("The id/slug of a game you own, e.g. 'kart-racers'"),
+        prompt: z.string().optional().describe("What to change, in plain English. Omit to just open/sync without editing."),
+        api_key: z.string().optional().describe("Your AI provider API key (BYO). Required only if you pass a prompt."),
+        provider: z.enum(["anthropic", "openai", "google", "github"]).optional().describe("AI provider (default anthropic)"),
+        model: z.string().optional().describe("Model id"),
+      },
+      async ({ game_id, prompt, api_key, provider, model }) => {
+        const token = this.props.token;
+        if (!token) return txt("Not authenticated. Connect with a FGS session token.");
+        const gid = game_id.trim().toLowerCase();
+        if (!/^[a-z0-9](?:[a-z0-9-]{0,56}[a-z0-9])?$/.test(gid)) return txt(`Invalid game id: \`${game_id}\`.`);
+
+        // Deterministic session per (user, game): reopening continues the same
+        // VibeCode conversation. Kept ≤64 chars (agent route cap) and prefixed so
+        // agent_status accepts it.
+        const prefix = sessionPrefix(this.props.userId);
+        const sid = `${prefix}g-${gid}`.slice(0, 64);
+
+        // 1) Import / re-sync from the repo HEAD (ownership enforced server-side).
+        const imp = await fetch(`${this.env.AGENT_BASE}/session/${sid}/import`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ id: gid }),
+        });
+        const impData = (await imp.json().catch(() => ({}))) as { ok?: boolean; error?: string; name?: string; appUrl?: string; fileCount?: number; unchanged?: boolean };
+        if (!imp.ok || !impData.ok) {
+          const hint = imp.status === 403 ? " (you can only edit games you own)" : imp.status === 404 ? " (no such game)" : "";
+          return txt(`Couldn't open \`${gid}\`: ${impData.error || `HTTP ${imp.status}`}${hint}`);
+        }
+        const name = impData.name || gid;
+        const appUrl = impData.appUrl || `https://${gid}.freegamestore.online`;
+
+        // 2) Register in the D1 session index so it shows in list_sessions + the
+        //    web console (the DO doesn't write D1 itself).
+        await fetch(`${this.env.AGENT_BASE}/sessions/${sid}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", "X-FGS-Token": token },
+          body: JSON.stringify({ title: name, gameId: gid, gameUrl: appUrl, deployed: true }),
+        }).catch(() => {});
+
+        const opened = `Opened **${name}** (\`${gid}\`) in VibeCode — ${impData.fileCount ?? "?"} file(s) ${impData.unchanged ? "already in sync" : "synced"} from the repo. Session \`${sid}\`.`;
+        if (!prompt) return txt(`${opened}\n\nCall edit_game again with a \`prompt\` (and \`api_key\`) to have the agent make changes, or use update_files to edit directly.`);
+        if (!api_key) return txt(`${opened}\n\nTo change it by prompt, pass \`api_key\` (BYO). Or edit directly with update_files.`);
+
+        // 3) Run one agent turn (same streaming contract as agent_build).
+        const prov = provider ?? "anthropic";
+        const defaultModel: Record<string, string> = { anthropic: "claude-sonnet-4-6", openai: "gpt-4o", google: "gemini-2.0-flash", github: "gpt-4o" };
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 110_000);
+        const phases: string[] = [];
+        let timedOut = false;
+        try {
+          const res = await fetch(`${this.env.AGENT_BASE}/session/${sid}/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ message: prompt, aiConfig: { provider: prov, model: model ?? defaultModel[prov] ?? "claude-sonnet-4-6", apiKey: api_key } }),
+            signal: ctrl.signal,
+          });
+          if (!res.ok || !res.body) { clearTimeout(timer); return txt(`${opened}\n\nAgent edit failed (${res.status}): ${(await res.text()).slice(0, 300)}`); }
+          const reader = res.body.getReader();
+          const dec = new TextDecoder();
+          let buf = "";
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += dec.decode(value, { stream: true });
+            const parts = buf.split("\n\n");
+            buf = parts.pop() ?? "";
+            for (const p of parts) {
+              const line = p.split("\n").find((l) => l.startsWith("data: "));
+              if (!line) continue;
+              try {
+                const ev = JSON.parse(line.slice(6));
+                if ((ev.type === "deploy" || ev.type === "deploy_status") && ev.data) {
+                  const d = typeof ev.data === "string" ? JSON.parse(ev.data) : ev.data;
+                  if (d.phase) phases.push(d.phase);
+                }
+              } catch { /* non-JSON keepalive */ }
+            }
+          }
+        } catch (err) {
+          if (err instanceof DOMException && err.name === "AbortError") timedOut = true;
+          else { clearTimeout(timer); return txt(`${opened}\n\nAgent request failed: ${String(err)}`); }
+        }
+        clearTimeout(timer);
+        const last = phases[phases.length - 1];
+        return txt(
+          `${opened}\n\n${timedOut ? "Agent still working" : "Agent turn finished"}.\n` +
+          (last ? `Last deploy phase: ${last}\n` : "") +
+          `Live: ${appUrl}\n\nPoll \`agent_status\` with session_id="${sid}" for progress.`,
+        );
+      },
+    );
+
     // -- agent_status --
     this.server.tool(
       "agent_status",
