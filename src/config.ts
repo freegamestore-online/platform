@@ -8,6 +8,10 @@ export interface StoreConfig {
   Noun: string;
   nounPlural: string;
   storeRepo: string;
+  /** The template repo admin's /generate copies from, and that new Path B
+   *  sessions seed their files from (so the agent authors against the same
+   *  scaffold that ships). Only meaningful when pathB. */
+  templateRepo?: string;
   storeName: string;
   agentName: string;
   accentColor: string;
@@ -50,6 +54,7 @@ const CONFIGS: Record<string, StoreConfig> = {
     Noun: "Game",
     nounPlural: "games",
     storeRepo: "freegamestore",
+    templateRepo: "template-game-canvas",
     storeName: "FreeGameStore",
     agentName: "freegamestore-agent",
     accentColor: "#10b981",

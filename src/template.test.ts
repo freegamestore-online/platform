@@ -127,8 +127,12 @@ describe("getSystemPrompt", () => {
   it("games prompt has game-specific rules", () => {
     const prompt = getSystemPrompt(gamesConfig);
     expect(prompt).toContain("requestAnimationFrame");
-    expect(prompt).toContain("overflow: hidden");
     expect(prompt).toContain("Canvas");
+    // The prompt must teach the real SDK-based template, not the obsolete
+    // local-GameShell scaffold.
+    expect(prompt).toContain("@freegamestore/games");
+    expect(prompt).toContain("GameShell");
+    expect(prompt).toContain("useGameLoop");
   });
 
   it("apps prompt has app-specific rules", () => {

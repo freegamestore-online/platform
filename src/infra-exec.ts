@@ -2,7 +2,7 @@
 
 import type { StoreConfig } from "./config";
 import type { DeployEnv, DeployStatus } from "./deploy";
-import { deployApp, pushUpdate } from "./deploy";
+import { deployApp, pushUpdate, substituteAppName } from "./deploy";
 import { checkDeployStatus, fetchUrl, getAuditResults, getBuildLogs, getCIResults, listDeployed } from "./infra";
 import type { ToolCall } from "./providers/types";
 
@@ -13,6 +13,9 @@ interface ExecContext {
   config: StoreConfig;
   /** GitHub login of the signed-in creator; added as a repo collaborator on deploy. */
   creatorLogin?: string;
+  /** The template snapshot the session was seeded from — the delta baseline for
+   *  Path B deploys (only the files the agent changed vs. this are pushed). */
+  seed?: Record<string, string>;
   onDeployStatus: (status: DeployStatus) => void;
   onAppDeployed: (id: string, name: string) => void;
 }
@@ -81,13 +84,10 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
     }
   }
 
-  // Replace APPNAME placeholders
-  for (const [path, content] of ctx.files) {
-    if (content.includes("APPNAME")) {
-      const replaced = path.includes("package.json") ? content.replace(/APPNAME/g, appId) : content.replace(/APPNAME/g, appName);
-      ctx.files.set(path, replaced);
-    }
-  }
+  // Replace APPNAME placeholders (slug in package manifests, display name
+  // elsewhere). For Path B the delta computation re-derives the same baseline,
+  // so this must stay the single canonical substitution — hence the shared fn.
+  substituteAppName(ctx.files, appId, appName);
 
   ctx.onAppDeployed(appId, appName);
 
@@ -110,6 +110,7 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
       if (status.phase === "live") liveUrl = status.appUrl;
     },
     ctx.creatorLogin,
+    ctx.seed,
   ).catch((err) => {
     deployError = String(err);
   });

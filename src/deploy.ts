@@ -1,6 +1,7 @@
 /** Deploy: provision via CF/GitHub APIs, then push all files. */
 
 import type { StoreConfig } from "./config";
+import { getTemplateFiles } from "./template";
 
 export interface DeployConfig {
   id: string;
@@ -73,12 +74,22 @@ export async function deployApp(
   config: StoreConfig,
   onStatus: (status: DeployStatus) => void,
   creatorLogin?: string,
+  seed?: Record<string, string>,
 ): Promise<void> {
   const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
   const steps: DeployStep[] = [];
   onStatus({ phase: "provisioning", steps: [] });
 
-  // Step 1: Create GitHub repo
+  // FGS games (Path B): admin owns provisioning end-to-end — it generates the
+  // repo from template-game-canvas (substituted per A3), writes the host route +
+  // registry entry, and invites the creator. The agent then layers ONLY the
+  // game source it authored on top (delta vs. the seed template), so admin's
+  // generated scaffold survives. No agent repo-creation, no CF Pages.
+  if (config.pathB) {
+    return deployPathB(deployConfig, files, env, config, onStatus, creatorLogin, seed);
+  }
+
+  // Step 1: Create GitHub repo (FAS apps — CF Pages flow)
   let repoCreated = false;
   const repoCheck = await ghApi(`/repos/${config.org}/${deployConfig.id}`);
   if (repoCheck.id) {
@@ -135,29 +146,6 @@ export async function deployApp(
       steps.push({ name: "Collaborator", status: "fail", detail: `Could not add ${creatorLogin}: ${String(err)}` });
     }
     onStatus({ phase: "provisioning", steps: [...steps] });
-  }
-
-  // ── Path B (FGS games): push code (repo carries its own R2 deploy.yml),
-  // register the D1 host route + store registry entry via admin, then wait for
-  // the GitHub Actions deploy to publish to R2. No CF Pages project. ──
-  if (config.pathB) {
-    onStatus({ phase: "pushing", progress: "Creating file tree..." });
-    await pushFilesToGitHub(deployConfig.id, files, env.GITHUB_TOKEN, config);
-    steps.push({ name: "Pushing code", status: "ok", detail: "Code pushed" });
-    onStatus({ phase: "provisioning", steps: [...steps] });
-
-    const reg = await registerViaAdmin(deployConfig, env, config, creatorLogin);
-    steps.push(reg);
-    onStatus({ phase: "provisioning", steps: [...steps] });
-    if (reg.status === "fail") {
-      onStatus({ phase: "error", error: `Could not register the ${config.noun}: ${reg.detail}` });
-      return;
-    }
-
-    const appUrl = `https://${deployConfig.id}.${config.domain}`;
-    onStatus({ phase: "building", deployUrl: appUrl });
-    await waitForActionsDeploy(deployConfig.id, env, config, onStatus, appUrl);
-    return;
   }
 
   // Step 2: Create CF Pages project — try clean name first, prefix if squatted
@@ -303,6 +291,115 @@ async function registerViaAdmin(
   }
 }
 
+/** Canonical APPNAME substitution (shared with infra-exec at deploy time):
+ *  the id (slug) in package.json manifests, the display name everywhere else.
+ *  Mutates `files` in place. */
+export function substituteAppName(files: Map<string, string>, appId: string, appName: string): void {
+  for (const [path, content] of files) {
+    if (!content.includes("APPNAME")) continue;
+    files.set(path, content.replace(/APPNAME/g, path.includes("package.json") ? appId : appName));
+  }
+}
+
+/** The subset of `files` the agent actually AUTHORED — i.e. that differs from
+ *  the (substituted) template scaffold. Everything unchanged is left to admin's
+ *  generated + substituted repo (package.json, deploy.yml, compliance.yml, the
+ *  analytics-wired index.html, the committed lockfile), which a base_tree merge
+ *  preserves. `files` is already APPNAME-substituted by the time we get here, so
+ *  we substitute the baseline identically to compare like-for-like. */
+export function gameSourceDelta(
+  files: Map<string, string>,
+  config: StoreConfig,
+  appId: string,
+  appName: string,
+  seed?: Record<string, string>,
+): Map<string, string> {
+  // Baseline against the ACTUAL seed the session started from (the fetched
+  // template-game-canvas) — not the bundled inline template, which is
+  // structurally different (local GameShell vs. the SDK). Falls back to the
+  // inline template for legacy sessions / non-Path-B stores.
+  const baseline = new Map(Object.entries(seed ?? getTemplateFiles(config)));
+  substituteAppName(baseline, appId, appName);
+  const delta = new Map<string, string>();
+  for (const [path, content] of files) {
+    if (baseline.get(path) !== content) delta.set(path, content);
+  }
+  return delta;
+}
+
+/** Poll until the repo's main branch exists (admin's /generate +
+ *  APPNAME-substitution commits have landed). Admin already waits for the repo
+ *  before returning, so this is usually immediate — a short safety poll. */
+async function waitForRef(repoId: string, env: DeployEnv, config: StoreConfig): Promise<boolean> {
+  const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    const ref = await ghApi(`/repos/${config.org}/${repoId}/git/ref/heads/main`);
+    if (ref.object?.sha) return true;
+    await sleep(2000);
+  }
+  return false;
+}
+
+/** Path B deploy (FGS games): the ONE canonical provision path.
+ *  1. registerViaAdmin — admin generates the repo from template-game-canvas
+ *     (substituted), writes the host route + registry entry, invites the creator.
+ *  2. Wait for the generated main branch.
+ *  3. Push ONLY the agent-authored game source (delta) via a base_tree merge, so
+ *     admin's generated scaffold + lockfile survive.
+ *  4. Wait for the Actions deploy (compliance + build + R2 sync). */
+async function deployPathB(
+  deployConfig: DeployConfig,
+  files: Map<string, string>,
+  env: DeployEnv,
+  config: StoreConfig,
+  onStatus: (status: DeployStatus) => void,
+  creatorLogin?: string,
+  seed?: Record<string, string>,
+): Promise<void> {
+  const steps: DeployStep[] = [];
+  onStatus({ phase: "provisioning", steps: [] });
+
+  // 1. Provision via admin (idempotent — skips repo creation on re-deploy).
+  const reg = await registerViaAdmin(deployConfig, env, config, creatorLogin);
+  steps.push(reg);
+  onStatus({ phase: "provisioning", steps: [...steps] });
+  if (reg.status === "fail") {
+    onStatus({ phase: "error", error: `Could not provision the ${config.noun}: ${reg.detail}` });
+    return;
+  }
+
+  // 2. Wait for the generated repo's main branch.
+  onStatus({ phase: "pushing", progress: "Preparing repository..." });
+  if (!(await waitForRef(deployConfig.id, env, config))) {
+    onStatus({ phase: "error", error: `Repository ${config.org}/${deployConfig.id} was not ready in time. Retry the deploy.` });
+    return;
+  }
+
+  // 3. Layer the agent's game source on top (delta only). If the agent changed
+  //    nothing beyond the scaffold, admin's generate/substitution commit already
+  //    triggered the deploy workflow — skip the push and go straight to waiting.
+  const delta = gameSourceDelta(files, config, deployConfig.id, deployConfig.name, seed);
+  if (delta.size > 0) {
+    onStatus({ phase: "pushing", progress: `Pushing ${delta.size} file${delta.size === 1 ? "" : "s"}...` });
+    const push = await pushUpdate(deployConfig.id, delta, `Build ${deployConfig.name} — ${config.storeName} AI agent`, env, config);
+    if (push.startsWith("Error")) {
+      steps.push({ name: "Pushing code", status: "fail", detail: push });
+      onStatus({ phase: "error", error: push });
+      return;
+    }
+    steps.push({ name: "Pushing code", status: "ok", detail: `${delta.size} file${delta.size === 1 ? "" : "s"} pushed` });
+  } else {
+    steps.push({ name: "Pushing code", status: "skip", detail: "No changes beyond the template scaffold" });
+  }
+  onStatus({ phase: "provisioning", steps: [...steps] });
+
+  // 4. Wait for the Actions deploy (build → R2 sync).
+  const appUrl = `https://${deployConfig.id}.${config.domain}`;
+  onStatus({ phase: "building", deployUrl: appUrl });
+  await waitForActionsDeploy(deployConfig.id, env, config, onStatus, appUrl);
+}
+
 /** Path B: poll the repo's GitHub Actions runs until the deploy workflow (build
  *  → R2 sync) finishes. Success → live; failure → surface the failing job/step.
  *  Replaces CF Pages deployment polling. */
@@ -328,7 +425,13 @@ async function waitForActionsDeploy(
         onStatus({ phase: "live", appUrl });
         return;
       }
-      if (["failure", "cancelled", "timed_out"].includes(run.conclusion)) {
+      // A cancelled run is EXPECTED here: Path B provisioning lands several
+      // commits in quick succession (admin's /generate, its APPNAME
+      // substitution, then the agent's delta push), and deploy.yml's
+      // `concurrency: cancel-in-progress` cancels the earlier runs. Don't treat
+      // that as a deploy failure — keep polling for the final run to finish.
+      if (run.conclusion === "cancelled") continue;
+      if (["failure", "timed_out"].includes(run.conclusion)) {
         let detail = "";
         try {
           const jobs = await ghApi(`/repos/${config.org}/${repoId}/actions/runs/${run.id}/jobs`);
@@ -471,30 +574,55 @@ export async function fetchRepoFiles(repoId: string, token: string, config: Stor
   const tree = await ghApi(`/repos/${repo}/git/trees/${headSha}?recursive=1`);
   if (!Array.isArray(tree.tree)) throw new Error(`could not read repo tree for ${repo}`);
 
-  const files = new Map<string, string>();
-  let total = 0;
+  // Select eligible blobs within the caps FIRST, using the tree's own sizes, so
+  // we never over-fetch — then read the selected blobs concurrently (much faster
+  // than a sequential walk on a ~25-file template).
+  const eligible: { path: string; sha: string }[] = [];
+  let planned = 0;
   for (const entry of tree.tree) {
-    if (entry.type !== "blob" || typeof entry.path !== "string") continue;
+    if (entry.type !== "blob" || typeof entry.path !== "string" || typeof entry.sha !== "string") continue;
     const path: string = entry.path;
     if (IMPORT_SKIP_DIRS.some((d) => path.startsWith(d) || path.includes(`/${d}`))) continue;
     if (IMPORT_SKIP_BASENAMES.has(path.split("/").pop() || "")) continue;
     if (IMPORT_BINARY_EXT.test(path)) continue;
-    if (typeof entry.size === "number" && entry.size > IMPORT_PER_FILE_MAX) continue;
-    if (files.size >= IMPORT_MAX_FILES) break;
-
-    const blob = await ghApi(`/repos/${repo}/git/blobs/${entry.sha}`);
-    if (blob.encoding !== "base64" || typeof blob.content !== "string") continue;
-    const bytes = Uint8Array.from(atob(blob.content.replace(/\n/g, "")), (c) => c.charCodeAt(0));
-    if (bytes.includes(0)) continue; // NUL byte → binary, skip
-    if (total + bytes.length > IMPORT_TOTAL_MAX) break;
-    total += bytes.length;
-    // Default TextDecoder is non-fatal (invalid bytes → U+FFFD), which is fine
-    // — we've already skipped NUL-containing blobs as binary above.
-    files.set(path, new TextDecoder("utf-8").decode(bytes));
+    const size = typeof entry.size === "number" ? entry.size : 0;
+    if (size > IMPORT_PER_FILE_MAX) continue;
+    if (eligible.length >= IMPORT_MAX_FILES) break;
+    if (planned + size > IMPORT_TOTAL_MAX) break;
+    planned += size;
+    eligible.push({ path, sha: entry.sha });
   }
 
+  const entries = await Promise.all(
+    eligible.map(async ({ path, sha }) => {
+      const blob = await ghApi(`/repos/${repo}/git/blobs/${sha}`);
+      if (blob.encoding !== "base64" || typeof blob.content !== "string") return null;
+      const bytes = Uint8Array.from(atob(blob.content.replace(/\n/g, "")), (c) => c.charCodeAt(0));
+      if (bytes.includes(0)) return null; // NUL byte → binary, skip
+      // Default TextDecoder is non-fatal (invalid bytes → U+FFFD), which is fine
+      // — we've already skipped NUL-containing blobs as binary above.
+      return [path, new TextDecoder("utf-8").decode(bytes)] as const;
+    }),
+  );
+
+  const files = new Map<string, string>(entries.filter((e): e is readonly [string, string] => e !== null));
   if (files.size === 0) throw new Error(`no importable text files found in ${repo}`);
   return files;
+}
+
+/** Seed a new VibeCode session from the store's canonical template repo
+ *  (template-game-canvas for FGS games) so the agent authors against the SAME
+ *  SDK-based scaffold admin's /generate produces. Returns null for non-Path-B
+ *  stores or when the fetch fails, so the caller falls back to the bundled
+ *  inline template. */
+export async function fetchTemplateSeed(config: StoreConfig, token: string): Promise<Record<string, string> | null> {
+  if (!config.pathB || !config.templateRepo) return null;
+  try {
+    const files = await fetchRepoFiles(config.templateRepo, token, config);
+    return Object.fromEntries(files);
+  } catch {
+    return null;
+  }
 }
 
 function sleep(ms: number) {

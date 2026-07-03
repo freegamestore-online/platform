@@ -4,7 +4,7 @@
 import { runAgentTurn } from "./agent";
 import type { StoreConfig } from "./config";
 import { getConfig } from "./config";
-import { fetchRepoFiles, type DeployEnv, type DeployStatus } from "./deploy";
+import { fetchRepoFiles, fetchTemplateSeed, type DeployEnv, type DeployStatus } from "./deploy";
 import type { Env } from "./index";
 import { executeInfraTool } from "./infra-exec";
 import { ownsGame } from "./ownership";
@@ -21,6 +21,10 @@ interface ErrorEntry {
 interface SessionState {
   messages: Message[];
   files: Record<string, string>;
+  /** The template snapshot the session was seeded from (template-game-canvas for
+   *  FGS games), used as the delta baseline at deploy. Absent on legacy sessions
+   *  and sessions seeded from the bundled inline template (fetch fallback). */
+  seed?: Record<string, string>;
   tokenUsage: TokenUsage;
   deployStatus: DeployStatus | null;
   appId: string | null;
@@ -46,20 +50,31 @@ export class AgentSession implements DurableObject {
     if (stored) {
       this.session = stored;
     } else {
-      this.session = {
-        messages: [],
-        files: { ...getTemplateFiles(this.config) },
-        tokenUsage: { input: 0, output: 0 },
-        deployStatus: null,
-        appId: null,
-        appName: null,
-        errors: [],
-      };
+      this.session = await this.freshSession();
       await this.save();
     }
     // Migrate old sessions without errors field
     if (!this.session.errors) this.session.errors = [];
     return this.session;
+  }
+
+  /** A brand-new session, seeded from the canonical template repo
+   *  (template-game-canvas) so the agent authors against the SAME SDK-based
+   *  scaffold admin's /generate produces. Falls back to the bundled inline
+   *  template if the fetch fails (leaving `seed` undefined → the delta baseline
+   *  falls back to the inline template too, staying self-consistent). */
+  private async freshSession(): Promise<SessionState> {
+    const seed = await fetchTemplateSeed(this.config, this.env.GITHUB_TOKEN);
+    return {
+      messages: [],
+      files: { ...(seed ?? getTemplateFiles(this.config)) },
+      seed: seed ?? undefined,
+      tokenUsage: { input: 0, output: 0 },
+      deployStatus: null,
+      appId: null,
+      appName: null,
+      errors: [],
+    };
   }
 
   private async save(): Promise<void> {
@@ -209,6 +224,7 @@ export class AgentSession implements DurableObject {
                 env: deployEnv,
                 config,
                 creatorLogin,
+                seed: session.seed,
                 onDeployStatus: (status) => {
                   session.deployStatus = status;
                   this.state.storage.put("session", session);
@@ -412,17 +428,9 @@ export class AgentSession implements DurableObject {
     );
   }
 
-  /** POST /reset — start over */
+  /** POST /reset — start over (re-seeds from the canonical template repo) */
   private async handleReset(request: Request): Promise<Response> {
-    this.session = {
-      messages: [],
-      files: { ...getTemplateFiles(this.config) },
-      tokenUsage: { input: 0, output: 0 },
-      deployStatus: null,
-      appId: null,
-      appName: null,
-      errors: [],
-    };
+    this.session = await this.freshSession();
     await this.save();
     return json({ ok: true }, 200, request, this.config.domain);
   }
