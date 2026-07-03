@@ -4,6 +4,7 @@ import { Nav } from "../components/Nav";
 import { CreateGameForm } from "../components/CreateGameForm";
 import { LoadingShell, SignInShell, ErrorShell } from "../components/PageShell";
 import { useAuth, type GameRepo } from "../hooks/useAuth";
+import { formatDate, formatRelative } from "../lib/format";
 
 export function Dashboard() {
   const { user, creator, creatorError, loading, error, fetchCreator, reloadCreator, signIn } = useAuth();
@@ -110,6 +111,9 @@ function GameList({ games }: { games: GameRepo[] }) {
             className="flex items-center justify-between p-4 rounded-xl gap-3"
             style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
           >
+            <span className="flex items-center justify-center rounded-xl shrink-0" style={{ width: 40, height: 40, background: game.iconBg || "var(--bg)", fontSize: "1.3rem" }}>
+              {game.icon || "🎮"}
+            </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <p className="font-semibold truncate">{game.name}</p>
@@ -123,16 +127,27 @@ function GameList({ games }: { games: GameRepo[] }) {
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm mt-1" style={{ color: "var(--muted)" }}>
                 <a href={game.liveUrl} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--accent)" }}>Play</a>
                 <a href={game.repoUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">Code</a>
-                {game.createdAt && <span>{game.createdAt}</span>}
+                {game.createdAt && <span title={`Created ${new Date(game.createdAt).toLocaleString()}`}>Created {formatDate(game.createdAt)}</span>}
+                {game.lastEditedAt && <span title={`Last edited ${new Date(game.lastEditedAt).toLocaleString()}`}>Edited {formatRelative(game.lastEditedAt)}</span>}
               </div>
             </div>
-            <Link
-              to={`/create?game=${game.id}`}
-              className="shrink-0 px-4 font-semibold rounded-lg text-sm no-underline flex items-center"
-              style={{ minHeight: 44, background: "var(--accent)", color: "#000" }}
-            >
-              Edit in VibeCode
-            </Link>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                to={`/create?game=${game.id}`}
+                className="px-3 font-semibold rounded-lg text-sm no-underline flex items-center"
+                style={{ minHeight: 44, background: "var(--accent)", color: "#000" }}
+              >
+                Edit
+              </Link>
+              <Link
+                to={`/game/${game.id}`}
+                aria-label={`Settings for ${game.name}`}
+                className="font-semibold rounded-lg no-underline flex items-center justify-center"
+                style={{ minHeight: 44, minWidth: 44, background: "var(--bg)", color: "var(--ink)", border: "1px solid var(--border)" }}
+              >
+                ⚙
+              </Link>
+            </div>
           </div>
         ))}
       </div>

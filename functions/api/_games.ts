@@ -18,11 +18,15 @@ export interface RegistryGame {
   id: string;
   name?: string;
   category?: string;
+  icon?: string;
+  iconBg?: string;
+  description?: string;
   appUrl?: string;
   repo?: string;
   creatorGithub?: string;
   developer?: string;
   firstPublished?: string;
+  updatedAt?: string;
 }
 
 export interface GameRepo {
@@ -32,7 +36,15 @@ export interface GameRepo {
   liveUrl: string;
   repoUrl: string;
   createdAt: string;
+  /** Registry metadata edit time (name/description/icon/…). */
+  updatedAt: string;
+  /** Last code change — the repo's GitHub pushed_at (populated for owned games). */
+  lastEditedAt: string;
   published: boolean;
+  category: string;
+  icon: string;
+  iconBg: string;
+  description: string;
 }
 
 interface GhEnv {
@@ -79,8 +91,26 @@ export function registryToRepo(g: RegistryGame, published: boolean): GameRepo {
     liveUrl: g.appUrl || `https://${g.id}.${DOMAIN}`,
     repoUrl: g.repo ? `https://github.com/${g.repo}` : `https://github.com/${ORG}/${g.id}`,
     createdAt: g.firstPublished || "",
+    updatedAt: g.updatedAt || "",
+    lastEditedAt: "",
     published,
+    category: g.category || "",
+    icon: g.icon || "",
+    iconBg: g.iconBg || "",
+    description: g.description || "",
   };
+}
+
+/** The repo's last push (last code change / deploy) — for the "last edited"
+ *  timestamp. Best-effort: "" on any failure so the list still renders. */
+async function fetchPushedAt(env: GhEnv, repoId: string): Promise<string> {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${ORG}/${repoId}`, { headers: ghHeaders(env.GITHUB_TOKEN) });
+    if (!res.ok) return "";
+    return ((await res.json()) as { pushed_at?: string }).pushed_at || "";
+  } catch {
+    return "";
+  }
 }
 
 /**
@@ -126,5 +156,9 @@ export async function listUserGames(
   );
 
   const owned = games.filter((g) => ownedIds.has(g.id)).map((g) => registryToRepo(g, true));
+  // Enrich the owned set (small — capped by the per-creator slot limit) with the
+  // repo's last-push time. Skipped for the org-member admin-all view, which can
+  // be the whole catalog.
+  await Promise.all(owned.map(async (game) => { game.lastEditedAt = await fetchPushedAt(env, game.id); }));
   return { owned, isOrgMember: false, adminAll };
 }

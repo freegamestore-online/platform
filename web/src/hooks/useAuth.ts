@@ -10,8 +10,17 @@ export interface GameRepo {
   previewUrl: string;
   liveUrl: string;
   repoUrl: string;
+  /** First published (created). */
   createdAt: string;
+  /** Registry metadata edit time (name/description/icon/…). */
+  updatedAt: string;
+  /** Last code change — the repo's GitHub pushed_at. */
+  lastEditedAt: string;
   published: boolean;
+  category: string;
+  icon: string;
+  iconBg: string;
+  description: string;
 }
 
 interface CreatorRecord {

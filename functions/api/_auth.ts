@@ -30,7 +30,7 @@ export function corsHeaders(request: Request): Record<string, string> {
   const allow = FIRST_PARTY_ORIGINS.has(origin) ? origin : "https://console.freegamestore.online";
   return {
     "Access-Control-Allow-Origin": allow,
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Credentials": "true",
     Vary: "Origin",
