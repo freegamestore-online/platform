@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
+import { toDrafts, type DraftSession, type ServerSession } from "../lib/sessions";
 
 // Drafts (in-progress VibeCode sessions that haven't deployed to a live game)
 // live in the agent's D1 session index, keyed by the signed-in user — the SAME
@@ -9,20 +10,7 @@ import { useAuth } from "./useAuth";
 // Games") once it deploys.
 const AGENT_URL = "https://agent.freegamestore.online";
 
-export interface DraftSession {
-  id: string;
-  name: string;
-  createdAt: string;
-  gameId?: string;
-}
-
-interface ServerSession {
-  id: string;
-  name: string;
-  gameId?: string;
-  deployed: boolean;
-  createdAt: string;
-}
+export type { DraftSession };
 
 export function useDraftSessions() {
   const { user } = useAuth();
@@ -43,13 +31,7 @@ export function useDraftSessions() {
     fetch(`${AGENT_URL}/sessions`, { credentials: "include", signal: ctrl.signal })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((data: { sessions: ServerSession[] }) => {
-        // Only undeployed sessions are "drafts" — deployed ones already appear as
-        // Live games in the registry-backed "Your Games" list.
-        setDrafts(
-          (data.sessions || [])
-            .filter((s) => !s.deployed)
-            .map((s) => ({ id: s.id, name: s.name || "Untitled", createdAt: s.createdAt, gameId: s.gameId })),
-        );
+        setDrafts(toDrafts(data.sessions || []));
       })
       .catch(() => {
         // Non-fatal: drafts are a convenience surface, never block the dashboard.

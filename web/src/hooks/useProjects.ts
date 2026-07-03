@@ -1,15 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
+import { mapServerSession, type Project, type ServerSession } from "../lib/sessions";
 
-export interface Project {
-  id: string;          // agent session UUID — this is the Durable Object key
-  name: string;
-  createdAt: string;
-  updatedAt: number;
-  appId?: string;      // set after deploy — the GitHub repo / game name
-  appUrl?: string;     // preview URL (pages.dev)
-  deployed: boolean;
-}
+export type { Project };
 
 // The agent worker owns BOTH the session index (its D1) and the transcripts
 // (its Durable Objects). The console reads/writes that single source of truth —
@@ -18,33 +11,14 @@ export interface Project {
 // sessions live (and leaves the picker empty while transcripts sit orphaned).
 const AGENT_URL = "https://agent.freegamestore.online";
 
-interface ServerSession {
-  id: string;
-  name: string;
-  gameId?: string;
-  gameUrl?: string;
-  deployed: boolean;
-  createdAt: string; // D1 datetime text, e.g. "2026-06-29 21:26:52"
-}
-
 const CURRENT_KEY = "fgs_current_project";
 
 async function fetchSessions(signal: AbortSignal): Promise<Project[]> {
   const res = await fetch(`${AGENT_URL}/sessions`, { signal, credentials: "include" });
   if (!res.ok) throw new Error(`fetch sessions failed: ${res.status}`);
   const data = (await res.json()) as { sessions: ServerSession[] };
-  return data.sessions.map((session) => {
-    const ms = Date.parse(session.createdAt);
-    return {
-      id: session.id,
-      name: session.name,
-      appId: session.gameId,
-      appUrl: session.gameUrl,
-      deployed: session.deployed,
-      createdAt: Number.isNaN(ms) ? new Date().toISOString() : new Date(ms).toISOString(),
-      updatedAt: Number.isNaN(ms) ? Date.now() : ms,
-    };
-  });
+  const now = Date.now();
+  return data.sessions.map((session) => mapServerSession(session, now));
 }
 
 function putSession(project: Project): void {
