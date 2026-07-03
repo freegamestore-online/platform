@@ -63,7 +63,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     catch { /* ignore malformed record */ }
   }
 
-  const body = await context.request.json() as Record<string, string>;
+  let body: Record<string, string>;
+  try {
+    body = await context.request.json() as Record<string, string>;
+  } catch {
+    return json({ error: "Invalid JSON body" }, 400);
+  }
   const idErr = validateId(body.id);
   if (idErr) return json({ error: idErr }, 400);
   if (!body.name) return json({ error: "name required" }, 400);
@@ -71,7 +76,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   // Ownership + per-creator limit, both from the SAME registry-primary `owned`
   // list that /api/me uses — so the slot count shown on the dashboard and the
   // create gate can never disagree.
-  const { owned } = await listUserGames(context.env, user);
+  let owned: { id: string }[] = [];
+  try {
+    ({ owned } = await listUserGames(context.env, user));
+  } catch (e) {
+    // Don't fall through to the ownership/limit checks on a registry outage —
+    // owned would be empty and a re-provision of the user's own game would
+    // wrongly 409 "already exists". Ask them to retry.
+    if ((e as Error).message === "registry_unavailable") {
+      return json({ error: "The game registry is temporarily unavailable. Please retry in a moment." }, 503);
+    }
+    throw e;
+  }
   const repoCheck = await fetch(`https://api.github.com/repos/${CONFIG.org}/${body.id}`, { headers: gh(context.env.GITHUB_TOKEN) });
   const repoExisted = !!((await repoCheck.json()) as Record<string, unknown>).id;
   if (repoExisted && !owned.some((g) => g.id === body.id)) {

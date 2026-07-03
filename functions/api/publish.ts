@@ -33,7 +33,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   if (!user) return json({ error: "Unauthorized" }, 401);
 
-  const body = await context.request.json() as Record<string, string>;
+  let body: Record<string, string>;
+  try {
+    body = await context.request.json() as Record<string, string>;
+  } catch {
+    return json({ error: "Invalid JSON body" }, 400);
+  }
   const id = body.id;
   if (!id) return json({ error: "id required" }, 400);
   if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(id)) return json({ error: "invalid id" }, 400);
@@ -43,7 +48,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   // covers a pending-invite creator publishing their own just-created game) or
   // be an accepted collaborator (legacy). Registry-first avoids the 403-on-your-
   // own-game bug the collaborator-204-only check had.
-  const { owned } = await listUserGames(context.env, user);
+  let owned: { id: string }[] = [];
+  try {
+    ({ owned } = await listUserGames(context.env, user));
+  } catch (e) {
+    // Registry outage: fall back to the collaborator check below (it doesn't
+    // need the registry) rather than failing the publish outright.
+    if ((e as Error).message !== "registry_unavailable") throw e;
+  }
   let allowed = owned.some((g) => g.id === id);
   if (!allowed) {
     const collabRes = await fetch(

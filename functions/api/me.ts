@@ -34,7 +34,20 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   // shows a game the instant it's provisioned, even before an outside-collaborator
   // invite is accepted. `remaining` is computed off the same `owned` list that
   // create.ts gates on, so the slot count and the create gate never disagree.
-  const { owned } = await listUserGames(context.env, user);
+  let owned: GameRepo[] = [];
+  try {
+    ({ owned } = await listUserGames(context.env, user));
+  } catch (e) {
+    // A registry fetch failure must NOT masquerade as "you have no games" —
+    // that reads as data loss and hands out phantom free slots. Surface it.
+    if ((e as Error).message === "registry_unavailable") {
+      return new Response(
+        JSON.stringify({ error: "The game registry is temporarily unavailable. Please retry in a moment." }),
+        { status: 503, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    throw e;
+  }
 
   // KV for ban status.
   const raw = await context.env.CREATORS.get(user);

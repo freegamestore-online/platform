@@ -41,6 +41,7 @@ export function Create() {
   const { user, loading, signIn } = useAuth();
   const agent = useAgent();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   // Start on a provider the user can actually use (stored choice if it has a
   // key, else any provider they have a key for, else free GitHub Models) — not
@@ -75,6 +76,11 @@ export function Create() {
 
   useEffect(() => { agent.loadHistory(); }, [agent.currentProjectId]);
   useEffect(() => {
+    // Only stick to the bottom when the user is already near it — don't yank
+    // them back down while they've scrolled up to read history (or clicked
+    // "Load earlier messages") during a streaming build.
+    const c = scrollRef.current;
+    if (c && c.scrollHeight - c.scrollTop - c.clientHeight > 120) return;
     const behavior = agent.messages.length <= 1 ? "instant" : "smooth";
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: behavior as ScrollBehavior }), 50);
   }, [agent.messages]);
@@ -211,7 +217,7 @@ export function Create() {
               </button>
             </div>
           )}
-          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2" style={{ minHeight: 0 }}>
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 flex flex-col gap-2" style={{ minHeight: 0 }}>
             <div className="flex-1" />
             {agent.messages.length > agent.visibleCount && (
               <button
@@ -296,10 +302,10 @@ function Toolbar({ agent, currentProject, provider, setProvider, model, setModel
   return (
     <>
       <div className="flex items-center gap-2 shrink-0" style={{ padding: "0.35rem 0.75rem", borderBottom: "1px solid var(--border)", background: "var(--surface)", fontSize: "0.78rem" }}>
-        <button onClick={() => setPickerOpen(true)} style={{ ...btn, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <button onClick={() => setPickerOpen(true)} disabled={agent.isStreaming} style={{ ...btn, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: agent.isStreaming ? 0.5 : 1, cursor: agent.isStreaming ? "not-allowed" : "pointer" }} title={agent.isStreaming ? "Finish the current build to switch games" : "Switch game"}>
           {currentProject?.deployed ? "● " : ""}{currentProject?.name || "Select game"} ▾
         </button>
-        <button onClick={() => agent.createProject("New Game")} style={btn} title="Start a new game">+ New</button>
+        <button onClick={() => agent.createProject("New Game")} disabled={agent.isStreaming} style={{ ...btn, opacity: agent.isStreaming ? 0.5 : 1, cursor: agent.isStreaming ? "not-allowed" : "pointer" }} title="Start a new game">+ New</button>
         {currentProject?.appId && (
           <Link to={`/game/${currentProject.appId}`} style={{ ...btn, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }} title="Game settings — name, artwork, delete">
             &#9881; Settings

@@ -57,12 +57,18 @@ const ghHeaders = (token: string) => ({
   "User-Agent": "freegamestore-publisher",
 });
 
-/** Fetch the store registry (source of truth for games). Empty on failure.
+/** Fetch the store registry (source of truth for games).
  *  Prefers the authenticated GitHub contents API, which is NOT CDN-cached, so a
  *  game created/edited seconds ago appears immediately. `raw.githubusercontent.com`
  *  (the fallback) is cached ~5min, which made fresh games and their just-saved
- *  settings look empty. Falls back to the raw URL if the token call fails. */
-export async function getRegistry(token?: string): Promise<RegistryGame[]> {
+ *  settings look empty.
+ *
+ *  Returns `null` when EVERY attempt failed — which is NOT the same as an empty
+ *  registry. Treating a fetch failure as "zero games" hides a creator's real
+ *  games and mis-gates create (a re-provision of their own id 409s); callers
+ *  must surface `null` as temporarily-unavailable instead. `[]` means the
+ *  registry loaded and is genuinely empty. */
+export async function getRegistry(token?: string): Promise<RegistryGame[] | null> {
   if (token) {
     try {
       const res = await fetch(`https://api.github.com/repos/${ORG}/freegamestore/contents/registry.json`, {
@@ -83,9 +89,9 @@ export async function getRegistry(token?: string): Promise<RegistryGame[]> {
       return reg.games ?? [];
     }
   } catch {
-    /* unreachable → treat as empty */
+    /* both attempts failed */
   }
-  return [];
+  return null;
 }
 
 /** True if `login` is a member of the org (→ admin-all view). */
@@ -155,21 +161,23 @@ async function enrichTimes(env: GhEnv, games: GameRepo[]): Promise<void> {
  *     collaborator (this candidate set shrinks to zero after the creatorGithub
  *     backfill, so steady-state cost is a single registry fetch + membership
  *     check — no per-repo scan).
- * Org members get every registry game (admin view).
+ *
+ * Org membership only grants the extra `adminAll` catalog view — it does NOT
+ * make every game "theirs". Conflating the two zeroed out a member's create
+ * slots (`remaining = max - catalog.length`) and blocked them from publishing,
+ * so `owned` is always the member's OWN games by the same rule as everyone else.
+ *
+ * Throws `registry_unavailable` when the registry couldn't be fetched, so
+ * callers surface a retryable error instead of pretending the creator has zero
+ * games (which reads as data loss and mis-gates create).
  */
 export async function listUserGames(
   env: GhEnv,
   login: string,
 ): Promise<{ owned: GameRepo[]; isOrgMember: boolean; adminAll: GameRepo[] }> {
   const [games, member] = await Promise.all([getRegistry(env.GITHUB_TOKEN), isOrgMember(env, login)]);
+  if (games === null) throw new Error("registry_unavailable");
   const adminAll = games.map((g) => registryToRepo(g, true));
-  if (member) {
-    // Org members get the admin-all view — but they still need real timestamps.
-    // (This was the gap: the enrichment used to run only on the non-member path,
-    // so a member never saw a "last edited" time.)
-    await enrichTimes(env, adminAll);
-    return { owned: adminAll, isOrgMember: true, adminAll };
-  }
 
   const lc = login.toLowerCase();
   const ownedIds = new Set<string>();
@@ -198,5 +206,5 @@ export async function listUserGames(
   // repo's last-push time + a created_at fallback for legacy games missing
   // firstPublished.
   await enrichTimes(env, owned);
-  return { owned, isOrgMember: false, adminAll };
+  return { owned, isOrgMember: member, adminAll };
 }

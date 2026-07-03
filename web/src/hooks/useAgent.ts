@@ -65,13 +65,20 @@ export function useAgent() {
     setError(null);
   }, []);
 
+  // Switching sessions mid-stream is unsafe: resetUI() clears messages and
+  // loadHistory() refuses to run while streaming, so the still-open SSE reader
+  // would append the old turn's deltas onto the new session's blank view (and
+  // leave the composer stuck). Block session changes until the stream ends; the
+  // UI also disables these controls for feedback.
   const createProject = useCallback((name: string, appId?: string) => {
+    if (isStreamingRef.current) return projectsMgr.currentId ?? "";
     const id = projectsMgr.create(name, appId);
     resetUI();
     return id;
   }, [projectsMgr, resetUI]);
 
   const switchProject = useCallback((id: string) => {
+    if (isStreamingRef.current) return;
     projectsMgr.switchTo(id);
     resetUI();
   }, [projectsMgr, resetUI]);
@@ -79,6 +86,7 @@ export function useAgent() {
   // Open an existing game in the studio (import its files if not already local).
   // Surfaces any failure on the sticky error banner instead of silently no-op'ing.
   const openGame = useCallback(async (gameId: string): Promise<string | null> => {
+    if (isStreamingRef.current) return null;
     try {
       const id = await projectsMgr.openGame(gameId);
       resetUI();
@@ -143,6 +151,7 @@ export function useAgent() {
 
   const sendMessage = useCallback(async (message: string, aiConfig: AIConfig) => {
     if (!sessionId || isStreaming) return;
+    const streamSession = sessionId;
     setIsStreaming(true);
     setError(null);
     setMessages((prev) => [...prev, { role: "user", content: message }, { role: "assistant", content: "" }]);
@@ -207,6 +216,10 @@ export function useAgent() {
           if (!line.startsWith("data: ")) continue;
           let evt;
           try { evt = JSON.parse(line.slice(6).trim()); } catch { continue; }
+
+          // Defense-in-depth: if the session changed out from under this stream,
+          // stop applying its events to the (now different) visible transcript.
+          if (sessionIdRef.current !== streamSession) continue;
 
           // A malformed nested payload on one event must not throw out of the
           // read loop (which would truncate the whole turn as a "connection
