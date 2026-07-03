@@ -9,7 +9,7 @@ import { ProjectPicker } from "../components/ProjectPicker";
 import { StudioToolbar } from "../components/StudioToolbar";
 import { useAuth } from "../hooks/useAuth";
 import { useAgent, type AIConfig } from "../hooks/useAgent";
-import { getKey, resolveInitialProvider } from "../lib/ai-keys";
+import { getKey, providerUsable, resolveInitialProvider } from "../lib/ai-keys";
 import { resolveModel } from "../lib/models";
 
 export function Create() {
@@ -108,10 +108,12 @@ export function Create() {
   const currentProject = agent.projects.find((p) => p.id === agent.currentProjectId);
   const previewUrl = currentProject?.appUrl || agent.deployState?.appUrl || null;
   const showPreview = previewUrl && (agent.deployState?.phase === "live" || agent.deployState?.phase === "building" || currentProject?.deployed);
-  // The studio is bring-your-own-key. If none is set for the current provider,
-  // every send is blocked before it leaves the browser — so make that the loud,
-  // persistent reason nothing happens, not an easy-to-miss alert.
-  const needsKey = !apiKey && !getKey(provider);
+  // The studio is bring-your-own-key — EXCEPT free providers (GitHub Models),
+  // which need none. Only nag when the current provider is actually unusable:
+  // not free AND no saved key AND nothing typed. (The old `!getKey(provider)`
+  // check nagged forever on the free GitHub default, and after a key was saved
+  // for a different provider.)
+  const needsKey = !apiKey && !providerUsable(provider);
 
   if (!user) {
     return (

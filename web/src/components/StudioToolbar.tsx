@@ -45,8 +45,8 @@ export function StudioToolbar({
           <span className="truncate">{currentProject?.name || "Select game"}</span>
           <ChevronDown className="w-4 h-4 shrink-0 opacity-60" />
         </Button>
-        <Button size="sm" onClick={() => agent.createProject("New Game")} disabled={agent.isStreaming} title="Start a new game">
-          <Plus className="w-4 h-4" /> New
+        <Button size="sm" onClick={() => agent.createProject("New Game")} disabled={agent.isStreaming} title="Start a new game" aria-label="Start a new game">
+          <Plus className="w-4 h-4" />
         </Button>
         {/* Actions for THIS game. Settings is ALWAYS available — for a live game
             it opens rename/artwork/delete; for a draft it opens the draft's
@@ -62,21 +62,25 @@ export function StudioToolbar({
                 rel="noopener noreferrer"
                 className={buttonClass("secondary", "sm", "no-underline")}
                 title="Play the live game"
+                aria-label="Play the live game"
               >
-                <Play className="w-4 h-4" /> Play
+                <Play className="w-4 h-4" />
               </a>
             )}
             <Link
               to={`/game/${currentProject.appId ?? currentProject.id}`}
               className={buttonClass("secondary", "sm", "no-underline border-[var(--accent)] text-[var(--accent)]")}
               title={`Settings for ${currentProject.name}`}
+              aria-label={`Settings for ${currentProject.name}`}
             >
-              <Settings className="w-4 h-4" /> Settings
+              <Settings className="w-4 h-4" />
             </Link>
           </>
         )}
-        <span className="ml-auto hidden sm:inline text-sm text-[var(--muted)] tabular-nums">
-          In <strong className="text-[var(--ink)]">{agent.tokensIn.toLocaleString()}</strong> · Out <strong className="text-[var(--ink)]">{agent.tokensOut.toLocaleString()}</strong>
+        {/* Stacked + tiny so the token counts never grow the toolbar height. */}
+        <span className="ml-auto hidden sm:flex flex-col items-end leading-none text-[0.62rem] text-[var(--muted)] tabular-nums">
+          <span>In <strong className="text-[var(--ink)]">{agent.tokensIn.toLocaleString()}</strong></span>
+          <span className="mt-0.5">Out <strong className="text-[var(--ink)]">{agent.tokensOut.toLocaleString()}</strong></span>
         </span>
         <CopyLogButton agent={agent} provider={provider} model={model} />
         <Button size="sm" onClick={() => setSettingsOpen(!settingsOpen)} title="AI model & API key">
@@ -128,7 +132,6 @@ function CopyLogButton({ agent, provider, model }: { agent: ReturnType<typeof us
   return (
     <Button size="sm" onClick={copy} title="Copy conversation as JSON" className={copied ? "text-[var(--success)] border-[var(--success)]" : "text-[var(--muted)]"}>
       {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-      <span className="hidden sm:inline">{copied ? "Copied" : "Copy"}</span>
     </Button>
   );
 }
