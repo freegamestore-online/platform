@@ -1,0 +1,136 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Settings, Bot, Plus, ChevronDown, Copy, Check, Play } from "lucide-react";
+import { Button, buttonClass, Select, Input } from "./ui";
+import type { useAgent, Project } from "../hooks/useAgent";
+import { getKey } from "../lib/ai-keys";
+import { MODEL_OPTIONS, firstModelFor } from "../lib/models";
+
+interface StudioToolbarProps {
+  agent: ReturnType<typeof useAgent>;
+  currentProject: Project | undefined;
+  provider: string;
+  setProvider: (v: string) => void;
+  model: string;
+  setModel: (v: string) => void;
+  apiKey: string;
+  setApiKey: (v: string) => void;
+  temperature: number;
+  setTemperature: (v: number) => void;
+  settingsOpen: boolean;
+  setSettingsOpen: (v: boolean) => void;
+  setPickerOpen: (v: boolean) => void;
+}
+
+export function StudioToolbar({
+  agent,
+  currentProject,
+  provider,
+  setProvider,
+  model,
+  setModel,
+  apiKey,
+  setApiKey,
+  temperature,
+  setTemperature,
+  settingsOpen,
+  setSettingsOpen,
+  setPickerOpen,
+}: StudioToolbarProps) {
+  return (
+    <>
+      <div className="flex items-center gap-2 shrink-0 px-3 py-2 border-b border-[var(--border)] bg-[var(--surface)]">
+        <Button size="sm" onClick={() => setPickerOpen(true)} disabled={agent.isStreaming} className="max-w-[190px]" title={agent.isStreaming ? "Finish the current build to switch games" : "Switch game"}>
+          {currentProject?.deployed && <span className="w-2 h-2 rounded-full bg-[var(--accent)] shrink-0" />}
+          <span className="truncate">{currentProject?.name || "Select game"}</span>
+          <ChevronDown className="w-4 h-4 shrink-0 opacity-60" />
+        </Button>
+        <Button size="sm" onClick={() => agent.createProject("New Game")} disabled={agent.isStreaming} title="Start a new game">
+          <Plus className="w-4 h-4" /> New
+        </Button>
+        {/* Settings for THIS game. A deployed game → its own settings page
+            (rename / artwork / DELETE) and a Play link. A draft has no live game
+            yet, so Settings is disabled with a reason — it never dumps you onto
+            the games list, which was the confusing old behavior. */}
+        {currentProject?.appId ? (
+          <>
+            <a
+              href={currentProject.appUrl || `https://${currentProject.appId}.freegamestore.online`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={buttonClass("secondary", "sm", "no-underline")}
+              title="Play the live game"
+            >
+              <Play className="w-4 h-4" /> Play
+            </a>
+            <Link
+              to={`/game/${currentProject.appId}`}
+              className={buttonClass("secondary", "sm", "no-underline border-[var(--accent)] text-[var(--accent)]")}
+              title={`Settings for ${currentProject.name} — rename, artwork, delete`}
+            >
+              <Settings className="w-4 h-4" /> Settings
+            </Link>
+          </>
+        ) : (
+          <Button
+            size="sm"
+            disabled
+            className="opacity-60"
+            title="Deploy this game first — rename, artwork and delete unlock once it's live. To remove a draft, use Discard on My Games."
+          >
+            <Settings className="w-4 h-4" /> Settings
+          </Button>
+        )}
+        <span className="ml-auto hidden sm:inline text-sm text-[var(--muted)] tabular-nums">
+          In <strong className="text-[var(--ink)]">{agent.tokensIn.toLocaleString()}</strong> · Out <strong className="text-[var(--ink)]">{agent.tokensOut.toLocaleString()}</strong>
+        </span>
+        <CopyLogButton agent={agent} provider={provider} model={model} />
+        <Button size="sm" onClick={() => setSettingsOpen(!settingsOpen)} title="AI model & API key">
+          <Bot className="w-4 h-4" /> AI
+        </Button>
+      </div>
+      {settingsOpen && (
+        <div className="flex flex-wrap items-center gap-2 shrink-0 px-3 py-2 border-b border-[var(--border)] bg-[var(--surface)]">
+          <Select aria-label="AI provider" value={provider} onChange={(e) => { setProvider(e.target.value); setModel(firstModelFor(e.target.value)); }} className="w-auto h-9">
+            <option value="github">GitHub Models</option><option value="openrouter">OpenRouter</option><option value="anthropic">Anthropic</option><option value="openai">OpenAI</option><option value="google">Google</option>
+          </Select>
+          <Select aria-label="AI model" value={model} onChange={(e) => setModel(e.target.value)} className="w-auto h-9">
+            {(MODEL_OPTIONS[provider] || []).map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </Select>
+          {getKey(provider)
+            ? <span className="text-sm text-[var(--success)]">Key saved</span>
+            : <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="API key" aria-label="API key" className="w-48 h-9" />
+          }
+          <Select aria-label="Temperature" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-auto h-9">
+            <option value={0}>Temp 0</option><option value={0.3}>Temp 0.3</option><option value={0.7}>Temp 0.7</option><option value={1}>Temp 1</option>
+          </Select>
+        </div>
+      )}
+    </>
+  );
+}
+
+function CopyLogButton({ agent, provider, model }: { agent: ReturnType<typeof useAgent>; provider: string; model: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    const json = JSON.stringify({
+      project: agent.projects.find((p) => p.id === agent.currentProjectId)?.name || "unknown",
+      sessionId: agent.currentProjectId,
+      provider, model,
+      tokens: { input: agent.tokensIn, output: agent.tokensOut },
+      messages: agent.messages,
+      exportedAt: new Date().toISOString(),
+    }, null, 2);
+    await navigator.clipboard.writeText(json);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <Button size="sm" onClick={copy} title="Copy conversation as JSON" className={copied ? "text-[var(--success)] border-[var(--success)]" : "text-[var(--muted)]"}>
+      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+      <span className="hidden sm:inline">{copied ? "Copied" : "Copy"}</span>
+    </Button>
+  );
+}

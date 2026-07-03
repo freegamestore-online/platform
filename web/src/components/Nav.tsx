@@ -35,7 +35,7 @@ export function Nav() {
     <header className="border-b" style={{ borderColor: "var(--border)", padding: "0.75rem 0" }}>
       <div className="max-w-3xl mx-auto px-4 flex items-center justify-between">
         <Link to="/" className="text-xl font-extrabold tracking-tight no-underline" style={{ color: "var(--ink)", fontFamily: "Fraunces, serif" }}>
-          Free <span style={{ color: "var(--accent)" }}>Games</span>
+          Free<span style={{ color: "var(--accent)" }}>Game</span>Store
         </Link>
 
         <nav className="hidden sm:flex items-center gap-5">
@@ -55,8 +55,10 @@ export function Nav() {
           )}
         </nav>
 
-        <button className="sm:hidden" onClick={() => setMenuOpen(true)} aria-label="Menu"
-          style={{ background: "none", border: "none", color: "var(--ink)", cursor: "pointer", minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {/* flex lives in the class, NOT inline — an inline `display` would beat
+            `sm:hidden` and leave the hamburger showing next to the desktop nav. */}
+        <button className="sm:hidden flex items-center justify-center" onClick={() => setMenuOpen(true)} aria-label="Menu"
+          style={{ background: "none", border: "none", color: "var(--ink)", cursor: "pointer", minWidth: 44, minHeight: 44 }}>
           <Menu className="w-6 h-6" />
         </button>
       </div>
