@@ -601,7 +601,7 @@ If you catch yourself editing a workflow, package.json, a config, or renaming so
 - Canvas games (platformers, shooters, physics): HTML5 Canvas 2D + useGameLoop + lib/canvas helpers.
 - Grid games (puzzle, board, match-3): CSS grid/flexbox, state in a 2D array.
 - Card games (solitaire, memory): flexbox + tap/drag.
-- 3D games: add Three.js as a dependency (edit web/package.json) only if the game genuinely needs it.
+- 3D games: the platform ships a dedicated 3D template (Three.js + react-three-fiber and a matching lockfile preinstalled). If the loaded template already has Three.js, use it. If it does NOT, do NOT hand-edit web/package.json to add it — a dependency added without regenerating pnpm-lock.yaml breaks the frozen-lockfile deploy. Build the best 2D version instead, and tell the user a 3D game needs the 3D template.
 
 ## Privacy Rules (mandatory)
 - ZERO analytics, tracking, cookies, or third-party scripts (Google Fonts in the template is the only exception; platform analytics is injected by the host — do not add your own).
