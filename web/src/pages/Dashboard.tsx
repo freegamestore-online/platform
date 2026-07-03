@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Nav } from "../components/Nav";
 import { CreateGameForm } from "../components/CreateGameForm";
 import { LoadingShell, SignInShell, ErrorShell } from "../components/PageShell";
@@ -7,6 +8,7 @@ import { useAuth, type GameRepo } from "../hooks/useAuth";
 export function Dashboard() {
   const { user, creator, creatorError, loading, error, fetchCreator, reloadCreator, signIn } = useAuth();
   const [showForm, setShowForm] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => { fetchCreator(); }, [fetchCreator]);
 
@@ -77,7 +79,13 @@ export function Dashboard() {
 
         {showForm && (
           <CreateGameForm
-            onCreated={reloadCreator}
+            onCreated={async (id) => {
+              // The game is provisioned + listed; refresh the dashboard list,
+              // then jump straight into the studio bound to it (imports its
+              // files) — the single create→build flow.
+              await reloadCreator();
+              navigate(`/create?game=${id}`);
+            }}
             onClose={() => setShowForm(false)}
           />
         )}
@@ -113,11 +121,18 @@ function GameList({ games }: { games: GameRepo[] }) {
                 </span>
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm mt-1" style={{ color: "var(--muted)" }}>
-                <a href={game.liveUrl} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--accent)" }}>Open</a>
+                <a href={game.liveUrl} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--accent)" }}>Play</a>
                 <a href={game.repoUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">Code</a>
                 {game.createdAt && <span>{game.createdAt}</span>}
               </div>
             </div>
+            <Link
+              to={`/create?game=${game.id}`}
+              className="shrink-0 px-4 font-semibold rounded-lg text-sm no-underline flex items-center"
+              style={{ minHeight: 44, background: "var(--accent)", color: "#000" }}
+            >
+              Edit in VibeCode
+            </Link>
           </div>
         ))}
       </div>

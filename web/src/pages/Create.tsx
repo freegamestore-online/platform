@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Nav } from "../components/Nav";
 import { ChatMessage } from "../components/ChatMessage";
 import { DeployLog } from "../components/DeployLog";
@@ -56,6 +57,21 @@ export function Create() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openedGameRef = useRef<string | null>(null);
+
+  // Deep-link: /create?game=<id> opens an existing game in the studio. Wait for
+  // the session list to load first (so an already-open game switches instead of
+  // importing a duplicate), open once, then drop the param so a reload / new
+  // message doesn't re-import.
+  useEffect(() => {
+    const gameId = searchParams.get("game");
+    if (!gameId || agent.projectsLoading || openedGameRef.current === gameId) return;
+    openedGameRef.current = gameId;
+    void agent.openGame(gameId).finally(() => {
+      setSearchParams({}, { replace: true });
+    });
+  }, [searchParams, agent.projectsLoading, agent.openGame, setSearchParams]);
 
   useEffect(() => { agent.loadHistory(); }, [agent.currentProjectId]);
   useEffect(() => {
@@ -193,6 +209,7 @@ export function Create() {
           onRetry={agent.reloadProjects}
           onSelect={(id) => agent.switchProject(id)}
           onCreate={(name, appId) => agent.createProject(name, appId)}
+          onOpenGame={(gameId) => agent.openGame(gameId)}
           onClose={() => setPickerOpen(false)}
         />
       )}

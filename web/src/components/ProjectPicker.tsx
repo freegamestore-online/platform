@@ -8,6 +8,9 @@ interface ProjectPickerProps {
   onRetry?: () => void;
   onSelect: (id: string) => void;
   onCreate: (name: string, appId?: string) => void;
+  /** Open an EXISTING game — imports its real repo files into a session
+   *  (find-or-import), instead of creating a blank session linked to the repo. */
+  onOpenGame: (gameId: string) => Promise<string | null> | void;
   onClose: () => void;
 }
 
@@ -45,7 +48,7 @@ function StatusPill({ published }: { published: boolean }) {
   );
 }
 
-export function ProjectPicker({ projects, currentId, loadError, onRetry, onSelect, onCreate, onClose }: ProjectPickerProps) {
+export function ProjectPicker({ projects, currentId, loadError, onRetry, onSelect, onCreate, onOpenGame, onClose }: ProjectPickerProps) {
   const [orgRepos, setOrgRepos] = useState<OrgRepo[]>([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
@@ -99,15 +102,11 @@ export function ProjectPicker({ projects, currentId, loadError, onRetry, onSelec
   const nothingToShow = !loading && filteredLocal.length === 0 && orgOnly.length === 0;
 
   function handleSelectOrg(repo: OrgRepo) {
-    // Create a new VibeCode session for this org repo
-    const existingProject = projects.find((p) => p.appId === repo.id);
-    if (existingProject) {
-      onSelect(existingProject.id);
-    } else {
-      // Create a VibeCode session linked to this repo
-      onCreate(repo.name, repo.id);
-      // The newly created project will be selected automatically
-    }
+    // Open the existing game: switch to its session if one is already local,
+    // otherwise IMPORT its real repo files into a fresh session. (The old path
+    // created a blank session "linked" to the repo, so the next push_update
+    // overwrote the live game with the template scaffold.)
+    void onOpenGame(repo.id);
     onClose();
   }
 

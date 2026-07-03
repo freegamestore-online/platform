@@ -67,6 +67,19 @@ export function useAgent() {
     resetUI();
   }, [projectsMgr, resetUI]);
 
+  // Open an existing game in the studio (import its files if not already local).
+  // Surfaces any failure on the sticky error banner instead of silently no-op'ing.
+  const openGame = useCallback(async (gameId: string): Promise<string | null> => {
+    try {
+      const id = await projectsMgr.openGame(gameId);
+      resetUI();
+      return id;
+    } catch (e) {
+      setError((e as Error).message || `Couldn't open ${gameId}.`);
+      return null;
+    }
+  }, [projectsMgr, resetUI]);
+
   const loadHistory = useCallback(async () => {
     if (!sessionId) {
       setMessages(DEFAULT_MESSAGES);
@@ -250,8 +263,8 @@ export function useAgent() {
   return {
     messages, isStreaming, tokensIn, tokensOut, deployState, error, dismissError,
     projects: projectsMgr.projects, currentProjectId: projectsMgr.currentId,
-    projectsError: projectsMgr.loadError, reloadProjects: projectsMgr.reload,
-    sendMessage, createProject, switchProject, loadHistory,
+    projectsError: projectsMgr.loadError, projectsLoading: projectsMgr.loading, reloadProjects: projectsMgr.reload,
+    sendMessage, createProject, switchProject, openGame, loadHistory,
   };
 }
 

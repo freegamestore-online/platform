@@ -154,6 +154,44 @@ export function useProjects() {
     setCurrentId(id);
   }, [setCurrentId]);
 
+  // Open an EXISTING game in the studio. If a local session is already bound to
+  // it, switch to that. Otherwise create a fresh session and IMPORT the game's
+  // real repo files into it (so a later edit + push_update updates the game
+  // rather than overwriting it with a blank scaffold — the bug the old picker's
+  // "create empty session linked to repo" path caused). Returns the session id.
+  const openGame = useCallback(async (gameId: string): Promise<string> => {
+    const existing = projects.find((p) => p.appId === gameId);
+    if (existing) {
+      setCurrentId(existing.id);
+      return existing.id;
+    }
+    const id = crypto.randomUUID();
+    const res = await fetch(`${AGENT_URL}/session/${id}/import`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: gameId }),
+    });
+    if (!res.ok) {
+      const msg = ((await res.json().catch(() => ({}))) as { error?: string }).error;
+      throw new Error(msg || `Couldn't open "${gameId}" (${res.status}).`);
+    }
+    const data = (await res.json()) as { name?: string; appUrl?: string };
+    const project: Project = {
+      id,
+      name: data.name || gameId,
+      createdAt: new Date().toISOString(),
+      updatedAt: Date.now(),
+      deployed: true,
+      appId: gameId,
+      appUrl: data.appUrl || `https://${gameId}.freegamestore.online`,
+    };
+    setProjects((prev) => [project, ...prev.filter((p) => p.id !== id)]);
+    setCurrentId(id);
+    putSession(project);
+    return id;
+  }, [projects, setCurrentId]);
+
   const rename = useCallback((id: string, name: string) => {
     setProjects((prev) => {
       const existing = prev.find((project) => project.id === id);
@@ -181,5 +219,5 @@ export function useProjects() {
     });
   }, []);
 
-  return { projects, currentId, loading, loadError, reload, create, switchTo, rename, markDeployed };
+  return { projects, currentId, loading, loadError, reload, create, switchTo, openGame, rename, markDeployed };
 }
