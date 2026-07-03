@@ -312,9 +312,9 @@ function Toolbar({ agent, currentProject, provider, setProvider, model, setModel
         <Link
           to={currentProject?.appId ? `/game/${currentProject.appId}` : "/"}
           style={{ ...btn, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4, borderColor: "var(--accent)", color: "var(--accent)", fontWeight: 600 }}
-          title={currentProject?.appId ? "Manage this game — rename, artwork, delete" : "Open My Games to manage or delete a game"}
+          title={currentProject?.appId ? "Game settings — rename, artwork, delete" : "Open My Games to manage a game"}
         >
-          &#9881; Manage / Delete
+          &#9881; Settings
         </Link>
         <span className="ml-auto" style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
           In: <strong>{agent.tokensIn.toLocaleString()}</strong> Out: <strong>{agent.tokensOut.toLocaleString()}</strong>
