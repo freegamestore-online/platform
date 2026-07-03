@@ -1,4 +1,5 @@
 import { resolveCreator, corsHeaders } from "./_auth";
+import { listUserGames } from "./_games";
 
 interface Env {
   GITHUB_TOKEN: string;
@@ -38,12 +39,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(id)) return json({ error: "invalid id" }, 400);
   if (!body.name) return json({ error: "name required" }, 400);
 
-  // Ownership check: the caller must already be a collaborator on the repo.
-  const collabRes = await fetch(
-    `https://api.github.com/repos/${CONFIG.org}/${id}/collaborators/${user}`,
-    { headers: { Authorization: `Bearer ${context.env.GITHUB_TOKEN}`, Accept: "application/vnd.github+json", "User-Agent": "freegamestore-publisher" } },
-  );
-  if (collabRes.status !== 204) {
+  // Ownership: the caller must OWN the game by registry `creatorGithub` (which
+  // covers a pending-invite creator publishing their own just-created game) or
+  // be an accepted collaborator (legacy). Registry-first avoids the 403-on-your-
+  // own-game bug the collaborator-204-only check had.
+  const { owned } = await listUserGames(context.env, user);
+  let allowed = owned.some((g) => g.id === id);
+  if (!allowed) {
+    const collabRes = await fetch(
+      `https://api.github.com/repos/${CONFIG.org}/${id}/collaborators/${user}`,
+      { headers: { Authorization: `Bearer ${context.env.GITHUB_TOKEN}`, Accept: "application/vnd.github+json", "User-Agent": "freegamestore-publisher" } },
+    );
+    allowed = collabRes.status === 204;
+  }
+  if (!allowed) {
     return json({ error: "You don't have access to this game" }, 403);
   }
 

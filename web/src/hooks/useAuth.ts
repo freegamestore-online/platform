@@ -48,6 +48,7 @@ interface AuthContextValue {
   error: string | null;
   refetch: () => Promise<void>;
   fetchCreator: () => Promise<void>;
+  reloadCreator: () => Promise<void>;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -60,6 +61,7 @@ export const AuthContext = createContext<AuthContextValue>({
   error: null,
   refetch: async () => {},
   fetchCreator: async () => {},
+  reloadCreator: async () => {},
   signIn: async () => {},
   signOut: async () => {},
 });
@@ -122,8 +124,11 @@ export function useAuthProvider(): AuthContextValue {
   // A failure here must NOT be silently swallowed: the dashboard used to gate its
   // sign-in prompt on `!creator`, so a failed /api/me made a signed-in user see
   // "Sign in to publish." Surface the error so the UI can show a retry instead.
-  const fetchCreator = useCallback(async () => {
-    if (creator) return;
+  // The actual /api/me load — stable (no `creator` dep), so it can be used to
+  // force a refresh. `fetchCreator` wraps it with the lazy first-load guard;
+  // `reloadCreator` calls it unguarded so a create/publish can refresh the list
+  // in-session (the guard otherwise froze the game list until a full reload).
+  const loadCreator = useCallback(async () => {
     try {
       const creatorRes = await fetch("/api/me");
       if (creatorRes.ok) {
@@ -136,7 +141,14 @@ export function useAuthProvider(): AuthContextValue {
     } catch {
       setCreatorError("Couldn't load your games. Check your connection and retry.");
     }
-  }, [creator]);
+  }, []);
+
+  const fetchCreator = useCallback(async () => {
+    if (creator) return;
+    await loadCreator();
+  }, [creator, loadCreator]);
+
+  const reloadCreator = loadCreator;
 
   useEffect(() => {
     refetch();
@@ -157,5 +169,5 @@ export function useAuthProvider(): AuthContextValue {
     window.location.href = "/";
   }, []);
 
-  return { user, creator, creatorError, loading, error, refetch, fetchCreator, signIn, signOut };
+  return { user, creator, creatorError, loading, error, refetch, fetchCreator, reloadCreator, signIn, signOut };
 }

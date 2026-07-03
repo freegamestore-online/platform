@@ -5,7 +5,7 @@ import { LoadingShell, SignInShell, ErrorShell } from "../components/PageShell";
 import { useAuth, type GameRepo } from "../hooks/useAuth";
 
 export function Dashboard() {
-  const { user, creator, creatorError, loading, error, refetch, fetchCreator, signIn } = useAuth();
+  const { user, creator, creatorError, loading, error, fetchCreator, reloadCreator, signIn } = useAuth();
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => { fetchCreator(); }, [fetchCreator]);
@@ -75,7 +75,12 @@ export function Dashboard() {
           </>
         )}
 
-        {showForm && <CreateGameForm onCreated={refetch} />}
+        {showForm && (
+          <CreateGameForm
+            onCreated={reloadCreator}
+            onClose={() => setShowForm(false)}
+          />
+        )}
       </main>
     </>
   );

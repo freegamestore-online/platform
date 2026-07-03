@@ -45,11 +45,15 @@ function StatusDot({ status }: { status: string }) {
 const inputStyle = { minHeight: 44, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)" };
 
 interface CreateGameFormProps {
-  onCreated: () => Promise<void>;
+  /** Called on a successful create with the new game id — the Dashboard reloads
+   *  its game list so the new game appears (no more full-page reload needed). */
+  onCreated: (id: string) => void | Promise<void>;
+  /** Close the form and return to the game list. */
+  onClose: () => void;
 }
 
 /** Self-contained game creation form with validation, provisioning, and result display. */
-export function CreateGameForm({ onCreated }: CreateGameFormProps) {
+export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
   const [gameId, setGameId] = useState("");
   const [gameName, setGameName] = useState("");
   const [category, setCategory] = useState("casual");
@@ -75,25 +79,22 @@ export function CreateGameForm({ onCreated }: CreateGameFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: gameId, name: gameName, category, icon, iconBg, description, template }),
       });
-      const createData = await createRes.json() as { steps?: ProvisionStep[]; success?: boolean; error?: string };
-      if (createData.error) {
-        setSubmitError(createData.error);
+      const createData = await createRes.json().catch(() => ({} as { steps?: ProvisionStep[]; success?: boolean; error?: string }));
+      if (!createRes.ok || createData.error) {
+        setSubmitError(createData.error || `Create failed (${createRes.status})`);
       } else if (createData.steps) {
         setResult({ steps: createData.steps, success: createData.success ?? false });
-        if (createData.success) await onCreated();
+        if (createData.success) await onCreated(gameId);
+      } else {
+        setSubmitError("Unexpected response from the server");
       }
-    } catch {
-      setSubmitError("Network error");
+    } catch (e) {
+      setSubmitError(e instanceof Error ? `Request failed: ${e.message}` : "Network error");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const resetForm = () => {
-    setGameId(""); setGameName(""); setCategory("casual");
-    setIcon("\uD83C\uDFAE"); setIconBg("#1a2e26"); setDescription("");
-    setTemplate("canvas"); setResult(null); setSubmitError(null);
-  };
 
   if (result) {
     return (
@@ -116,7 +117,7 @@ export function CreateGameForm({ onCreated }: CreateGameFormProps) {
             <p>Edit your code at <a href={`https://github.com/freegamestore-online/${gameId}`} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }} className="hover:underline">github.com/freegamestore-online/{gameId}</a></p>
           </div>
         )}
-        <button onClick={resetForm} className="px-6 font-semibold rounded-xl" style={{ minHeight: 44, background: "var(--accent)", color: "#000", border: "none", cursor: "pointer" }}>
+        <button onClick={onClose} className="px-6 font-semibold rounded-xl" style={{ minHeight: 44, background: "var(--accent)", color: "#000", border: "none", cursor: "pointer" }}>
           Done
         </button>
       </div>
@@ -201,7 +202,7 @@ export function CreateGameForm({ onCreated }: CreateGameFormProps) {
           style={{ minHeight: 44, background: "var(--accent)", color: "#000", border: "none", cursor: "pointer" }}>
           {submitting ? "Creating..." : "Create Game"}
         </button>
-        <button type="button" onClick={resetForm} disabled={submitting}
+        <button type="button" onClick={onClose} disabled={submitting}
           className="px-6 font-semibold rounded-xl"
           style={{ minHeight: 44, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)", cursor: "pointer" }}>
           Cancel

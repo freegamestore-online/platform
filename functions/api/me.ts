@@ -1,19 +1,10 @@
 import { resolveCreatorUser, type SessionEnv } from "./_auth";
+import { listUserGames, type GameRepo } from "./_games";
 
 interface Env extends SessionEnv {
   GITHUB_TOKEN: string;
   CREATORS: KVNamespace;
   MAX_APPS_PER_USER: string;
-}
-
-interface GameRepo {
-  id: string;
-  name: string;
-  previewUrl: string;
-  liveUrl: string;
-  repoUrl: string;
-  createdAt: string;
-  published: boolean;
 }
 
 interface CreatorInfo {
@@ -24,29 +15,11 @@ interface CreatorInfo {
   remaining: number;
 }
 
-const ORG = "freegamestore-online";
-
-// A published/provisioned game as it appears in the registry — the single
-// source of truth for "what is a game." Infra repos (platform, publisher, mcp,
-// agent, leaderboard, host, auth, templates, …) never have a registry entry, so
-// listing from the registry instead of "all org repos minus a name denylist"
-// means new infra repos can never leak into a creator's game list.
-interface RegistryGame {
-  id: string;
-  name?: string;
-  appUrl?: string;
-  repo?: string;
-  creatorGithub?: string;
-  developer?: string;
-  firstPublished?: string;
-}
-
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   // Accept both the legacy publisher KV session and the canonical fgs_token JWT
   // (auth consolidation). The old code only read the KV session, so a user who
   // signed in through the auth worker (the normal path now) had a valid identity
-  // for /auth/me but got 401 here — surfacing as "Sign in to publish" on the
-  // dashboard despite being signed in.
+  // for /auth/me but got 401 here — surfacing as "Sign in to publish."
   const cu = await resolveCreatorUser(context.request, context.env);
   if (!cu) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -56,110 +29,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
   const user = cu.github;
 
-  // Registry is the source of truth for games.
-  let games: RegistryGame[] = [];
-  try {
-    const regRes = await fetch(
-      `https://raw.githubusercontent.com/${ORG}/freegamestore/main/registry.json`,
-      { headers: { "User-Agent": "freegamestore-publisher" } },
-    );
-    if (regRes.ok) {
-      const reg = (await regRes.json()) as { games?: RegistryGame[] };
-      games = reg.games ?? [];
-    }
-  } catch {
-    /* registry unreachable — return an empty game list rather than 500 */
-  }
-
-  // Org members/owners see every game (admin view); everyone else sees only the
-  // games they created. Ownership is by registry `creatorGithub` (fallback:
-  // `developer`), matched case-insensitively against the signed-in login.
-  const memberRes = await fetch(
-    `https://api.github.com/orgs/${ORG}/members/${user}`,
-    {
-      headers: {
-        Authorization: `Bearer ${context.env.GITHUB_TOKEN}`,
-        Accept: "application/vnd.github+json",
-        "User-Agent": "freegamestore-publisher",
-      },
-    },
-  );
-  const isOrgMember = memberRes.status === 204;
-  const lc = user.toLowerCase();
-  const gh = (path: string) =>
-    fetch(`https://api.github.com${path}`, {
-      headers: {
-        Authorization: `Bearer ${context.env.GITHUB_TOKEN}`,
-        Accept: "application/vnd.github+json",
-        "User-Agent": "freegamestore-publisher",
-      },
-    });
-
-  const registryToRepo = (g: RegistryGame, published: boolean): GameRepo => ({
-    id: g.id,
-    name: g.name || g.id.charAt(0).toUpperCase() + g.id.slice(1),
-    previewUrl: g.appUrl || `https://${g.id}.freegamestore.online`,
-    liveUrl: g.appUrl || `https://${g.id}.freegamestore.online`,
-    repoUrl: g.repo ? `https://github.com/${g.repo}` : `https://github.com/${ORG}/${g.id}`,
-    createdAt: g.firstPublished || "",
-    published,
-  });
-
-  let userGames: GameRepo[];
-  if (isOrgMember) {
-    // Admin view: every published game in the registry.
-    userGames = games.map((g) => registryToRepo(g, true));
-  } else {
-    // Creator view: the repos they're a direct collaborator on — that's exactly
-    // their own games (create.ts adds them as a collaborator on provision) and,
-    // crucially, includes DRAFTS that were provisioned but not yet registered.
-    // A non-member is never a collaborator on infra repos, so this can't leak
-    // platform/agent/mcp/etc. — no name denylist needed. A game counts as
-    // "published" only if it also has a registry entry.
-    const byId = new Map(games.map((g) => [g.id, g]));
-    let repos: Array<{ name: string; created_at?: string }> = [];
-    try {
-      const reposRes = await gh(`/orgs/${ORG}/repos?per_page=100`);
-      if (reposRes.ok) repos = (await reposRes.json()) as typeof repos;
-    } catch {
-      /* org repo list unreachable — fall back to registry-owned games below */
-    }
-
-    const collab = await Promise.all(
-      repos.map(async (r) => {
-        try {
-          const res = await gh(`/repos/${ORG}/${r.name}/collaborators/${user}`);
-          return res.status === 204 ? r : null;
-        } catch {
-          return null;
-        }
-      }),
-    );
-
-    userGames = collab
-      .filter((r): r is { name: string; created_at?: string } => r !== null)
-      .map((r) => {
-        const reg = byId.get(r.name);
-        if (reg) return registryToRepo(reg, true);
-        return {
-          id: r.name,
-          name: r.name.charAt(0).toUpperCase() + r.name.slice(1),
-          previewUrl: `https://${r.name}.freegamestore.online`,
-          liveUrl: `https://${r.name}.freegamestore.online`,
-          repoUrl: `https://github.com/${ORG}/${r.name}`,
-          createdAt: r.created_at?.split("T")[0] || "",
-          published: false,
-        };
-      });
-
-    // Safety net: if the repo list was unreachable, still surface registry-owned
-    // games so the dashboard isn't empty.
-    if (userGames.length === 0) {
-      userGames = games
-        .filter((g) => g.creatorGithub?.toLowerCase() === lc || g.developer?.toLowerCase() === lc)
-        .map((g) => registryToRepo(g, true));
-    }
-  }
+  // Registry-primary ownership (see _games.ts): a member sees the admin-all view;
+  // everyone else sees the games they own by registry `creatorGithub` — which
+  // shows a game the instant it's provisioned, even before an outside-collaborator
+  // invite is accepted. `remaining` is computed off the same `owned` list that
+  // create.ts gates on, so the slot count and the create gate never disagree.
+  const { owned } = await listUserGames(context.env, user);
 
   // KV for ban status.
   const raw = await context.env.CREATORS.get(user);
@@ -169,10 +44,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   const creator: CreatorInfo = {
     github: user,
-    games: userGames,
+    games: owned,
     banned,
     maxGames,
-    remaining: Math.max(0, maxGames - userGames.length),
+    remaining: Math.max(0, maxGames - owned.length),
   };
 
   return new Response(JSON.stringify({ user, creator }), {

@@ -1,4 +1,5 @@
 import { resolveCreator, corsHeaders } from "./_auth";
+import { listUserGames } from "./_games";
 
 interface Env {
   GITHUB_TOKEN: string;
@@ -41,25 +42,6 @@ const gh = (token: string) => ({
   Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "User-Agent": "freegamestore-publisher",
 });
 
-/** True if `user` is already a collaborator on org/id (GitHub returns 204). */
-async function isCollaborator(org: string, id: string, user: string, token: string): Promise<boolean> {
-  const r = await fetch(`https://api.github.com/repos/${org}/${id}/collaborators/${user}`, { headers: gh(token) });
-  return r.status === 204;
-}
-
-/** Count games this user already has access to (mirrors api/me.ts, infra excluded). */
-async function countUserGames(org: string, user: string, token: string): Promise<number> {
-  const res = await fetch(`https://api.github.com/orgs/${org}/repos?per_page=100`, { headers: gh(token) });
-  const repos = (await res.json()) as { name: string }[];
-  if (!Array.isArray(repos)) return 0;
-  const candidates = repos.filter((r) => !INFRA_REPOS.has(r.name));
-  // Org members/owners effectively own everything — don't limit them here.
-  const member = await fetch(`https://api.github.com/orgs/${org}/members/${user}`, { headers: gh(token) });
-  if (member.status === 204) return 0;
-  const checks = await Promise.all(candidates.map((r) => isCollaborator(org, r.name, user, token)));
-  return checks.filter(Boolean).length;
-}
-
 /**
  * POST /api/create — provision a new game via the canonical admin path (Path B).
  * Creates the repo from the chosen template, writes the R2 host route + store
@@ -86,16 +68,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   if (idErr) return json({ error: idErr }, 400);
   if (!body.name) return json({ error: "name required" }, 400);
 
-  // Per-creator game limit — only when this would be a NEW repo (skip the scan
-  // if the repo already exists; admin's provision is idempotent for re-runs).
+  // Ownership + per-creator limit, both from the SAME registry-primary `owned`
+  // list that /api/me uses — so the slot count shown on the dashboard and the
+  // create gate can never disagree.
+  const { owned } = await listUserGames(context.env, user);
   const repoCheck = await fetch(`https://api.github.com/repos/${CONFIG.org}/${body.id}`, { headers: gh(context.env.GITHUB_TOKEN) });
   const repoExisted = !!((await repoCheck.json()) as Record<string, unknown>).id;
-  if (repoExisted && !(await isCollaborator(CONFIG.org, body.id, user, context.env.GITHUB_TOKEN))) {
+  if (repoExisted && !owned.some((g) => g.id === body.id)) {
+    // The repo exists and isn't one of this user's games — don't let them
+    // re-provision (and re-own) someone else's game.
     return json({ error: "A game with this id already exists" }, 409);
   }
   if (!repoExisted) {
     const max = parseInt(context.env.MAX_APPS_PER_USER || "5", 10);
-    if (await countUserGames(CONFIG.org, user, context.env.GITHUB_TOKEN) >= max) {
+    if (owned.length >= max) {
       return json({ error: `Game limit reached (${max} per creator)` }, 403);
     }
   }
