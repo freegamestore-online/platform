@@ -306,11 +306,16 @@ function Toolbar({ agent, currentProject, provider, setProvider, model, setModel
           {currentProject?.deployed ? "● " : ""}{currentProject?.name || "Select game"} ▾
         </button>
         <button onClick={() => agent.createProject("New Game")} disabled={agent.isStreaming} style={{ ...btn, opacity: agent.isStreaming ? 0.5 : 1, cursor: agent.isStreaming ? "not-allowed" : "pointer" }} title="Start a new game">+ New</button>
-        {currentProject?.appId && (
-          <Link to={`/game/${currentProject.appId}`} style={{ ...btn, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }} title="Game settings — name, artwork, delete">
-            &#9881; Settings
-          </Link>
-        )}
+        {/* Always reachable: for a deployed game go straight to its settings
+            (rename / artwork / DELETE); otherwise send them to My Games where
+            every game has the same gear. Prominent + labelled so it isn't lost. */}
+        <Link
+          to={currentProject?.appId ? `/game/${currentProject.appId}` : "/"}
+          style={{ ...btn, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4, borderColor: "var(--accent)", color: "var(--accent)", fontWeight: 600 }}
+          title={currentProject?.appId ? "Manage this game — rename, artwork, delete" : "Open My Games to manage or delete a game"}
+        >
+          &#9881; Manage / Delete
+        </Link>
         <span className="ml-auto" style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
           In: <strong>{agent.tokensIn.toLocaleString()}</strong> Out: <strong>{agent.tokensOut.toLocaleString()}</strong>
         </span>
