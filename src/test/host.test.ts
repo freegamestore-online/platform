@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contentType, etagsMatch, type Route, r2KeyFor, resolveRoute, securityHeaders, shouldRevalidate } from "../host";
+import { buildSyntheticVersion, contentType, etagsMatch, type Route, r2KeyFor, resolveRoute, securityHeaders, shouldRevalidate } from "../host";
 
 // Minimal D1 stub — verifies the SQL shape and parameter binding without
 // spinning up a real D1. Real schema integration is exercised by the
@@ -113,6 +113,20 @@ describe("contentType", () => {
 // pass that drops the broad `https:` from script-src + connect-src must keep
 // the explicit api.freeappstore.online / cloudflareinsights / googletagmanager /
 // plausible.io origins or analytics breaks across every app.
+
+describe("buildSyntheticVersion (fallback version.json from R2 metadata)", () => {
+  const body = buildSyntheticVersion('pong', new Date('2026-07-04T09:30:00.000Z'), '"abc123etag"');
+  const parsed = JSON.parse(body);
+  it("reports repo, deploy time, and a version from the etag", () => {
+    expect(parsed.repo).toBe('pong');
+    expect(parsed.deployedAt).toBe('2026-07-04T09:30:00.000Z');
+    expect(parsed.version).toBe('abc123etag'); // quotes stripped
+    expect(parsed.source).toBe('r2-metadata');
+  });
+  it("emits valid, parseable JSON", () => {
+    expect(() => JSON.parse(body)).not.toThrow();
+  });
+});
 
 describe("shouldRevalidate (cache policy for stable-named, changing files)", () => {
   it("revalidates HTML and version.json (stable name, changing content)", () => {

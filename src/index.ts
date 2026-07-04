@@ -12,7 +12,7 @@
  * PLATFORM_SUBDOMAINS is just www → apex redirect + future hooks.
  */
 
-import { type Env, type Route, contentType, etagsMatch, r2KeyFor, resolveRoute, securityHeaders, shouldRevalidate } from "./host";
+import { type Env, type Route, buildSyntheticVersion, contentType, etagsMatch, r2KeyFor, resolveRoute, securityHeaders, shouldRevalidate } from "./host";
 
 type PlatformDispatch =
   | { type: "service"; binding: keyof Env }
@@ -182,7 +182,21 @@ async function serve(bucket: R2Bucket, route: Route, url: URL, req: Request, _ct
     if (obj) return respond(obj, "text/html; charset=utf-8", req, true);
   }
 
-  if (!obj) return notFound(`${route.slug}.${route.zone}`, url.pathname);
+  if (!obj) {
+    // A game deployed before the build-stamp existed has no real version.json
+    // in R2. Synthesize one from the game's index.html upload metadata so every
+    // game still answers "what version / when deployed". Real stamps (served
+    // above via the normal object path) take precedence.
+    if (url.pathname === "/version.json") {
+      const idx = await bucket.get(`${route.r2_prefix}/index.html`);
+      if (idx) {
+        const headers = securityHeaders({ revalidate: true });
+        headers.set("content-type", "application/json; charset=utf-8");
+        return new Response(buildSyntheticVersion(route.slug, idx.uploaded, idx.httpEtag), { headers });
+      }
+    }
+    return notFound(`${route.slug}.${route.zone}`, url.pathname);
+  }
 
   const ct = contentType(key);
   return respond(obj, ct, req, shouldRevalidate(ct, key));

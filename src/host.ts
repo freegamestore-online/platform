@@ -134,6 +134,29 @@ export function securityHeaders(opts: { revalidate: boolean }): Headers {
 }
 
 /**
+ * Synthesize a version.json body from R2 object metadata, for games that were
+ * deployed before the deploy.yml build-stamp existed (no real version.json in
+ * R2). `deployedAt` comes from when the game's index.html was last uploaded to
+ * R2 and `version` is its content etag — so every game answers "when was this
+ * last deployed" immediately, without a fleet-wide workflow change. Games that
+ * redeploy with the stamp serve a richer real version.json (commit SHA, run
+ * number) that takes precedence over this fallback.
+ */
+export function buildSyntheticVersion(slug: string, uploaded: Date, etag: string): string {
+  return JSON.stringify(
+    {
+      repo: slug,
+      version: etag.replace(/"/g, ""),
+      deployedAt: uploaded.toISOString(),
+      source: "r2-metadata",
+      note: "No build stamp yet — redeploy this game to include the commit SHA.",
+    },
+    null,
+    2,
+  );
+}
+
+/**
  * Whether a served object must revalidate (short cache) rather than be cached
  * immutably for a year. True for files with a STABLE name but CHANGING content
  * across deploys: HTML entrypoints and the version.json deploy stamp. Bundle
