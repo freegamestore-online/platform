@@ -63,8 +63,27 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ steps: ProvisionStep[]; success: boolean } | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState<{ available: boolean; reason?: string } | null>(null);
 
   const idError = validateId(gameId);
+
+  // Check availability up front (repo existence) so the user isn't told "taken"
+  // only after hitting Create. Cleared whenever the id changes.
+  const checkId = async () => {
+    if (!gameId || idError) return;
+    setChecking(true);
+    setCheckResult(null);
+    try {
+      const r = await fetch(`/api/check-id?id=${encodeURIComponent(gameId)}`, { credentials: "include" });
+      const d = (await r.json().catch(() => ({}))) as { available?: boolean; reason?: string };
+      setCheckResult({ available: !!d.available, reason: d.reason });
+    } catch {
+      setCheckResult({ available: false, reason: "Couldn't check — try again" });
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,13 +149,23 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
 
       <div>
         <Label htmlFor="game-id">Game ID</Label>
-        <Input id="game-id" type="text" value={gameId}
-          onChange={(e) => setGameId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-          placeholder="my-game" required
-          style={idError ? { borderColor: "var(--error)" } : undefined}
-        />
+        <div className="flex gap-2">
+          <Input id="game-id" type="text" value={gameId}
+            onChange={(e) => { setGameId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "")); setCheckResult(null); }}
+            placeholder="my-game" required className="flex-1"
+            style={idError ? { borderColor: "var(--error)" } : undefined}
+          />
+          <Button type="button" variant="secondary" onClick={checkId} disabled={!gameId || !!idError || checking}>
+            {checking ? "Checking…" : "Check"}
+          </Button>
+        </div>
         {idError && <p className="text-sm mt-1" style={{ color: "var(--error)" }}>{idError}</p>}
-        {gameId && !idError && <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>{gameId}.freegamestore.online</p>}
+        {!idError && checkResult && (
+          checkResult.available
+            ? <p className="text-sm mt-1" style={{ color: "var(--accent)" }}>✓ Available — {gameId}.freegamestore.online</p>
+            : <p className="text-sm mt-1" style={{ color: "var(--error)" }}>✗ {checkResult.reason || "Not available"}</p>
+        )}
+        {gameId && !idError && !checkResult && <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>{gameId}.freegamestore.online</p>}
       </div>
 
       <div>
@@ -195,7 +224,7 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
       {submitError && <p className="text-sm font-medium" style={{ color: "var(--error)" }}>{submitError}</p>}
 
       <div className="flex gap-3 pt-2">
-        <Button type="submit" variant="primary" disabled={submitting || !gameId || !gameName || !!idError}>
+        <Button type="submit" variant="primary" disabled={submitting || !gameId || !gameName || !!idError || (checkResult ? !checkResult.available : false)}>
           {submitting ? "Creating..." : "Create Game"}
         </Button>
         <Button type="button" variant="secondary" onClick={onClose} disabled={submitting}>
