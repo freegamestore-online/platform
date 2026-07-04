@@ -96,7 +96,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return json({ error: "A game with this id already exists" }, 409);
   }
   if (!repoExisted) {
-    const max = parseInt(context.env.MAX_APPS_PER_USER || "5", 10);
+    const max = parseInt(context.env.MAX_APPS_PER_USER || "10", 10);
     if (owned.length >= max) {
       return json({ error: `Game limit reached (${max} per creator)` }, 403);
     }

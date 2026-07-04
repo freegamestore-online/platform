@@ -53,7 +53,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const raw = await context.env.CREATORS.get(user);
   const kvRecord = raw ? JSON.parse(raw) : null;
   const banned = kvRecord?.banned ?? false;
-  const maxGames = parseInt(context.env.MAX_APPS_PER_USER || "5");
+  const maxGames = parseInt(context.env.MAX_APPS_PER_USER || "10");
 
   const creator: CreatorInfo = {
     github: user,

@@ -12,4 +12,4 @@ id = "5ee61cf0158843be85e4e6e3f12bb35b"
 
 [vars]
 CF_ACCOUNT_ID = "c1089bfcc43c1c6c2aa89e584e86f0bc"
-MAX_APPS_PER_USER = "5"
+MAX_APPS_PER_USER = "10"
