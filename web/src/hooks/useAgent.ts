@@ -15,11 +15,13 @@ export interface AgentMessage {
 export type { DeployState } from "../types";
 import type { DeployState } from "../types";
 
-/** Configuration for the AI provider (provider, model, API key, temperature). */
+/** Configuration for the AI provider. The API key is NO LONGER sent from the
+ *  browser — it lives in the agent's encrypted server-side vault and is resolved
+ *  per-request there. `apiKey` remains optional only for legacy callers. */
 export interface AIConfig {
   provider: string;
   model: string;
-  apiKey: string;
+  apiKey?: string;
   temperature: number;
   maxTokens: number;
 }

@@ -1,51 +1,58 @@
 import { useState } from "react";
-import { PROVIDERS, getSavedKeys, saveKey, type ProviderConfig } from "../lib/ai-keys";
+import { PROVIDERS, type ProviderConfig } from "../lib/ai-keys";
+import { useKeys } from "../hooks/useKeys";
 import { Button, Badge, Input } from "./ui";
 
-/** Reusable AI provider settings panel.
- *  Shows all providers with API key inputs.
- *  Keys are saved to localStorage — never sent to our servers. */
+/** AI provider settings. Keys are stored in the platform's ENCRYPTED vault
+ *  (server-side, AES-256-GCM) — never in the browser, and never shown back after
+ *  saving (the vault returns only "connected" status). */
 export function AISettings() {
-  const [keys, setKeys] = useState<Record<string, string>>(() => getSavedKeys());
+  const keys = useKeys();
   const [editing, setEditing] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  function startEdit(provider: string) {
-    setEditing(provider);
-    setInputValue(keys[provider] || "");
+  async function handleSave(provider: string) {
+    const v = inputValue.trim();
+    if (!v) return;
+    setBusy(provider);
+    setError(null);
+    const ok = await keys.saveKey(provider, v);
+    setBusy(null);
+    if (ok) { setEditing(null); setInputValue(""); }
+    else setError("Couldn't save the key — try again.");
   }
 
-  function handleSave(provider: string) {
-    saveKey(provider, inputValue.trim());
-    setKeys(getSavedKeys());
-    setEditing(null);
-    setInputValue("");
-  }
-
-  function handleRemove(provider: string) {
-    saveKey(provider, "");
-    setKeys(getSavedKeys());
+  async function handleRemove(provider: string) {
+    setBusy(provider);
+    setError(null);
+    const ok = await keys.removeKey(provider);
+    setBusy(null);
+    if (!ok) setError("Couldn't remove the key — try again.");
   }
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-bold">AI Providers</h3>
-        <p className="text-xs" style={{ color: "var(--muted)" }}>Keys stored locally — never sent to our servers</p>
+        <p className="text-xs" style={{ color: "var(--muted)" }}>Stored encrypted on the platform — never in your browser</p>
       </div>
+      {error && <p className="text-sm" style={{ color: "var(--error)" }}>{error}</p>}
 
       {PROVIDERS.map((p) => (
         <ProviderRow
           key={p.type}
           provider={p}
-          savedKey={keys[p.type] || ""}
+          hasKey={keys.hasKey(p.type)}
+          busy={busy === p.type}
           isEditing={editing === p.type}
           inputValue={inputValue}
-          onStartEdit={() => startEdit(p.type)}
+          onStartEdit={() => { setEditing(p.type); setInputValue(""); }}
           onInputChange={setInputValue}
           onSave={() => handleSave(p.type)}
           onRemove={() => handleRemove(p.type)}
-          onCancel={() => setEditing(null)}
+          onCancel={() => { setEditing(null); setInputValue(""); }}
         />
       ))}
     </div>
@@ -53,11 +60,12 @@ export function AISettings() {
 }
 
 function ProviderRow({
-  provider: p, savedKey, isEditing, inputValue,
+  provider: p, hasKey, busy, isEditing, inputValue,
   onStartEdit, onInputChange, onSave, onRemove, onCancel,
 }: {
   provider: ProviderConfig;
-  savedKey: string;
+  hasKey: boolean;
+  busy: boolean;
   isEditing: boolean;
   inputValue: string;
   onStartEdit: () => void;
@@ -66,11 +74,6 @@ function ProviderRow({
   onRemove: () => void;
   onCancel: () => void;
 }) {
-  const hasKey = !!savedKey;
-  const maskedKey = savedKey
-    ? savedKey.length > 12 ? `${savedKey.slice(0, 8)}...${savedKey.slice(-4)}` : "••••••••"
-    : "";
-
   return (
     <div className="p-4 rounded-xl border" style={{ background: "var(--panel)", borderColor: "var(--line)" }}>
       <div className="flex items-start justify-between gap-3">
@@ -95,14 +98,12 @@ function ProviderRow({
           <div className="shrink-0">
             {hasKey && !isEditing ? (
               <div className="flex items-center gap-2">
-                <code className="text-xs" style={{ color: "var(--muted)" }}>{maskedKey}</code>
-                <Button variant="ghost" size="sm" onClick={onStartEdit}>Edit</Button>
-                <Button variant="danger-outline" size="sm" onClick={onRemove}>Remove</Button>
+                <span className="text-xs" style={{ color: "var(--muted)" }}>••• saved</span>
+                <Button variant="ghost" size="sm" onClick={onStartEdit} disabled={busy}>Replace</Button>
+                <Button variant="danger-outline" size="sm" onClick={onRemove} disabled={busy}>{busy ? "…" : "Remove"}</Button>
               </div>
             ) : !isEditing ? (
-              <Button variant="primary" size="sm" onClick={onStartEdit}>
-                Add Key
-              </Button>
+              <Button variant="primary" size="sm" onClick={onStartEdit} disabled={busy}>Add Key</Button>
             ) : null}
           </div>
         )}
@@ -119,15 +120,9 @@ function ProviderRow({
             className="flex-1 font-mono"
             onKeyDown={(e) => { if (e.key === "Enter") onSave(); if (e.key === "Escape") onCancel(); }}
           />
-          <Button variant="primary" size="sm" onClick={onSave}>Save</Button>
-          <Button variant="secondary" size="sm" onClick={onCancel}>Cancel</Button>
+          <Button variant="primary" size="sm" onClick={onSave} disabled={busy || !inputValue.trim()}>{busy ? "Saving…" : "Save"}</Button>
+          <Button variant="ghost" size="sm" onClick={onCancel} disabled={busy}>Cancel</Button>
         </div>
-      )}
-
-      {!p.free && (
-        <a href={p.docsUrl} target="_blank" rel="noopener" className="text-xs mt-2 inline-block" style={{ color: "var(--accent)" }}>
-          Get API key →
-        </a>
       )}
     </div>
   );

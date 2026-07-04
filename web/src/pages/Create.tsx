@@ -10,21 +10,22 @@ import { StudioToolbar } from "../components/StudioToolbar";
 import { NewGameModal } from "../components/NewGameModal";
 import { useAuth } from "../hooks/useAuth";
 import { useAgent, type AIConfig } from "../hooks/useAgent";
-import { getKey, providerUsable, resolveInitialProvider } from "../lib/ai-keys";
+import { useKeys } from "../hooks/useKeys";
+import { resolveInitialProvider } from "../lib/ai-keys";
 import { resolveModel } from "../lib/models";
 
 export function Create() {
   const { user, loading, signIn } = useAuth();
   const agent = useAgent();
+  const keys = useKeys();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Start on a provider the user can actually use (stored choice if it has a
-  // key, else any provider they have a key for, else free GitHub Models) — not
-  // a hardcoded OpenRouter default that ignores their available keys.
+  // Start on the user's stored provider choice, else free GitHub Models. Whether
+  // that provider has a *key* is answered by the vault (keys.providerUsable),
+  // since key state is now server-side/async — not a localStorage lookup.
   const [provider, setProvider] = useState(resolveInitialProvider);
   const [model, setModel] = useState(() => resolveModel(resolveInitialProvider(), localStorage.getItem("fgs_model")));
-  const [apiKey, setApiKey] = useState("");
   const [temperature, setTemperature] = useState(0.7);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
@@ -86,14 +87,15 @@ export function Create() {
 
   const sendPrompt = async (msg: string) => {
     if (!msg || agent.isStreaming) return;
-    const key = apiKey || getKey(provider);
-    if (!key) {
-      // Open the settings panel (where the key input lives) rather than firing a
-      // dismissable alert the user misses — the persistent banner explains why.
+    if (!keys.providerUsable(provider)) {
+      // No key saved for this (non-free) provider. Open the settings dialog to
+      // add one rather than firing a dismissable alert — the banner explains why.
       setSettingsOpen(true);
       return;
     }
-    await agent.sendMessage(msg, { provider, model, apiKey: key, temperature, maxTokens: 16384 } as AIConfig);
+    // The API key is NOT sent from the browser — the agent resolves it from the
+    // encrypted vault server-side using the signed-in identity.
+    await agent.sendMessage(msg, { provider, model, temperature, maxTokens: 16384 } as AIConfig);
   };
 
   const handleSend = async () => {
@@ -112,10 +114,10 @@ export function Create() {
   const showPreview = previewUrl && (agent.deployState?.phase === "live" || agent.deployState?.phase === "building" || currentProject?.deployed);
   // The studio is bring-your-own-key — EXCEPT free providers (GitHub Models),
   // which need none. Only nag when the current provider is actually unusable:
-  // not free AND no saved key AND nothing typed. (The old `!getKey(provider)`
-  // check nagged forever on the free GitHub default, and after a key was saved
-  // for a different provider.)
-  const needsKey = !apiKey && !providerUsable(provider);
+  // not free AND no key saved in the vault. (`providerUsable` reads the vault's
+  // has-key status, so the nag clears the moment a key is saved and never fires
+  // on the free GitHub default.)
+  const needsKey = !keys.loading && !keys.providerUsable(provider);
 
   if (!user) {
     return (
@@ -169,11 +171,11 @@ export function Create() {
             agent={agent} currentProject={currentProject}
             provider={provider} setProvider={setProvider}
             model={model} setModel={setModel}
-            apiKey={apiKey} setApiKey={setApiKey}
             temperature={temperature} setTemperature={setTemperature}
             settingsOpen={settingsOpen} setSettingsOpen={setSettingsOpen}
             setPickerOpen={setPickerOpen}
             onNewGame={() => setNewOpen(true)}
+            keys={keys}
           />
           {needsKey && (
             <div

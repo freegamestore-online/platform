@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { PROVIDERS, getSavedKeys, saveKey, getKey, deleteAllKeys } from "./ai-keys";
+import {
+  PROVIDERS,
+  isFreeProvider,
+  resolveInitialProvider,
+  readLegacyLocalKeys,
+  clearLegacyLocalKeys,
+} from "./ai-keys";
 
 describe("PROVIDERS", () => {
   it("has at least one provider", () => {
@@ -22,29 +28,51 @@ describe("PROVIDERS", () => {
   });
 });
 
-describe("key storage", () => {
-  beforeEach(() => {
-    localStorage.clear();
+describe("isFreeProvider", () => {
+  it("is true only for GitHub Models", () => {
+    expect(isFreeProvider("github")).toBe(true);
+    expect(isFreeProvider("openrouter")).toBe(false);
+    expect(isFreeProvider("anthropic")).toBe(false);
+    expect(isFreeProvider("unknown")).toBe(false);
+  });
+});
+
+describe("resolveInitialProvider", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("defaults to free github when nothing stored", () => {
+    expect(resolveInitialProvider()).toBe("github");
   });
 
-  it("returns empty object when no keys saved", () => {
-    expect(getSavedKeys()).toEqual({});
+  it("honors a valid stored preference", () => {
+    localStorage.setItem("fgs_provider", "anthropic");
+    expect(resolveInitialProvider()).toBe("anthropic");
   });
 
-  it("saves and retrieves a key", () => {
-    saveKey("openrouter", "sk-or-v1-test");
-    expect(getKey("openrouter")).toBe("sk-or-v1-test");
+  it("ignores an unknown stored preference", () => {
+    localStorage.setItem("fgs_provider", "not-a-provider");
+    expect(resolveInitialProvider()).toBe("github");
+  });
+});
+
+describe("legacy localStorage key migration", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("reads legacy plaintext keys so they can be migrated", () => {
+    localStorage.setItem("fgs_ai_keys", JSON.stringify({ openrouter: "sk-or-v1-legacy" }));
+    expect(readLegacyLocalKeys()).toEqual({ openrouter: "sk-or-v1-legacy" });
   });
 
-  it("deletes a key when empty string passed", () => {
-    saveKey("openrouter", "sk-or-v1-test");
-    saveKey("openrouter", "");
-    expect(getKey("openrouter")).toBe("");
+  it("returns empty object when no legacy keys / corrupt JSON", () => {
+    expect(readLegacyLocalKeys()).toEqual({});
+    localStorage.setItem("fgs_ai_keys", "{not json");
+    expect(readLegacyLocalKeys()).toEqual({});
   });
 
-  it("deleteAllKeys clears storage", () => {
-    saveKey("openrouter", "sk-or-v1-test");
-    deleteAllKeys();
-    expect(getSavedKeys()).toEqual({});
+  it("clearLegacyLocalKeys wipes the plaintext blob from the browser", () => {
+    localStorage.setItem("fgs_ai_keys", JSON.stringify({ openrouter: "sk-or-v1-legacy" }));
+    clearLegacyLocalKeys();
+    expect(localStorage.getItem("fgs_ai_keys")).toBeNull();
+    expect(readLegacyLocalKeys()).toEqual({});
   });
 });

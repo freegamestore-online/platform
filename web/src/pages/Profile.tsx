@@ -40,6 +40,12 @@ export function Profile() {
     <>
       <Nav />
       <div className="max-w-xl mx-auto px-4 py-12">
+        {/* AI Providers — first thing on the profile: it's the setting users come
+            here to manage (keys live in the encrypted vault, never the browser). */}
+        <div className="mb-8">
+          <AISettings />
+        </div>
+
         {/* Avatar + name card */}
         <div
           className="flex items-center gap-6 p-8 rounded-2xl border mb-8"
@@ -97,11 +103,6 @@ export function Profile() {
               value={`${creator.remaining} of ${creator.maxGames}`}
             />
           )}
-        </div>
-
-        {/* AI Providers */}
-        <div className="mb-8">
-          <AISettings />
         </div>
 
         {/* Session */}

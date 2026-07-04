@@ -93,25 +93,20 @@ export const PROVIDERS: ProviderConfig[] = [
   },
 ];
 
-const STORAGE_KEY = "fgs_ai_keys";
+// AI provider KEYS are no longer kept in localStorage — they live in the agent
+// worker's encrypted vault (see hooks/useKeys.ts). This key remains only so a
+// one-time migration can lift any pre-vault keys up and then wipe them.
+const LEGACY_STORAGE_KEY = "fgs_ai_keys";
 
-export function getSavedKeys(): Record<string, string> {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; }
+/** Read keys stored in localStorage before the server vault existed, so they can
+ *  be migrated into the vault. */
+export function readLegacyLocalKeys(): Record<string, string> {
+  try { return JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) || "{}"); } catch { return {}; }
 }
 
-export function saveKey(provider: string, key: string) {
-  const keys = getSavedKeys();
-  if (key) keys[provider] = key;
-  else delete keys[provider];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(keys));
-}
-
-export function getKey(provider: string): string {
-  return getSavedKeys()[provider] || "";
-}
-
-export function deleteAllKeys() {
-  localStorage.removeItem(STORAGE_KEY);
+/** Remove the legacy plaintext keys from the browser once migrated. */
+export function clearLegacyLocalKeys() {
+  localStorage.removeItem(LEGACY_STORAGE_KEY);
 }
 
 /** Whether a provider needs no API key (free tier — e.g. GitHub Models). */
@@ -119,28 +114,15 @@ export function isFreeProvider(provider: string): boolean {
   return PROVIDERS.find((p) => p.type === provider)?.free ?? false;
 }
 
-/** A provider is usable right now if it's free or the user has saved a key for it. */
-export function providerUsable(provider: string): boolean {
-  return isFreeProvider(provider) || !!getKey(provider);
-}
-
 /**
- * Which provider to start with. Prefers the user's stored choice when it's
- * actually usable, otherwise the first provider they have a key for, otherwise
- * the free default (GitHub Models). This is what stops the composer defaulting
- * to a provider (OpenRouter) the user has no key for while a usable key — say
- * Anthropic or OpenAI — sits unused.
+ * Which provider to start on. Uses the user's stored preference (a non-secret UI
+ * choice) or the free default. Whether that provider has a *key* is answered
+ * separately by the vault (useKeys), since key state is now server-side/async.
  */
 export function resolveInitialProvider(): string {
   const stored = localStorage.getItem("fgs_provider");
-  if (stored && providerUsable(stored)) return stored;
-  const withKey = PROVIDERS.find((p) => !p.free && getKey(p.type));
-  if (withKey) return withKey.type;
+  if (stored && PROVIDERS.some((p) => p.type === stored)) return stored;
   return "github";
-}
-
-export function getDefaultProvider(): string {
-  return resolveInitialProvider();
 }
 
 export function getDefaultModel(): string {

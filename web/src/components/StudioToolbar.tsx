@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Settings, Bot, Plus, ChevronDown, Copy, Check, Play } from "lucide-react";
-import { Button, buttonClass, Select, Input } from "./ui";
+import { Button, buttonClass } from "./ui";
 import type { useAgent, Project } from "../hooks/useAgent";
-import { getKey } from "../lib/ai-keys";
-import { MODEL_OPTIONS, firstModelFor } from "../lib/models";
+import type { useKeys } from "../hooks/useKeys";
+import { StudioSettingsDialog } from "./StudioSettingsDialog";
 
 interface StudioToolbarProps {
   agent: ReturnType<typeof useAgent>;
@@ -13,14 +13,13 @@ interface StudioToolbarProps {
   setProvider: (v: string) => void;
   model: string;
   setModel: (v: string) => void;
-  apiKey: string;
-  setApiKey: (v: string) => void;
   temperature: number;
   setTemperature: (v: number) => void;
   settingsOpen: boolean;
   setSettingsOpen: (v: boolean) => void;
   setPickerOpen: (v: boolean) => void;
   onNewGame: () => void;
+  keys: ReturnType<typeof useKeys>;
 }
 
 export function StudioToolbar({
@@ -30,14 +29,13 @@ export function StudioToolbar({
   setProvider,
   model,
   setModel,
-  apiKey,
-  setApiKey,
   temperature,
   setTemperature,
   settingsOpen,
   setSettingsOpen,
   setPickerOpen,
   onNewGame,
+  keys,
 }: StudioToolbarProps) {
   return (
     <>
@@ -85,27 +83,21 @@ export function StudioToolbar({
           <span className="mt-0.5">Out <strong className="text-[var(--ink)]">{agent.tokensOut.toLocaleString()}</strong></span>
         </span>
         <CopyLogButton agent={agent} provider={provider} model={model} />
-        <Button size="sm" onClick={() => setSettingsOpen(!settingsOpen)} title="AI model & API key">
-          <Bot className="w-4 h-4" /> AI
+        <Button size="sm" onClick={() => setSettingsOpen(!settingsOpen)} title="AI model & API key" aria-label="AI settings">
+          <Bot className="w-4 h-4" />
         </Button>
       </div>
-      {settingsOpen && (
-        <div className="flex flex-wrap items-center gap-2 shrink-0 px-3 py-2 border-b border-[var(--border)] bg-[var(--surface)]">
-          <Select aria-label="AI provider" value={provider} onChange={(e) => { setProvider(e.target.value); setModel(firstModelFor(e.target.value)); setApiKey(""); }} className="w-auto h-9">
-            <option value="github">GitHub Models</option><option value="openrouter">OpenRouter</option><option value="anthropic">Anthropic</option><option value="openai">OpenAI</option><option value="google">Google</option>
-          </Select>
-          <Select aria-label="AI model" value={model} onChange={(e) => setModel(e.target.value)} className="w-auto h-9">
-            {(MODEL_OPTIONS[provider] || []).map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-          </Select>
-          {getKey(provider)
-            ? <span className="text-sm text-[var(--success)]">Key saved</span>
-            : <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="API key" aria-label="API key" className="w-48 h-9" />
-          }
-          <Select aria-label="Temperature" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-auto h-9">
-            <option value={0}>Temp 0</option><option value={0.3}>Temp 0.3</option><option value={0.7}>Temp 0.7</option><option value={1}>Temp 1</option>
-          </Select>
-        </div>
-      )}
+      <StudioSettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        provider={provider}
+        setProvider={setProvider}
+        model={model}
+        setModel={setModel}
+        temperature={temperature}
+        setTemperature={setTemperature}
+        keys={keys}
+      />
     </>
   );
 }
@@ -132,7 +124,7 @@ function CopyLogButton({ agent, provider, model }: { agent: ReturnType<typeof us
   }
 
   return (
-    <Button size="sm" onClick={copy} title="Copy conversation as JSON" className={copied ? "text-[var(--success)] border-[var(--success)]" : "text-[var(--muted)]"}>
+    <Button size="sm" onClick={copy} title="Copy conversation as JSON" aria-label="Copy conversation as JSON" className={copied ? "text-[var(--success)] border-[var(--success)]" : "text-[var(--muted)]"}>
       {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
     </Button>
   );
