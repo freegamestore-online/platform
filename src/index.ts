@@ -170,6 +170,14 @@ async function serve(bucket: R2Bucket, route: Route, url: URL, req: Request, _ct
     return new Response("Method Not Allowed", { status: 405, headers: { allow: "GET, HEAD" } });
   }
 
+  // version.json — the deploy stamp, or a fallback synthesized from R2 metadata.
+  // Handled here (not via the generic object path) because it's always
+  // CORS-open (public, non-sensitive deploy info, so the console dashboard can
+  // read it cross-subdomain) and always revalidated.
+  if (url.pathname === "/version.json") {
+    return serveVersion(bucket, route, req);
+  }
+
   const key = r2KeyFor(route, url.pathname);
   // Honour Range on GET so media (<video>/<audio>) can seek — Safari refuses to
   // play video that isn't range-served. R2 parses the Range header for us and
@@ -182,24 +190,38 @@ async function serve(bucket: R2Bucket, route: Route, url: URL, req: Request, _ct
     if (obj) return respond(obj, "text/html; charset=utf-8", req, true);
   }
 
-  if (!obj) {
-    // A game deployed before the build-stamp existed has no real version.json
-    // in R2. Synthesize one from the game's index.html upload metadata so every
-    // game still answers "what version / when deployed". Real stamps (served
-    // above via the normal object path) take precedence.
-    if (url.pathname === "/version.json") {
-      const idx = await bucket.get(`${route.r2_prefix}/index.html`);
-      if (idx) {
-        const headers = securityHeaders({ revalidate: true });
-        headers.set("content-type", "application/json; charset=utf-8");
-        return new Response(buildSyntheticVersion(route.slug, idx.uploaded, idx.httpEtag), { headers });
-      }
-    }
-    return notFound(`${route.slug}.${route.zone}`, url.pathname);
-  }
+  if (!obj) return notFound(`${route.slug}.${route.zone}`, url.pathname);
 
   const ct = contentType(key);
   return respond(obj, ct, req, shouldRevalidate(ct, key));
+}
+
+/**
+ * Serve <game>/version.json: the real deploy stamp if the game published one,
+ * else a fallback synthesized from the index.html R2 metadata so EVERY game
+ * answers. Always CORS-open + revalidated (see the caller).
+ */
+async function serveVersion(bucket: R2Bucket, route: Route, req: Request): Promise<Response> {
+  const headers = securityHeaders({ revalidate: true });
+  headers.set("content-type", "application/json; charset=utf-8");
+  headers.set("access-control-allow-origin", "*");
+
+  const real = await bucket.get(`${route.r2_prefix}/version.json`);
+  if (real) {
+    headers.set("etag", real.httpEtag);
+    const ifNoneMatch = req.headers.get("if-none-match");
+    if (ifNoneMatch && etagsMatch(ifNoneMatch, real.httpEtag)) {
+      return new Response(null, { status: 304, headers });
+    }
+    return new Response(req.method === "HEAD" ? null : real.body, { headers });
+  }
+
+  const idx = await bucket.get(`${route.r2_prefix}/index.html`);
+  if (idx) {
+    const body = buildSyntheticVersion(route.slug, idx.uploaded, idx.httpEtag);
+    return new Response(req.method === "HEAD" ? null : body, { headers });
+  }
+  return notFound(`${route.slug}.${route.zone}`, "/version.json");
 }
 
 function respond(obj: R2ObjectBody, ct: string, req: Request, revalidate: boolean): Response {
