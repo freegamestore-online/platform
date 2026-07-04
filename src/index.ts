@@ -16,6 +16,10 @@ interface Env {
   /** Shared secret for trusted worker-to-worker provision calls (the agent has
    *  no user fgs_token at deploy time). Presented as X-Internal-Token. */
   INTERNAL_TOKEN?: string;
+  /** Comma-separated allowlist of admin emails. The console UI + every
+   *  observability endpoint are restricted to these (verified Google emails
+   *  resolved via the auth worker's /me). Falls back to the sole owner. */
+  ADMIN_EMAILS?: string;
 }
 
 /** Length-checked constant-time-ish string compare for the internal token. */
@@ -24,6 +28,80 @@ function safeEqual(a: string, b: string): boolean {
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
+}
+
+/** The admin allowlist (verified Google emails). Defaults to the sole owner so
+ *  the console is never accidentally left open if the var is unset. */
+function adminEmails(env: Env): string[] {
+  return (env.ADMIN_EMAILS || "serge.the.dev@gmail.com")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/** Resolve the signed-in user's verified email via the auth worker, and whether
+ *  they're an admin. Returns `email: null` when not signed in at all (so the
+ *  sign-in page can tell "sign in" from "wrong account"). */
+async function authenticateAdmin(request: Request, env: Env): Promise<{ email: string | null; isAdmin: boolean }> {
+  const authz = request.headers.get("Authorization") ?? "";
+  const bearer = authz.startsWith("Bearer ") ? authz.slice(7).trim() : "";
+  const cookie = request.headers.get("Cookie") ?? "";
+  const fgsToken = request.headers.get("X-FGS-Token") || cookie.match(/fgs_token=([^;]*)/)?.[1] || bearer;
+  if (!fgsToken) return { email: null, isAdmin: false };
+  try {
+    // X-FGS-Token so /me returns the email (it withholds it on other paths).
+    const meRes = await env.AUTH.fetch("https://auth.freegamestore.online/me", {
+      headers: { "X-FGS-Token": fgsToken },
+    });
+    if (!meRes.ok) return { email: null, isAdmin: false };
+    const user = (await meRes.json()) as { email?: string | null };
+    const email = user.email ? user.email.toLowerCase() : null;
+    return { email, isAdmin: !!email && adminEmails(env).includes(email) };
+  } catch {
+    return { email: null, isAdmin: false };
+  }
+}
+
+/** Sign-in / not-authorized page for the console. `signedInAs` distinguishes a
+ *  fresh visitor (null → "sign in") from a signed-in non-admin (→ "wrong
+ *  account, switch"). Google login, `prompt=select_account`, redirects back. */
+function renderSignIn(signedInAs: string | null): string {
+  const loginUrl = "https://auth.freegamestore.online/login?redirect=" + encodeURIComponent("https://admin.freegamestore.online/");
+  const wrong = signedInAs
+    ? `<p class="note">Signed in as <strong>${escapeHtml(signedInAs)}</strong> — that account isn't an admin.</p>`
+    : `<p class="note">This console is restricted to the store administrator.</p>`;
+  const cta = signedInAs ? "Use a different account" : "Sign in with Google";
+  return `<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Sign in — FreeGameStore Admin</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100dvh; display:flex; align-items:center; justify-content:center; padding:1.5rem;
+    background:#0d0f0e; color:#e5e5e5; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  .card { width:100%; max-width:380px; background:#141715; border:1px solid #262a27; border-radius:16px;
+    padding:2.25rem 2rem; text-align:center; }
+  .mark { font-family:Fraunces,Georgia,serif; font-weight:800; font-size:1.35rem; letter-spacing:-0.02em; margin-bottom:0.35rem; }
+  .mark span { color:#34d399; }
+  .sub { color:#8b938d; font-size:0.8rem; margin:0 0 1.6rem; text-transform:uppercase; letter-spacing:0.12em; }
+  .note { color:#a8b0aa; font-size:0.9rem; line-height:1.5; margin:0 0 1.6rem; }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:0.5rem; width:100%;
+    background:#34d399; color:#04140d; font-weight:700; font-size:0.95rem; text-decoration:none;
+    padding:0.8rem 1rem; border-radius:10px; }
+  .btn:hover { background:#2dd4a7; }
+</style></head>
+<body><main class="card">
+  <div class="mark">Free<span>Game</span>Store</div>
+  <p class="sub">Admin</p>
+  ${wrong}
+  <a class="btn" href="${loginUrl}">${cta}</a>
+</main></body></html>`;
+}
+
+/** Minimal HTML-escape for values interpolated into the sign-in page. */
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 }
 
 /** Extract the authenticated GitHub login from either credential the platform issues:
@@ -669,20 +747,12 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    // GET /api/reconcile — on-demand drift report (same logic as the cron).
-    if (url.pathname === "/api/reconcile" && request.method === "GET") {
-      const login = await authenticateLogin(request, env);
-      if (!login) {
-        return jsonResponse({ error: "unauthorized" }, 401, request);
-      }
-      return jsonResponse(await reconcile(env), 200, request);
-    }
-
-    // CORS preflight
+    // CORS preflight — unauthenticated (a preflight carries no cookies).
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders(request) });
     }
 
+    // CLI login mechanism — must stay reachable before the admin gate.
     // Self-contained auth: exchange a GitHub token for an FGS admin session,
     // then verify it. `fgs login` calls /v1/auth/exchange.
     if (url.pathname === "/v1/auth/exchange" && request.method === "POST") {
@@ -690,6 +760,37 @@ export default {
     }
     if (url.pathname === "/v1/auth/me" && request.method === "GET") {
       return handleAuthMe(request, env);
+    }
+
+    // --- ADMIN GATE ---------------------------------------------------------
+    // The console UI + every observability/read endpoint are restricted to the
+    // admin allowlist (verified Google email via the auth worker). The
+    // creator-facing publish routes below — /api/provision, /api/publish, and
+    // PATCH/DELETE /api/games/:id — keep their own per-caller auth and are
+    // intentionally NOT admin-gated (creators self-serve; the agent uses the
+    // internal token). Without this, the whole console + crash log + creator
+    // list were world-readable.
+    const ADMIN_PATHS = new Set([
+      "/", "/docs", "/api/reconcile", "/api/status", "/api/status/game",
+      "/api/quality", "/api/errors", "/api/stats", "/api/users",
+    ]);
+    if (ADMIN_PATHS.has(url.pathname)) {
+      const { email, isAdmin } = await authenticateAdmin(request, env);
+      if (!isAdmin) {
+        // Console pages get the sign-in / wrong-account page; APIs get 401.
+        if (url.pathname === "/" || url.pathname === "/docs") {
+          return new Response(renderSignIn(email), {
+            status: email ? 403 : 401,
+            headers: { "Content-Type": "text/html; charset=utf-8" },
+          });
+        }
+        return jsonResponse({ error: "unauthorized" }, 401, request);
+      }
+    }
+
+    // GET /api/reconcile — on-demand drift report (same logic as the cron).
+    if (url.pathname === "/api/reconcile" && request.method === "GET") {
+      return jsonResponse(await reconcile(env), 200, request);
     }
 
     if (url.pathname === "/docs") {

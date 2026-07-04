@@ -9,6 +9,9 @@ enabled = true
 
 [vars]
 CF_ACCOUNT_ID = "c1089bfcc43c1c6c2aa89e584e86f0bc"
+# Console + all observability endpoints are restricted to these verified Google
+# emails (resolved via the auth worker /me). Comma-separated to add admins.
+ADMIN_EMAILS = "serge.the.dev@gmail.com"
 
 [[routes]]
 pattern = "admin.freegamestore.online/*"
