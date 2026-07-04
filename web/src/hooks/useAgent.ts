@@ -154,8 +154,16 @@ export function useAgent() {
         if (ds?.phase === "error") { setDeployState(ds); setError(ds.error || "Deploy failed."); return; }
       } catch { /* keep polling */ }
     }
+    // Polling gave up, but the build is almost certainly still running — this is
+    // NOT an error. Keep the deploy state in "building" with a hint so the UI
+    // shows a calm "Building & deploying" status, not a red error banner.
     const where = deployUrl ? ` at ${deployUrl.replace("https://", "")}` : "";
-    setError(`Still building — your game will go live${where} in a minute or two. Reload to confirm.`);
+    setDeployState((prev) => ({
+      phase: "building",
+      steps: prev?.steps ?? [],
+      appUrl: deployUrl ?? prev?.appUrl,
+      hint: `Still building${where} — this can take a minute or two. It flips to Live automatically, or reload to check.`,
+    }));
   }, []);
 
   const sendMessage = useCallback(async (message: string, aiConfig: AIConfig) => {

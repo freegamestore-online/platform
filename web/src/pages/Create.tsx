@@ -7,6 +7,7 @@ import { ChatMessage } from "../components/ChatMessage";
 import { DeployLog } from "../components/DeployLog";
 import { ProjectPicker } from "../components/ProjectPicker";
 import { StudioToolbar } from "../components/StudioToolbar";
+import { StatusBar } from "../components/StatusBar";
 import { NewGameModal } from "../components/NewGameModal";
 import { useAuth } from "../hooks/useAuth";
 import { useAgent, type AIConfig } from "../hooks/useAgent";
@@ -195,6 +196,7 @@ export function Create() {
             onNewGame={() => setNewOpen(true)}
             keys={keys}
           />
+          <StatusBar isStreaming={agent.isStreaming} deployState={agent.deployState} messages={agent.messages} />
           {needsKey && (
             <div
               className="shrink-0 flex items-center gap-2 px-3 py-2 text-sm"
