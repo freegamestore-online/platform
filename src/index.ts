@@ -37,9 +37,34 @@ const VALID_GAMES = new Set([
   "checkers", "hangman", "memory", "frogger", "match3", "whackamole", "wordsearch", "asteroids",
 ]);
 
+// Exported so the test suite exercises the REAL allowlist (not a re-implemented
+// copy that could silently drift from this one).
+export function isAllowedOrigin(origin: string): boolean {
+  return ALLOWED_ORIGIN.test(origin) || origin === "https://freegamestore.online" || origin === "http://localhost:5173";
+}
+
+// True if a submitted score is a plausible, well-formed value (before the
+// per-game cap is applied). Exported for direct testing.
+export function isValidScore(score: unknown): score is number {
+  return typeof score === "number" && Number.isInteger(score) && score >= 0 && score <= MAX_SCORE;
+}
+
+// True if `score` is within the game's per-game sanity cap (falls back to the
+// global max for unlisted games). Exported for direct testing.
+export function withinCap(game: string, score: number): boolean {
+  return score <= (PER_GAME_MAX[game] ?? DEFAULT_MAX_SCORE);
+}
+
+// Trim, length-cap, and strip HTML-special chars from a display name; blank or
+// non-string input falls back to "Anonymous". Exported for direct testing.
+export function sanitizeName(raw: unknown): string {
+  if (typeof raw !== "string") return "Anonymous";
+  return raw.trim().slice(0, MAX_NAME_LENGTH).replace(/[<>&"']/g, "") || "Anonymous";
+}
+
 function cors(request: Request): Record<string, string> {
   const origin = request.headers.get("Origin") ?? "";
-  const allowed = ALLOWED_ORIGIN.test(origin) || origin === "https://freegamestore.online" || origin === "http://localhost:5173";
+  const allowed = isAllowedOrigin(origin);
   return {
     "Access-Control-Allow-Origin": allowed ? origin : "",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -136,7 +161,7 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
   if (typeof game !== "string" || !VALID_GAMES.has(game)) {
     return json({ error: "Invalid game" }, 400, request);
   }
-  if (typeof score !== "number" || !Number.isInteger(score) || score < 0 || score > MAX_SCORE) {
+  if (!isValidScore(score)) {
     return json({ error: "Invalid score" }, 400, request);
   }
 
@@ -148,12 +173,10 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
     return json({ error: "Sign in to submit a score" }, 401, request);
   }
   const userId = jwtPayload.sub;
-  const playerName =
-    jwtPayload.name.trim().slice(0, MAX_NAME_LENGTH).replace(/[<>&"']/g, "") || "Anonymous";
+  const playerName = sanitizeName(jwtPayload.name);
 
   // Per-game sanity cap — reject implausibly high scores outright.
-  const cap = PER_GAME_MAX[game] ?? DEFAULT_MAX_SCORE;
-  if (score > cap) {
+  if (!withinCap(game, score)) {
     return json({ error: "Score exceeds the maximum for this game" }, 422, request);
   }
 

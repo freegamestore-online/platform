@@ -1,19 +1,10 @@
 import { describe, it, expect } from "vitest";
+import { isAllowedOrigin, isValidScore, withinCap, sanitizeName } from "./index";
 
-// Unit tests for pure helpers in the leaderboard worker.
-// The worker itself runs in the CF Workers runtime; these tests cover
-// logic that can be exercised without the runtime binding.
-
-// --- cors origin allowlist ---
-const ALLOWED_ORIGIN = /^https:\/\/[\w-]+\.freegamestore\.online$/;
-
-function isAllowedOrigin(origin: string): boolean {
-  return (
-    ALLOWED_ORIGIN.test(origin) ||
-    origin === "https://freegamestore.online" ||
-    origin === "http://localhost:5173"
-  );
-}
+// Unit tests for pure helpers in the leaderboard worker. These import the REAL
+// functions from ./index so the tests fail if the runtime logic drifts — the
+// previous version re-implemented each helper inline here, giving only illusory
+// coverage that could pass while the real code changed.
 
 describe("CORS origin check", () => {
   it("allows game subdomains", () => {
@@ -35,19 +26,9 @@ describe("CORS origin check", () => {
   });
 });
 
-// --- score validation boundaries ---
-const MAX_SCORE = 999_999_999;
-
-function isValidScore(score: unknown): boolean {
-  return (
-    typeof score === "number" &&
-    Number.isInteger(score) &&
-    score >= 0 &&
-    score <= MAX_SCORE
-  );
-}
-
 describe("score validation", () => {
+  const MAX_SCORE = 999_999_999;
+
   it("accepts zero and positive integers", () => {
     expect(isValidScore(0)).toBe(true);
     expect(isValidScore(1000)).toBe(true);
@@ -62,22 +43,9 @@ describe("score validation", () => {
   });
 });
 
-// --- per-game sanity cap ---
-// Mirrors PER_GAME_MAX / DEFAULT_MAX_SCORE in index.ts. A submitted score
-// above the game's cap is rejected (422) as implausible — the cheapest
-// anti-cheat layer. Unlisted games fall back to the global max.
-const DEFAULT_MAX_SCORE = MAX_SCORE;
-const PER_GAME_MAX: Record<string, number> = {
-  simon: 1000,
-  whackamole: 100_000,
-  "2048": 5_000_000,
-};
-
-function withinCap(game: string, score: number): boolean {
-  return score <= (PER_GAME_MAX[game] ?? DEFAULT_MAX_SCORE);
-}
-
 describe("per-game score cap", () => {
+  const MAX_SCORE = 999_999_999;
+
   it("rejects a forged high score on a bounded game", () => {
     expect(withinCap("simon", 999_999_999)).toBe(false);
     expect(withinCap("simon", 1000)).toBe(true);
@@ -95,28 +63,20 @@ describe("per-game score cap", () => {
   });
 });
 
-// --- name sanitisation ---
-const MAX_NAME_LENGTH = 20;
-
-function sanitiseName(raw: unknown): string {
-  if (typeof raw !== "string") return "Anonymous";
-  return raw.trim().slice(0, MAX_NAME_LENGTH).replace(/[<>&"']/g, "") || "Anonymous";
-}
-
 describe("name sanitisation", () => {
   it("trims and caps at 20 chars", () => {
-    expect(sanitiseName("  Alice  ")).toBe("Alice");
-    expect(sanitiseName("A".repeat(30))).toHaveLength(20);
+    expect(sanitizeName("  Alice  ")).toBe("Alice");
+    expect(sanitizeName("A".repeat(30))).toHaveLength(20);
   });
 
   it("strips HTML-special chars", () => {
-    expect(sanitiseName("<script>")).toBe("script");
-    expect(sanitiseName("O'Brien")).toBe("OBrien");
+    expect(sanitizeName("<script>")).toBe("script");
+    expect(sanitizeName("O'Brien")).toBe("OBrien");
   });
 
   it("falls back to Anonymous for blanks and non-strings", () => {
-    expect(sanitiseName("")).toBe("Anonymous");
-    expect(sanitiseName("   ")).toBe("Anonymous");
-    expect(sanitiseName(null)).toBe("Anonymous");
+    expect(sanitizeName("")).toBe("Anonymous");
+    expect(sanitizeName("   ")).toBe("Anonymous");
+    expect(sanitizeName(null)).toBe("Anonymous");
   });
 });
