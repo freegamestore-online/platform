@@ -65,20 +65,17 @@ export function Create() {
     setSearchParams({}, { replace: true });
   }, [searchParams, agent.projectsLoading, agent.switchProject, setSearchParams]);
 
-  // Force a jump to the newest message on first load and on every game switch,
-  // even when the transcript is long — otherwise the "near bottom?" guard below
-  // sees scrollTop=0 on a tall history and leaves you stranded at the top.
-  const forceScrollRef = useRef(true);
-  useEffect(() => { forceScrollRef.current = true; agent.loadHistory(); }, [agent.currentProjectId]);
+  useEffect(() => { agent.loadHistory(); }, [agent.currentProjectId]);
   useEffect(() => {
-    // On load/switch always land at the bottom. During a streaming build, only
-    // stick to the bottom when the user is already near it — don't yank them
-    // back down while they've scrolled up to read history.
-    const force = forceScrollRef.current;
+    // While a build is streaming, only stick to the bottom when the user is
+    // already near it — don't yank them back down after they've scrolled up to
+    // read history. Otherwise (first load, game switch, a finished turn) always
+    // land at the newest message, even on a long transcript. Gating on
+    // isStreaming — not a consumable flag — is what makes the load-time jump
+    // survive the intermediate default-message render before history arrives.
     const c = scrollRef.current;
-    if (!force && c && c.scrollHeight - c.scrollTop - c.clientHeight > 120) return;
-    const behavior = force || agent.messages.length <= 1 ? "instant" : "smooth";
-    forceScrollRef.current = false;
+    if (agent.isStreaming && c && c.scrollHeight - c.scrollTop - c.clientHeight > 120) return;
+    const behavior = agent.messages.length <= 1 ? "instant" : "smooth";
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: behavior as ScrollBehavior }), 50);
   }, [agent.messages]);
   useEffect(() => { localStorage.setItem("fgs_provider", provider); }, [provider]);

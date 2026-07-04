@@ -64,34 +64,87 @@ function cacheKey(text: string, age: string, vibe: string): string {
   return `kid:${h}`;
 }
 
-const mem = new Map<string, string>();
+// Persisted LRU cache. Kept as ONE bounded blob (not one key per message) so it
+// can't grow unbounded and eventually throw QuotaExceededError — which would
+// silently disable caching and re-bill the free tier on every render. Map
+// insertion order gives us recency: on a hit we re-insert to mark it fresh, and
+// saveCache() trims the oldest entries past the cap.
+const CACHE_KEY = "stores-kid-cache";
+const CACHE_MAX = 300;
+
+let cache: Map<string, string> | null = null;
+function loadCache(): Map<string, string> {
+  if (cache) return cache;
+  cache = new Map();
+  if (typeof window === "undefined") return cache;
+  try {
+    const raw = window.localStorage.getItem(CACHE_KEY);
+    if (raw) for (const [k, v] of JSON.parse(raw) as [string, string][]) cache.set(k, v);
+  } catch {
+    /* corrupt/absent — start empty */
+  }
+  return cache;
+}
+function saveCache(c: Map<string, string>): void {
+  while (c.size > CACHE_MAX) {
+    const oldest = c.keys().next().value;
+    if (oldest === undefined) break;
+    c.delete(oldest);
+  }
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(CACHE_KEY, JSON.stringify([...c]));
+  } catch {
+    /* still over quota after the trim — in-memory cache still covers session */
+  }
+}
+
+// Cap concurrent rewrites: opening a long transcript would otherwise fire a
+// dozen simultaneous free-tier calls that rate-limit (429), fall back to the
+// original, and — since failures aren't cached — re-fire on the next load.
+// Cache hits skip this gate entirely.
+const MAX_CONCURRENT = 3;
+let active = 0;
+const waiters: (() => void)[] = [];
+function acquire(): Promise<void> {
+  return new Promise((resolve) => {
+    if (active < MAX_CONCURRENT) { active++; resolve(); } else { waiters.push(resolve); }
+  });
+}
+function release(): void {
+  const next = waiters.shift();
+  if (next) next(); // hand the slot straight to the next waiter (active unchanged)
+  else active = Math.max(0, active - 1);
+}
 
 /** Fetch (or recall) the kid-friendly version of one assistant message. Returns
  *  "" if the rewrite is empty; throws on network/model error so the caller can
  *  fall back to the technical original. */
 export async function fetchKidVersion(text: string, mode: KidMode): Promise<string> {
   const key = cacheKey(text, mode.age, mode.vibe);
-  const cached = mem.get(key) ?? (typeof window !== "undefined" ? window.localStorage.getItem(key) : null);
-  if (cached != null) {
-    mem.set(key, cached);
-    return cached;
+  const c = loadCache();
+  const hit = c.get(key);
+  if (hit !== undefined) {
+    c.delete(key);
+    c.set(key, hit); // bump recency
+    return hit;
   }
 
-  const res = await fetch(`${AGENT_URL}/kidify`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, age: mode.age, vibe: mode.vibe }),
-  });
-  if (!res.ok) throw new Error(`kidify ${res.status}`);
-  const data = (await res.json()) as { kid?: string };
-  const kid = (data.kid ?? "").trim();
-
-  mem.set(key, kid);
+  await acquire();
   try {
-    if (typeof window !== "undefined") window.localStorage.setItem(key, kid);
-  } catch {
-    /* localStorage full — the in-memory cache still covers this session */
+    const res = await fetch(`${AGENT_URL}/kidify`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, age: mode.age, vibe: mode.vibe }),
+    });
+    if (!res.ok) throw new Error(`kidify ${res.status}`);
+    const data = (await res.json()) as { kid?: string };
+    const kid = (data.kid ?? "").trim();
+    c.set(key, kid);
+    saveCache(c);
+    return kid;
+  } finally {
+    release();
   }
-  return kid;
 }
