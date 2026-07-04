@@ -11,6 +11,7 @@ import { ownsGame } from "./ownership";
 import type { AIConfig, Message, TokenUsage } from "./providers/types";
 import { type PushSubscription, sendWebPush } from "./push";
 import { getTemplateFiles } from "./template";
+import { resolveUserKey } from "./keys";
 
 interface ErrorEntry {
   timestamp: string;
@@ -148,14 +149,32 @@ export class AgentSession implements DurableObject {
       aiConfig: AIConfig;
     }>();
 
-    if (!body.message || !body.aiConfig?.apiKey || !body.aiConfig?.provider || !body.aiConfig?.model) {
+    if (!body.message || !body.aiConfig?.provider || !body.aiConfig?.model) {
       return json(
-        { error: "message, aiConfig.provider, aiConfig.model, and aiConfig.apiKey are required" },
+        { error: "message, aiConfig.provider, and aiConfig.model are required" },
         400,
         request,
         this.config.domain,
       );
     }
+
+    // Resolve the AI key server-side. An explicit key in the request (MCP
+    // bring-your-own) wins; otherwise decrypt the signed-in user's key from the
+    // encrypted vault (keyed by the worker-verified X-Auth-User). The browser no
+    // longer sends the key at all — it never has to hold plaintext.
+    const userId = request.headers.get("X-Auth-User") || "";
+    const resolvedKey =
+      body.aiConfig.apiKey?.trim() ||
+      (userId ? await resolveUserKey(this.env, userId, body.aiConfig.provider) : null);
+    if (!resolvedKey) {
+      return json(
+        { error: "No API key saved for this provider — add one in AI settings.", code: "no_key" },
+        400,
+        request,
+        this.config.domain,
+      );
+    }
+    body.aiConfig = { ...body.aiConfig, apiKey: resolvedKey };
 
     const session = await this.load();
     const files = new Map(Object.entries(session.files));

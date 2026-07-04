@@ -2,6 +2,7 @@
 
 import { getConfig } from "./config";
 import { handleSessionsApi, resolveUser } from "./sessions";
+import { handleKeysApi } from "./keys";
 
 export { AgentSession } from "./session";
 
@@ -18,6 +19,8 @@ export interface Env {
   STORE: string;
   VAPID_PUBLIC_KEY: string;
   VAPID_PRIVATE_KEY: string;
+  /** Base64 32-byte master key wrapping per-user AI-key DEKs (see keys.ts). */
+  AI_KEYS_KEK: string;
 }
 
 // Dev origins only — exact host match so e.g. `http://localhost.evil.com` (a
@@ -54,6 +57,10 @@ export default {
     // Per-user session list (D1) — /sessions, /sessions/:id
     const sessionsResp = await handleSessionsApi(request, env, config.domain, corsHeaders(request, config.domain));
     if (sessionsResp) return sessionsResp;
+
+    // Per-user AI-key vault (D1, encrypted) — /v1/keys/status, /v1/keys/:provider
+    const keysResp = await handleKeysApi(request, env, corsHeaders(request, config.domain));
+    if (keysResp) return keysResp;
 
     // Health check
     if (path === "/" || path === "/health") {
