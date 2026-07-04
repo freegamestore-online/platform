@@ -14,6 +14,7 @@ import { useAgent, type AIConfig } from "../hooks/useAgent";
 import { useKeys } from "../hooks/useKeys";
 import { resolveInitialProvider, PROVIDERS } from "../lib/ai-keys";
 import { resolveModel, firstModelFor } from "../lib/models";
+import { getKidMode } from "../lib/kidMode";
 
 export function Create() {
   const { user, loading, signIn } = useAuth();
@@ -33,6 +34,9 @@ export function Create() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  // Kid mode preference (Profile → Kid mode). Read on mount; changing it in the
+  // Profile route remounts Create, so a fresh value is picked up on return.
+  const [kidMode] = useState(getKidMode);
   const openedGameRef = useRef<string | null>(null);
   const openedSessionRef = useRef<string | null>(null);
 
@@ -249,9 +253,15 @@ export function Create() {
                 <ArrowUp className="w-4 h-4" /> Load earlier messages ({agent.messages.length - agent.visibleCount} older)
               </button>
             )}
-            {agent.messages.slice(Math.max(0, agent.messages.length - agent.visibleCount)).map((m, i) => (
-              <ChatMessage key={Math.max(0, agent.messages.length - agent.visibleCount) + i} role={m.role} content={m.content} />
-            ))}
+            {(() => {
+              const start = Math.max(0, agent.messages.length - agent.visibleCount);
+              const lastIdx = agent.messages.length - 1;
+              return agent.messages.slice(start).map((m, i) => {
+                const idx = start + i;
+                const live = agent.isStreaming && idx === lastIdx && m.role === "assistant";
+                return <ChatMessage key={idx} role={m.role} content={m.content} kid={kidMode} live={live} />;
+              });
+            })()}
             <div ref={messagesEndRef} />
           </div>
           <div className="flex gap-2 shrink-0" style={{ padding: "0.5rem 0.75rem", borderTop: "1px solid var(--border)", background: "var(--surface)" }}>

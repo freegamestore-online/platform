@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Nav } from "../components/Nav";
 import { AISettings } from "../components/AISettings";
 import { TextSizeSetting } from "../components/TextSizeSetting";
+import { KidModeSetting } from "../components/KidModeSetting";
 import { LoadingShell, SignInShell } from "../components/PageShell";
 import { useAuth } from "../hooks/useAuth";
 
@@ -50,6 +51,11 @@ export function Profile() {
         {/* Appearance — text size for the whole studio. */}
         <div className="mb-8">
           <TextSizeSetting />
+        </div>
+
+        {/* Kid mode — rewrite the AI's replies for a kid, funny and simple. */}
+        <div className="mb-8">
+          <KidModeSetting />
         </div>
 
         {/* Avatar + name card */}
