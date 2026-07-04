@@ -146,12 +146,28 @@ export function useProjects() {
   // rather than overwriting it with a blank scaffold — the bug the old picker's
   // "create empty session linked to repo" path caused). Returns the session id.
   const openGame = useCallback(async (gameId: string): Promise<string> => {
-    // Reuse the existing session for this game (keeps its chat transcript), but
-    // ALWAYS re-import: the endpoint re-syncs the session's files from the repo
+    // Resolve the session that already owns this game so we reuse it (and its
+    // chat transcript) instead of minting a duplicate. Check the local list
+    // first (fast path), then fall back to the AUTHORITATIVE server index: the
+    // local list can be stale, empty (another browser / a cache clear), or miss
+    // a session that a deploy — not a prior open — bound to this game. Deduping
+    // against the server here is what enforces one game ↔ one session; without
+    // it, every open of an already-built game spawned a second session and a
+    // duplicate picker row.
+    let existing = projects.find((p) => p.appId === gameId);
+    if (!existing) {
+      try {
+        const server = await fetchSessions(new AbortController().signal);
+        existing = server.find((p) => p.appId === gameId);
+      } catch {
+        // Server unreachable — fall through and mint a fresh session; the next
+        // reload/open reconciles against the server index.
+      }
+    }
+    // Always re-import: the endpoint re-syncs the session's files from the repo
     // HEAD, so changes made directly (update_files / git / another session)
     // since you last opened it are picked up. Import is cheap when the repo
     // hasn't moved (it short-circuits server-side).
-    const existing = projects.find((p) => p.appId === gameId);
     const id = existing?.id ?? crypto.randomUUID();
     const res = await fetch(`${AGENT_URL}/session/${id}/import`, {
       method: "POST",
