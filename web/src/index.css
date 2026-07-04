@@ -34,6 +34,14 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/* Text-size preference (Profile → Text size). Scales the root font-size so all
+   rem-based UI text grows/shrinks together. Set via html[data-text] by
+   src/lib/textSize.ts; applied before first paint in main.tsx. */
+html { font-size: 16px; }
+html[data-text="sm"] { font-size: 14px; }
+html[data-text="lg"] { font-size: 18px; }
+html[data-text="xl"] { font-size: 20px; }
+
 html, body {
   margin: 0;
   padding: 0;
@@ -49,7 +57,8 @@ html, body {
   min-height: 100dvh;
 }
 
-/* Prevent zoom on input focus (iOS) */
+/* Inputs scale with the text-size preference but never below 16px, so iOS
+   doesn't zoom the viewport on focus. */
 input, select, textarea {
-  font-size: 16px;
+  font-size: max(1rem, 16px);
 }

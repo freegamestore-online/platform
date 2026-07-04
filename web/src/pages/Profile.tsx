@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Nav } from "../components/Nav";
 import { AISettings } from "../components/AISettings";
+import { TextSizeSetting } from "../components/TextSizeSetting";
 import { LoadingShell, SignInShell } from "../components/PageShell";
 import { useAuth } from "../hooks/useAuth";
 
@@ -44,6 +45,11 @@ export function Profile() {
             here to manage (keys live in the encrypted vault, never the browser). */}
         <div className="mb-8">
           <AISettings />
+        </div>
+
+        {/* Appearance — text size for the whole studio. */}
+        <div className="mb-8">
+          <TextSizeSetting />
         </div>
 
         {/* Avatar + name card */}
