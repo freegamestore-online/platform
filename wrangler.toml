@@ -10,6 +10,18 @@ id = "b2aae28db28f4971b68d0a917b93103e"
 binding = "SESSIONS"
 id = "5ee61cf0158843be85e4e6e3f12bb35b"
 
+# Admin's "fas" D1 — shared so the create Pages Function can write the durable
+# error_log the admin console reads (crashes/errors surface on the panel).
+[[d1_databases]]
+binding = "DB"
+database_name = "fas"
+database_id = "a32701c0-5a56-4a12-810d-485166202e39"
+
+# Persistent Pages Function logs — so /api/create's step + failure logs are
+# queryable after the fact (the failing request had nowhere durable to log).
+[observability]
+enabled = true
+
 [vars]
 CF_ACCOUNT_ID = "c1089bfcc43c1c6c2aa89e584e86f0bc"
 MAX_APPS_PER_USER = "10"
