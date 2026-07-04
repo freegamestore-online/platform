@@ -164,9 +164,11 @@ async function substituteTemplatePlaceholders(
     { path: "package.json", rewrite: (s) => s.replace(/APPNAME/g, id) },
     { path: "web/package.json", rewrite: (s) => s.replace(/APPNAME/g, id) },
     // index.html carries BOTH the analytics slug (?app=APPNAME) and the <title>.
-    { path: "web/index.html", rewrite: (s) => s.replace(/app=APPNAME/g, `app=${id}`).replace(/APPNAME/g, name) },
-    { path: "web/src/App.tsx", rewrite: (s) => s.replace(/APPNAME/g, name) },
-    { path: "web/vite.config.ts", rewrite: (s) => s.replace(/APPNAME/g, name) },
+    // `name` is a function replacer so `$&`/`$1`/`$'` in a display name aren't
+    // interpreted as replacement patterns (which would corrupt the file).
+    { path: "web/index.html", rewrite: (s) => s.replace(/app=APPNAME/g, `app=${id}`).replace(/APPNAME/g, () => name) },
+    { path: "web/src/App.tsx", rewrite: (s) => s.replace(/APPNAME/g, () => name) },
+    { path: "web/vite.config.ts", rewrite: (s) => s.replace(/APPNAME/g, () => name) },
     { path: "CLAUDE.md", rewrite: (s) => s.replace(/APPNAME/g, name) },
   ];
   try {

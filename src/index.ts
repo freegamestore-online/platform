@@ -53,18 +53,11 @@ async function authenticateAdmin(request: Request, env: Env): Promise<{ email: s
     const meRes = await env.AUTH.fetch("https://auth.freegamestore.online/me", {
       headers: { "X-FGS-Token": fgsToken },
     });
-    if (!meRes.ok) {
-      console.log(`[admin-auth] /me not ok: ${meRes.status}`);
-      return { email: null, isAdmin: false };
-    }
-    const user = (await meRes.json()) as { email?: string | null; login?: string | null; id?: string | null };
+    if (!meRes.ok) return { email: null, isAdmin: false };
+    const user = (await meRes.json()) as { email?: string | null };
     const email = user.email ? user.email.toLowerCase() : null;
-    const isAdmin = !!email && adminEmails(env).includes(email);
-    // TEMP diagnostic (owner's own logs): why is a sign-in resolving to non-admin?
-    console.log(`[admin-auth] token=yes me.email=${user.email ?? "(none)"} me.login=${user.login ?? "-"} me.id=${user.id ?? "-"} isAdmin=${isAdmin} allow=${adminEmails(env).join(",")}`);
-    return { email, isAdmin };
-  } catch (e) {
-    console.log(`[admin-auth] error resolving /me: ${String(e)}`);
+    return { email, isAdmin: !!email && adminEmails(env).includes(email) };
+  } catch {
     return { email: null, isAdmin: false };
   }
 }
@@ -678,11 +671,20 @@ Response: {
 </html>`;
 }
 
-const CORS_ORIGIN = /^https:\/\/[\w-]+\.freegamestore\.online$/;
+// STRICT allowlist — the admin API must NOT reflect arbitrary game subdomains.
+// Games are untrusted content; with credentialed CORS, a malicious game the
+// admin opens could read /api/errors + /api/users (its cookie is sent) or CSRF
+// provision/delete. The admin console is served same-origin from here, and the
+// creator publish flow reaches this worker server-to-server (no browser Origin),
+// so no *.freegamestore.online game origin ever needs cross-origin access.
+const CORS_ORIGINS = new Set([
+  "https://admin.freegamestore.online",
+  "http://localhost:5173",
+]);
 
 function corsHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get("Origin") ?? "";
-  const allowed = CORS_ORIGIN.test(origin) || origin === "https://freegamestore.online" || origin === "http://localhost:5173";
+  const allowed = CORS_ORIGINS.has(origin);
   return {
     "Access-Control-Allow-Origin": allowed ? origin : "",
     "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
@@ -844,7 +846,10 @@ export default {
 
     // Errors/crashes for the console (protected by CF Access, like /api/status).
     if (url.pathname === "/api/errors") {
-      const limit = parseInt(url.searchParams.get("limit") || "200", 10);
+      // Clamp: a negative limit is "unlimited" in SQLite (bypasses the 500 cap),
+      // and NaN must fall back to the default.
+      const raw = parseInt(url.searchParams.get("limit") || "200", 10);
+      const limit = Math.max(1, Math.min(Number.isFinite(raw) ? raw : 200, 500));
       return jsonResponse(await listErrors(env.DB, limit), 200, request);
     }
 
