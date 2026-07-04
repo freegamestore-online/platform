@@ -21,7 +21,7 @@ async function verifyGithubToken(token: string): Promise<GitHubUser | null> {
   return (await res.json()) as GitHubUser;
 }
 
-async function mintSessionToken(login: string, signingKey: string): Promise<string> {
+export async function mintSessionToken(login: string, signingKey: string): Promise<string> {
   // Fail closed: an unset/empty key would make TextEncoder.encode() hash the
   // literal "undefined" — a known, forgeable HMAC key anyone could mint with.
   if (!signingKey) throw new Error("SESSION_SIGNING_KEY is not configured");
