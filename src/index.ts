@@ -260,8 +260,6 @@ async function handleCallback(request: Request, env: Env): Promise<Response> {
   // Only trust a Google-verified email — it's what admin access is gated on, so
   // an unverified value must never make it into the token.
   const email = user.email_verified && user.email ? user.email.toLowerCase() : null;
-  // TEMP diagnostic: is Google returning email on this OAuth grant?
-  console.log(`[auth-callback] google sub=${user.sub} email=${user.email ?? "(none)"} verified=${user.email_verified ?? "(none)"} -> claim=${email ?? "(null)"}`);
 
   // Upsert user in D1
   await env.DB.prepare(
