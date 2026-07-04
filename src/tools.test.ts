@@ -159,6 +159,17 @@ describe("run_compliance_check", () => {
     expect(result.content).toContain("10 pass, 1 fail");
   });
 
+  it("treats a missing/platform-managed manifest as a NOTE, not a FAIL", () => {
+    // Repro of the beat-star case: the agent's editable file set doesn't include
+    // web/public/manifest.json (it's a platform-scaffolded file). It must not be
+    // a hard FAIL the agent has to hand-wave every build.
+    const files = new Map(Object.entries(getTemplateFiles(gamesConfig)));
+    files.delete("web/public/manifest.json");
+    const result = executeTool({ id: "1", name: "run_compliance_check", input: {} }, files, gamesConfig);
+    expect(result.content).toContain("NOTE: PWA manifest");
+    expect(result.content).not.toContain("FAIL: PWA manifest");
+  });
+
   it("apps template would fail games compliance (--bg)", () => {
     const files = new Map(Object.entries(getTemplateFiles(appsConfig)));
     const result = executeTool({ id: "1", name: "run_compliance_check", input: {} }, files, gamesConfig);

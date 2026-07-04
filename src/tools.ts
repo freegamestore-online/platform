@@ -314,11 +314,15 @@ function runComplianceCheck(files: Map<string, string>, config: StoreConfig): st
         .join(", ")}`,
     );
 
-  // PWA manifest
+  // PWA manifest — platform-scaffolded, NOT game code the agent authors. The
+  // template ships a complete manifest.json and the platform substitutes APPNAME
+  // + runs the REAL manifest check on the built output at deploy. When the
+  // manifest isn't in the agent's editable file set (a public/ scaffold file),
+  // this must be a NOTE, not a hard FAIL the agent has to hand-wave every build.
   const manifest = files.get("web/public/manifest.json") || "";
   const hasManifest = /name/.test(manifest) && /display/.test(manifest) && /start_url/.test(manifest);
   if (hasManifest) pass("PWA manifest");
-  else fail("PWA manifest", "Missing name, display, or start_url in manifest.json");
+  else note("PWA manifest", "Platform-managed — the template ships a complete manifest and the real check runs on the built output at deploy. Don't hand-add or edit it.");
 
   // PWA meta tags
   const hasPWAMeta = /apple-mobile-web-app-capable|mobile-web-app-capable/i.test(html);
