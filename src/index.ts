@@ -213,6 +213,7 @@ function renderDashboardShell(): string {
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Admin -- FreeGameStore</title>
+  <script>try{var _v=localStorage.getItem('fgs_admin_textsize');if(_v){document.documentElement.style.fontSize=({sm:14,md:16,lg:18,xl:20}[_v]||16)+'px'}}catch(e){}</script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0f0f0f; color: #e5e5e5; padding: 2rem; }
@@ -260,6 +261,7 @@ function renderDashboardShell(): string {
     .brand .tag { color: #888; font-weight: 600; font-size: 0.68rem; border: 1px solid #2a2a2a; padding: 0.1rem 0.4rem; border-radius: 0.35rem; margin-left: 0.5rem; text-transform: uppercase; letter-spacing: 0.06em; vertical-align: middle; }
     .navlinks { display: flex; align-items: center; gap: 0.25rem; margin-left: auto; }
     .navlinks .refresh { margin-left: 0.5rem; }
+    .sizesel { background: #1a1a1a; color: #e5e5e5; border: 1px solid #2a2a2a; border-radius: 0.4rem; padding: 0.35rem 0.4rem; font-size: 0.8rem; font-family: inherit; cursor: pointer; }
     .hamburger { display: none; margin-left: auto; background: none; border: 1px solid #2a2a2a; color: #e5e5e5; border-radius: 0.4rem; padding: 0.3rem 0.6rem; cursor: pointer; font-size: 1.15rem; line-height: 1; font-family: inherit; }
     @media (max-width: 720px) {
       .hamburger { display: block; }
@@ -278,7 +280,14 @@ function renderDashboardShell(): string {
       <button class="tab" data-tab="games" onclick="showTab('games')">Games</button>
       <button class="tab" data-tab="errors" onclick="showTab('errors')">Errors <span id="errBadge"></span></button>
       <button class="tab" data-tab="users" onclick="showTab('users')">Users</button>
+      <button class="tab" data-tab="provision" onclick="showTab('provision')">Provision</button>
       <a class="tab" href="/docs" style="text-decoration:none;">API</a>
+      <select class="sizesel" id="txtSize" onchange="setSize(this.value)" title="Text size" aria-label="Text size" style="margin-left:0.5rem;">
+        <option value="sm">A·S</option>
+        <option value="md">A·M</option>
+        <option value="lg">A·L</option>
+        <option value="xl">A·XL</option>
+      </select>
       <button class="refresh" onclick="refreshActive()">Refresh</button>
     </nav>
   </header>
@@ -317,6 +326,11 @@ function renderDashboardShell(): string {
     <h2>Creators</h2>
     <p class="meta">Derived from the store registry (creatorGithub), most games first.</p>
     <table><tr><th>GitHub</th><th>Games</th><th>Game IDs</th></tr><tbody id="userTable"><tr><td colspan="3" class="loading">--</td></tr></tbody></table>
+  </div>
+
+  <div id="tab-provision" class="tabpanel">
+    <p class="meta">Manual provisioning — an admin escape hatch. Creators normally self-serve from the console; use this to repair a half-done provision or provision on someone's behalf.</p>
+    <!--PROVISION-->
   </div>
 
   <script>
@@ -420,6 +434,7 @@ function renderDashboardShell(): string {
     function stat(num,label,cls){return '<div class="stat"><div class="num'+(cls?' '+cls:'')+'">'+num+'</div><div class="label">'+label+'</div></div>'}
     function timeAgo(ts){try{var d=new Date(String(ts).replace(' ','T')+'Z');var s=(Date.now()-d.getTime())/1000;if(s<60)return Math.floor(s)+'s ago';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}catch(e){return ts}}
     function toggleNav(){var n=document.getElementById('navlinks');var open=n.classList.toggle('open');document.querySelector('.hamburger').setAttribute('aria-expanded',open?'true':'false');}
+    function setSize(v){var px={sm:14,md:16,lg:18,xl:20}[v]||16;document.documentElement.style.fontSize=px+'px';try{localStorage.setItem('fgs_admin_textsize',v)}catch(e){}var s=document.getElementById('txtSize');if(s)s.value=v;}
     function showTab(name){
       document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('active',t.dataset&&t.dataset.tab===name)});
       document.querySelectorAll('.tabpanel').forEach(function(p){p.classList.toggle('active',p.id==='tab-'+name)});
@@ -453,6 +468,7 @@ function renderDashboardShell(): string {
         tb.innerHTML=rows.length?rows.map(function(u){return '<tr><td><a href="https://github.com/'+esc(u.login)+'" target="_blank">'+esc(u.login)+'</a></td><td><strong>'+u.games.length+'</strong></td><td class="gray" style="font-size:0.8rem">'+u.games.map(esc).join(', ')+'</td></tr>'}).join(''):'<tr><td colspan="3" class="gray">No creators yet.</td></tr>';
       }catch(e){tb.innerHTML='<tr><td colspan="3" class="red">Failed: '+esc(e)+'</td></tr>'}
     }
+    setSize((function(){try{return localStorage.getItem('fgs_admin_textsize')}catch(e){return null}})()||'md');
     showTab('overview');
   </script>
 </body>
@@ -829,9 +845,11 @@ export default {
       }
     }
 
-    // Render dashboard with provision form
+    // Render dashboard; the manual provision form lives in its own Provision tab
+    // now (not appended to every page) — creators normally self-serve via the
+    // console, so it's an admin escape hatch rather than the primary path.
     let html = renderDashboardShell();
-    html = html.replace("</body>", renderProvisionForm() + "</body>");
+    html = html.replace("<!--PROVISION-->", renderProvisionForm());
     return new Response(html, { headers: { "Content-Type": "text/html" } });
   },
 };
