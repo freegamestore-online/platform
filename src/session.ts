@@ -205,9 +205,16 @@ export class AgentSession implements DurableObject {
     // encrypted vault (keyed by the worker-verified X-Auth-User). The browser no
     // longer sends the key at all — it never has to hold plaintext.
     const userId = request.headers.get("X-Auth-User") || "";
-    const resolvedKey =
+    let resolvedKey =
       body.aiConfig.apiKey?.trim() ||
       (userId ? await resolveUserKey(this.env, userId, body.aiConfig.provider) : null);
+    // GitHub Models is the FREE tier — it still needs a GitHub token, but the
+    // user shouldn't have to supply one. Fall back to the platform token so
+    // "free" actually works keyless. (A user who saved their own GitHub token
+    // still wins above — their per-user rate limit, not the shared one.)
+    if (!resolvedKey && body.aiConfig.provider === "github") {
+      resolvedKey = this.env.GITHUB_TOKEN || null;
+    }
     if (!resolvedKey) {
       return json(
         { error: "No API key saved for this provider — add one in AI settings.", code: "no_key" },
