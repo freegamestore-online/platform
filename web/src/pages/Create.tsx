@@ -61,14 +61,20 @@ export function Create() {
     setSearchParams({}, { replace: true });
   }, [searchParams, agent.projectsLoading, agent.switchProject, setSearchParams]);
 
-  useEffect(() => { agent.loadHistory(); }, [agent.currentProjectId]);
+  // Force a jump to the newest message on first load and on every game switch,
+  // even when the transcript is long — otherwise the "near bottom?" guard below
+  // sees scrollTop=0 on a tall history and leaves you stranded at the top.
+  const forceScrollRef = useRef(true);
+  useEffect(() => { forceScrollRef.current = true; agent.loadHistory(); }, [agent.currentProjectId]);
   useEffect(() => {
-    // Only stick to the bottom when the user is already near it — don't yank
-    // them back down while they've scrolled up to read history (or clicked
-    // "Load earlier messages") during a streaming build.
+    // On load/switch always land at the bottom. During a streaming build, only
+    // stick to the bottom when the user is already near it — don't yank them
+    // back down while they've scrolled up to read history.
+    const force = forceScrollRef.current;
     const c = scrollRef.current;
-    if (c && c.scrollHeight - c.scrollTop - c.clientHeight > 120) return;
-    const behavior = agent.messages.length <= 1 ? "instant" : "smooth";
+    if (!force && c && c.scrollHeight - c.scrollTop - c.clientHeight > 120) return;
+    const behavior = force || agent.messages.length <= 1 ? "instant" : "smooth";
+    forceScrollRef.current = false;
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: behavior as ScrollBehavior }), 50);
   }, [agent.messages]);
   useEffect(() => { localStorage.setItem("fgs_provider", provider); }, [provider]);
@@ -182,7 +188,10 @@ export function Create() {
 
   return (
     <div className="flex flex-col" style={{ height: "100dvh", overflow: "hidden" }}>
-      <Nav />
+      {/* Desktop keeps the global nav on top of the studio toolbar. On mobile the
+          two collapse into one: the nav is hidden and StudioToolbar carries a
+          back-to-My-Games button (like the FAS studio bar). */}
+      <div className="hidden md:block"><Nav /></div>
       <div className="grid flex-1 min-h-0 grid-cols-1 md:grid-cols-2">
         {/* Chat */}
         <div className="flex flex-col overflow-hidden border-r" style={{ borderColor: "var(--border)" }}>
@@ -256,8 +265,8 @@ export function Create() {
               className="flex-1 resize-none rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] text-sm px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:border-[var(--accent)]"
               style={{ minHeight: 44, maxHeight: 100, fontFamily: "Manrope, system-ui, sans-serif" }}
             />
-            <Button variant="primary" onClick={handleSend} disabled={agent.isStreaming} className="self-end">
-              <Send className="w-4 h-4" /> Send
+            <Button variant="primary" onClick={handleSend} disabled={agent.isStreaming} className="self-end w-11 px-0" title="Send" aria-label="Send">
+              <Send className="w-4 h-4" />
             </Button>
           </div>
         </div>

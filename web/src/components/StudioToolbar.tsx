@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Settings, Bot, Plus, ChevronDown, Copy, Check, Play } from "lucide-react";
+import { Settings, Bot, Plus, ChevronDown, Copy, Check, Play, ArrowLeft } from "lucide-react";
 import { Button, buttonClass } from "./ui";
 import type { useAgent, Project } from "../hooks/useAgent";
 import type { useKeys } from "../hooks/useKeys";
@@ -40,6 +40,16 @@ export function StudioToolbar({
   return (
     <>
       <div className="flex items-center gap-2 shrink-0 px-3 py-2 border-b border-[var(--border)] bg-[var(--surface)]">
+        {/* Mobile only: the global nav is hidden on small screens, so this is the
+            way back to the games overview. Desktop uses the top nav bar instead. */}
+        <Link
+          to="/"
+          className={buttonClass("secondary", "sm", "md:hidden no-underline")}
+          title="My Games"
+          aria-label="My Games"
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </Link>
         <Button size="sm" onClick={() => setPickerOpen(true)} disabled={agent.isStreaming} className="max-w-[190px]" title={agent.isStreaming ? "Finish the current build to switch games" : "Switch game"}>
           {currentProject?.deployed && <span className="w-2 h-2 rounded-full bg-[var(--accent)] shrink-0" />}
           <span className="truncate">{currentProject?.name || "Select game"}</span>
@@ -82,7 +92,11 @@ export function StudioToolbar({
           <span>In <strong className="text-[var(--ink)]">{agent.tokensIn.toLocaleString()}</strong></span>
           <span className="mt-0.5">Out <strong className="text-[var(--ink)]">{agent.tokensOut.toLocaleString()}</strong></span>
         </span>
-        <CopyLogButton agent={agent} provider={provider} model={model} />
+        {/* Debug/export affordance — desktop only; hidden on mobile to keep the
+            single studio bar from overflowing. */}
+        <span className="hidden sm:inline-flex">
+          <CopyLogButton agent={agent} provider={provider} model={model} />
+        </span>
         <Button size="sm" onClick={() => setSettingsOpen(!settingsOpen)} title="AI model & API key" aria-label="AI settings">
           <Bot className="w-4 h-4" />
         </Button>

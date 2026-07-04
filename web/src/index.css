@@ -47,13 +47,16 @@ html, body {
   padding: 0;
   background: var(--bg);
   color: var(--ink);
-  overflow-x: hidden;
+  /* `clip`, not `hidden`: `overflow-x: hidden` forces overflow-y to compute to
+     `auto`, turning these into scroll containers and defeating the sticky Nav.
+     `clip` prevents horizontal scroll without establishing a scrollport. */
+  overflow-x: clip;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
 }
 
 #root {
-  overflow-x: hidden;
+  overflow-x: clip;
   min-height: 100dvh;
 }
 

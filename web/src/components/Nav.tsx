@@ -32,7 +32,7 @@ export function Nav() {
   const { user, signIn } = useAuth();
 
   return (
-    <header className="border-b" style={{ borderColor: "var(--border)", padding: "0.75rem 0" }}>
+    <header className="border-b sticky top-0 z-30" style={{ borderColor: "var(--border)", padding: "0.75rem 0", background: "var(--bg)" }}>
       <div className="max-w-3xl mx-auto px-4 flex items-center justify-between">
         <Link to="/" className="text-xl font-extrabold tracking-tight no-underline" style={{ color: "var(--ink)", fontFamily: "Fraunces, serif" }}>
           Free<span style={{ color: "var(--accent)" }}>Game</span>Store
