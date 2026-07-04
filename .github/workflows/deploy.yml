@@ -14,6 +14,8 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+      # Gate the deploy on typecheck (no unit tests in this repo yet).
+      - run: npm run typecheck
       - run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
