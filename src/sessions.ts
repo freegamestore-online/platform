@@ -31,6 +31,37 @@ async function ensureSchema(db: D1Database): Promise<void> {
   schemaReady = true;
 }
 
+/**
+ * Server-authoritative upsert of a session's index row, so an active session is
+ * discoverable via GET /sessions from ANY browser. Previously the index was
+ * written ONLY by the client (PUT /sessions/:id); a missed/raced PUT left the
+ * session invisible in a second browser even though its transcript was durable
+ * in the DO. Called from the DO on each chat turn. Preserves `deployed` (only
+ * the client's markDeployed toggles it) and never clobbers a real title/game_id
+ * with a null via COALESCE.
+ */
+export async function upsertSessionIndex(
+  db: D1Database,
+  userId: string,
+  sessionId: string,
+  fields: { title?: string | null; gameId?: string | null; gameUrl?: string | null },
+): Promise<void> {
+  if (!userId || !sessionId) return;
+  await ensureSchema(db);
+  await db
+    .prepare(
+      `INSERT INTO agent_sessions (user_id, session_id, title, game_id, game_url, deployed, updated_at)
+       VALUES (?, ?, ?, ?, ?, 0, datetime('now'))
+       ON CONFLICT(user_id, session_id) DO UPDATE SET
+         title = COALESCE(excluded.title, agent_sessions.title),
+         game_id = COALESCE(excluded.game_id, agent_sessions.game_id),
+         game_url = COALESCE(excluded.game_url, agent_sessions.game_url),
+         updated_at = datetime('now')`,
+    )
+    .bind(userId, sessionId, fields.title ?? null, fields.gameId ?? null, fields.gameUrl ?? null)
+    .run();
+}
+
 export async function resolveUser(
   request: Request,
   auth: Fetcher,

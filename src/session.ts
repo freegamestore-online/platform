@@ -12,6 +12,7 @@ import type { AIConfig, Message, TokenUsage } from "./providers/types";
 import { type PushSubscription, sendWebPush } from "./push";
 import { getTemplateFiles } from "./template";
 import { resolveUserKey } from "./keys";
+import { upsertSessionIndex } from "./sessions";
 
 interface ErrorEntry {
   timestamp: string;
@@ -227,6 +228,24 @@ export class AgentSession implements DurableObject {
 
     const session = await this.load();
     const files = new Map(Object.entries(session.files));
+
+    // Keep the D1 /sessions index authoritative from the SERVER so this session
+    // is discoverable in ANY browser — not dependent on the client's
+    // PUT /sessions/:id, which can race or be missed (which made an active chat
+    // "vanish" when opened in a second browser). Best-effort; never fail a chat.
+    const sessionId = request.headers.get("X-Session-Id") || "";
+    if (userId && sessionId) {
+      const gameUrl = session.appId ? `https://${session.appId}.${this.config.domain}` : null;
+      try {
+        await upsertSessionIndex(this.env.DB, userId, sessionId, {
+          title: session.appName,
+          gameId: session.appId,
+          gameUrl,
+        });
+      } catch {
+        /* index is best-effort — discovery convenience, not the transcript */
+      }
+    }
 
     // The signed-in creator's GitHub login (worker-verified header), used to add
     // them as a collaborator on the repo the platform bot creates at deploy.

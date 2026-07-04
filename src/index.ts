@@ -112,6 +112,10 @@ export default {
     // collaborator on the repo the platform bot creates for them. set() so a
     // client can't spoof it. Blank when the session predates login capture.
     fwdHeaders.set("X-Auth-Login", user.login ?? "");
+    // The DO is addressed by idFromName(sessionId) and can't recover the
+    // original session id from its opaque DO id. Pass it so the DO can keep the
+    // D1 /sessions index (cross-browser discovery) authoritative server-side.
+    fwdHeaders.set("X-Session-Id", sessionId);
     const doRequest = new Request(`https://do${subpath}`, {
       method: request.method,
       headers: fwdHeaders,
