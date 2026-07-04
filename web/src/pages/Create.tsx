@@ -11,8 +11,8 @@ import { NewGameModal } from "../components/NewGameModal";
 import { useAuth } from "../hooks/useAuth";
 import { useAgent, type AIConfig } from "../hooks/useAgent";
 import { useKeys } from "../hooks/useKeys";
-import { resolveInitialProvider } from "../lib/ai-keys";
-import { resolveModel } from "../lib/models";
+import { resolveInitialProvider, PROVIDERS } from "../lib/ai-keys";
+import { resolveModel, firstModelFor } from "../lib/models";
 
 export function Create() {
   const { user, loading, signIn } = useAuth();
@@ -73,6 +73,21 @@ export function Create() {
   useEffect(() => { localStorage.setItem("fgs_provider", provider); }, [provider]);
   useEffect(() => { localStorage.setItem("fgs_model", model); }, [model]);
 
+  // Once the vault's key state loads, use whatever provider the user actually
+  // has a key for — don't sit on a keyless default and fail mid-build. Runs once
+  // (keys.loading → false); if the current provider already has a key, keep it.
+  const autoPickedRef = useRef(false);
+  useEffect(() => {
+    if (keys.loading || autoPickedRef.current) return;
+    autoPickedRef.current = true;
+    if (keys.hasKey(provider)) return;
+    const keyed = PROVIDERS.find((p) => keys.hasKey(p.type));
+    if (keyed) {
+      setProvider(keyed.type);
+      setModel(firstModelFor(keyed.type));
+    }
+  }, [keys.loading, keys.hasKey, provider]);
+
   if (loading) {
     return (
       <>
@@ -112,11 +127,14 @@ export function Create() {
   const currentProject = agent.projects.find((p) => p.id === agent.currentProjectId);
   const previewUrl = currentProject?.appUrl || agent.deployState?.appUrl || null;
   const showPreview = previewUrl && (agent.deployState?.phase === "live" || agent.deployState?.phase === "building" || currentProject?.deployed);
-  // The studio is bring-your-own-key — EXCEPT free providers (GitHub Models),
-  // which need none. Only nag when the current provider is actually unusable:
-  // not free AND no key saved in the vault. (`providerUsable` reads the vault's
-  // has-key status, so the nag clears the moment a key is saved and never fires
-  // on the free GitHub default.)
+  // Only offer "Deploy now" once the AI has actually built something (wrote files
+  // via a tool call). A bare user message + an error (e.g. no key) must NOT show
+  // a deploy prompt — there's nothing to deploy yet.
+  const hasBuilt = agent.messages.some((m) => m.role === "tool");
+  // Bring-your-own-key: nag only when the current provider is unusable — no key
+  // saved and not the free tier (GitHub Models, which runs on the platform token).
+  // Default is Claude; the auto-pick effect moves to whatever provider the user
+  // has a key for, so this rarely fires for someone who's added a key.
   const needsKey = !keys.loading && !keys.providerUsable(provider);
 
   if (!user) {
@@ -256,7 +274,7 @@ export function Create() {
             {showPreview ? <iframe src={previewUrl} title="Preview" className="w-full h-full border-0" style={{ background: "var(--bg)" }} /> :
              agent.deployState ? <DeployLog state={agent.deployState} /> :
              <div className="text-center p-8 flex flex-col items-center gap-3 max-w-sm" style={{ color: "var(--muted)" }}>
-               {agent.messages.length > 1 ? (
+               {hasBuilt ? (
                  <>
                    <p className="text-sm">This game <strong>hasn't been deployed yet</strong> — that's why there's no preview. The AI builds in-session; it only goes live once it deploys.</p>
                    <Button variant="primary" onClick={() => sendPrompt("Deploy the game now so I can see the live preview.")} disabled={agent.isStreaming}>
@@ -265,7 +283,7 @@ export function Create() {
                    <p className="text-xs">…or just type <span className="font-mono">deploy</span> in the chat.</p>
                  </>
                ) : (
-                 <p className="text-sm">Describe your game in the chat to start building — it appears here once the AI deploys it.</p>
+                 <p className="text-sm">Describe your game in the chat to start building — a preview appears here once the AI has built and deployed it.</p>
                )}
              </div>}
           </div>

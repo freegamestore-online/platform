@@ -116,15 +116,16 @@ export function isFreeProvider(provider: string): boolean {
 
 /**
  * Which provider to start on. Uses the user's stored preference (a non-secret UI
- * choice) or the free default. Whether that provider has a *key* is answered
- * separately by the vault (useKeys), since key state is now server-side/async.
+ * choice) or Anthropic (Claude) by default. Whether that provider has a *key* is
+ * answered separately by the vault (useKeys) — Create.tsx auto-switches to a
+ * provider the user actually has a key for once keys load.
  */
 export function resolveInitialProvider(): string {
   const stored = localStorage.getItem("fgs_provider");
   if (stored && PROVIDERS.some((p) => p.type === stored)) return stored;
-  return "github";
+  return "anthropic";
 }
 
 export function getDefaultModel(): string {
-  return localStorage.getItem("fgs_model") || "openai/gpt-4.1";
+  return localStorage.getItem("fgs_model") || "claude-sonnet-4-6";
 }

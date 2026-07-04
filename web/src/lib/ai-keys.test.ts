@@ -40,18 +40,18 @@ describe("isFreeProvider", () => {
 describe("resolveInitialProvider", () => {
   beforeEach(() => localStorage.clear());
 
-  it("defaults to free github when nothing stored", () => {
-    expect(resolveInitialProvider()).toBe("github");
+  it("defaults to Claude (anthropic) when nothing stored", () => {
+    expect(resolveInitialProvider()).toBe("anthropic");
   });
 
   it("honors a valid stored preference", () => {
-    localStorage.setItem("fgs_provider", "anthropic");
-    expect(resolveInitialProvider()).toBe("anthropic");
+    localStorage.setItem("fgs_provider", "openai");
+    expect(resolveInitialProvider()).toBe("openai");
   });
 
   it("ignores an unknown stored preference", () => {
     localStorage.setItem("fgs_provider", "not-a-provider");
-    expect(resolveInitialProvider()).toBe("github");
+    expect(resolveInitialProvider()).toBe("anthropic");
   });
 });
 
