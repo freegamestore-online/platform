@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contentType, etagsMatch, type Route, r2KeyFor, resolveRoute, securityHeaders } from "../host";
+import { contentType, etagsMatch, type Route, r2KeyFor, resolveRoute, securityHeaders, shouldRevalidate } from "../host";
 
 // Minimal D1 stub — verifies the SQL shape and parameter binding without
 // spinning up a real D1. Real schema integration is exercised by the
@@ -114,13 +114,29 @@ describe("contentType", () => {
 // the explicit api.freeappstore.online / cloudflareinsights / googletagmanager /
 // plausible.io origins or analytics breaks across every app.
 
-describe("securityHeaders", () => {
-  const html = securityHeaders({ htmlCache: true });
-  const asset = securityHeaders({ htmlCache: false });
+describe("shouldRevalidate (cache policy for stable-named, changing files)", () => {
+  it("revalidates HTML and version.json (stable name, changing content)", () => {
+    expect(shouldRevalidate("text/html; charset=utf-8", "games/pong/index.html")).toBe(true);
+    expect(shouldRevalidate("application/json; charset=utf-8", "games/pong/version.json")).toBe(true);
+  });
+  it("lets content-hashed bundle assets stay immutable", () => {
+    expect(shouldRevalidate("application/javascript; charset=utf-8", "games/pong/assets/index-BN71jIs_.js")).toBe(false);
+    expect(shouldRevalidate("text/css; charset=utf-8", "games/pong/assets/index-CaUCB4gH.css")).toBe(false);
+  });
+  it("does not match a game's own data file that merely ends in version-ish", () => {
+    // Only the exact deploy stamp path is short-cached, not arbitrary json.
+    expect(shouldRevalidate("application/json; charset=utf-8", "games/pong/data/levels.json")).toBe(false);
+  });
+});
 
-  it("HTML gets short cache, assets get immutable cache", () => {
+describe("securityHeaders", () => {
+  const html = securityHeaders({ revalidate: true });
+  const asset = securityHeaders({ revalidate: false });
+
+  it("revalidated files get short cache, immutable assets get 1-year cache", () => {
     expect(html.get("cache-control")).toContain("max-age=60");
     expect(html.get("cache-control")).toContain("must-revalidate");
+    expect(html.get("cache-control")).not.toContain("immutable");
     expect(asset.get("cache-control")).toContain("max-age=31536000");
     expect(asset.get("cache-control")).toContain("immutable");
   });

@@ -72,16 +72,18 @@ export function etagsMatch(headerValue: string | null, objectEtag: string): bool
  * out from the index.ts respond() helper so the policy is unit-testable
  * without spinning up the full Worker, and so the next person to tighten
  * CSP can edit one place. Pass-through args:
- *   - htmlCache:  true for HTML (short-lived caching), false otherwise.
+ *   - revalidate: true for stable-named files whose content changes across
+ *     deploys (HTML, version.json) — short cache + must-revalidate. false for
+ *     content-hashed bundle assets, which are safe to cache immutably.
  *
  * Analytics origins are listed explicitly in script-src + connect-src so
  * a future tightening (removing the broad `https:` and replacing with
  * an allowlist) doesn't silently break the platform analytics loader,
  * CF Web Analytics, or BYO GA4 / Plausible tags.
  */
-export function securityHeaders(opts: { htmlCache: boolean }): Headers {
+export function securityHeaders(opts: { revalidate: boolean }): Headers {
   const headers = new Headers();
-  if (opts.htmlCache) {
+  if (opts.revalidate) {
     headers.set("cache-control", "public, max-age=60, must-revalidate");
   } else {
     headers.set("cache-control", "public, max-age=31536000, immutable");
@@ -129,6 +131,17 @@ export function securityHeaders(opts: { htmlCache: boolean }): Headers {
   headers.set("referrer-policy", "strict-origin-when-cross-origin");
   headers.set("strict-transport-security", "max-age=31536000; includeSubDomains");
   return headers;
+}
+
+/**
+ * Whether a served object must revalidate (short cache) rather than be cached
+ * immutably for a year. True for files with a STABLE name but CHANGING content
+ * across deploys: HTML entrypoints and the version.json deploy stamp. Bundle
+ * assets are content-hashed, so their name changes when their content does —
+ * those stay immutable. Kept here (pure) so the cache policy is unit-testable.
+ */
+export function shouldRevalidate(ct: string, key: string): boolean {
+  return ct.startsWith("text/html") || key.endsWith("/version.json");
 }
 
 /**

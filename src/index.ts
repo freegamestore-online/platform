@@ -12,7 +12,7 @@
  * PLATFORM_SUBDOMAINS is just www → apex redirect + future hooks.
  */
 
-import { type Env, type Route, contentType, etagsMatch, r2KeyFor, resolveRoute, securityHeaders } from "./host";
+import { type Env, type Route, contentType, etagsMatch, r2KeyFor, resolveRoute, securityHeaders, shouldRevalidate } from "./host";
 
 type PlatformDispatch =
   | { type: "service"; binding: keyof Env }
@@ -179,22 +179,23 @@ async function serve(bucket: R2Bucket, route: Route, url: URL, req: Request, _ct
 
   if (!obj && !/\.[a-z0-9]+$/i.test(url.pathname)) {
     obj = await bucket.get(`${route.r2_prefix}/index.html`);
-    if (obj) return respond(obj, "text/html; charset=utf-8", req);
+    if (obj) return respond(obj, "text/html; charset=utf-8", req, true);
   }
 
   if (!obj) return notFound(`${route.slug}.${route.zone}`, url.pathname);
 
-  return respond(obj, contentType(key), req);
+  const ct = contentType(key);
+  return respond(obj, ct, req, shouldRevalidate(ct, key));
 }
 
-function respond(obj: R2ObjectBody, ct: string, req: Request): Response {
+function respond(obj: R2ObjectBody, ct: string, req: Request, revalidate: boolean): Response {
   const ifNoneMatch = req.headers.get("if-none-match");
   if (ifNoneMatch && etagsMatch(ifNoneMatch, obj.httpEtag)) {
-    const headers = securityHeaders({ htmlCache: ct.startsWith("text/html") });
+    const headers = securityHeaders({ revalidate });
     headers.set("etag", obj.httpEtag);
     return new Response(null, { status: 304, headers });
   }
-  const headers = securityHeaders({ htmlCache: ct.startsWith("text/html") });
+  const headers = securityHeaders({ revalidate });
   headers.set("content-type", ct);
   headers.set("etag", obj.httpEtag);
   headers.set("accept-ranges", "bytes");
