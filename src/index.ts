@@ -191,7 +191,7 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
     client_id: env.GOOGLE_CLIENT_ID,
     redirect_uri: getRedirectUri(request),
     response_type: "code",
-    scope: "openid profile",
+    scope: "openid email profile",
     state,
     prompt: "select_account",
   });
@@ -255,7 +255,11 @@ async function handleCallback(request: Request, env: Env): Promise<Response> {
     return new Response("Failed to fetch user info", { status: 502 });
   }
 
-  const user = (await userRes.json()) as { sub: string; name: string; picture?: string };
+  const user = (await userRes.json()) as { sub: string; name: string; picture?: string; email?: string; email_verified?: boolean };
+
+  // Only trust a Google-verified email — it's what admin access is gated on, so
+  // an unverified value must never make it into the token.
+  const email = user.email_verified && user.email ? user.email.toLowerCase() : null;
 
   // Upsert user in D1
   await env.DB.prepare(
@@ -265,13 +269,16 @@ async function handleCallback(request: Request, env: Env): Promise<Response> {
     .bind(user.sub, user.name, user.picture ?? null)
     .run();
 
-  // Create JWT
+  // Create JWT. `email` is carried as a claim (verified only) so downstream
+  // workers can gate on it — /me exposes it solely over the worker-to-worker
+  // path, never to games (see handleMe).
   const now = Math.floor(Date.now() / 1000);
   const token = await jwtSign(
     {
       sub: user.sub,
       name: user.name,
       avatar: user.picture ?? null,
+      email,
       iat: now,
       exp: now + COOKIE_MAX_AGE,
     },
@@ -304,11 +311,22 @@ async function handleMe(request: Request, env: Env): Promise<Response> {
     return json({ error: "Invalid or expired token" }, 401, request);
   }
 
+  // Email is PII, so expose it only on the worker-to-worker path (X-FGS-Token —
+  // e.g. the admin worker resolving the signed-in user for its allowlist), never
+  // to a game subdomain calling /me with the browser cookie over broad CORS.
+  const includeEmail = !!request.headers.get("X-FGS-Token");
+
   return json(
     // `login` is the GitHub username (distinct from `id`/`sub` = "github:<id>").
     // Consumers that provision GitHub resources for the signed-in creator (e.g.
     // the agent adding them as a repo collaborator) need the login, not the sub.
-    { id: payload.sub, name: payload.name, avatar: payload.avatar, login: payload.login ?? null },
+    {
+      id: payload.sub,
+      name: payload.name,
+      avatar: payload.avatar,
+      login: payload.login ?? null,
+      ...(includeEmail ? { email: payload.email ?? null } : {}),
+    },
     200,
     request,
   );
