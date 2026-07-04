@@ -50,7 +50,7 @@ function b64urlToBytes(s: string): Uint8Array {
   return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 }
 
-async function verifyJWT(token: string, secret: string): Promise<Record<string, unknown> | null> {
+export async function verifyJWT(token: string, secret: string): Promise<Record<string, unknown> | null> {
   const parts = token.split(".");
   if (parts.length !== 3) return null;
   try {

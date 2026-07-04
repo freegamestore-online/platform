@@ -32,7 +32,7 @@ const INFRA_REPOS = new Set([
   "template-game-grid", "template-game-cards", "brand", "ops", "sdk",
 ]);
 
-function validateId(id: string): string | null {
+export function validateId(id: string): string | null {
   if (!id) return "ID is required";
   if (id.length > 58) return "ID must be 58 characters or less";
   if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(id)) return "Lowercase letters, numbers, dashes only. No start/end dash.";

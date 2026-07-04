@@ -61,13 +61,24 @@ export function setKidMode(next: KidMode): void {
   if (typeof window !== "undefined") window.localStorage.setItem(KEY, JSON.stringify(next));
 }
 
-// A cheap, stable hash so an identical (message, age, vibe) is fetched once and
+// A cheap, stable key so an identical (message, age, vibe) is fetched once and
 // then served from cache — the free tier is shared, so we don't re-bill it.
-function cacheKey(text: string, age: string, vibe: string): string {
+// A bare 32-bit hash collides often enough that two different messages could
+// hash-collide and one message's kid-rewrite would be served for another. To
+// make collisions vanishingly unlikely, combine TWO independently-seeded 32-bit
+// hashes (a 64-bit space) with the exact text length — so a match requires
+// agreeing on length AND both hashes.
+export function cacheKey(text: string, age: string, vibe: string): string {
   const s = `${age}|${vibe}|${text}`;
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
-  return `kid:${h}`;
+  let h1 = 0x811c9dc5;
+  let h2 = 0x1000193;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s.charCodeAt(i);
+    h1 = (Math.imul(h1 ^ ch, 0x01000193)) | 0;
+    h2 = (Math.imul(h2 + ch, 31)) | 0;
+  }
+  const hex = (n: number) => (n >>> 0).toString(16).padStart(8, "0");
+  return `kid:${s.length.toString(36)}:${hex(h1)}${hex(h2)}`;
 }
 
 // Persisted LRU cache. Kept as ONE bounded blob (not one key per message) so it
