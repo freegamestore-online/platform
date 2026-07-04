@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Settings } from "lucide-react";
 import { Nav } from "../components/Nav";
 import { CreateGameForm } from "../components/CreateGameForm";
+import { GameVersion } from "../components/GameVersion";
 import { LoadingShell, SignInShell, ErrorShell } from "../components/PageShell";
 import { useAuth, type GameRepo } from "../hooks/useAuth";
 import { useDraftSessions, type DraftSession } from "../hooks/useDraftSessions";
@@ -127,6 +128,7 @@ function GameList({ games }: { games: GameRepo[] }) {
                 <a href={game.repoUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">Code</a>
                 {game.createdAt && <span title={`Created ${new Date(game.createdAt).toLocaleString()}`}>Created {formatDate(game.createdAt)}</span>}
                 {game.lastEditedAt && <span title={`Last edited ${new Date(game.lastEditedAt).toLocaleString()}`}>Edited {formatRelative(game.lastEditedAt)}</span>}
+                <GameVersion liveUrl={game.liveUrl} />
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
