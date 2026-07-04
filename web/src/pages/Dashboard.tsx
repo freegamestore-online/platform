@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Settings } from "lucide-react";
+import { Play, Settings } from "lucide-react";
 import { Nav } from "../components/Nav";
 import { CreateGameForm } from "../components/CreateGameForm";
 import { GameVersion } from "../components/GameVersion";
@@ -112,35 +112,48 @@ function GameList({ games }: { games: GameRepo[] }) {
         {games.map((game) => (
           <div
             key={game.id}
-            className="flex items-center justify-between p-4 rounded-xl gap-3"
+            className="flex items-center gap-2 p-3 rounded-xl"
             style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
           >
-            <span className="flex items-center justify-center rounded-xl shrink-0" style={{ width: 40, height: 40, background: game.iconBg || "var(--bg)", fontSize: "1.3rem" }}>
-              {decodeIcon(game.icon) || "🎮"}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <p className="font-semibold truncate">{game.name}</p>
-                <Badge tone="accent" className="shrink-0">Live</Badge>
+            {/* Tapping anywhere on the game opens it in the editor. Play + Settings
+                are separate sibling controls (not nested in this Link) so they keep
+                their own actions. */}
+            <Link
+              to={`/create?game=${game.id}`}
+              aria-label={`Edit ${game.name}`}
+              className="flex items-center gap-3 flex-1 min-w-0 no-underline"
+              style={{ color: "inherit" }}
+            >
+              <span className="flex items-center justify-center rounded-xl shrink-0" style={{ width: 40, height: 40, background: game.iconBg || "var(--bg)", fontSize: "1.3rem" }}>
+                {decodeIcon(game.icon) || "🎮"}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold break-words">{game.name}</p>
+                  <Badge tone="accent" className="shrink-0">Live</Badge>
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm mt-1" style={{ color: "var(--muted)" }}>
+                  {game.createdAt && <span title={`Created ${new Date(game.createdAt).toLocaleString()}`}>Created {formatDate(game.createdAt)}</span>}
+                  {game.lastEditedAt && <span title={`Last edited ${new Date(game.lastEditedAt).toLocaleString()}`}>Edited {formatRelative(game.lastEditedAt)}</span>}
+                  <GameVersion liveUrl={game.liveUrl} />
+                </div>
               </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm mt-1" style={{ color: "var(--muted)" }}>
-                <a href={game.liveUrl} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--accent)" }}>Play</a>
-                <a href={game.repoUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">Code</a>
-                {game.createdAt && <span title={`Created ${new Date(game.createdAt).toLocaleString()}`}>Created {formatDate(game.createdAt)}</span>}
-                {game.lastEditedAt && <span title={`Last edited ${new Date(game.lastEditedAt).toLocaleString()}`}>Edited {formatRelative(game.lastEditedAt)}</span>}
-                <GameVersion liveUrl={game.liveUrl} />
-              </div>
-            </div>
+            </Link>
             <div className="flex items-center gap-2 shrink-0">
-              <Link
-                to={`/create?game=${game.id}`}
-                className={buttonClass("primary", "md")}
+              <a
+                href={game.liveUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Play ${game.name}`}
+                title="Play"
+                className={buttonClass("secondary", "md", "w-11 px-0")}
               >
-                Edit
-              </Link>
+                <Play className="w-5 h-5" />
+              </a>
               <Link
                 to={`/game/${game.id}`}
                 aria-label={`Settings for ${game.name}`}
+                title="Settings"
                 className={buttonClass("secondary", "md", "w-11 px-0")}
               >
                 <Settings className="w-5 h-5" />
