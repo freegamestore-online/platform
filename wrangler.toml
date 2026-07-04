@@ -38,6 +38,13 @@ database_id = "165c4cb7-d93e-4afc-8ac0-7d48e627efaa"
 tag = "v1"
 new_sqlite_classes = ["AgentSession"]
 
+# Persistent Workers Logs — so prod incidents are debuggable after the fact
+# (a live `wrangler tail` only sees traffic while it's attached). Sampled at
+# 100% given current low volume; dial head_sampling_rate down if volume grows.
+[observability]
+enabled = true
+head_sampling_rate = 1
+
 [vars]
 CF_ACCOUNT_ID = "c1089bfcc43c1c6c2aa89e584e86f0bc"
 STORE = "games"
