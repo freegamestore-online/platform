@@ -1,4 +1,5 @@
 import { handleDeleteGame, handlePublish, handleUpdateGame, renderProvisionForm } from "./publish";
+import { errorStats, listErrors, recordError } from "./errlog";
 import { verifySession, handleAuthExchange, handleAuthMe } from "./auth";
 
 interface Env {
@@ -102,6 +103,19 @@ async function fetchRegistry(): Promise<GameConfig[]> {
     domain: `${item.id}.${DOMAIN}`,
     hostedOn: item.hostedOn || "pages",
   }));
+}
+
+/** Raw registry items (keeps fields fetchRegistry() drops, e.g. creatorGithub)
+ *  — backs the Users tab + creator stats. */
+async function fetchRegistryRaw(): Promise<any[]> {
+  try {
+    const res = await fetch(REGISTRY_URL, { headers: { "User-Agent": "freegamestore-admin" } });
+    if (!res.ok) return [];
+    const data = await res.json() as any;
+    return data.games || [];
+  } catch {
+    return [];
+  }
 }
 
 async function fetchQuality(): Promise<QualityData | null> {
@@ -231,6 +245,14 @@ function renderDashboardShell(): string {
     .q-yellow { color: #fbbf24; }
     .q-red { color: #f87171; }
     .q-gray { color: #555; }
+    .tabs { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; border-bottom: 1px solid #2a2a2a; flex-wrap: wrap; }
+    .tab { background: none; border: none; color: #888; padding: 0.6rem 1rem; cursor: pointer; font-size: 0.9rem; border-bottom: 2px solid transparent; font-family: inherit; }
+    .tab.active { color: #34d399; border-bottom-color: #34d399; }
+    .tabpanel { display: none; }
+    .tabpanel.active { display: block; }
+    .bar { display: inline-block; border-radius: 2px 2px 0 0; min-height: 1px; transition: height 0.2s; }
+    .src-tag { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 0.25rem; background: #2a2a2a; color: #ccc; white-space: nowrap; }
+    pre.stack { white-space: pre-wrap; font-size: 0.72rem; color: #fca5a5; margin-top: 0.35rem; max-height: 9rem; overflow: auto; background: #140f0f; padding: 0.5rem; border-radius: 0.35rem; }
   </style>
 </head>
 <body>
@@ -239,8 +261,24 @@ function renderDashboardShell(): string {
       <h1>FreeGameStore Admin</h1>
       <div class="meta" id="meta">Loading...</div>
     </div>
-    <button class="refresh" onclick="loadAll()">Refresh</button>
+    <button class="refresh" onclick="refreshActive()">Refresh</button>
   </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="overview" onclick="showTab('overview')">Overview</button>
+    <button class="tab" data-tab="games" onclick="showTab('games')">Games</button>
+    <button class="tab" data-tab="errors" onclick="showTab('errors')">Errors <span id="errBadge"></span></button>
+    <button class="tab" data-tab="users" onclick="showTab('users')">Users</button>
+    <a class="tab" href="/docs" style="text-decoration:none;">API</a>
+  </div>
+
+  <div id="tab-overview" class="tabpanel active">
+    <div class="stats" id="ovStats"><span class="loading">Loading...</span></div>
+    <h2>Errors (last 14 days)</h2>
+    <div id="ovChart" style="display:flex;align-items:flex-end;gap:4px;height:140px;padding:1rem 0;"></div>
+  </div>
+
+  <div id="tab-games" class="tabpanel">
   <div class="stats" id="stats"></div>
 
   <!-- Filter bar -->
@@ -254,6 +292,19 @@ function renderDashboardShell(): string {
   </div>
 
   <table><tr><th>Name</th><th>Status</th><th>Quality</th><th>Load</th><th>URL</th><th>Repo</th></tr><tbody id="dataTable"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody></table>
+  </div>
+
+  <div id="tab-errors" class="tabpanel">
+    <h2>Errors &amp; Crashes</h2>
+    <p class="meta">Persisted from the create Pages Function and admin provisioning. Newest first.</p>
+    <table><tr><th>When</th><th>Source</th><th>User</th><th>Message</th><th>Context</th></tr><tbody id="errTable"><tr><td colspan="5" class="loading">--</td></tr></tbody></table>
+  </div>
+
+  <div id="tab-users" class="tabpanel">
+    <h2>Creators</h2>
+    <p class="meta">Derived from the store registry (creatorGithub), most games first.</p>
+    <table><tr><th>GitHub</th><th>Games</th><th>Game IDs</th></tr><tbody id="userTable"><tr><td colspan="3" class="loading">--</td></tr></tbody></table>
+  </div>
 
   <script>
     var gameData=[];
@@ -349,7 +400,45 @@ function renderDashboardShell(): string {
       document.getElementById('stats').innerHTML='<div class="stat"><div class="num">'+gameData.length+'</div><div class="label">Total Games</div></div><div class="stat"><div class="num green">'+ok+'</div><div class="label">Live</div></div><div class="stat"><div class="num red">'+(gameData.length-ok)+'</div><div class="label">Down</div></div><div class="stat"><div class="num'+(qScores.length?' '+(avgQ>=95?'green':avgQ>=80?'yellow':'red'):'')+'">'+(qScores.length?avgQ:'--')+'</div><div class="label">Avg Quality</div></div>';
       document.getElementById('meta').textContent='Done in '+(Date.now()-t0)+'ms';
     }
-    loadAll();
+
+    // ---- tabs + Overview / Errors / Users ----
+    var loaded={games:false,users:false};
+    function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+    function stat(num,label,cls){return '<div class="stat"><div class="num'+(cls?' '+cls:'')+'">'+num+'</div><div class="label">'+label+'</div></div>'}
+    function timeAgo(ts){try{var d=new Date(String(ts).replace(' ','T')+'Z');var s=(Date.now()-d.getTime())/1000;if(s<60)return Math.floor(s)+'s ago';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}catch(e){return ts}}
+    function showTab(name){
+      document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('active',t.dataset&&t.dataset.tab===name)});
+      document.querySelectorAll('.tabpanel').forEach(function(p){p.classList.toggle('active',p.id==='tab-'+name)});
+      if(name==='games'&&!loaded.games){loaded.games=true;loadAll();}
+      if(name==='errors')loadErrors();
+      if(name==='users'&&!loaded.users){loaded.users=true;loadUsers();}
+      if(name==='overview')loadOverview();
+    }
+    function refreshActive(){var a=document.querySelector('.tab.active');var n=a&&a.dataset?a.dataset.tab:'overview';if(n==='games')loadAll();else if(n==='errors')loadErrors();else if(n==='users')loadUsers();else loadOverview();}
+    async function loadOverview(){
+      try{
+        var r=await fetch('/api/stats',{credentials:'include'});var s=await r.json();
+        document.getElementById('ovStats').innerHTML=stat(s.games,'Games')+stat(s.creators,'Creators')+stat(s.errors24h,'Errors (24h)',s.errors24h>0?'red':'green')+stat(s.errorsTotal,'Errors (total)',s.errorsTotal>0?'yellow':'gray');
+        var badge=document.getElementById('errBadge');badge.textContent=s.errors24h?'('+s.errors24h+')':'';badge.className=s.errors24h?'red':'';
+        var series=s.errorSeries||[];var max=Math.max.apply(null,[1].concat(series.map(function(p){return p.c})));
+        document.getElementById('ovChart').innerHTML=series.length?series.map(function(p){var h=Math.round(p.c/max*110);return '<div title="'+esc(p.d)+': '+p.c+'" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;"><div style="font-size:0.7rem;">'+p.c+'</div><div class="bar" style="height:'+h+'px;width:70%;background:'+(p.c>0?'#f87171':'#2a2a2a')+'"></div><div style="font-size:0.6rem;color:#888;margin-top:2px;">'+esc(p.d).slice(5)+'</div></div>'}).join(''):'<div class="gray">No errors logged yet.</div>';
+      }catch(e){document.getElementById('ovStats').innerHTML='<div class="gray">stats error: '+esc(e)+'</div>'}
+    }
+    async function loadErrors(){
+      var tb=document.getElementById('errTable');tb.innerHTML='<tr><td colspan="5" class="loading">Loading...</td></tr>';
+      try{
+        var r=await fetch('/api/errors?limit=200',{credentials:'include'});var rows=await r.json();
+        tb.innerHTML=rows.length?rows.map(function(e){return '<tr><td style="white-space:nowrap">'+timeAgo(e.ts)+'<br><small class="gray">'+esc(e.ts)+' UTC</small></td><td><span class="src-tag">'+esc(e.source)+'</span></td><td>'+esc(e.user_github||'--')+'</td><td><strong class="red">'+esc(e.message)+'</strong>'+(e.stack?'<pre class="stack">'+esc(e.stack)+'</pre>':'')+'</td><td class="gray" style="font-size:0.75rem">'+esc(e.context||'')+'</td></tr>'}).join(''):'<tr><td colspan="5" class="green">No errors logged — clean.</td></tr>';
+      }catch(e){tb.innerHTML='<tr><td colspan="5" class="red">Failed to load errors: '+esc(e)+'</td></tr>'}
+    }
+    async function loadUsers(){
+      var tb=document.getElementById('userTable');tb.innerHTML='<tr><td colspan="3" class="loading">Loading...</td></tr>';
+      try{
+        var r=await fetch('/api/users',{credentials:'include'});var rows=await r.json();
+        tb.innerHTML=rows.length?rows.map(function(u){return '<tr><td><a href="https://github.com/'+esc(u.login)+'" target="_blank">'+esc(u.login)+'</a></td><td><strong>'+u.games.length+'</strong></td><td class="gray" style="font-size:0.8rem">'+u.games.map(esc).join(', ')+'</td></tr>'}).join(''):'<tr><td colspan="3" class="gray">No creators yet.</td></tr>';
+      }catch(e){tb.innerHTML='<tr><td colspan="3" class="red">Failed: '+esc(e)+'</td></tr>'}
+    }
+    showTab('overview');
   </script>
 </body>
 </html>`;
@@ -608,6 +697,38 @@ export default {
       return jsonResponse(data, 200, request);
     }
 
+    // Errors/crashes for the console (protected by CF Access, like /api/status).
+    if (url.pathname === "/api/errors") {
+      const limit = parseInt(url.searchParams.get("limit") || "200", 10);
+      return jsonResponse(await listErrors(env.DB, limit), 200, request);
+    }
+
+    // Aggregate stats + the errors-per-day series for the Overview graph.
+    if (url.pathname === "/api/stats") {
+      const [games, errStats] = await Promise.all([fetchRegistry(), errorStats(env.DB)]);
+      const creators = new Set<string>();
+      for (const g of await fetchRegistryRaw()) if (g.creatorGithub) creators.add(String(g.creatorGithub).toLowerCase());
+      return jsonResponse(
+        { games: games.length, creators: creators.size, errorsTotal: errStats.total, errors24h: errStats.last24h, errorSeries: errStats.series },
+        200,
+        request,
+      );
+    }
+
+    // Creators derived from the registry (creatorGithub), with their game counts.
+    if (url.pathname === "/api/users") {
+      const raw = await fetchRegistryRaw();
+      const byUser = new Map<string, { login: string; games: string[] }>();
+      for (const g of raw) {
+        const login = g.creatorGithub ? String(g.creatorGithub) : "(unknown)";
+        const key = login.toLowerCase();
+        if (!byUser.has(key)) byUser.set(key, { login, games: [] });
+        byUser.get(key)!.games.push(String(g.id));
+      }
+      const users = [...byUser.values()].sort((a, b) => b.games.length - a.games.length);
+      return jsonResponse(users, 200, request);
+    }
+
     // PATCH /api/games/:id — update game metadata (name, description, category)
     const gameMatch = url.pathname.match(/^\/api\/games\/([a-z0-9][a-z0-9-]*)$/);
     if (gameMatch && request.method === "PATCH") {
@@ -654,8 +775,12 @@ export default {
       if (!trusted && !login) {
         return jsonResponse({ error: "unauthorized" }, 401, request);
       }
+      const t0 = Date.now();
+      let ownerForLog: string | undefined;
+      let idForLog: string | undefined;
       try {
         const body = await request.json() as any;
+        idForLog = body?.id;
         // Ownership is caller-derived for user-authenticated calls: a normal
         // authenticated caller must NOT be able to register a game owned by an
         // arbitrary `creatorGithub` they put in the body (that would be ownership
@@ -663,12 +788,28 @@ export default {
         // Only the trusted worker-to-worker path (agent deploy, internal token)
         // may specify the owner in the body — it passes the real creator's login.
         const owner = trusted ? body.creatorGithub : login;
+        ownerForLog = owner;
         if (trusted && !owner) {
           return jsonResponse({ error: "creatorGithub required for internal provision" }, 400, request);
         }
+        console.log(`[provision] id=${body?.id} owner=${owner} trusted=${trusted}`);
         const result = await handlePublish({ ...body, creatorGithub: owner }, env as any);
+        console.log(`[provision] id=${body?.id} success=${result.success} +${Date.now() - t0}ms`);
+        // Persist a provision failure (handlePublish returns success:false rather
+        // than throwing) so it shows on the admin console. Logging only — the
+        // response is unchanged.
+        if (!result.success) {
+          // handlePublish reports failures per-step (no top-level `error`), so
+          // build the message from the failed step(s).
+          const failMsg = (result.steps || [])
+            .filter((s) => s.status === "fail")
+            .map((s) => `${s.name}: ${s.detail}`)
+            .join("; ") || "provision returned success:false";
+          await recordError(env.DB, { source: "admin/provision", user: owner, context: `id=${body?.id} +${Date.now() - t0}ms`, message: failMsg, stack: JSON.stringify(result).slice(0, 1500) });
+        }
         return jsonResponse(result, result.success ? 200 : 400, request);
       } catch (e) {
+        await recordError(env.DB, { source: "admin/provision", user: ownerForLog, context: `id=${idForLog} threwAfter=${Date.now() - t0}ms`, message: (e as Error)?.message ?? String(e), stack: (e as Error)?.stack });
         return jsonResponse({ error: String(e) }, 500, request);
       }
     }
