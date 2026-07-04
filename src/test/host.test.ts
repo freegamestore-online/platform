@@ -250,3 +250,41 @@ describe("legacy fallback (integration shape only)", () => {
     expect(overrides["puzzle"] ?? `freepuzzleapp`).toBe("freepuzzle");
   });
 });
+
+// --- analytics loader (fleet-wide /v1/analytics.js) ---
+import { buildAnalyticsLoader, ANALYTICS_APP_ID_RE } from "../index";
+
+describe("analytics loader", () => {
+  it("accepts valid game ids incl. leading-digit (2048)", () => {
+    expect(ANALYTICS_APP_ID_RE.test("tetris")).toBe(true);
+    expect(ANALYTICS_APP_ID_RE.test("kart-racers")).toBe(true);
+    expect(ANALYTICS_APP_ID_RE.test("2048")).toBe(true);
+  });
+
+  it("rejects malformed ids", () => {
+    expect(ANALYTICS_APP_ID_RE.test("Bad_Id")).toBe(false);
+    expect(ANALYTICS_APP_ID_RE.test("-lead")).toBe(false);
+    expect(ANALYTICS_APP_ID_RE.test("has space")).toBe(false);
+    expect(ANALYTICS_APP_ID_RE.test("")).toBe(false);
+  });
+
+  it("returns valid JS with the app id embedded + a safe no-op event stub, no beacon when unset", () => {
+    const js = buildAnalyticsLoader("tetris", null);
+    expect(js).toContain('"tetris"');
+    expect(js).toContain("window.fgsAnalytics");
+    expect(js).toContain("function(){}");
+    expect(js).not.toContain("cloudflareinsights");
+  });
+
+  it("injects the CF Web Analytics beacon only when a token is set", () => {
+    const js = buildAnalyticsLoader("tetris", "abc123def456");
+    expect(js).toContain("static.cloudflareinsights.com/beacon.min.js");
+    expect(js).toContain("abc123def456");
+  });
+
+  it("JSON-escapes the app id so it can't break out of the string literal", () => {
+    const js = buildAnalyticsLoader('a"};alert(1);//', null);
+    expect(js).toContain('"a\\"};alert(1);//"');
+    expect(js).not.toContain('APP = "a";');
+  });
+});

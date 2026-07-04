@@ -3,6 +3,10 @@ export interface Env {
   APPS: R2Bucket;
   /** Service binding placeholder for a future FGS API worker. */
   API?: Fetcher;
+  /** Optional store-wide Cloudflare Web Analytics beacon token. When set, the
+   *  api.freegamestore.online/v1/analytics.js loader injects the cookieless CF
+   *  beacon; when unset the loader still serves valid JS (just no beacon). */
+  CF_BEACON_TOKEN?: string;
 }
 
 export interface Route {
