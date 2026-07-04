@@ -16,7 +16,11 @@ export interface KidMode {
   vibe: KidVibe;
 }
 
-const DEFAULT: KidMode = { enabled: false, age: "8", vibe: "funny" };
+// On by default: this is a kids' game platform, so a fresh account gets the
+// kid-friendly rewrites without opt-in. Anyone who has explicitly toggled it
+// keeps their choice (a stored preference always wins over this default), and
+// it can be turned off in the profile to save tokens.
+const DEFAULT: KidMode = { enabled: true, age: "8", vibe: "funny" };
 
 export const KID_AGES: { value: KidAge; label: string }[] = [
   { value: "5", label: "Ages 5–7" },

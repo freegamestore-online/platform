@@ -60,17 +60,19 @@ export function Profile() {
 
         {/* Avatar + name card */}
         <div
-          className="flex items-center gap-6 p-8 rounded-2xl border mb-8"
+          className="flex items-center gap-4 p-6 rounded-2xl border mb-8"
           style={{ background: "var(--surface)", borderColor: "var(--border)" }}
         >
           <img
             src={user.avatarUrl}
             alt={user.github}
             className="rounded-full border-2 shrink-0"
-            style={{ width: 72, height: 72, borderColor: "var(--border)" }}
+            style={{ width: 48, height: 48, borderColor: "var(--border)" }}
           />
-          <div>
-            <h2 className="text-xl font-bold mb-0.5">@{user.github}</h2>
+          {/* min-w-0 so a long @username wraps inside the card instead of
+              overflowing the panel on a narrow phone. */}
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold mb-0.5 break-words">@{user.github}</h2>
             <p className="text-sm" style={{ color: "var(--muted)" }}>
               GitHub publisher account
             </p>
@@ -206,17 +208,19 @@ function DetailRow({
 
   return (
     <div
-      className="flex justify-between items-center gap-3 py-2.5 border-b text-sm"
+      className="flex justify-between items-start gap-3 py-2.5 border-b text-sm"
       style={{ borderColor: "var(--border)" }}
     >
-      <span className="font-medium shrink-0" style={{ color: "var(--muted)" }}>
+      <span className="font-medium shrink-0 pt-px" style={{ color: "var(--muted)" }}>
         {label}
       </span>
-      <span className="flex items-center gap-2 min-w-0">
+      <span className="flex items-start gap-2 min-w-0">
+        {/* Long mono IDs (User ID / GitHub ID) wrap and stay inside the panel
+            rather than truncating with an ellipsis — the whole value is readable
+            on mobile. Plain values still truncate to one tidy line. */}
         <span
-          className={`font-semibold truncate${mono ? " font-mono text-xs" : ""}`}
+          className={`font-semibold text-right${mono ? " font-mono text-xs break-all" : " truncate"}`}
           style={valueStyle}
-          title={mono ? value : undefined}
         >
           {value}
         </span>

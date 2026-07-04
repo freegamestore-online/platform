@@ -55,9 +55,13 @@ export function StudioToolbar({
           <span className="truncate">{currentProject?.name || "Select game"}</span>
           <ChevronDown className="w-4 h-4 shrink-0 opacity-60" />
         </Button>
-        <Button size="sm" onClick={onNewGame} disabled={agent.isStreaming} title="Start a new game" aria-label="Start a new game">
-          <Plus className="w-4 h-4" />
-        </Button>
+        {/* Desktop only — on mobile the toolbar is tight, and a new game can be
+            started from the game list ("My Games") or the picker's "New" tab. */}
+        <span className="hidden sm:inline-flex">
+          <Button size="sm" onClick={onNewGame} disabled={agent.isStreaming} title="Start a new game" aria-label="Start a new game">
+            <Plus className="w-4 h-4" />
+          </Button>
+        </span>
         {/* Actions for THIS game. Settings is ALWAYS available — for a live game
             it opens rename/artwork/delete; for a draft it opens the draft's
             settings (rename + discard). Play is shown only once the game is live.

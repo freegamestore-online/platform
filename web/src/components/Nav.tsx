@@ -4,10 +4,11 @@ import { Menu, X } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
 const NAV_LINKS: { to: string; label: string; external: boolean }[] = [
-  // "My Games" is the overview (list + slots + play/code/edit); "VibeCode" is
-  // the studio. Labelled so the hierarchy reads overview → build, not two apps.
+  // "My Games" is the overview (list + slots + play/code/edit); the studio is
+  // the build surface. Labelled "Make a Game" — a plain action a kid gets,
+  // where "VibeCode" reads as jargon. Reads overview → build, not two apps.
   { to: "/", label: "My Games", external: false },
-  { to: "/create", label: "VibeCode", external: false },
+  { to: "/create", label: "Make a Game", external: false },
   { to: "https://freegamestore.online", label: "Store", external: true },
   { to: "https://freegamestore.online/contribute.html", label: "Build", external: true },
 ];
