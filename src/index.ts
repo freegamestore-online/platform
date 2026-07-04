@@ -73,7 +73,9 @@ async function authenticateAdmin(request: Request, env: Env): Promise<{ email: s
  *  fresh visitor (null → "sign in") from a signed-in non-admin (→ "wrong
  *  account, switch"). Google login, `prompt=select_account`, redirects back. */
 function renderSignIn(signedInAs: string | null): string {
-  const loginUrl = "https://auth.freegamestore.online/login?redirect=" + encodeURIComponent("https://admin.freegamestore.online/");
+  // /login/google — NOT /login (that route is GitHub, which yields no email and
+  // can never match the admin allowlist). Google carries the verified email.
+  const loginUrl = "https://auth.freegamestore.online/login/google?redirect=" + encodeURIComponent("https://admin.freegamestore.online/");
   const wrong = signedInAs
     ? `<p class="note">Signed in as <strong>${escapeHtml(signedInAs)}</strong> — that account isn't an admin.</p>`
     : `<p class="note">This console is restricted to the store administrator.</p>`;
