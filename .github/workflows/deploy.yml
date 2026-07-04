@@ -21,8 +21,11 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # No typecheck/test gate: this repo has no tsconfig.json (the `typecheck`
-      # script is a no-op that errors), so wrangler's esbuild bundle is the gate.
+      # Gate the deploy: a real typecheck (tsconfig.json now present) + the unit
+      # tests must pass before shipping. Previously host source was never
+      # type-checked and nothing but wrangler's esbuild bundle ran.
+      - run: pnpm typecheck
+      - run: pnpm test
       - run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
