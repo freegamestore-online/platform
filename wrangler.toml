@@ -16,13 +16,4 @@ migrations_dir = "migrations"
 pattern = "leaderboard.freegamestore.online/*"
 zone_name = "freegamestore.online"
 
-# The fleet-wide analytics loader every game injects
-# (<script src="https://api.freegamestore.online/v1/analytics.js?app=<id>">).
-# Scoped to just that path so the rest of api.freegamestore.online stays
-# unwired — this worker only owns the loader endpoint on that host.
-[[routes]]
-pattern = "api.freegamestore.online/v1/analytics.js"
-zone_name = "freegamestore.online"
-
 # JWT_SECRET must be set via `wrangler secret put JWT_SECRET`
-# CF_BEACON_TOKEN (optional) — store-wide CF Web Analytics beacon token

@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { buildAnalyticsLoader, ANALYTICS_APP_ID_RE } from "./index";
 
 // Unit tests for pure helpers in the leaderboard worker.
 // The worker itself runs in the CF Workers runtime; these tests cover
@@ -93,46 +92,6 @@ describe("per-game score cap", () => {
   it("falls back to the global max for unlisted games", () => {
     expect(withinCap("chess", MAX_SCORE)).toBe(true);
     expect(withinCap("chess", 12345)).toBe(true);
-  });
-});
-
-// --- analytics loader ---
-describe("analytics loader", () => {
-  it("accepts valid game ids incl. leading-digit (2048)", () => {
-    expect(ANALYTICS_APP_ID_RE.test("tetris")).toBe(true);
-    expect(ANALYTICS_APP_ID_RE.test("kart-racers")).toBe(true);
-    expect(ANALYTICS_APP_ID_RE.test("2048")).toBe(true);
-  });
-
-  it("rejects malformed ids", () => {
-    expect(ANALYTICS_APP_ID_RE.test("Bad_Id")).toBe(false);
-    expect(ANALYTICS_APP_ID_RE.test("-lead")).toBe(false);
-    expect(ANALYTICS_APP_ID_RE.test("has space")).toBe(false);
-    expect(ANALYTICS_APP_ID_RE.test("")).toBe(false);
-  });
-
-  it("returns valid JS with the app id embedded, and a safe event stub", () => {
-    const js = buildAnalyticsLoader("tetris", null);
-    expect(js).toContain('"tetris"');
-    expect(js).toContain("window.fgsAnalytics");
-    expect(js).toContain("function(){}"); // no-op event stub
-    // No beacon when no token configured.
-    expect(js).not.toContain("cloudflareinsights");
-  });
-
-  it("injects the CF Web Analytics beacon only when a token is set", () => {
-    const js = buildAnalyticsLoader("tetris", "abc123def456");
-    expect(js).toContain("static.cloudflareinsights.com/beacon.min.js");
-    expect(js).toContain("abc123def456");
-  });
-
-  it("safely embeds the app id as a JSON string (no injection)", () => {
-    // buildAnalyticsLoader is only ever called with regex-validated ids, but
-    // JSON.stringify still guards against breaking out of the string literal:
-    // the double-quote is escaped, so the payload stays inert inside "…".
-    const js = buildAnalyticsLoader('a"};alert(1);//', null);
-    expect(js).toContain('"a\\"};alert(1);//"');
-    expect(js).not.toContain('APP = "a";'); // never breaks out into bare code
   });
 });
 
