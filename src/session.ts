@@ -19,6 +19,12 @@ interface ErrorEntry {
   message: string;
 }
 
+interface DeployLogEntry {
+  timestamp: string;
+  phase: string;
+  detail: string;
+}
+
 interface SessionState {
   messages: Message[];
   files: Record<string, string>;
@@ -28,6 +34,10 @@ interface SessionState {
   seed?: Record<string, string>;
   tokenUsage: TokenUsage;
   deployStatus: DeployStatus | null;
+  /** Append-only timeline of deploy phases (provisioning → pushing → building →
+   *  live/error), so a stuck or failed deploy can be diagnosed after the fact —
+   *  `deployStatus` only ever holds the latest snapshot. Capped at MAX_DEPLOY_LOG. */
+  deployLog: DeployLogEntry[];
   appId: string | null;
   appName: string | null;
   /** The repo commit SHA the session's files were last imported from (set when
@@ -38,11 +48,37 @@ interface SessionState {
   errors: ErrorEntry[];
 }
 
+// Bound unbounded growth in long-lived Durable Objects. A session that keeps
+// getting messages/deploys forever would grow its stored blob without limit.
+const MAX_MESSAGES = 400;
+const MAX_ERRORS = 50;
+const MAX_DEPLOY_LOG = 200;
+
+/** One-line human summary of a deploy status snapshot for the timeline log. */
+function deployStatusDetail(status: DeployStatus): string {
+  switch (status.phase) {
+    case "provisioning": {
+      const last = status.steps[status.steps.length - 1];
+      return last ? `${last.name}: ${last.status}` : "Starting…";
+    }
+    case "live":
+      return `Live at ${status.appUrl}`;
+    case "error":
+      return status.error;
+    default:
+      return status.phase;
+  }
+}
+
 export class AgentSession implements DurableObject {
   private state: DurableObjectState;
   private env: Env;
   private config: StoreConfig;
   private session: SessionState | null = null;
+  /** Guards against two overlapping /chat turns on the same session. Both run as
+   *  background async tasks that mutate `session` across await points, so without
+   *  this the second turn would interleave and clobber the first's writes. */
+  private chatInProgress = false;
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -59,8 +95,9 @@ export class AgentSession implements DurableObject {
       this.session = await this.freshSession();
       await this.save();
     }
-    // Migrate old sessions without errors field
+    // Migrate old sessions missing newer fields.
     if (!this.session.errors) this.session.errors = [];
+    if (!this.session.deployLog) this.session.deployLog = [];
     return this.session;
   }
 
@@ -77,6 +114,7 @@ export class AgentSession implements DurableObject {
       seed: seed ?? undefined,
       tokenUsage: { input: 0, output: 0 },
       deployStatus: null,
+      deployLog: [],
       appId: null,
       appName: null,
       errors: [],
@@ -144,6 +182,10 @@ export class AgentSession implements DurableObject {
 
   /** POST /chat — stream an agent turn via SSE */
   private async handleChat(request: Request): Promise<Response> {
+    if (this.chatInProgress) {
+      return json({ error: "A build is already in progress for this game — wait for it to finish." }, 429, request, this.config.domain);
+    }
+
     const body = await request.json<{
       message: string;
       aiConfig: AIConfig;
@@ -201,6 +243,10 @@ export class AgentSession implements DurableObject {
 
     const config = this.config;
 
+    // Claim the turn — released in the background task's finally. Guards against a
+    // second /chat interleaving with this one and clobbering session writes.
+    this.chatInProgress = true;
+
     // Run the agent in the background
     (async () => {
       const encoder = new TextEncoder();
@@ -231,6 +277,7 @@ export class AgentSession implements DurableObject {
         });
 
         session.messages.push(...result.newMessages);
+        if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
         session.files = Object.fromEntries(files);
         // Accumulate this turn's token usage into the persisted running total
         // so /status and /history report real figures (not {input:0,output:0}).
@@ -241,7 +288,10 @@ export class AgentSession implements DurableObject {
         // Execute infra tools server-side and feed results back to agent
         if (result.infraRequests.length > 0) {
           if (!deployEnv) {
-            sendSSE({ type: "error", data: "Server configuration error: deploy environment not available." });
+            const msg = "Server configuration error: deploy environment not available.";
+            this.appendAssistantError("deploy", msg);
+            await this.save();
+            sendSSE({ type: "error", data: msg });
             sendSSE({ type: "done", data: "" });
             return;
           }
@@ -261,11 +311,13 @@ export class AgentSession implements DurableObject {
                 seed: session.seed,
                 onDeployStatus: (status) => {
                   session.deployStatus = status;
+                  this.logDeploy(status);
                   this.state.storage.put("session", session);
                   sendSSE({ type: "deploy_status", data: JSON.stringify(status) });
                   if (status.phase === "live") {
                     this.sendPush("Your build is live!");
                   } else if (status.phase === "error") {
+                    this.appendAssistantError("deploy", status.error);
                     this.sendPush("Build failed");
                     // onAppDeployed runs before the deploy resolves, so a failed
                     // initial deploy left appId set — which would tell the next
@@ -285,6 +337,7 @@ export class AgentSession implements DurableObject {
               });
             } catch (err) {
               toolResult = `Tool ${tc.name} threw an error: ${String(err)}`;
+              this.logError("infra", toolResult);
             }
 
             sendSSE({ type: "tool_result", data: JSON.stringify({ id: tc.id, tool: tc.name, result: toolResult.slice(0, 500) }) });
@@ -311,9 +364,12 @@ export class AgentSession implements DurableObject {
 
         sendSSE({ type: "done", data: "" });
       } catch (err) {
-        this.logError("chat", String(err));
-        sendSSE({ type: "error", data: String(err) });
+        const message = String(err);
+        this.appendAssistantError("chat", message);
+        await this.save();
+        sendSSE({ type: "error", data: message });
       } finally {
+        this.chatInProgress = false;
         writer.close().catch(() => {});
       }
     })();
@@ -337,6 +393,7 @@ export class AgentSession implements DurableObject {
         fileCount: Object.keys(session.files).length,
         tokenUsage: session.tokenUsage,
         deployStatus: session.deployStatus,
+        deployLog: session.deployLog,
         appId: session.appId,
         appUrl: session.deployStatus?.phase === "live" ? session.deployStatus.appUrl : null,
       },
@@ -359,8 +416,31 @@ export class AgentSession implements DurableObject {
   private logError(source: string, message: string) {
     if (!this.session) return;
     this.session.errors.push({ timestamp: new Date().toISOString(), source, message: message.slice(0, 500) });
-    // Keep last 50 errors
-    if (this.session.errors.length > 50) this.session.errors = this.session.errors.slice(-50);
+    if (this.session.errors.length > MAX_ERRORS) this.session.errors = this.session.errors.slice(-MAX_ERRORS);
+  }
+
+  /** Record a deploy phase on the append-only timeline (capped). */
+  private logDeploy(status: DeployStatus) {
+    if (!this.session) return;
+    this.session.deployLog.push({ timestamp: new Date().toISOString(), phase: status.phase, detail: deployStatusDetail(status).slice(0, 500) });
+    if (this.session.deployLog.length > MAX_DEPLOY_LOG) this.session.deployLog = this.session.deployLog.slice(-MAX_DEPLOY_LOG);
+  }
+
+  /** Push a message onto the transcript, keeping only the last MAX_MESSAGES. */
+  private appendMessage(message: Message) {
+    if (!this.session) return;
+    this.session.messages.push(message);
+    if (this.session.messages.length > MAX_MESSAGES) this.session.messages = this.session.messages.slice(-MAX_MESSAGES);
+  }
+
+  /** Surface a failure INTO the visible transcript (not just SSE/logError), so
+   *  the user still sees what went wrong after a reload. De-duplicates against an
+   *  identical trailing error so repeated failures don't stack. */
+  private appendAssistantError(source: string, message: string) {
+    this.logError(source, message);
+    const text = `Error: ${message.slice(0, 2000)}`;
+    if (this.session?.messages[this.session.messages.length - 1]?.content === text) return;
+    this.appendMessage({ role: "assistant", content: text });
   }
 
   /** GET /errors — return server-side errors for debugging */
