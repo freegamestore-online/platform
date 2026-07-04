@@ -11,6 +11,11 @@ export function isSafeHref(url: string): boolean {
   // a hand-rolled "scheme-like prefix" regex is defeated by the embedded tab and
   // would wrongly pass it. Killing these chars up front closes that bypass.
   if (/[\u0000-\u0020\u007F-\u009F]/.test(u) || /\s/.test(u)) return false;
+  // Reject protocol-relative URLs (`//host`, `\\host`): they carry no scheme so
+  // they'd fall through to the scheme-less "safe" branch, but the browser
+  // resolves `//evil.example` to `https://evil.example` — an off-site link from
+  // prompt-injectable assistant output.
+  if (/^[/\\]{2}/.test(u)) return false;
   // Positive allowlist: explicit safe schemes …
   if (/^(https?:|mailto:)/i.test(u)) return true;
   // … any OTHER scheme-like prefix (foo:) is unsafe …

@@ -46,12 +46,16 @@ export function Create() {
   // message doesn't re-import.
   useEffect(() => {
     const gameId = searchParams.get("game");
-    if (!gameId || agent.projectsLoading || openedGameRef.current === gameId) return;
+    // Wait for identity to resolve. Without `!user || loading`, this fires during
+    // the auth-loading window when projectsLoading is already false and the
+    // project list is still empty — so openGame finds no match and mints a
+    // duplicate session for a game that already has one.
+    if (!gameId || loading || !user || agent.projectsLoading || openedGameRef.current === gameId) return;
     openedGameRef.current = gameId;
     void agent.openGame(gameId).finally(() => {
       setSearchParams({}, { replace: true });
     });
-  }, [searchParams, agent.projectsLoading, agent.openGame, setSearchParams]);
+  }, [searchParams, loading, user, agent.projectsLoading, agent.openGame, setSearchParams]);
 
   // Deep-link: /create?session=<id> resumes an in-progress draft session (opened
   // from the dashboard's Drafts list). Unlike ?game=, a draft has no live repo to
@@ -59,11 +63,11 @@ export function Create() {
   // switch to it and loadHistory() fills in the messages.
   useEffect(() => {
     const sessionId = searchParams.get("session");
-    if (!sessionId || agent.projectsLoading || openedSessionRef.current === sessionId) return;
+    if (!sessionId || loading || !user || agent.projectsLoading || openedSessionRef.current === sessionId) return;
     openedSessionRef.current = sessionId;
     agent.switchProject(sessionId);
     setSearchParams({}, { replace: true });
-  }, [searchParams, agent.projectsLoading, agent.switchProject, setSearchParams]);
+  }, [searchParams, loading, user, agent.projectsLoading, agent.switchProject, setSearchParams]);
 
   useEffect(() => { agent.loadHistory(); }, [agent.currentProjectId]);
   useEffect(() => {
@@ -76,7 +80,10 @@ export function Create() {
     const c = scrollRef.current;
     if (agent.isStreaming && c && c.scrollHeight - c.scrollTop - c.clientHeight > 120) return;
     const behavior = agent.messages.length <= 1 ? "instant" : "smooth";
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: behavior as ScrollBehavior }), 50);
+    // Cleared on the next message so a streaming build (a delta per token)
+    // doesn't stack dozens of pending timers.
+    const t = setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: behavior as ScrollBehavior }), 50);
+    return () => clearTimeout(t);
   }, [agent.messages]);
   useEffect(() => { localStorage.setItem("fgs_provider", provider); }, [provider]);
   useEffect(() => { localStorage.setItem("fgs_model", model); }, [model]);

@@ -320,7 +320,9 @@ export function useAgent() {
           // Don't declare failure — the Actions build finishes independent of
           // this stream. Keep the in-progress view and poll status; the poll
           // resolves it to live/error or a friendly "still building" note.
-          const deployUrl = (prev as { deployUrl?: string }).deployUrl;
+          // DeployState exposes appUrl (not deployUrl) — reading the wrong field
+          // meant the "still building at <url>" hint always lost its link.
+          const deployUrl = prev.appUrl;
           if (sessionId) void pollDeployStatus(sessionId, deployUrl);
           return prev;
         }

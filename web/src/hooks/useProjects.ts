@@ -21,22 +21,33 @@ async function fetchSessions(signal: AbortSignal): Promise<Project[]> {
   return data.sessions.map((session) => mapServerSession(session, now));
 }
 
-function putSession(project: Project): void {
+async function putSession(project: Project, attempt = 0): Promise<void> {
   // Session content (messages/files) is persisted by the DO during chat; this
-  // only upserts the lightweight index row (title + deployed game).
-  fetch(`${AGENT_URL}/sessions/${project.id}`, {
-    method: "PUT",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      title: project.name,
-      gameId: project.appId,
-      gameUrl: project.appUrl,
-      deployed: project.deployed,
-    }),
-  }).catch(() => {
-    // The next reload will reconcile from the server.
-  });
+  // only upserts the lightweight index row (title + deployed game). Retry a
+  // couple times: for markDeployed this row is what flips a live game out of the
+  // Dashboard "Drafts" list, so a dropped PUT would otherwise leave a shipped
+  // game looking like an unfinished draft until the next manual index write.
+  try {
+    const res = await fetch(`${AGENT_URL}/sessions/${project.id}`, {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: project.name,
+        gameId: project.appId,
+        gameUrl: project.appUrl,
+        deployed: project.deployed,
+      }),
+    });
+    if (!res.ok) throw new Error(`putSession ${res.status}`);
+  } catch {
+    if (attempt < 2) {
+      setTimeout(() => void putSession(project, attempt + 1), 500 * (attempt + 1));
+      return;
+    }
+    // Gave up — the DO also marks `deployed` server-side on a live deploy, and
+    // the next reload reconciles the rest from the server index.
+  }
 }
 
 export function useProjects() {
