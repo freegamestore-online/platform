@@ -3,6 +3,7 @@
 import { getConfig } from "./config";
 import { handleSessionsApi, resolveUser } from "./sessions";
 import { handleKeysApi } from "./keys";
+import { handleKidify } from "./kidify";
 
 export { AgentSession } from "./session";
 
@@ -61,6 +62,10 @@ export default {
     // Per-user AI-key vault (D1, encrypted) — /v1/keys/status, /v1/keys/:provider
     const keysResp = await handleKeysApi(request, env, corsHeaders(request, config.domain));
     if (keysResp) return keysResp;
+
+    // Kid-friendly message rewrite (free tier, platform token) — POST /kidify
+    const kidResp = await handleKidify(request, env, corsHeaders(request, config.domain));
+    if (kidResp) return kidResp;
 
     // Health check
     if (path === "/" || path === "/health") {
