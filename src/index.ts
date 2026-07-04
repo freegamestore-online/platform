@@ -30,12 +30,14 @@ const DEV_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 function corsHeaders(request: Request, domain: string): Record<string, string> {
   const origin = request.headers.get("Origin");
-  // Credentialed CORS (cookie auth) is restricted to the store's own domain +
-  // subdomains and localhost dev. No `*.pages.dev` wildcard — any attacker can
-  // deploy a Pages site, and reflecting it back with credentials would let it
-  // ride a signed-in user's fgs_token cookie.
-  const allowed =
-    origin && (origin === `https://${domain}` || origin.endsWith(`.${domain}`) || DEV_ORIGIN.test(origin)) ? origin : `https://${domain}`;
+  // Credentialed CORS (cookie auth) is restricted to the FIRST-PARTY console
+  // origins only — NOT `*.${domain}`. Published games are untrusted, user/
+  // agent-authored JS served at `<slug>.${domain}`; reflecting those with
+  // credentials would let a malicious/XSS'd game ride a signed-in user's
+  // fgs_token cookie to read transcripts + key status and drive /chat. The
+  // console is served only at `console.`/`publish.`.
+  const firstParty = origin === `https://console.${domain}` || origin === `https://publish.${domain}`;
+  const allowed = origin && (firstParty || DEV_ORIGIN.test(origin)) ? origin : `https://console.${domain}`;
   return {
     "Access-Control-Allow-Origin": allowed,
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",

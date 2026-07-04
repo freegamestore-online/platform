@@ -12,6 +12,7 @@ import type { AIConfig, Message, TokenUsage } from "./providers/types";
 import { type PushSubscription, sendWebPush } from "./push";
 import { getTemplateFiles } from "./template";
 import { resolveUserKey } from "./keys";
+import { allowRequest } from "./ratelimit";
 import { upsertSessionIndex } from "./sessions";
 
 interface ErrorEntry {
@@ -186,13 +187,23 @@ export class AgentSession implements DurableObject {
     if (this.chatInProgress) {
       return json({ error: "A build is already in progress for this game — wait for it to finish." }, 429, request, this.config.domain);
     }
-
+    // Claim the turn SYNCHRONOUSLY, before the first await. A DO interleaves
+    // concurrent requests at every await; checking the flag here but setting it
+    // only after several awaits (json parse, key decrypt, load) let a
+    // double-send / two tabs / a client retry both pass the check and then
+    // interleave writes on the shared `session` object — desyncing
+    // tool_use/tool_result and bricking the session (the exact failure this
+    // guard exists to prevent). Every setup-phase exit below releases it; once
+    // the background turn is launched it owns the flag and clears it in finally.
+    this.chatInProgress = true;
+    try {
     const body = await request.json<{
       message: string;
       aiConfig: AIConfig;
     }>();
 
     if (!body.message || !body.aiConfig?.provider || !body.aiConfig?.model) {
+      this.chatInProgress = false;
       return json(
         { error: "message, aiConfig.provider, and aiConfig.model are required" },
         400,
@@ -213,10 +224,13 @@ export class AgentSession implements DurableObject {
     // user shouldn't have to supply one. Fall back to the platform token so
     // "free" actually works keyless. (A user who saved their own GitHub token
     // still wins above — their per-user rate limit, not the shared one.)
+    let usedFreeTier = false;
     if (!resolvedKey && body.aiConfig.provider === "github") {
       resolvedKey = this.env.GITHUB_TOKEN || null;
+      usedFreeTier = true;
     }
     if (!resolvedKey) {
+      this.chatInProgress = false;
       return json(
         { error: "No API key saved for this provider — add one in AI settings.", code: "no_key" },
         400,
@@ -225,6 +239,23 @@ export class AgentSession implements DurableObject {
       );
     }
     body.aiConfig = { ...body.aiConfig, apiKey: resolvedKey };
+
+    // Rate-limit the FREE tier (shared platform token) per user so one scripted
+    // loop can't exhaust the shared GitHub Models quota — or crowd out the
+    // provisioning PAT — for everyone. Users on their own key are their own
+    // quota and aren't limited here.
+    if (usedFreeTier && userId) {
+      const ok = await allowRequest(this.env.DB, `freechat:${userId}`, 60, 3600, Math.floor(Date.now() / 1000));
+      if (!ok) {
+        this.chatInProgress = false;
+        return json(
+          { error: "You've hit the free-tier limit for now. Add your own API key in AI settings for unlimited builds, or try again later.", code: "rate_limited" },
+          429,
+          request,
+          this.config.domain,
+        );
+      }
+    }
 
     const session = await this.load();
     const files = new Map(Object.entries(session.files));
@@ -269,9 +300,9 @@ export class AgentSession implements DurableObject {
 
     const config = this.config;
 
-    // Claim the turn — released in the background task's finally. Guards against a
-    // second /chat interleaving with this one and clobbering session writes.
-    this.chatInProgress = true;
+    // The turn was already claimed synchronously above (before any await), so a
+    // racing /chat can't slip in. From here the background task owns the flag and
+    // releases it in its finally.
 
     // Run the agent in the background
     (async () => {
@@ -338,27 +369,29 @@ export class AgentSession implements DurableObject {
                 onDeployStatus: (status) => {
                   session.deployStatus = status;
                   this.logDeploy(status);
-                  this.state.storage.put("session", session);
+                  this.state.storage.put("session", session).catch((e) => this.logError("deploy", `persist status: ${String(e)}`));
                   sendSSE({ type: "deploy_status", data: JSON.stringify(status) });
                   if (status.phase === "live") {
                     this.sendPush("Your build is live!");
                   } else if (status.phase === "error") {
                     this.appendAssistantError("deploy", status.error);
                     this.sendPush("Build failed");
-                    // onAppDeployed runs before the deploy resolves, so a failed
-                    // initial deploy left appId set — which would tell the next
-                    // turn the game is already deployed and block a retry. Clear
-                    // it so the agent can deploy again.
-                    session.appId = null;
-                    session.appName = null;
-                    this.state.storage.put("session", session);
+                    // KEEP appId/appName: in Path B the repo + host route +
+                    // registry are already created (registerViaAdmin) before the
+                    // Actions build can fail, so the game IS provisioned — it just
+                    // didn't build. Nulling appId told the next turn "not deployed"
+                    // → it ran a fresh `deploy` → the uniqueness check saw the
+                    // existing repo → "ID already taken", stranding the game with
+                    // no in-session recovery. Retained, the next turn does
+                    // push_update against the existing repo and re-runs CI.
+                    this.state.storage.put("session", session).catch((e) => this.logError("deploy", `persist error: ${String(e)}`));
                   }
                 },
                 onAppDeployed: (id, name) => {
                   session.appId = id;
                   session.appName = name;
                   session.deployStatus = { phase: "provisioning", steps: [] };
-                  this.state.storage.put("session", session);
+                  this.state.storage.put("session", session).catch((e) => this.logError("deploy", `persist provision: ${String(e)}`));
                 },
               });
             } catch (err) {
@@ -408,6 +441,13 @@ export class AgentSession implements DurableObject {
         ...corsHeaders(request, this.config.domain),
       },
     });
+    } catch (err) {
+      // Setup threw before the background turn launched (bad JSON, key decrypt,
+      // load). Release the claim so the session isn't stuck "in progress"
+      // forever, then surface the error.
+      this.chatInProgress = false;
+      return json({ error: String(err) }, 500, request, this.config.domain);
+    }
   }
 
   /** GET /status — current session state */
@@ -512,6 +552,12 @@ export class AgentSession implements DurableObject {
    *  scaffold. Ownership-gated (registry creatorGithub / member / legacy
    *  collaborator). Refuses to re-point a session already bound elsewhere. */
   private async handleImport(request: Request): Promise<Response> {
+    // Refuse while a turn is streaming: import replaces session.files/appId, but
+    // the in-flight turn holds the old `session` and keeps persisting it — the
+    // import would be silently clobbered (or corrupt a half-written deploy).
+    if (this.chatInProgress) {
+      return json({ error: "A build is in progress — wait for it to finish before opening another game." }, 409, request, this.config.domain);
+    }
     const body = await request.json<{ id?: string }>().catch(() => ({}) as { id?: string });
     const id = (body.id || "").trim();
     // GAME id grammar (lowercase slug, ≤58) — the registry lookup is the real
@@ -599,6 +645,12 @@ export class AgentSession implements DurableObject {
 
   /** POST /reset — start over (re-seeds from the canonical template repo) */
   private async handleReset(request: Request): Promise<Response> {
+    // Refuse while a turn is streaming: the in-flight turn's deploy callbacks
+    // still hold the pre-reset `session` and would persist it back over the
+    // fresh one, silently undoing the reset.
+    if (this.chatInProgress) {
+      return json({ error: "A build is in progress — wait for it to finish before resetting." }, 409, request, this.config.domain);
+    }
     this.session = await this.freshSession();
     await this.save();
     return json({ ok: true }, 200, request, this.config.domain);
@@ -633,10 +685,14 @@ const DEV_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 function corsHeaders(request: Request, domain: string): Record<string, string> {
   const origin = request.headers.get("Origin");
-  // Credentialed CORS restricted to the store's own domain + subdomains and
-  // localhost dev — no `*.pages.dev` wildcard (any attacker can deploy one).
-  const allowed =
-    origin && (origin === `https://${domain}` || origin.endsWith(`.${domain}`) || DEV_ORIGIN.test(origin)) ? origin : `https://${domain}`;
+  // Credentialed CORS is restricted to the FIRST-PARTY console origins only —
+  // NOT `*.${domain}`. Published games are untrusted, user/agent-authored JS
+  // served at `<slug>.${domain}`; reflecting those with credentials would let a
+  // malicious or XSS'd game ride a signed-in user's `fgs_token` cookie to read
+  // their transcripts, drive /chat, and read key status. The console is served
+  // only at `console.`/`publish.`; the apex is the storefront (never calls this).
+  const firstParty = origin === `https://console.${domain}` || origin === `https://publish.${domain}`;
+  const allowed = origin && (firstParty || DEV_ORIGIN.test(origin)) ? origin : `https://console.${domain}`;
   return {
     "Access-Control-Allow-Origin": allowed,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",

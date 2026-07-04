@@ -7,6 +7,7 @@
  *  stays the source of truth on the client; this is a view layer only. */
 
 import type { Env } from "./index";
+import { allowRequest } from "./ratelimit";
 import { resolveUser } from "./sessions";
 
 const MODEL = "openai/gpt-4o-mini";
@@ -61,6 +62,12 @@ export async function handleKidify(
   // Auth-gate: the free platform token must not be an open rewrite API.
   const user = await resolveUser(request, env.AUTH);
   if (!user) return json({ error: "unauthorized" }, 401);
+
+  // Per-user rate limit: /kidify spends the shared platform GITHUB_TOKEN, so cap
+  // one user so they can't loop it and exhaust the free quota for everyone.
+  if (!(await allowRequest(env.DB, `kidify:${user.id}`, 120, 3600, Math.floor(Date.now() / 1000)))) {
+    return json({ error: "Too many rewrites — try again in a bit.", code: "rate_limited" }, 429);
+  }
 
   let body: { text?: unknown; age?: unknown; vibe?: unknown };
   try {

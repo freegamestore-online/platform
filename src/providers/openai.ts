@@ -154,7 +154,9 @@ async function* parseOpenAISSE(body: ReadableStream): AsyncGenerator<StreamEvent
       }
     }
   } finally {
-    reader.releaseLock();
+    // cancel() (not just releaseLock) so an early break out of the consuming
+    // `for await` closes the upstream response body instead of leaking it.
+    await reader.cancel().catch(() => {});
   }
 
   yield { type: "done", data: "" };

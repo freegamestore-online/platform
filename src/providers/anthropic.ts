@@ -145,7 +145,10 @@ async function* parseAnthropicSSE(body: ReadableStream): AsyncGenerator<StreamEv
       }
     }
   } finally {
-    reader.releaseLock();
+    // cancel() (not just releaseLock) so an early break out of the consuming
+    // `for await` — rate-limit/error paths in agent.ts — closes the upstream
+    // response body instead of leaking the connection.
+    await reader.cancel().catch(() => {});
   }
 
   yield { type: "done", data: "" };
