@@ -53,11 +53,18 @@ async function authenticateAdmin(request: Request, env: Env): Promise<{ email: s
     const meRes = await env.AUTH.fetch("https://auth.freegamestore.online/me", {
       headers: { "X-FGS-Token": fgsToken },
     });
-    if (!meRes.ok) return { email: null, isAdmin: false };
-    const user = (await meRes.json()) as { email?: string | null };
+    if (!meRes.ok) {
+      console.log(`[admin-auth] /me not ok: ${meRes.status}`);
+      return { email: null, isAdmin: false };
+    }
+    const user = (await meRes.json()) as { email?: string | null; login?: string | null; id?: string | null };
     const email = user.email ? user.email.toLowerCase() : null;
-    return { email, isAdmin: !!email && adminEmails(env).includes(email) };
-  } catch {
+    const isAdmin = !!email && adminEmails(env).includes(email);
+    // TEMP diagnostic (owner's own logs): why is a sign-in resolving to non-admin?
+    console.log(`[admin-auth] token=yes me.email=${user.email ?? "(none)"} me.login=${user.login ?? "-"} me.id=${user.id ?? "-"} isAdmin=${isAdmin} allow=${adminEmails(env).join(",")}`);
+    return { email, isAdmin };
+  } catch (e) {
+    console.log(`[admin-auth] error resolving /me: ${String(e)}`);
     return { email: null, isAdmin: false };
   }
 }
@@ -780,10 +787,12 @@ export default {
     if (ADMIN_PATHS.has(url.pathname)) {
       const { email, isAdmin } = await authenticateAdmin(request, env);
       if (!isAdmin) {
-        // Console pages get the sign-in / wrong-account page; APIs get 401.
+        // Console pages get the sign-in / wrong-account page (200 — it IS a
+        // valid page, and a 401 status just spams the browser console); APIs
+        // still return 401.
         if (url.pathname === "/" || url.pathname === "/docs") {
           return new Response(renderSignIn(email), {
-            status: email ? 403 : 401,
+            status: 200,
             headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
           });
         }
