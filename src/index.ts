@@ -687,7 +687,10 @@ function corsHeaders(request: Request): Record<string, string> {
 function jsonResponse(data: unknown, status: number, request: Request): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json", ...corsHeaders(request) },
+    // no-store: these carry per-admin / observability data — the edge must never
+    // cache them (a stale public copy is exactly how the creator list + crash
+    // log leaked before the gate landed).
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...corsHeaders(request) },
   });
 }
 
@@ -781,7 +784,7 @@ export default {
         if (url.pathname === "/" || url.pathname === "/docs") {
           return new Response(renderSignIn(email), {
             status: email ? 403 : 401,
-            headers: { "Content-Type": "text/html; charset=utf-8" },
+            headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
           });
         }
         return jsonResponse({ error: "unauthorized" }, 401, request);
@@ -794,7 +797,7 @@ export default {
     }
 
     if (url.pathname === "/docs") {
-      return new Response(renderApiDocs(), { headers: { "Content-Type": "text/html" } });
+      return new Response(renderApiDocs(), { headers: { "Content-Type": "text/html", "Cache-Control": "no-store" } });
     }
 
     if (url.pathname === "/api/status") {
@@ -951,6 +954,6 @@ export default {
     // console, so it's an admin escape hatch rather than the primary path.
     let html = renderDashboardShell();
     html = html.replace("<!--PROVISION-->", renderProvisionForm());
-    return new Response(html, { headers: { "Content-Type": "text/html" } });
+    return new Response(html, { headers: { "Content-Type": "text/html", "Cache-Control": "no-store" } });
   },
 };
