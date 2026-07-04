@@ -326,8 +326,21 @@ export class AgentSession implements DurableObject {
     // racing /chat can't slip in. From here the background task owns the flag and
     // releases it in its finally.
 
+    // Persist the user's message NOW, durably, before the turn runs. A refresh
+    // mid-build cancels the SSE stream and can tear the background turn down
+    // before its end-of-turn save() — which permanently lost the first message
+    // + reply and left the reopened chat showing the empty "Describe the game…"
+    // placeholder. `history` is the pre-turn snapshot handed to runAgentTurn
+    // (which re-includes this user message in newMessages); on completion we
+    // rebuild `history.concat(newMessages)` so the provisional save is
+    // superseded without duplicating the user turn.
+    const history = session.messages.slice();
+    session.messages.push({ role: "user", content: body.message });
+    if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
+    await this.save();
+
     // Run the agent in the background
-    (async () => {
+    const turn = (async () => {
       const encoder = new TextEncoder();
       const sendSSE = (evt: { type: string; data: string }) => {
         writer.write(encoder.encode(`data: ${JSON.stringify(evt)}\n\n`)).catch(() => {});
@@ -340,22 +353,23 @@ export class AgentSession implements DurableObject {
           fileCount: files.size,
           fileList: [...files.keys()].sort().join(", "),
         };
-        const result = await runAgentTurn(body.aiConfig, session.messages, body.message, files, writer, config, sessionCtx).catch(async (err) => {
+        const result = await runAgentTurn(body.aiConfig, history, body.message, files, writer, config, sessionCtx).catch(async (err) => {
           this.logError("agent", String(err));
-          // Persist the user's message + the failure so the turn survives a
-          // reload. Without this, a hard failure (network/provider throw)
-          // discarded everything the user typed — it looked like "the chat
-          // wasn't preserved". Handled provider errors already persist via
-          // newMessages; this covers the throw path.
-          session.messages.push(
+          // The user message is already pre-saved above; rebuild from the
+          // pre-turn snapshot (so it's never doubled) and record the failure so
+          // the turn survives a reload.
+          session.messages = history.concat([
             { role: "user", content: body.message },
             { role: "assistant", content: `Error: ${String(err)}` },
-          );
+          ]);
           await this.save();
           throw err;
         });
 
-        session.messages.push(...result.newMessages);
+        // Rebuild from the pre-turn snapshot: newMessages already begins with
+        // the user message we pre-saved, so this supersedes the provisional save
+        // without duplicating the user turn.
+        session.messages = history.concat(result.newMessages);
         if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
         session.files = Object.fromEntries(files);
         // Accumulate this turn's token usage into the persisted running total
@@ -458,6 +472,11 @@ export class AgentSession implements DurableObject {
         writer.close().catch(() => {});
       }
     })();
+
+    // Keep the DO alive until the turn finishes even if the client disconnects
+    // (a refresh mid-build). Without this the runtime can evict the object once
+    // the streamed Response is cancelled, killing the turn before it saves.
+    this.state.waitUntil(turn);
 
     return new Response(readable, {
       headers: {
