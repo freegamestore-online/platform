@@ -82,6 +82,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     } catch {
       return json({ error: "Invalid JSON body" }, 400);
     }
+    // Normalize before validating so a non-UI client can't get "available" from
+    // check-id (which trims+lowercases) yet a 400 here.
+    body.id = (body.id ?? "").trim().toLowerCase();
     idForLog = body.id;
     log(`body id=${body.id} name=${JSON.stringify(body.name)} template=${body.template}`);
     const idErr = validateId(body.id);
@@ -106,7 +109,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
     log("github repo-existence check");
     const repoCheck = await fetchWithTimeout(`https://api.github.com/repos/${CONFIG.org}/${body.id}`, { headers: gh(context.env.GITHUB_TOKEN) }, 15000, "github repo check");
-    const repoExisted = !!((await repoCheck.json().catch(() => ({}))) as Record<string, unknown>).id;
+    // Fail SAFE: only a 200 means "exists" and only a 404 means "free". A 401
+    // (token expiry), 403 (rate limit), or 5xx must NOT be read as "free" — that
+    // would skip the duplicate/ownership guard and provision over another game.
+    if (repoCheck.status !== 200 && repoCheck.status !== 404) {
+      log(`github repo check inconclusive: status=${repoCheck.status}`);
+      return json({ error: "Couldn't verify the game id right now. Please retry in a moment." }, 502);
+    }
+    const repoExisted = repoCheck.status === 200;
     log(`github repo check: status=${repoCheck.status} existed=${repoExisted}`);
     if (repoExisted && !owned.some((g) => g.id === body.id)) {
       // The repo exists and isn't one of this user's games — don't let them

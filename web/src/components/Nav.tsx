@@ -45,7 +45,7 @@ export function Nav() {
           ))}
           {user ? (
             <Link to="/profile">
-              <img src={user.avatarUrl} alt={user.github} className="rounded-full border-2"
+              <img src={user.avatarUrl} alt={user.github} width={28} height={28} className="rounded-full border-2"
                 style={{ width: 28, height: 28, borderColor: "var(--border)", minWidth: 28, minHeight: 28 }} />
             </Link>
           ) : (

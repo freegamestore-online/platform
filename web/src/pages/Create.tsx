@@ -88,6 +88,20 @@ export function Create() {
   useEffect(() => { localStorage.setItem("fgs_provider", provider); }, [provider]);
   useEffect(() => { localStorage.setItem("fgs_model", model); }, [model]);
 
+  // The studio is a fixed, full-height app shell where ONLY the chat scrolls.
+  // Lock the page itself while it's mounted so mobile Safari can't scroll the
+  // whole layout (both bars included) when the transcript overflows — html/body
+  // otherwise only lock overflow-x and #root is min-height:100dvh (can grow).
+  // Restored on unmount so the other routes (Dashboard, Profile) scroll normally.
+  useEffect(() => {
+    const body = document.body.style;
+    const html = document.documentElement.style;
+    const prev = { body: body.overflow, html: html.overflow };
+    body.overflow = "hidden";
+    html.overflow = "hidden";
+    return () => { body.overflow = prev.body; html.overflow = prev.html; };
+  }, []);
+
   // Once the vault's key state loads, use whatever provider the user actually
   // has a key for — don't sit on a keyless default and fail mid-build. Runs once
   // (keys.loading → false); if the current provider already has a key, keep it.
@@ -200,9 +214,13 @@ export function Create() {
           two collapse into one: the nav is hidden and StudioToolbar carries a
           back-to-My-Games button (like the FAS studio bar). */}
       <div className="hidden md:block"><Nav /></div>
-      <div className="grid flex-1 min-h-0 grid-cols-1 md:grid-cols-2">
-        {/* Chat */}
-        <div className="flex flex-col overflow-hidden border-r" style={{ borderColor: "var(--border)" }}>
+      {/* grid-rows-[minmax(0,1fr)] bounds the single row to the container height
+          (an `auto` row would size to content and let the chat push past the
+          viewport). Each column then owns its own overflow. */}
+      <div className="grid flex-1 min-h-0 grid-cols-1 md:grid-cols-2 grid-rows-[minmax(0,1fr)]">
+        {/* Chat — min-h-0 so it can shrink to the row height and its inner
+            overflow-y-auto region becomes the only scroll surface. */}
+        <div className="flex flex-col overflow-hidden border-r min-h-0" style={{ borderColor: "var(--border)" }}>
           <StudioToolbar
             agent={agent} currentProject={currentProject}
             provider={provider} setProvider={setProvider}

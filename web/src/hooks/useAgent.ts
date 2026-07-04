@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useProjects, type Project } from "./useProjects";
 
 export type { Project };
@@ -52,6 +52,10 @@ export function useAgent() {
   isStreamingRef.current = isStreaming;
   const sessionIdRef = useRef(sessionId);
   sessionIdRef.current = sessionId;
+  // Stops background loops (deploy polling) from running + calling setState after
+  // the studio unmounts — otherwise pollDeployStatus keeps fetching for ~3 min.
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   // No client-side message persistence: the agent worker's Durable Object saves
   // the authoritative transcript on every turn, and loadHistory() restores it
@@ -145,6 +149,7 @@ export function useAgent() {
   const pollDeployStatus = useCallback(async (sid: string, deployUrl?: string) => {
     for (let i = 0; i < 18; i++) { // ~3 min at 10s
       await new Promise((r) => setTimeout(r, 10000));
+      if (!mountedRef.current) return; // studio unmounted — stop polling
       if (sessionIdRef.current !== sid) return; // user switched projects
       try {
         const res = await fetch(`${AGENT_URL}/session/${sid}/status`, { credentials: "include" });

@@ -46,7 +46,9 @@ export function getKidMode(): KidMode {
     if (!raw) return DEFAULT;
     const p = JSON.parse(raw) as Partial<KidMode>;
     return {
-      enabled: !!p.enabled,
+      // Only an explicit stored boolean overrides the default — a partial/legacy
+      // blob missing `enabled` must fall back to DEFAULT (on), not coerce to off.
+      enabled: typeof p.enabled === "boolean" ? p.enabled : DEFAULT.enabled,
       age: isAge(p.age) ? p.age : DEFAULT.age,
       vibe: isVibe(p.vibe) ? p.vibe : DEFAULT.vibe,
     };

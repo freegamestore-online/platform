@@ -1,0 +1,1697 @@
+{
+  "version": "0.44.0",
+  "timestamp": "2026-07-04T23:31:34.519Z",
+  "score": 77,
+  "grade": "B",
+  "checks": [
+    {
+      "name": "structure",
+      "score": 95,
+      "grade": "A",
+      "details": {
+        "found": [
+          "package.json",
+          "tsconfig.json",
+          "LICENSE",
+          ".gitignore",
+          "README.md",
+          "lockfile"
+        ],
+        "missing": [],
+        "srcFiles": 39,
+        "testFiles": 8,
+        "testRatio": "21%",
+        "monorepo": true,
+        "workspaceTool": "pnpm",
+        "packages": 1
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "Low test-to-source ratio: 8 tests for 39 source files (21%)",
+          "rule": "low-test-ratio"
+        }
+      ],
+      "duration": 4
+    },
+    {
+      "name": "lint",
+      "score": 70,
+      "grade": "B",
+      "details": {
+        "linter": "detected-in-pipeline",
+        "reason": "Linting runs in CI workflows",
+        "lintInCI": true,
+        "pkgLinters": 0
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "message": "No root linter config, but: Linting runs in CI workflows",
+          "rule": "lint-not-root"
+        }
+      ],
+      "duration": 0
+    },
+    {
+      "name": "types",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "errors": 0,
+        "ok": true
+      },
+      "issues": [],
+      "duration": 565
+    },
+    {
+      "name": "type-safety",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "non-null assertion (!.)": 1,
+        "filesScanned": 39,
+        "totalUnsafe": 1
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "message": "non-null assertion (!.)",
+          "file": "web/src/hooks/useAgent.ts",
+          "line": 221,
+          "rule": "unsafe-type"
+        }
+      ],
+      "duration": 5
+    },
+    {
+      "name": "standards",
+      "score": 77,
+      "grade": "B",
+      "details": {
+        "filesScanned": 39,
+        "codeSmells": 0,
+        "largeFiles": 3,
+        "namingViolations": 0
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "TS file uses PascalCase but doesn't export a class: useAgent.ts",
+          "file": "web/src/hooks/useAgent.ts",
+          "rule": "file-naming"
+        },
+        {
+          "severity": "warning",
+          "message": "TS file uses PascalCase but doesn't export a class: useAuth.ts",
+          "file": "web/src/hooks/useAuth.ts",
+          "rule": "file-naming"
+        },
+        {
+          "severity": "warning",
+          "message": "TS file uses PascalCase but doesn't export a class: useDraftSessions.ts",
+          "file": "web/src/hooks/useDraftSessions.ts",
+          "rule": "file-naming"
+        },
+        {
+          "severity": "warning",
+          "message": "TS file uses PascalCase but doesn't export a class: useKeys.ts",
+          "file": "web/src/hooks/useKeys.ts",
+          "rule": "file-naming"
+        },
+        {
+          "severity": "warning",
+          "message": "TS file uses PascalCase but doesn't export a class: useProjects.ts",
+          "file": "web/src/hooks/useProjects.ts",
+          "rule": "file-naming"
+        },
+        {
+          "severity": "warning",
+          "message": "TS file uses PascalCase but doesn't export a class: kidMode.ts",
+          "file": "web/src/lib/kidMode.ts",
+          "rule": "file-naming"
+        },
+        {
+          "severity": "warning",
+          "message": "TS file uses PascalCase but doesn't export a class: textSize.ts",
+          "file": "web/src/lib/textSize.ts",
+          "rule": "file-naming"
+        },
+        {
+          "severity": "warning",
+          "message": "383 lines — consider splitting (penalty grows exponentially above 300)",
+          "file": "web/src/hooks/useAgent.ts",
+          "rule": "large-file"
+        },
+        {
+          "severity": "warning",
+          "message": "334 lines — consider splitting (penalty grows exponentially above 300)",
+          "file": "web/src/pages/Create.tsx",
+          "rule": "large-file"
+        },
+        {
+          "severity": "warning",
+          "message": "308 lines — consider splitting (penalty grows exponentially above 300)",
+          "file": "web/src/pages/GameSettings.tsx",
+          "rule": "large-file"
+        },
+        {
+          "severity": "warning",
+          "message": "TypeScript strict mode not enabled — add \"strict\": true to tsconfig",
+          "rule": "ts-strict"
+        }
+      ],
+      "duration": 5
+    },
+    {
+      "name": "complexity",
+      "score": 57,
+      "grade": "D",
+      "details": {
+        "totalFiles": 39,
+        "totalLines": 4352,
+        "longFunctions": 16,
+        "complexFunctions": 4,
+        "functionCount": 79
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "ProviderRow: 68 lines (max 60)",
+          "file": "web/src/components/AISettings.tsx",
+          "line": 62,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "ChatMessage: 85 lines (max 60)",
+          "file": "web/src/components/ChatMessage.tsx",
+          "line": 27,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "ChatMessage: complexity 22 (max 15)",
+          "file": "web/src/components/ChatMessage.tsx",
+          "line": 27,
+          "rule": "high-complexity"
+        },
+        {
+          "severity": "warning",
+          "message": "KidModeSetting: 90 lines (max 60)",
+          "file": "web/src/components/KidModeSetting.tsx",
+          "line": 8,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "Markdown: 69 lines (max 60)",
+          "file": "web/src/components/Markdown.tsx",
+          "line": 27,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "inline: 68 lines (max 60)",
+          "file": "web/src/components/Markdown.tsx",
+          "line": 98,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "ProjectPicker: 98 lines (max 60)",
+          "file": "web/src/components/ProjectPicker.tsx",
+          "line": 23,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "StudioSettingsDialog: 79 lines (max 60)",
+          "file": "web/src/components/StudioSettingsDialog.tsx",
+          "line": 23,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "useAuthProvider: 99 lines (max 60)",
+          "file": "web/src/hooks/useAuth.ts",
+          "line": 84,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "useKeys: 69 lines (max 60)",
+          "file": "web/src/hooks/useKeys.ts",
+          "line": 11,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "useProjects: 200 lines (max 60)",
+          "file": "web/src/hooks/useProjects.ts",
+          "line": 53,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "useProjects: complexity 29 (max 15)",
+          "file": "web/src/hooks/useProjects.ts",
+          "line": 53,
+          "rule": "high-complexity"
+        },
+        {
+          "severity": "warning",
+          "message": "Dashboard: 88 lines (max 60)",
+          "file": "web/src/pages/Dashboard.tsx",
+          "line": 13,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "GameList: 66 lines (max 60)",
+          "file": "web/src/pages/Dashboard.tsx",
+          "line": 102,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "GameSettings: 195 lines (max 60)",
+          "file": "web/src/pages/GameSettings.tsx",
+          "line": 12,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "GameSettings: complexity 35 (max 15)",
+          "file": "web/src/pages/GameSettings.tsx",
+          "line": 12,
+          "rule": "high-complexity"
+        },
+        {
+          "severity": "warning",
+          "message": "DraftSettings: 97 lines (max 60)",
+          "file": "web/src/pages/GameSettings.tsx",
+          "line": 211,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "Profile: 174 lines (max 60)",
+          "file": "web/src/pages/Profile.tsx",
+          "line": 9,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "Profile: complexity 23 (max 15)",
+          "file": "web/src/pages/Profile.tsx",
+          "line": 9,
+          "rule": "high-complexity"
+        },
+        {
+          "severity": "warning",
+          "message": "DetailRow: 63 lines (max 60)",
+          "file": "web/src/pages/Profile.tsx",
+          "line": 184,
+          "rule": "long-function"
+        }
+      ],
+      "duration": 5
+    },
+    {
+      "name": "duplication",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "filesScanned": 39,
+        "totalSourceLines": 4352,
+        "duplicateBlocks": 0,
+        "duplicationPct": "0%",
+        "tool": "built-in"
+      },
+      "issues": [],
+      "duration": 125
+    },
+    {
+      "name": "error-handling",
+      "score": 77,
+      "grade": "B",
+      "details": {
+        "emptyCatch": 0,
+        "throwString": 0,
+        "floatingPromises": 3,
+        "jsonParseUnsafe": 2,
+        "infiniteLoops": 0,
+        "hasErrorBoundary": false,
+        "tool": "built-in"
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "Floating promise — missing await, .catch(), or return",
+          "file": "web/src/components/GameVersion.tsx",
+          "line": 21,
+          "rule": "floating-promise"
+        },
+        {
+          "severity": "warning",
+          "message": ".catch(() => {}) silently swallows errors — at least log them",
+          "file": "web/src/hooks/useAuth.ts",
+          "line": 175,
+          "rule": "swallowed-promise"
+        },
+        {
+          "severity": "warning",
+          "message": "Floating promise — missing await, .catch(), or return",
+          "file": "web/src/hooks/useDraftSessions.ts",
+          "line": 31,
+          "rule": "floating-promise"
+        },
+        {
+          "severity": "warning",
+          "message": ".catch(() => {}) silently swallows errors — at least log them",
+          "file": "web/src/hooks/useDraftSessions.ts",
+          "line": 45,
+          "rule": "swallowed-promise"
+        },
+        {
+          "severity": "warning",
+          "message": "Floating promise — missing await, .catch(), or return",
+          "file": "web/src/hooks/useKeys.ts",
+          "line": 66,
+          "rule": "floating-promise"
+        },
+        {
+          "severity": "warning",
+          "message": "JSON.parse of external data without try-catch — crashes on malformed input",
+          "file": "web/src/hooks/useAgent.ts",
+          "line": 272,
+          "rule": "unsafe-json-parse"
+        },
+        {
+          "severity": "warning",
+          "message": "JSON.parse of external data without try-catch — crashes on malformed input",
+          "file": "web/src/hooks/useAgent.ts",
+          "line": 278,
+          "rule": "unsafe-json-parse"
+        },
+        {
+          "severity": "warning",
+          "message": "React project with no Error Boundary",
+          "rule": "no-error-boundary"
+        }
+      ],
+      "duration": 7
+    },
+    {
+      "name": "react",
+      "score": 70,
+      "grade": "C",
+      "details": {
+        "jsxFiles": 24,
+        "conditionalHooks": 0,
+        "missingKeys": 0,
+        "indexKeys": 2,
+        "propSpreading": 7,
+        "inlineHandlers": 33,
+        "effectNoDeps": 0,
+        "domManipulation": 1,
+        "suggestion": "Install eslint-plugin-react-hooks for deeper React analysis: pnpm add -D eslint-plugin-react-hooks"
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "Using index as key — can cause rendering bugs with reorderable lists",
+          "file": "web/src/components/CreateGameForm.tsx",
+          "line": 125,
+          "rule": "index-key"
+        },
+        {
+          "severity": "warning",
+          "message": "Spreading props onto DOM element — can pass unexpected attributes",
+          "file": "web/src/components/ui/Button.tsx",
+          "line": 37,
+          "rule": "prop-spreading"
+        },
+        {
+          "severity": "warning",
+          "message": "Spreading props onto DOM element — can pass unexpected attributes",
+          "file": "web/src/components/ui/Button.tsx",
+          "line": 43,
+          "rule": "prop-spreading"
+        },
+        {
+          "severity": "warning",
+          "message": "Spreading props onto DOM element — can pass unexpected attributes",
+          "file": "web/src/components/ui/Card.tsx",
+          "line": 5,
+          "rule": "prop-spreading"
+        },
+        {
+          "severity": "warning",
+          "message": "Spreading props onto DOM element — can pass unexpected attributes",
+          "file": "web/src/components/ui/Field.tsx",
+          "line": 11,
+          "rule": "prop-spreading"
+        },
+        {
+          "severity": "warning",
+          "message": "Spreading props onto DOM element — can pass unexpected attributes",
+          "file": "web/src/components/ui/Field.tsx",
+          "line": 15,
+          "rule": "prop-spreading"
+        },
+        {
+          "severity": "warning",
+          "message": "Spreading props onto DOM element — can pass unexpected attributes",
+          "file": "web/src/components/ui/Field.tsx",
+          "line": 20,
+          "rule": "prop-spreading"
+        },
+        {
+          "severity": "warning",
+          "message": "Spreading props onto DOM element — can pass unexpected attributes",
+          "file": "web/src/components/ui/Field.tsx",
+          "line": 28,
+          "rule": "prop-spreading"
+        },
+        {
+          "severity": "warning",
+          "message": "Using index as key — can cause rendering bugs with reorderable lists",
+          "file": "web/src/pages/Create.tsx",
+          "line": 266,
+          "rule": "index-key"
+        },
+        {
+          "severity": "warning",
+          "message": "Direct DOM query in React component — use refs instead",
+          "file": "web/src/main.tsx",
+          "line": 11,
+          "rule": "direct-dom"
+        },
+        {
+          "severity": "warning",
+          "message": "33 inline arrow functions in JSX handlers — extract to named functions for readability",
+          "rule": "inline-handlers"
+        }
+      ],
+      "duration": 4
+    },
+    {
+      "name": "accessibility",
+      "score": 71,
+      "grade": "C",
+      "details": {
+        "jsxFiles": 24,
+        "missingAlt": 0,
+        "clickDiv": 3,
+        "missingLabel": 4,
+        "missingLang": 0,
+        "autofocus": 0,
+        "positiveTabindex": 0,
+        "suggestion": "Install eslint-plugin-jsx-a11y for deeper accessibility analysis: pnpm add -D eslint-plugin-jsx-a11y"
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "Click handler on non-interactive element without role + keyboard handler",
+          "file": "web/src/components/ProjectPicker.tsx",
+          "line": 42,
+          "rule": "click-events"
+        },
+        {
+          "severity": "warning",
+          "message": "Click handler on non-interactive element without role + keyboard handler",
+          "file": "web/src/components/StudioSettingsDialog.tsx",
+          "line": 49,
+          "rule": "click-events"
+        },
+        {
+          "severity": "warning",
+          "message": "Click handler on non-interactive element without role + keyboard handler",
+          "file": "web/src/components/StudioSettingsDialog.tsx",
+          "line": 50,
+          "rule": "click-events"
+        },
+        {
+          "severity": "warning",
+          "message": "Form control without label, aria-label, or aria-labelledby",
+          "file": "web/src/components/ui/Field.tsx",
+          "line": 11,
+          "rule": "form-label"
+        },
+        {
+          "severity": "warning",
+          "message": "Form control without label, aria-label, or aria-labelledby",
+          "file": "web/src/components/ui/Field.tsx",
+          "line": 15,
+          "rule": "form-label"
+        },
+        {
+          "severity": "warning",
+          "message": "Form control without label, aria-label, or aria-labelledby",
+          "file": "web/src/components/ui/Field.tsx",
+          "line": 20,
+          "rule": "form-label"
+        },
+        {
+          "severity": "warning",
+          "message": "Form control without label, aria-label, or aria-labelledby",
+          "file": "web/src/pages/Create.tsx",
+          "line": 272,
+          "rule": "form-label"
+        }
+      ],
+      "duration": 4
+    },
+    {
+      "name": "docs",
+      "score": 69,
+      "grade": "C",
+      "details": {
+        "readmeLines": 69,
+        "totalExports": 69,
+        "documentedExports": 39,
+        "documentedPct": "57%",
+        "hasChangelog": false
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "message": "No CHANGELOG.md — version history not documented",
+          "rule": "no-changelog"
+        }
+      ],
+      "duration": 2
+    },
+    {
+      "name": "best-practices",
+      "score": 76,
+      "grade": "B",
+      "details": {
+        "practicesChecked": 22,
+        "practicesFollowed": 12,
+        "adherence": "55%"
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "message": "No SECURITY.md — users don't know how to report vulnerabilities",
+          "rule": "security-policy"
+        },
+        {
+          "severity": "info",
+          "message": "No CODEOWNERS file — no mandatory reviewers for critical paths",
+          "rule": "codeowners"
+        },
+        {
+          "severity": "info",
+          "message": "No CONTRIBUTING.md — onboarding is harder for new contributors",
+          "rule": "contributing-guide"
+        },
+        {
+          "severity": "info",
+          "message": "No pre-commit hooks (husky/lefthook) — lint/format not enforced before commit",
+          "rule": "pre-commit-hooks"
+        },
+        {
+          "severity": "info",
+          "message": "No Dependabot/Renovate — dependency updates are manual and often forgotten",
+          "rule": "automated-deps"
+        },
+        {
+          "severity": "warning",
+          "message": "No linter config (ESLint/Biome/dart analyze) — code style not enforced",
+          "rule": "linter-config"
+        },
+        {
+          "severity": "info",
+          "message": "TypeScript strict mode not enabled — allows implicit any and null errors",
+          "rule": "ts-strict-mode"
+        },
+        {
+          "severity": "info",
+          "message": "No test coverage configuration — coverage thresholds not enforced",
+          "rule": "coverage-config"
+        },
+        {
+          "severity": "info",
+          "message": "No commit convention enforcement (commitlint/changesets) — changelog generation is manual",
+          "rule": "conventional-commits"
+        }
+      ],
+      "duration": 1
+    },
+    {
+      "name": "env-validation",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "envFiles": [],
+        "hasExample": false
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "git-hygiene",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "skipped": true,
+        "reason": "runner error: require is not defined"
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "memory-safety",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "totalFiles": 39,
+        "affectedFiles": 0,
+        "patterns": 0
+      },
+      "issues": [],
+      "duration": 3
+    },
+    {
+      "name": "testing",
+      "score": 26,
+      "grade": "F",
+      "details": {
+        "pyramid": {
+          "unit": 8,
+          "integration": 0,
+          "component": 0,
+          "e2e": 0
+        },
+        "layersPresent": "1/4",
+        "e2eTool": "none",
+        "testFiles": 8,
+        "srcFiles": 39,
+        "pairing": "19%",
+        "quality": {
+          "assertionsPerTest": 1.7,
+          "mockRatio": 0,
+          "snapshotRatio": 0
+        }
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "No integration tests — consider testing service boundaries",
+          "rule": "no-integration-tests"
+        },
+        {
+          "severity": "warning",
+          "message": "react project with no component tests — test your UI components",
+          "rule": "no-component-tests"
+        },
+        {
+          "severity": "warning",
+          "message": "No E2E test framework (Playwright/Cypress) — critical user flows untested",
+          "rule": "no-e2e-framework"
+        },
+        {
+          "severity": "warning",
+          "message": "Only 19% of source files have matching test files",
+          "rule": "low-test-pairing"
+        },
+        {
+          "severity": "info",
+          "message": "No test file for web/src/App.tsx",
+          "file": "web/src/App.tsx",
+          "rule": "untested-file"
+        },
+        {
+          "severity": "info",
+          "message": "No test file for web/src/components/AISettings.tsx",
+          "file": "web/src/components/AISettings.tsx",
+          "rule": "untested-file"
+        },
+        {
+          "severity": "info",
+          "message": "No test file for web/src/components/ChatMessage.tsx",
+          "file": "web/src/components/ChatMessage.tsx",
+          "rule": "untested-file"
+        },
+        {
+          "severity": "info",
+          "message": "No test file for web/src/components/CreateGameForm.tsx",
+          "file": "web/src/components/CreateGameForm.tsx",
+          "rule": "untested-file"
+        },
+        {
+          "severity": "info",
+          "message": "No test file for web/src/components/DeployLog.tsx",
+          "file": "web/src/components/DeployLog.tsx",
+          "rule": "untested-file"
+        },
+        {
+          "severity": "info",
+          "message": "...and 24 more untested files",
+          "rule": "untested-file"
+        }
+      ],
+      "duration": 697
+    },
+    {
+      "name": "secrets",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "secretsFound": 0,
+        "tool": "gitleaks"
+      },
+      "issues": [],
+      "duration": 299
+    },
+    {
+      "name": "security",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "filesScanned": 39,
+        "patterns": 3,
+        "cweCategories": 1,
+        "errors": 0,
+        "warnings": 0,
+        "storageAudit": {
+          "localStorageSecrets": 2,
+          "sessionStorageSecrets": 0,
+          "hardcodedCredentials": 0,
+          "insecureCookies": 0,
+          "total": 2
+        },
+        "tool": "built-in"
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "message": "localStorage.setItem in auth-related file — verify no tokens/secrets are persisted client-side",
+          "file": "web/src/pages/Create.tsx",
+          "line": 88,
+          "rule": "CWE-922"
+        },
+        {
+          "severity": "info",
+          "message": "localStorage.setItem in auth-related file — verify no tokens/secrets are persisted client-side",
+          "file": "web/src/pages/Create.tsx",
+          "line": 89,
+          "rule": "CWE-922"
+        },
+        {
+          "severity": "info",
+          "message": "No Content-Security-Policy meta tag in HTML",
+          "file": "web/index.html",
+          "rule": "CWE-1021"
+        }
+      ],
+      "duration": 12
+    },
+    {
+      "name": "dependencies",
+      "score": 55,
+      "grade": "D",
+      "details": {
+        "vulnerabilities": {
+          "critical": 0,
+          "high": 8,
+          "moderate": 6,
+          "low": 8
+        },
+        "outdated": 0,
+        "majorOutdated": 0,
+        "licenses": {
+          "copyleft": 0,
+          "unknown": 0
+        }
+      },
+      "issues": [
+        {
+          "severity": "error",
+          "message": "8 high vulnerabilities"
+        },
+        {
+          "severity": "warning",
+          "message": "6 moderate vulnerabilities"
+        }
+      ],
+      "duration": 863
+    },
+    {
+      "name": "architecture",
+      "score": 98,
+      "grade": "A",
+      "details": {
+        "totalModules": 39,
+        "circularDeps": 0,
+        "godModules": 0,
+        "orphans": 0,
+        "highFanOut": 1,
+        "connectors": 0,
+        "graph": {
+          "web/src/App.tsx": {
+            "imports": [
+              "web/src/hooks/useAuth.ts",
+              "web/src/pages/Dashboard.tsx",
+              "web/src/pages/Profile.tsx",
+              "web/src/pages/Create.tsx",
+              "web/src/pages/GameSettings.tsx"
+            ],
+            "importedBy": [
+              "web/src/main.tsx"
+            ],
+            "dir": "web/src"
+          },
+          "web/src/components/AISettings.tsx": {
+            "imports": [
+              "web/src/lib/ai-keys.ts",
+              "web/src/hooks/useKeys.ts",
+              "web/src/components/ui/index.ts"
+            ],
+            "importedBy": [
+              "web/src/pages/Profile.tsx"
+            ],
+            "dir": "web/src/components"
+          },
+          "web/src/components/ChatMessage.tsx": {
+            "imports": [
+              "web/src/components/Markdown.tsx",
+              "web/src/lib/kidMode.ts"
+            ],
+            "importedBy": [
+              "web/src/pages/Create.tsx"
+            ],
+            "dir": "web/src/components"
+          },
+          "web/src/components/CreateGameForm.tsx": {
+            "imports": [
+              "web/src/components/ui/index.ts"
+            ],
+            "importedBy": [
+              "web/src/components/NewGameModal.tsx",
+              "web/src/pages/Dashboard.tsx"
+            ],
+            "dir": "web/src/components"
+          },
+          "web/src/components/DeployLog.tsx": {
+            "imports": [
+              "web/src/types.ts"
+            ],
+            "importedBy": [
+              "web/src/pages/Create.tsx"
+            ],
+            "dir": "web/src/components"
+          },
+          "web/src/components/GameVersion.tsx": {
+            "imports": [
+              "web/src/lib/format.ts"
+            ],
+            "importedBy": [
+              "web/src/pages/Dashboard.tsx"
+            ],
+            "dir": "web/src/components"
+          },
+          "web/src/components/KidModeSetting.tsx": {
+            "imports": [
+              "web/src/lib/kidMode.ts"
+            ],
+            "importedBy": [
+              "web/src/pages/Profile.tsx"
+            ],
+            "dir": "web/src/components"
+          },
+          "web/src/components/Markdown.tsx": {
+            "imports": [],
+            "importedBy": [
+              "web/src/components/ChatMessage.tsx"
+            ],
+            "dir": "web/src/components"
+          },
+          "web/src/components/Nav.tsx": {
+            "imports": [
+              "web/src/hooks/useAuth.ts"
+            ],
+            "importedBy": [
+              "web/src/components/PageShell.tsx",
+              "web/src/pages/Create.tsx",
+              "web/src/pages/Dashboard.tsx",
+              "web/src/pages/GameSettings.tsx",
+              "web/src/pages/Profile.tsx"
+            ],
+            "dir": "web/src/components"
+          },
+          "web/src/components/NewGameModal.tsx": {
+            "imports": [
+              "web/src/components/CreateGameForm.tsx"
+            ],
+            "importedBy": [
+              "web/src/pages/Create.tsx"
+            ],
+            "dir": "web/src/components"
+          },
+          "web/src/components/PageShell.tsx": {
+            "imports": [
+              "web/src/components/Nav.tsx"
+            ],
+            "importedBy": [
+              "web/src/pages/Dashboard.tsx",
+              "web/src/pages/GameSettings.tsx",
+              "web/src/pages/Profile.tsx"
+            ],
+            "dir": "web/src/components"
+          },
+          "web/src/components/ProjectPicker.tsx": {
+            "imports": [
+              "web/src/hooks/useProjects.ts",
+              "web/src/components/ui/index.ts"
+            ],
+            "importedBy": [
+              "web/src/pages/Create.tsx"
+            ],
+            "dir": "web/src/components"
+          },
+          "web/src/components/StatusBar.tsx": {
+            "imports": [
+              "web/src/lib/activity.ts",
+              "web/src/hooks/useAgent.ts",
+              "web/src/types.ts"
+            ],
+            "importedBy": [
+              "web/src/pages/Create.tsx"
+            ],
+            "dir": "web/src/components"
+          },
+          "web/src/components/StudioSettingsDialog.tsx": {
+            "imports": [
+              "web/src/components/ui/index.ts",
+              "web/src/lib/models.ts",
+              "web/src/lib/ai-keys.ts",
+              "web/src/hooks/useKeys.ts"
+            ],
+            "importedBy": [
+              "web/src/components/StudioToolbar.tsx"
+            ],
+            "dir": "web/src/components"
+          },
+          "web/src/components/StudioToolbar.tsx": {
+            "imports": [
+              "web/src/components/ui/index.ts",
+              "web/src/hooks/useAgent.ts",
+              "web/src/hooks/useKeys.ts",
+              "web/src/components/StudioSettingsDialog.tsx"
+            ],
+            "importedBy": [
+              "web/src/pages/Create.tsx"
+            ],
+            "dir": "web/src/components"
+          },
+          "web/src/components/TextSizeSetting.tsx": {
+            "imports": [
+              "web/src/lib/textSize.ts"
+            ],
+            "importedBy": [
+              "web/src/pages/Profile.tsx"
+            ],
+            "dir": "web/src/components"
+          },
+          "web/src/components/ui/Button.tsx": {
+            "imports": [
+              "web/src/components/ui/cn.ts"
+            ],
+            "importedBy": [
+              "web/src/components/ui/index.ts"
+            ],
+            "dir": "web/src/components/ui"
+          },
+          "web/src/components/ui/Card.tsx": {
+            "imports": [
+              "web/src/components/ui/cn.ts"
+            ],
+            "importedBy": [
+              "web/src/components/ui/index.ts"
+            ],
+            "dir": "web/src/components/ui"
+          },
+          "web/src/components/ui/Field.tsx": {
+            "imports": [
+              "web/src/components/ui/cn.ts"
+            ],
+            "importedBy": [
+              "web/src/components/ui/index.ts"
+            ],
+            "dir": "web/src/components/ui"
+          },
+          "web/src/components/ui/cn.ts": {
+            "imports": [],
+            "importedBy": [
+              "web/src/components/ui/Button.tsx",
+              "web/src/components/ui/Card.tsx",
+              "web/src/components/ui/Field.tsx",
+              "web/src/components/ui/index.ts"
+            ],
+            "dir": "web/src/components/ui"
+          },
+          "web/src/components/ui/index.ts": {
+            "imports": [
+              "web/src/components/ui/Button.tsx",
+              "web/src/components/ui/Field.tsx",
+              "web/src/components/ui/Card.tsx",
+              "web/src/components/ui/cn.ts"
+            ],
+            "importedBy": [
+              "web/src/components/AISettings.tsx",
+              "web/src/components/CreateGameForm.tsx",
+              "web/src/components/ProjectPicker.tsx",
+              "web/src/components/StudioSettingsDialog.tsx",
+              "web/src/components/StudioToolbar.tsx",
+              "web/src/pages/Create.tsx",
+              "web/src/pages/Dashboard.tsx",
+              "web/src/pages/GameSettings.tsx"
+            ],
+            "dir": "web/src/components/ui"
+          },
+          "web/src/hooks/useAgent.ts": {
+            "imports": [
+              "web/src/hooks/useProjects.ts",
+              "web/src/types.ts",
+              "web/src/types.ts"
+            ],
+            "importedBy": [
+              "web/src/components/StatusBar.tsx",
+              "web/src/components/StudioToolbar.tsx",
+              "web/src/pages/Create.tsx"
+            ],
+            "dir": "web/src/hooks"
+          },
+          "web/src/hooks/useAuth.ts": {
+            "imports": [],
+            "importedBy": [
+              "web/src/App.tsx",
+              "web/src/components/Nav.tsx",
+              "web/src/hooks/useDraftSessions.ts",
+              "web/src/hooks/useKeys.ts",
+              "web/src/hooks/useProjects.ts",
+              "web/src/pages/Create.tsx",
+              "web/src/pages/Dashboard.tsx",
+              "web/src/pages/GameSettings.tsx",
+              "web/src/pages/Profile.tsx"
+            ],
+            "dir": "web/src/hooks"
+          },
+          "web/src/hooks/useDraftSessions.ts": {
+            "imports": [
+              "web/src/hooks/useAuth.ts",
+              "web/src/lib/sessions.ts"
+            ],
+            "importedBy": [
+              "web/src/pages/Dashboard.tsx",
+              "web/src/pages/GameSettings.tsx"
+            ],
+            "dir": "web/src/hooks"
+          },
+          "web/src/hooks/useKeys.ts": {
+            "imports": [
+              "web/src/hooks/useAuth.ts",
+              "web/src/lib/ai-keys.ts"
+            ],
+            "importedBy": [
+              "web/src/components/AISettings.tsx",
+              "web/src/components/StudioSettingsDialog.tsx",
+              "web/src/components/StudioToolbar.tsx",
+              "web/src/pages/Create.tsx"
+            ],
+            "dir": "web/src/hooks"
+          },
+          "web/src/hooks/useProjects.ts": {
+            "imports": [
+              "web/src/hooks/useAuth.ts",
+              "web/src/lib/sessions.ts"
+            ],
+            "importedBy": [
+              "web/src/components/ProjectPicker.tsx",
+              "web/src/hooks/useAgent.ts"
+            ],
+            "dir": "web/src/hooks"
+          },
+          "web/src/lib/activity.ts": {
+            "imports": [
+              "web/src/types.ts"
+            ],
+            "importedBy": [
+              "web/src/components/StatusBar.tsx"
+            ],
+            "dir": "web/src/lib"
+          },
+          "web/src/lib/ai-keys.ts": {
+            "imports": [],
+            "importedBy": [
+              "web/src/components/AISettings.tsx",
+              "web/src/components/StudioSettingsDialog.tsx",
+              "web/src/hooks/useKeys.ts",
+              "web/src/pages/Create.tsx"
+            ],
+            "dir": "web/src/lib"
+          },
+          "web/src/lib/format.ts": {
+            "imports": [],
+            "importedBy": [
+              "web/src/components/GameVersion.tsx",
+              "web/src/pages/Dashboard.tsx",
+              "web/src/pages/GameSettings.tsx"
+            ],
+            "dir": "web/src/lib"
+          },
+          "web/src/lib/kidMode.ts": {
+            "imports": [],
+            "importedBy": [
+              "web/src/components/ChatMessage.tsx",
+              "web/src/components/KidModeSetting.tsx",
+              "web/src/pages/Create.tsx"
+            ],
+            "dir": "web/src/lib"
+          },
+          "web/src/lib/models.ts": {
+            "imports": [],
+            "importedBy": [
+              "web/src/components/StudioSettingsDialog.tsx",
+              "web/src/pages/Create.tsx"
+            ],
+            "dir": "web/src/lib"
+          },
+          "web/src/lib/sessions.ts": {
+            "imports": [],
+            "importedBy": [
+              "web/src/hooks/useDraftSessions.ts",
+              "web/src/hooks/useProjects.ts"
+            ],
+            "dir": "web/src/lib"
+          },
+          "web/src/lib/textSize.ts": {
+            "imports": [],
+            "importedBy": [
+              "web/src/components/TextSizeSetting.tsx",
+              "web/src/main.tsx"
+            ],
+            "dir": "web/src/lib"
+          },
+          "web/src/main.tsx": {
+            "imports": [
+              "web/src/App.tsx",
+              "web/src/lib/textSize.ts"
+            ],
+            "importedBy": [],
+            "dir": "web/src"
+          },
+          "web/src/pages/Create.tsx": {
+            "imports": [
+              "web/src/components/ui/index.ts",
+              "web/src/components/Nav.tsx",
+              "web/src/components/ChatMessage.tsx",
+              "web/src/components/DeployLog.tsx",
+              "web/src/components/ProjectPicker.tsx",
+              "web/src/components/StudioToolbar.tsx",
+              "web/src/components/StatusBar.tsx",
+              "web/src/components/NewGameModal.tsx",
+              "web/src/hooks/useAuth.ts",
+              "web/src/hooks/useAgent.ts",
+              "web/src/hooks/useKeys.ts",
+              "web/src/lib/ai-keys.ts",
+              "web/src/lib/models.ts",
+              "web/src/lib/kidMode.ts"
+            ],
+            "importedBy": [
+              "web/src/App.tsx"
+            ],
+            "dir": "web/src/pages"
+          },
+          "web/src/pages/Dashboard.tsx": {
+            "imports": [
+              "web/src/components/Nav.tsx",
+              "web/src/components/CreateGameForm.tsx",
+              "web/src/components/GameVersion.tsx",
+              "web/src/components/PageShell.tsx",
+              "web/src/hooks/useAuth.ts",
+              "web/src/hooks/useDraftSessions.ts",
+              "web/src/lib/format.ts",
+              "web/src/components/ui/index.ts"
+            ],
+            "importedBy": [
+              "web/src/App.tsx"
+            ],
+            "dir": "web/src/pages"
+          },
+          "web/src/pages/GameSettings.tsx": {
+            "imports": [
+              "web/src/components/Nav.tsx",
+              "web/src/components/PageShell.tsx",
+              "web/src/hooks/useAuth.ts",
+              "web/src/hooks/useDraftSessions.ts",
+              "web/src/lib/format.ts",
+              "web/src/components/ui/index.ts"
+            ],
+            "importedBy": [
+              "web/src/App.tsx"
+            ],
+            "dir": "web/src/pages"
+          },
+          "web/src/pages/Profile.tsx": {
+            "imports": [
+              "web/src/components/Nav.tsx",
+              "web/src/components/AISettings.tsx",
+              "web/src/components/TextSizeSetting.tsx",
+              "web/src/components/KidModeSetting.tsx",
+              "web/src/components/PageShell.tsx",
+              "web/src/hooks/useAuth.ts"
+            ],
+            "importedBy": [
+              "web/src/App.tsx"
+            ],
+            "dir": "web/src/pages"
+          },
+          "web/src/types.ts": {
+            "imports": [],
+            "importedBy": [
+              "web/src/components/DeployLog.tsx",
+              "web/src/components/StatusBar.tsx",
+              "web/src/hooks/useAgent.ts",
+              "web/src/hooks/useAgent.ts",
+              "web/src/lib/activity.ts"
+            ],
+            "dir": "web/src"
+          }
+        },
+        "containerSvg": "<svg viewBox=\"0 0 370 120\" xmlns=\"http://www.w3.org/2000/svg\" style=\"width:100%;max-width:370px\"><defs><marker id=\"cont-arrow\" viewBox=\"0 0 10 7\" refX=\"10\" refY=\"3.5\" markerWidth=\"7\" markerHeight=\"5\" orient=\"auto\"><polygon points=\"0 0, 10 3.5, 0 7\" fill=\"#ffffff40\"/></marker></defs><rect x=\"30\" y=\"30\" width=\"140\" height=\"60\" rx=\"8\" fill=\"#6d78d015\" stroke=\"#6d78d050\"/><text x=\"100\" y=\"54\" text-anchor=\"middle\" fill=\"#e5e5e5\" font-size=\"10\" font-weight=\"700\">Frontend</text><text x=\"100\" y=\"70\" text-anchor=\"middle\" fill=\"#6b7280\" font-size=\"8\">[Svelte]</text><line x1=\"170\" y1=\"60\" x2=\"200\" y2=\"60\" stroke=\"#ffffff20\" stroke-width=\"1.5\" marker-end=\"url(#cont-arrow)\"/><rect x=\"200\" y=\"30\" width=\"140\" height=\"60\" rx=\"8\" fill=\"#d9770615\" stroke=\"#d9770650\"/><text x=\"270\" y=\"54\" text-anchor=\"middle\" fill=\"#e5e5e5\" font-size=\"10\" font-weight=\"700\">Worker</text><text x=\"270\" y=\"70\" text-anchor=\"middle\" fill=\"#6b7280\" font-size=\"8\">[Cloudflare Workers]</text></svg>",
+        "assessment": {
+          "pattern": "modular",
+          "patternDescription": "Modular architecture — code organized by feature/responsibility.",
+          "layering": "tangled",
+          "stability": [
+            {
+              "package": "web/src",
+              "instability": 0.54,
+              "role": "balanced"
+            },
+            {
+              "package": "web/src/components",
+              "instability": 0.54,
+              "role": "balanced"
+            },
+            {
+              "package": "web/src/components/ui",
+              "instability": 0.32,
+              "role": "balanced"
+            },
+            {
+              "package": "web/src/hooks",
+              "instability": 0.31,
+              "role": "balanced"
+            },
+            {
+              "package": "web/src/lib",
+              "instability": 0.06,
+              "role": "stable (hard to change)"
+            },
+            {
+              "package": "web/src/pages",
+              "instability": 0.89,
+              "role": "unstable (easy to change)"
+            }
+          ],
+          "crossCoupling": 32,
+          "cohesion": 29,
+          "rating": "poor",
+          "insights": [
+            "Low cross-coupling (32%) — packages are well-isolated.",
+            "Stable foundation detected — core modules rarely change.",
+            "No god modules — healthy dependency distribution."
+          ]
+        },
+        "tool": "built-in"
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "High fan-out: imports 14 modules — hard to test in isolation",
+          "file": "web/src/pages/Create.tsx",
+          "rule": "high-fan-out"
+        }
+      ],
+      "duration": 43
+    },
+    {
+      "name": "performance",
+      "score": 95,
+      "grade": "A",
+      "details": {
+        "filesScanned": 39,
+        "barrelImports": 1,
+        "heavyDeps": 0,
+        "dynamicOpportunities": 0,
+        "cssInJsRuntime": 0,
+        "deadExports": 0,
+        "unusedFiles": 0,
+        "unusedDeps": 0,
+        "deadCodeTool": "knip"
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "Barrel file with 4 re-exports — defeats tree-shaking in many bundlers",
+          "file": "web/src/components/ui/index.ts",
+          "rule": "barrel-import"
+        },
+        {
+          "severity": "info",
+          "message": "Large destructured import — if from a barrel, only imported items should be bundled",
+          "file": "web/src/components/KidModeSetting.tsx",
+          "line": 2,
+          "rule": "large-import"
+        },
+        {
+          "severity": "info",
+          "message": "Large destructured import — if from a barrel, only imported items should be bundled",
+          "file": "web/src/components/TextSizeSetting.tsx",
+          "line": 2,
+          "rule": "large-import"
+        },
+        {
+          "severity": "info",
+          "message": "Large destructured import — if from a barrel, only imported items should be bundled",
+          "file": "web/src/hooks/useKeys.ts",
+          "line": 3,
+          "rule": "large-import"
+        },
+        {
+          "severity": "info",
+          "message": "Large destructured import — if from a barrel, only imported items should be bundled",
+          "file": "web/src/hooks/useProjects.ts",
+          "line": 3,
+          "rule": "large-import"
+        },
+        {
+          "severity": "info",
+          "message": "Large destructured import — if from a barrel, only imported items should be bundled",
+          "file": "web/src/pages/GameSettings.tsx",
+          "line": 8,
+          "rule": "large-import"
+        }
+      ],
+      "duration": 1159
+    },
+    {
+      "name": "container-health",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "skipped": true,
+        "reason": "no Dockerfile found"
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "confusion",
+      "score": 96,
+      "grade": "A",
+      "details": {
+        "fileConfusability": 0,
+        "genericNames": 2,
+        "exportCollisions": 0,
+        "ambiguousAbbrevs": 0,
+        "filesScanned": 39
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "Generic export name: Input() — not descriptive enough for LLM comprehension",
+          "file": "web/src/components/ui/Field.tsx",
+          "line": 10,
+          "rule": "generic-name"
+        },
+        {
+          "severity": "warning",
+          "message": "Generic export name: Create() — not descriptive enough for LLM comprehension",
+          "file": "web/src/pages/Create.tsx",
+          "line": 19,
+          "rule": "generic-name"
+        }
+      ],
+      "duration": 5
+    },
+    {
+      "name": "context",
+      "score": 85,
+      "grade": "B",
+      "details": {
+        "filesScanned": 39,
+        "totalTokens": 52588,
+        "avgTokensPerFile": 1348,
+        "avgImportsPerFile": 2.2,
+        "highTokenFiles": 3,
+        "heavyImportFiles": 0,
+        "circularDeps": 0,
+        "contextSinks": 1
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "~4899 tokens (>4000) — large context cost for LLMs",
+          "file": "web/src/hooks/useAgent.ts",
+          "rule": "high-token-count"
+        },
+        {
+          "severity": "warning",
+          "message": "~5323 tokens (>4000) — large context cost for LLMs",
+          "file": "web/src/pages/Create.tsx",
+          "rule": "high-token-count"
+        },
+        {
+          "severity": "warning",
+          "message": "~4049 tokens (>4000) — large context cost for LLMs",
+          "file": "web/src/pages/GameSettings.tsx",
+          "rule": "high-token-count"
+        },
+        {
+          "severity": "warning",
+          "message": "14 imports but only 1 export — hard to understand in isolation",
+          "file": "web/src/pages/Create.tsx",
+          "rule": "context-sink"
+        }
+      ],
+      "duration": 3
+    },
+    {
+      "name": "doc-coherence",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable LLM-powered analysis",
+        "docFiles": [
+          "README.md"
+        ],
+        "hasJSDoc": true,
+        "description": "Detects contradictions between documentation and code. Finds stale README claims, incorrect JSDoc, and misleading comments."
+      },
+      "issues": [],
+      "duration": 1
+    },
+    {
+      "name": "code-coherence",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable LLM-powered analysis",
+        "filesAnalyzed": 39,
+        "totalExports": 92,
+        "totalFunctions": 93,
+        "description": "Detects internal contradictions: inconsistent validation, conflicting defaults, naming drift, and behavioral mismatches."
+      },
+      "issues": [],
+      "duration": 1
+    },
+    {
+      "name": "comment-staleness",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable comment staleness analysis",
+        "description": "Detects stale comments: TODOs older than 6 months, numeric mismatches, commented-out code, semantic contradictions (LLM-powered)."
+      },
+      "issues": [],
+      "duration": 1
+    },
+    {
+      "name": "html-quality",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "htmlFiles": 1
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "message": "Missing Open Graph tags (og:title, og:description) — social sharing will look plain",
+          "file": "web/index.html",
+          "rule": "missing-og"
+        },
+        {
+          "severity": "info",
+          "message": "Missing canonical link — may cause duplicate content issues",
+          "file": "web/index.html",
+          "rule": "missing-canonical"
+        },
+        {
+          "severity": "info",
+          "message": "Missing robots.txt",
+          "rule": "missing-robots"
+        },
+        {
+          "severity": "info",
+          "message": "Missing sitemap.xml",
+          "rule": "missing-sitemap"
+        }
+      ],
+      "duration": 1
+    },
+    {
+      "name": "frontend-health",
+      "score": 90,
+      "grade": "A",
+      "details": {
+        "componentFiles": 24,
+        "activeFrameworks": [],
+        "iconLibsUsed": [
+          "lucide"
+        ],
+        "unoptimizedImages": 1
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "message": "Async data fetch without visible loading state",
+          "file": "web/src/components/CreateGameForm.tsx",
+          "rule": "no-loading-state"
+        },
+        {
+          "severity": "info",
+          "message": "Async data fetch without visible loading state",
+          "file": "web/src/components/GameVersion.tsx",
+          "rule": "no-loading-state"
+        },
+        {
+          "severity": "warning",
+          "message": "img without width/height — causes layout shift (use next/image or set dimensions)",
+          "file": "web/src/components/Nav.tsx",
+          "line": 48,
+          "rule": "unoptimized-image"
+        }
+      ],
+      "duration": 6
+    },
+    {
+      "name": "styling",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "skipped": true,
+        "reason": "runner error: require is not defined"
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "dead-patterns",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable dead pattern detection",
+        "description": "Detects leftover code from incomplete refactors: fallback paths, parallel implementations, dead guards, hardcoded feature flags. Produces a Feature Map of your codebase."
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "test-audit",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable test audit",
+        "description": "Detects fake and shallow tests: empty test bodies, trivial assertions, tautologies, mock-heavy tests, and tests whose names don't match what they actually verify."
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "file-cohesion",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable file cohesion analysis",
+        "description": "Detects files with multiple responsibilities — the #1 code smell in AI-generated code. Labels each file's concern clusters and suggests concrete split points."
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "design-consistency",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable design consistency analysis",
+        "description": "LLM-powered audit of visual consistency — finds components with duplicate styling, inconsistent spacing scales, and missing component extraction opportunities."
+      },
+      "issues": [],
+      "duration": 0
+    }
+  ],
+  "meta": {
+    "cwd": "/Users/serge-ivo/dev/stores/fgs/publisher",
+    "node": "v26.0.0",
+    "duration": 4413,
+    "stack": {
+      "language": "typescript",
+      "framework": "react",
+      "bundler": "vite",
+      "testRunner": "vitest",
+      "linter": "none",
+      "packageManager": "pnpm"
+    },
+    "workspace": {
+      "isMonorepo": true,
+      "tool": "pnpm",
+      "packages": [
+        {
+          "name": "@publisher/web",
+          "path": "web",
+          "hasSrc": true,
+          "hasRootCode": false,
+          "hasTests": true,
+          "hasLinter": false
+        }
+      ],
+      "srcRoots": [
+        "web/src"
+      ]
+    },
+    "repoUrl": "git@github-personal:freegamestore-online/publisher",
+    "branch": "main"
+  }
+}
