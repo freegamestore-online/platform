@@ -22,17 +22,17 @@ const CALLBACK_PATH = "/callback"; // Google OAuth callback route (see fetch rou
 
 // --- JWT utilities (HMAC-SHA256, no dependencies) ---
 
-function base64url(data: Uint8Array): string {
+export function base64url(data: Uint8Array): string {
   let binary = "";
   for (const byte of data) binary += String.fromCharCode(byte);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function base64urlEncode(str: string): string {
+export function base64urlEncode(str: string): string {
   return base64url(new TextEncoder().encode(str));
 }
 
-function base64urlDecode(str: string): string {
+export function base64urlDecode(str: string): string {
   const padded = str.replace(/-/g, "+").replace(/_/g, "/");
   const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);
@@ -50,7 +50,7 @@ async function getSigningKey(secret: string): Promise<CryptoKey> {
   );
 }
 
-async function jwtSign(payload: Record<string, unknown>, secret: string): Promise<string> {
+export async function jwtSign(payload: Record<string, unknown>, secret: string): Promise<string> {
   const header = base64urlEncode(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const body = base64urlEncode(JSON.stringify(payload));
   const data = `${header}.${body}`;
@@ -59,7 +59,7 @@ async function jwtSign(payload: Record<string, unknown>, secret: string): Promis
   return `${data}.${base64url(new Uint8Array(sig))}`;
 }
 
-async function jwtVerify(token: string, secret: string): Promise<Record<string, unknown> | null> {
+export async function jwtVerify(token: string, secret: string): Promise<Record<string, unknown> | null> {
   const parts = token.split(".");
   if (parts.length !== 3) return null;
   const [header, body, sig] = parts;
@@ -151,7 +151,7 @@ const OAUTH_STATE_COOKIE = "fgs_oauth_state";
 /** SECURITY: allowlist the post-login redirect to our own origins. An
  *  attacker-controlled `redirect` param would otherwise be reflected into the
  *  Location header (open redirect / phishing). */
-function safeRedirect(raw: string | null | undefined): string {
+export function safeRedirect(raw: string | null | undefined): string {
   const fallback = "https://freegamestore.online";
   if (!raw) return fallback;
   try {
@@ -202,7 +202,7 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
   });
 }
 
-async function handleCallback(request: Request, env: Env): Promise<Response> {
+export async function handleCallback(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const stateParam = url.searchParams.get("state");
@@ -294,7 +294,7 @@ async function handleCallback(request: Request, env: Env): Promise<Response> {
   });
 }
 
-async function handleMe(request: Request, env: Env): Promise<Response> {
+export async function handleMe(request: Request, env: Env): Promise<Response> {
   // Accept the token from the cookie (browser) OR an Authorization Bearer
   // (worker-to-worker, e.g. agent/admin verifying an fgs_token — Workers can't
   // reliably set the Cookie header on a subrequest).
