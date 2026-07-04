@@ -253,24 +253,37 @@ function renderDashboardShell(): string {
     .bar { display: inline-block; border-radius: 2px 2px 0 0; min-height: 1px; transition: height 0.2s; }
     .src-tag { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 0.25rem; background: #2a2a2a; color: #ccc; white-space: nowrap; }
     pre.stack { white-space: pre-wrap; font-size: 0.72rem; color: #fca5a5; margin-top: 0.35rem; max-height: 9rem; overflow: auto; background: #140f0f; padding: 0.5rem; border-radius: 0.35rem; }
+    /* Sticky top nav (breaks out of the body's 2rem padding to sit flush). */
+    .topnav { position: sticky; top: 0; z-index: 50; margin: -2rem -2rem 1.5rem; padding: 0.6rem 1.5rem; display: flex; align-items: center; gap: 1rem; background: #141414; border-bottom: 1px solid #2a2a2a; }
+    .brand { font-weight: 800; font-size: 1.05rem; letter-spacing: -0.01em; }
+    .brand .accent { color: #34d399; }
+    .brand .tag { color: #888; font-weight: 600; font-size: 0.68rem; border: 1px solid #2a2a2a; padding: 0.1rem 0.4rem; border-radius: 0.35rem; margin-left: 0.5rem; text-transform: uppercase; letter-spacing: 0.06em; vertical-align: middle; }
+    .navlinks { display: flex; align-items: center; gap: 0.25rem; margin-left: auto; }
+    .navlinks .refresh { margin-left: 0.5rem; }
+    .hamburger { display: none; margin-left: auto; background: none; border: 1px solid #2a2a2a; color: #e5e5e5; border-radius: 0.4rem; padding: 0.3rem 0.6rem; cursor: pointer; font-size: 1.15rem; line-height: 1; font-family: inherit; }
+    @media (max-width: 720px) {
+      .hamburger { display: block; }
+      .navlinks { display: none; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; align-items: stretch; gap: 0; margin: 0; padding: 0.4rem; background: #141414; border-bottom: 1px solid #2a2a2a; box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
+      .navlinks.open { display: flex; }
+      .navlinks .tab, .navlinks .refresh { width: 100%; text-align: left; border-bottom: 1px solid #1a1a1a; border-radius: 0; margin: 0; }
+    }
   </style>
 </head>
 <body>
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-    <div>
-      <h1>FreeGameStore Admin</h1>
-      <div class="meta" id="meta">Loading...</div>
-    </div>
-    <button class="refresh" onclick="refreshActive()">Refresh</button>
-  </div>
+  <header class="topnav">
+    <div class="brand">Free<span class="accent">Game</span>Store<span class="tag">Admin</span></div>
+    <button class="hamburger" onclick="toggleNav()" aria-label="Menu" aria-expanded="false">&#9776;</button>
+    <nav class="navlinks" id="navlinks">
+      <button class="tab active" data-tab="overview" onclick="showTab('overview')">Overview</button>
+      <button class="tab" data-tab="games" onclick="showTab('games')">Games</button>
+      <button class="tab" data-tab="errors" onclick="showTab('errors')">Errors <span id="errBadge"></span></button>
+      <button class="tab" data-tab="users" onclick="showTab('users')">Users</button>
+      <a class="tab" href="/docs" style="text-decoration:none;">API</a>
+      <button class="refresh" onclick="refreshActive()">Refresh</button>
+    </nav>
+  </header>
 
-  <div class="tabs">
-    <button class="tab active" data-tab="overview" onclick="showTab('overview')">Overview</button>
-    <button class="tab" data-tab="games" onclick="showTab('games')">Games</button>
-    <button class="tab" data-tab="errors" onclick="showTab('errors')">Errors <span id="errBadge"></span></button>
-    <button class="tab" data-tab="users" onclick="showTab('users')">Users</button>
-    <a class="tab" href="/docs" style="text-decoration:none;">API</a>
-  </div>
+  <div class="meta" id="meta" style="margin-bottom:1rem;">Ready</div>
 
   <div id="tab-overview" class="tabpanel active">
     <div class="stats" id="ovStats"><span class="loading">Loading...</span></div>
@@ -406,9 +419,11 @@ function renderDashboardShell(): string {
     function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
     function stat(num,label,cls){return '<div class="stat"><div class="num'+(cls?' '+cls:'')+'">'+num+'</div><div class="label">'+label+'</div></div>'}
     function timeAgo(ts){try{var d=new Date(String(ts).replace(' ','T')+'Z');var s=(Date.now()-d.getTime())/1000;if(s<60)return Math.floor(s)+'s ago';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}catch(e){return ts}}
+    function toggleNav(){var n=document.getElementById('navlinks');var open=n.classList.toggle('open');document.querySelector('.hamburger').setAttribute('aria-expanded',open?'true':'false');}
     function showTab(name){
       document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('active',t.dataset&&t.dataset.tab===name)});
       document.querySelectorAll('.tabpanel').forEach(function(p){p.classList.toggle('active',p.id==='tab-'+name)});
+      document.getElementById('navlinks').classList.remove('open'); // close mobile menu on select
       if(name==='games'&&!loaded.games){loaded.games=true;loadAll();}
       if(name==='errors')loadErrors();
       if(name==='users'&&!loaded.users){loaded.users=true;loadUsers();}
