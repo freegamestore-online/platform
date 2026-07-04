@@ -88,19 +88,41 @@ export class AgentSession implements DurableObject {
     this.config = getConfig(env.STORE);
   }
 
-  private async load(): Promise<SessionState> {
+  private async load(seedIfMissing = true): Promise<SessionState> {
     if (this.session) return this.session;
     const stored = await this.state.storage.get<SessionState>("session");
     if (stored) {
       this.session = stored;
-    } else {
+    } else if (seedIfMissing) {
       this.session = await this.freshSession();
       await this.save();
+    } else {
+      // Read-only route on an unused session id: return a transient empty view
+      // WITHOUT the ~25-call GitHub template seed or a write. Not cached, so a
+      // later /chat still seeds it properly. Closes the abuse vector where an
+      // authed user iterates session ids and storms the shared PAT via GET
+      // /status|/history|/files.
+      return this.emptySession();
     }
     // Migrate old sessions missing newer fields.
     if (!this.session.errors) this.session.errors = [];
     if (!this.session.deployLog) this.session.deployLog = [];
     return this.session;
+  }
+
+  /** An unseeded, unsaved session view — for read routes touching a session id
+   *  that has never been used. No template fetch, no storage write. */
+  private emptySession(): SessionState {
+    return {
+      messages: [],
+      files: {},
+      tokenUsage: { input: 0, output: 0 },
+      deployStatus: null,
+      deployLog: [],
+      appId: null,
+      appName: null,
+      errors: [],
+    };
   }
 
   /** A brand-new session, seeded from the canonical template repo
@@ -425,8 +447,12 @@ export class AgentSession implements DurableObject {
       } catch (err) {
         const message = String(err);
         this.appendAssistantError("chat", message);
-        await this.save();
+        // Surface the error to the client FIRST, then persist best-effort. If
+        // save() throws (e.g. the session blob outgrew the DO value cap), the
+        // old ordering meant the error SSE never fired and the stream just
+        // closed — a silent hang. Now the user always sees what failed.
         sendSSE({ type: "error", data: message });
+        await this.save().catch((e) => this.logError("storage", `save after error failed: ${String(e)}`));
       } finally {
         this.chatInProgress = false;
         writer.close().catch(() => {});
@@ -452,7 +478,7 @@ export class AgentSession implements DurableObject {
 
   /** GET /status — current session state */
   private async handleStatus(request: Request): Promise<Response> {
-    const session = await this.load();
+    const session = await this.load(false);
     return json(
       {
         messageCount: session.messages.length,
@@ -471,7 +497,7 @@ export class AgentSession implements DurableObject {
 
   /** GET /files — list files with sizes */
   private async handleListFiles(request: Request): Promise<Response> {
-    const session = await this.load();
+    const session = await this.load(false);
     const files = Object.entries(session.files).map(([path, content]) => ({
       path,
       size: content.length,
@@ -511,13 +537,13 @@ export class AgentSession implements DurableObject {
 
   /** GET /errors — return server-side errors for debugging */
   private async handleErrors(request: Request): Promise<Response> {
-    const session = await this.load();
+    const session = await this.load(false);
     return json({ errors: session.errors }, 200, request, this.config.domain);
   }
 
   /** GET /history — return all conversation messages for restoring UI */
   private async handleHistory(request: Request): Promise<Response> {
-    const session = await this.load();
+    const session = await this.load(false);
     const history = session.messages.map((m) => ({
       role: m.role,
       content: m.content,
