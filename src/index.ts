@@ -589,18 +589,17 @@ function renderApiDocs(): string {
 <body>
   <h1>FreeGameStore Admin API</h1>
   <p>Base URL: <code>https://admin.freegamestore.online</code></p>
-  <p>All endpoints require <span class="badge auth">Cloudflare Access</span> authentication -- either Google sign-in (browser) or service token headers.</p>
+  <p>The console and every read/observability endpoint are restricted to <span class="badge auth">admin</span> — a signed-in, allowlisted Google email. The creator-facing publish endpoints use their own per-caller auth (see below). No Cloudflare Access is involved.</p>
 
   <hr>
 
   <h2>Authentication</h2>
-  <h3>Browser (Google sign-in)</h3>
-  <p>Visit <a href="https://admin.freegamestore.online">admin.freegamestore.online</a> -- Cloudflare Access prompts Google sign-in. Only authorized emails can access.</p>
+  <h3>Admin console + read endpoints (Google sign-in)</h3>
+  <p>Visit <a href="https://admin.freegamestore.online">admin.freegamestore.online</a> and sign in with Google. Only emails in the <code>ADMIN_EMAILS</code> allowlist can access; everyone else gets a sign-in / not-authorized page. Identity is a verified Google email resolved via the auth worker's <code>/me</code>; the browser carries the <code>fgs_token</code> cookie (set on <code>.freegamestore.online</code>).</p>
+  <p>Gated: <code>/</code>, <code>/docs</code>, <code>/api/status*</code>, <code>/api/quality</code>, <code>/api/errors</code>, <code>/api/stats</code>, <code>/api/users</code>, <code>/api/reconcile</code>.</p>
 
-  <h3>Service Token (for AI agents / scripts)</h3>
-  <pre>CF-Access-Client-Id: &lt;client-id&gt;
-CF-Access-Client-Secret: &lt;client-secret&gt;</pre>
-  <p>Service tokens are managed in Cloudflare Zero Trust dashboard. Contact admin to get a token.</p>
+  <h3>Publish endpoints (creators + the VibeCode agent)</h3>
+  <p><code>/api/provision</code>, <code>/api/publish</code>, and <code>PATCH/DELETE /api/games/:id</code> are NOT admin-gated — creators self-serve. They accept a signed-in creator's <code>fgs_token</code> (cookie or <code>X-FGS-Token</code>), or, for worker-to-worker calls (the agent's VibeCode deploy, which has no user token), a shared <code>X-Internal-Token</code>. On the internal path the owner is taken from the request body's <code>creatorGithub</code>.</p>
 
   <hr>
 
@@ -619,10 +618,10 @@ Response: [
     "domain": "chess.freegamestore.online"
   }
 ]</pre>
-  <p>Add <code>?detail=true</code> for full CF Pages deploy status (slower -- makes CF API calls per game).</p>
+  <p>Add <code>?detail=true</code> for full deploy status (slower -- makes a status call per game).</p>
 
   <h3><span class="method get">GET</span> /api/status/game</h3>
-  <p>Returns CF deploy status for a single game.</p>
+  <p>Returns deploy status for a single game.</p>
   <pre>GET /api/status/game?id=chess</pre>
 
   <h3><span class="method get">GET</span> /api/quality</h3>
@@ -638,7 +637,7 @@ Response: {
   <p>Returns <code>204 No Content</code> if the auditor has not produced results yet.</p>
 
   <h3><span class="method post">POST</span> /api/provision</h3>
-  <p>Provisions a new game. Creates GitHub repo from template, CF Pages project with GitHub integration, DNS CNAME, custom domain, and adds to the store registry.</p>
+  <p>Provisions a new game (Path B — no CF Pages). Creates a GitHub repo from <code>template-game-canvas</code>, adds the creator as a collaborator, writes a host route to D1, and adds the store registry entry. The <code>fgs/host</code> worker then serves the built game from the <code>fgs-games</code> R2 bucket at <code>&lt;id&gt;.freegamestore.online</code> — there is no per-game CF Pages project, DNS record, or <code>.pages.dev</code>.</p>
 
   <pre>POST /api/provision
 Content-Type: application/json
@@ -649,30 +648,30 @@ Content-Type: application/json
   "category": "strategy",
   "icon": "&amp;#9812;",
   "iconBg": "#ecfdf5",
-  "description": "Classic chess game"
+  "description": "Classic chess game",
+  "creatorGithub": "octocat"
 }
 
 Response: {
   "steps": [
     { "name": "GitHub repo", "status": "ok", "detail": "Created freegamestore-online/chess from template-game-canvas" },
-    { "name": "CF Pages project", "status": "ok", "detail": "Created freechessapp with GitHub source" },
-    { "name": "Custom domain", "status": "ok", "detail": "Added chess.freegamestore.online" },
-    { "name": "DNS CNAME", "status": "ok", "detail": "chess -> freechessapp.pages.dev" },
+    { "name": "Collaborator", "status": "ok", "detail": "Invited octocat" },
+    { "name": "Host route", "status": "ok", "detail": "chess -> r2 (fgs-games/games/chess)" },
     { "name": "Store registry", "status": "ok", "detail": "Added Chess" }
   ],
   "success": true
 }</pre>
-  <p>Step statuses: <code>ok</code> (created), <code>skip</code> (already exists), <code>fail</code> (error -- check detail).</p>
+  <p>Step statuses: <code>ok</code> (created), <code>skip</code> (already exists), <code>fail</code> (error -- check detail). Idempotent: re-provisioning an existing id skips rather than fails.</p>
 
   <hr>
 
   <h2>Workflow</h2>
   <pre>
-1. POST /api/provision  ->  creates everything
-2. Clone the repo       ->  git clone git@github.com:freegamestore-online/chess.git
-3. Write code           ->  edit src/App.tsx
-4. Push to main         ->  git push (auto-deploys, no API call)
-5. GET /api/status      ->  verify deployment succeeded</pre>
+1. POST /api/provision  ->  repo + collaborator + host route + registry
+2. Push code to main    ->  GitHub Actions builds web/ and uploads to R2
+3. Host serves it        ->  https://&lt;id&gt;.freegamestore.online (from R2)
+4. GET /api/status      ->  verify the game is registered + routed</pre>
+  <p>Creators normally never call this directly — they use the console (VibeCode / create form) or the <code>fgs</code> CLI, which funnel through here.</p>
 
   <p style="margin-top:1rem"><a href="/">&larr; Back to Dashboard</a></p>
 </body>
