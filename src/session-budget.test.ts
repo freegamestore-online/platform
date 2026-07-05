@@ -42,31 +42,43 @@ describe("stripLargeToolCallBodies", () => {
 });
 
 describe("healPoisonedHistory (breaks the placeholder-imitation loop)", () => {
-  it("normalizes an OLD content-shaped placeholder to the instructional marker", () => {
-    // The exact poison from the angrry session: a past write_file whose content
-    // was compacted to "[N bytes written to path]" and fed back to the model.
-    const messages: Message[] = [
-      { role: "user", content: "fix the physics" },
-      {
-        role: "assistant",
-        content: "",
-        toolCalls: [{ id: "t1", name: "write_file", input: { path: "web/src/lib/levels.ts", content: "[2714 bytes written to web/src/lib/levels.ts]" } }],
-      },
-    ];
-    const healed = healPoisonedHistory(messages);
-    expect(healed).toBe(1);
-    const c = messages[1].toolCalls![0].input.content as string;
-    expect(c).toBe(elidedBodyMarker("web/src/lib/levels.ts"));
-    expect(c).not.toMatch(/^\[\d+ bytes written to/); // no longer imitable
+  it("removes a poisoned write turn (+ its tool_result) and leaves a TEXT breadcrumb — no placeholder reaches the model", () => {
+    // The angrry poison: a past write_file whose content is a placeholder (old
+    // "[N bytes written…]" OR the new elided-marker — the model imitates either).
+    for (const poison of ["[2714 bytes written to web/src/lib/levels.ts]", elidedBodyMarker("web/src/lib/levels.ts")]) {
+      const messages: Message[] = [
+        { role: "user", content: "fix the physics" },
+        { role: "assistant", content: "writing levels", toolCalls: [{ id: "t1", name: "write_file", input: { path: "web/src/lib/levels.ts", content: poison } }] },
+        { role: "tool_result", content: "", toolResults: [{ id: "t1", content: "Wrote web/src/lib/levels.ts" }] },
+        { role: "user", content: "done?" },
+      ];
+      const out = healPoisonedHistory(messages);
+      // The poisoned assistant turn AND its tool_result are gone…
+      expect(out.some((m) => m.role === "assistant" && m.toolCalls)).toBe(false);
+      expect(out.some((m) => m.role === "tool_result")).toBe(false);
+      // …replaced by a plain-text breadcrumb naming the file (no content body).
+      const crumb = out.find((m) => m.role === "assistant");
+      expect(crumb!.content).toContain("web/src/lib/levels.ts");
+      expect(crumb!.toolCalls).toBeUndefined();
+      // CRITICAL: no message anywhere still carries the placeholder content.
+      expect(JSON.stringify(out)).not.toContain("bytes written to");
+      expect(JSON.stringify(out)).not.toContain("already saved");
+      // The surrounding real messages survive.
+      expect(out[0]).toEqual({ role: "user", content: "fix the physics" });
+      expect(out.at(-1)).toEqual({ role: "user", content: "done?" });
+    }
   });
 
   it("leaves real source and non-write tool calls untouched", () => {
     const messages: Message[] = [
       { role: "assistant", content: "", toolCalls: [{ id: "t1", name: "write_file", input: { path: "a.ts", content: "export const A = 1;" } }] },
+      { role: "tool_result", content: "", toolResults: [{ id: "t1", content: "Wrote a.ts" }] },
       { role: "assistant", content: "", toolCalls: [{ id: "t2", name: "read_file", input: { path: "a.ts" } }] },
+      { role: "tool_result", content: "", toolResults: [{ id: "t2", content: "export const A = 1;" }] },
     ];
-    expect(healPoisonedHistory(messages)).toBe(0);
-    expect(messages[0].toolCalls![0].input.content).toBe("export const A = 1;");
+    const out = healPoisonedHistory(messages);
+    expect(out).toHaveLength(4); // nothing dropped
+    expect(out[0].toolCalls![0].input.content).toBe("export const A = 1;");
   });
 });
 

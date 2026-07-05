@@ -50,27 +50,45 @@ export function elidedBodyMarker(path: string): string {
 }
 
 /**
- * Heal a poisoned transcript in place. A write_file tool call whose `content` is a
- * content-shaped placeholder — the OLD compaction marker "[N bytes written to
- * path]", or any echo/elision string the model may have written — is normalized to
- * the instructional elided-marker. Fed back verbatim, such a placeholder makes the
- * model imitate it and write it as real content (the angrry loop); this runs on the
- * history BEFORE it reaches the model, so even an already-poisoned session recovers.
- * Returns the number of tool calls healed.
+ * Heal a poisoned transcript, returning a NEW cleaned message list to send to the
+ * model. A write_file tool call whose `content` is a content-shaped placeholder —
+ * the compaction marker, or any echo the model wrote — must NEVER be fed back: the
+ * model imitates whatever content value it sees in its own history, so replacing
+ * one placeholder with another just makes it copy the new one (the angrry loop
+ * kept going even after we swapped markers). The only safe move is to remove the
+ * poisoned write turn entirely and leave a plain-TEXT breadcrumb — text can't be
+ * mistaken for a file body, and the real file is still in the project (read_file).
+ * The paired tool_result is dropped with it so tool_use/tool_result stays balanced.
  */
-export function healPoisonedHistory(messages: Message[]): number {
-  let healed = 0;
-  for (const m of messages) {
-    if (m.role !== "assistant" || !m.toolCalls) continue;
-    for (const tc of m.toolCalls) {
-      if (tc.name === "write_file" && typeof tc.input?.content === "string" && looksLikePlaceholder(tc.input.content)) {
-        const path = typeof tc.input.path === "string" ? tc.input.path : "file";
-        tc.input = { ...tc.input, content: elidedBodyMarker(path) };
-        healed++;
-      }
+export function healPoisonedHistory(messages: Message[]): Message[] {
+  const out: Message[] = [];
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    const poisoned =
+      m.role === "assistant" &&
+      m.toolCalls?.some(
+        (tc) => tc.name === "write_file" && typeof tc.input?.content === "string" && looksLikePlaceholder(tc.input.content),
+      );
+    if (poisoned && m.toolCalls) {
+      const paths = [
+        ...new Set(
+          m.toolCalls
+            .filter((tc) => tc.name === "write_file")
+            .map((tc) => (typeof tc.input?.path === "string" ? tc.input.path : "a file")),
+        ),
+      ];
+      out.push({
+        role: "assistant",
+        content: `(Earlier I created/updated ${paths.join(", ")}. Use read_file to see the current contents before editing — do not guess.)`,
+      });
+      // Skip the paired tool_result that immediately follows (cleaned history
+      // keeps tool_use and its tool_result adjacent), so nothing is orphaned.
+      if (messages[i + 1]?.role === "tool_result") i++;
+      continue;
     }
+    out.push(m);
   }
-  return healed;
+  return out;
 }
 
 /** Replace oversized write_file tool-call `content` with a placeholder in place. */

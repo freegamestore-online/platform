@@ -157,13 +157,13 @@ export async function runAgentTurn(
     }
   }
 
-  // Heal poisoned history BEFORE the model sees it: normalize any content-shaped
-  // write_file placeholder ("[N bytes written to path]") to the instructional
-  // elided-marker, so even an already-poisoned session recovers next turn (the
-  // angrry loop, where the model imitated the placeholder from its own history).
-  healPoisonedHistory(cleaned);
+  // Heal poisoned history BEFORE the model sees it: remove any write turn whose
+  // content is a placeholder (the model imitates content values from its own
+  // history — the angrry loop — so feeding one back, even a "safe" marker, keeps
+  // it going). Replaced with a text breadcrumb; the real file stays in the project.
+  const sanitized = healPoisonedHistory(cleaned);
 
-  const messages: Message[] = [...cleaned, { role: "user", content: userMessage }];
+  const messages: Message[] = [...sanitized, { role: "user", content: userMessage }];
   const newMessages: Message[] = [{ role: "user", content: userMessage }];
   const infraRequests: InfraRequest[] = [];
   // Accumulate token usage across every provider round of this turn. Adapters
