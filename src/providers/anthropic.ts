@@ -145,15 +145,22 @@ async function* parseAnthropicSSE(body: ReadableStream, onChunk?: () => void): A
               output: 0,
             }),
           };
-        } else if (evt.type === "message_delta" && evt.usage) {
+        } else if (evt.type === "message_delta") {
           // Output tokens from message_delta (end of message)
-          yield {
-            type: "usage",
-            data: JSON.stringify({
-              input: 0,
-              output: evt.usage.output_tokens || 0,
-            }),
-          };
+          if (evt.usage) {
+            yield {
+              type: "usage",
+              data: JSON.stringify({ input: 0, output: evt.usage.output_tokens || 0 }),
+            };
+          }
+          // Surface a length cutoff. `stop_reason: "max_tokens"` means the model
+          // ran out of output budget mid-response — often mid write_file, leaving
+          // a truncated file. Make it VISIBLE (it used to stall silently) so the
+          // user knows to ask it to continue; the write_file truncation guard
+          // (tools.ts) separately rejects the destructive partial write.
+          if (evt.delta?.stop_reason === "max_tokens") {
+            yield { type: "text", data: "\n\n⚠️ My response was cut off at the length limit — the last file may be incomplete. Ask me to \"continue\" and I'll finish it." };
+          }
         }
       }
     }

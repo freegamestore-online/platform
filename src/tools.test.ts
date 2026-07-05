@@ -113,6 +113,32 @@ describe("executeTool — file tools", () => {
     expect(result.isError).toBe(true);
   });
 
+  it("rejects a destructive truncated write (>90% shrink of a real file)", () => {
+    const files = new Map<string, string>();
+    files.set("web/src/lib/physics.ts", "x".repeat(5894)); // the real angrry case
+    // A 46-byte stub over a 5894-byte module = truncated write → must be refused,
+    // and the original content must survive.
+    const result = executeTool(
+      { id: "1", name: "write_file", input: { path: "web/src/lib/physics.ts", content: 'import { Bird } from "../types";' } },
+      files,
+      appsConfig,
+    );
+    expect(result.isError).toBe(true);
+    expect(result.content).toContain("truncated");
+    expect(files.get("web/src/lib/physics.ts")!.length).toBe(5894); // NOT destroyed
+  });
+
+  it("allows a normal edit and a legitimate moderate shrink", () => {
+    const files = new Map<string, string>();
+    files.set("a.ts", "y".repeat(2000));
+    // 40% shrink is a real edit, not truncation → allowed.
+    const ok = executeTool({ id: "1", name: "write_file", input: { path: "a.ts", content: "z".repeat(1200) } }, files, appsConfig);
+    expect(ok.isError).toBeFalsy();
+    // A brand-new small file is fine (no prior content to compare).
+    const nu = executeTool({ id: "2", name: "write_file", input: { path: "b.ts", content: "hi" } }, files, appsConfig);
+    expect(nu.isError).toBeFalsy();
+  });
+
   it("delete_file removes file", () => {
     const files = new Map([["a.txt", "content"]]);
     executeTool({ id: "1", name: "delete_file", input: { path: "a.txt" } }, files, appsConfig);

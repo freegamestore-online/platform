@@ -211,6 +211,31 @@ export function executeTool(toolCall: ToolCall, files: Map<string, string>, conf
       // file (or one that overflows the total) can never brick save(). Returned
       // as a tool error the agent can recover from — not a throw.
       const size = byteLen(content);
+
+      // Destructive-truncation guard. If this write would REPLACE a substantial
+      // existing file with a tiny fraction of its size, it's almost never an
+      // intentional edit — it's a truncated/incomplete generation (e.g. the model
+      // hit its max_tokens output limit mid-write and only the import line made
+      // it, leaving a ~46-byte stub over a 6KB module). Accepting it silently
+      // destroys the file AND the follow-up build breaks; the turn then stalls.
+      // Reject it so the real content survives and the agent re-sends the COMPLETE
+      // file. Only fires on a drastic shrink (<10%) of a non-trivial file, so a
+      // legitimate slimming edit is unaffected.
+      const prev = files.get(path);
+      if (prev !== undefined) {
+        const prevSize = byteLen(prev);
+        if (prevSize >= 500 && size < prevSize * 0.1) {
+          return {
+            id,
+            content:
+              `Error: refusing to write ${path} — the new content is ${size} bytes but the current file is ${prevSize} bytes ` +
+              `(a >90% shrink). This is almost always a truncated/incomplete write (e.g. an output cut off mid-file), which would ` +
+              `delete most of the code. Re-send the COMPLETE file contents in ONE write_file call. If you genuinely mean to ` +
+              `replace it with a much smaller file, first delete_file it, then write the new one.`,
+            isError: true,
+          };
+        }
+      }
       if (size > WRITE_FILE_MAX_BYTES) {
         return {
           id,
