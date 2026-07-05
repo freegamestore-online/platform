@@ -45,4 +45,22 @@ describe("runAgentTurn — provider throw", () => {
     expect(last.content).toContain("Error:");
     expect(last.content).toContain("upstream 503");
   });
+
+  it("checkpoints the transcript (incl. the assistant message) DURING the turn, not only at the end", async () => {
+    const config = { provider: "anthropic", model: "claude-x", temperature: 0.7, maxTokens: 1000 };
+    // The session wires onCheckpoint to persistNow(). It must fire with the
+    // assistant message BEFORE runAgentTurn returns — that's what makes the reply
+    // durable if the turn is later interrupted before its end-of-turn save.
+    const checkpoints: number[] = [];
+    let sawAssistant = false;
+    const onCheckpoint = (msgs: { role: string }[]) => {
+      checkpoints.push(msgs.length);
+      if (msgs[msgs.length - 1]?.role === "assistant") sawAssistant = true;
+    };
+
+    await runAgentTurn(config, [], "Angry birds game", new Map(), drainedWriter(), getConfig("games"), undefined, onCheckpoint);
+
+    expect(checkpoints.length).toBeGreaterThanOrEqual(1);
+    expect(sawAssistant).toBe(true);
+  });
 });

@@ -62,6 +62,13 @@ export async function runAgentTurn(
   writer: WritableStreamDefaultWriter<Uint8Array>,
   storeConfig: StoreConfig,
   ctx?: SessionContext,
+  /** Persist the transcript-so-far to durable storage as EACH message is
+   *  produced, not only when the whole turn returns. Without this, a reply
+   *  streamed live but interrupted before end-of-turn (DO eviction, watchdog,
+   *  waitUntil grace expiring) was never saved — reload/other-browser saw the
+   *  user's messages with no agent replies. Called with the running newMessages;
+   *  the session persists best-effort (fire-and-forget). */
+  onCheckpoint?: (newMessages: Message[]) => void,
 ): Promise<AgentTurnResult> {
   const encoder = new TextEncoder();
   const adapter = createAdapter(config);
@@ -207,6 +214,7 @@ export async function runAgentTurn(
       const errText = assistantText ? `${assistantText}\n\nError: ${String(err)}` : `Error: ${String(err)}`;
       await send({ type: "error", data: String(err) });
       newMessages.push({ role: "assistant", content: errText });
+      onCheckpoint?.(newMessages);
       break;
     }
 
@@ -232,6 +240,10 @@ export async function runAgentTurn(
     };
     messages.push(assistantMsg);
     newMessages.push(assistantMsg);
+    // Checkpoint the reply the moment it's complete — this is the message the
+    // user loses on reload/other-browser when a turn is interrupted before its
+    // end-of-turn save.
+    onCheckpoint?.(newMessages);
 
     if (toolCalls.length === 0) break;
 
@@ -267,6 +279,7 @@ export async function runAgentTurn(
         };
         messages.push(fileResultMsg);
         newMessages.push(fileResultMsg);
+        onCheckpoint?.(newMessages);
       }
       break;
     }
@@ -279,6 +292,7 @@ export async function runAgentTurn(
     };
     messages.push(toolResultMsg);
     newMessages.push(toolResultMsg);
+    onCheckpoint?.(newMessages);
   }
 
   if (infraRequests.length === 0) {

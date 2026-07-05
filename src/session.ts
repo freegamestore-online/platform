@@ -437,7 +437,25 @@ export class AgentSession implements DurableObject {
           fileCount: files.size,
           fileList: [...files.keys()].sort().join(", "),
         };
-        const result = await runAgentTurn(body.aiConfig, history, body.message, files, writer, config, sessionCtx).catch(async (err) => {
+        // Checkpoint the transcript to durable storage as EACH message is
+        // produced, not only at end-of-turn. The user message is saved up-front
+        // (provisional save above); the reply was otherwise saved once, after the
+        // whole turn returns (see the save() below) — and a build turn runs for
+        // minutes through many tool calls + a deploy. Any interruption before that
+        // final save (DO eviction, the turn watchdog, or waitUntil grace expiring
+        // when the client disconnects) left storage holding ONLY the user message,
+        // so a reload or a second browser read `/history` and saw the user's
+        // messages with NO agent replies. Persisting each completed message keeps
+        // the transcript durable continuously; an interruption at worst loses the
+        // in-flight token stream, never a finished reply. Fire-and-forget inside
+        // persistNow so it never blocks the stream.
+        const checkpoint = (msgs: typeof session.messages) => {
+          session.messages = history.concat(msgs);
+          if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
+          session.files = Object.fromEntries(files);
+          this.persistNow().catch((e) => this.logError("storage", `checkpoint persist: ${String(e)}`));
+        };
+        const result = await runAgentTurn(body.aiConfig, history, body.message, files, writer, config, sessionCtx, checkpoint).catch(async (err) => {
           this.logError("agent", String(err));
           // The user message is already pre-saved above; rebuild from the
           // pre-turn snapshot (so it's never doubled) and record the failure so
