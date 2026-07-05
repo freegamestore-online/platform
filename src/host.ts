@@ -198,13 +198,19 @@ export function buildSyntheticVersion(slug: string, uploaded: Date, etag: string
 
 /**
  * Whether a served object must revalidate (short cache) rather than be cached
- * immutably for a year. True for files with a STABLE name but CHANGING content
- * across deploys: HTML entrypoints and the version.json deploy stamp. Bundle
- * assets are content-hashed, so their name changes when their content does —
- * those stay immutable. Kept here (pure) so the cache policy is unit-testable.
+ * immutably for a year. Immutable is ONLY safe for files whose NAME changes when
+ * their content changes — i.e. Vite/rollup content-hashed bundles, which are
+ * emitted under `assets/` (`assets/index-<hash>.js`). Everything else keeps a
+ * STABLE name across deploys: HTML entrypoints, the version.json stamp, and —
+ * critically — anything a game ships from `web/public/` (manifest.json, icons,
+ * sprites, audio, level/data JSON), which Vite copies verbatim to the dist root.
+ * Marking those immutable pins the FIRST version at the CF edge + browsers for up
+ * to a year, so a redeploy that changes them can never take effect. Revalidate
+ * everything that isn't a hashed bundle. Pure, so the policy is unit-testable.
  */
 export function shouldRevalidate(ct: string, key: string): boolean {
-  return ct.startsWith("text/html") || key.endsWith("/version.json");
+  if (ct.startsWith("text/html") || key.endsWith("/version.json")) return true;
+  return !/\/assets\//.test(key);
 }
 
 /**

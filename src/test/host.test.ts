@@ -225,9 +225,13 @@ describe("shouldRevalidate (cache policy for stable-named, changing files)", () 
     expect(shouldRevalidate("application/javascript; charset=utf-8", "games/pong/assets/index-BN71jIs_.js")).toBe(false);
     expect(shouldRevalidate("text/css; charset=utf-8", "games/pong/assets/index-CaUCB4gH.css")).toBe(false);
   });
-  it("does not match a game's own data file that merely ends in version-ish", () => {
-    // Only the exact deploy stamp path is short-cached, not arbitrary json.
-    expect(shouldRevalidate("application/json; charset=utf-8", "games/pong/data/levels.json")).toBe(false);
+  it("revalidates stable-named public/ files (data, manifest, media) so a redeploy isn't pinned for a year", () => {
+    // These come from web/public/ (stable names, changing content) — only hashed
+    // bundles under assets/ may be immutable.
+    expect(shouldRevalidate("application/json; charset=utf-8", "games/pong/data/levels.json")).toBe(true);
+    expect(shouldRevalidate("application/json; charset=utf-8", "games/pong/manifest.json")).toBe(true);
+    expect(shouldRevalidate("image/png", "games/pong/sprites.png")).toBe(true);
+    expect(shouldRevalidate("audio/mpeg", "games/pong/theme.mp3")).toBe(true);
   });
 });
 
