@@ -577,12 +577,18 @@ export async function pushUpdate(
     base_tree: parentCommit.tree.sha,
     tree: treeItems,
   });
+  // Guard tree.sha (mirrors pushFilesToGitHub): a non-thrown 422 (e.g. invalid
+  // base_tree) returns a body with no sha. Without this, we POST the commit with
+  // tree:undefined → the failure surfaces as a misleading "failed to update ref"
+  // that hides the real cause (tree creation).
+  if (!tree.sha) return `Error: failed to create tree for ${repo}: ${tree.message || "unknown"}`;
 
   const commit = await ghApi(`/repos/${repo}/git/commits`, "POST", {
     message: commitMessage,
     tree: tree.sha,
     parents: [parentSha],
   });
+  if (!commit.sha) return `Error: failed to create commit for ${repo}: ${commit.message || "unknown"}`;
 
   const refUpdate = await ghApi(`/repos/${repo}/git/refs/heads/main`, "PATCH", {
     sha: commit.sha,

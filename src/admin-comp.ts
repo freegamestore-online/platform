@@ -20,9 +20,11 @@ export async function handleAdminCompApi(request: Request, env: Env, cors: Recor
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...cors } });
 
-  // Constant-ish token gate. Only the admin worker carries INTERNAL_TOKEN.
+  // Token gate. Only the admin worker carries INTERNAL_TOKEN. Constant-time
+  // compare (like admin's safeEqual) so this high-value worker-to-worker secret
+  // can't be recovered a byte at a time via response timing.
   const tok = request.headers.get("X-Internal-Token") || "";
-  if (!env.INTERNAL_TOKEN || tok !== env.INTERNAL_TOKEN) return json({ error: "forbidden" }, 403);
+  if (!env.INTERNAL_TOKEN || !timingSafeEqual(tok, env.INTERNAL_TOKEN)) return json({ error: "forbidden" }, 403);
   if (!env.DB) return json({ error: "database not configured" }, 500);
 
   // GET /v1/admin/users — every REGISTERED user (from the auth users table in
@@ -141,6 +143,15 @@ export async function handleAdminCompApi(request: Request, env: Env, cors: Recor
   }
 
   return json({ error: "not found" }, 404);
+}
+
+/** Length-checked constant-time string compare (avoids leaking the secret via
+ *  early-exit timing). Length difference is not itself secret. */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 /** Map a GitHub login → the `github:<numericId>` vault key format. */

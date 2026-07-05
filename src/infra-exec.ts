@@ -120,7 +120,7 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
   ctx.onAppDeployed(appId, appName);
 
   let deployError: string | null = null;
-  let liveUrl: string | null = null;
+  let finalStatus: DeployStatus | null = null;
   await deployApp(
     {
       id: appId,
@@ -135,7 +135,13 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
     ctx.config,
     (status) => {
       ctx.onDeployStatus(status);
-      if (status.phase === "live") liveUrl = status.appUrl;
+      // Track the LAST status, not just "live". deployApp/deployPathB report a
+      // terminal build failure (CI red, compliance reject, R2 sync error) via
+      // onStatus({phase:"error"}) and then RETURN NORMALLY — they don't throw. So
+      // keying success on "did it throw" reported "Deploy succeeded" for a failed
+      // build, and the agent told the user the game was live while it was broken
+      // (the silent-failure loop). The tool result must agree with deployStatus.
+      finalStatus = status;
     },
     ctx.creatorLogin,
     ctx.seed,
@@ -147,7 +153,11 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
     ctx.onDeployStatus({ phase: "error", error: deployError });
     return `Deploy FAILED: ${deployError}`;
   }
-  return `Deploy succeeded. Preview: ${liveUrl || "building..."}`;
+  // TS narrows finalStatus to never inside the closure; read via a widened local.
+  const last = finalStatus as DeployStatus | null;
+  if (last?.phase === "error") return `Deploy FAILED: ${last.error || "the build did not complete"}. Use get_build_logs to see why, fix the code, then push_update.`;
+  if (last?.phase === "live") return `Deploy succeeded. Live: ${last.appUrl}`;
+  return `Deploy pushed — CI is still building. Poll check_deploy_status; if it ends in failure, use get_build_logs and push_update a fix.`;
 }
 
 async function executePushUpdate(tc: ToolCall, ctx: ExecContext): Promise<string> {
