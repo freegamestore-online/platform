@@ -24,14 +24,16 @@ zone_name = "freegamestore.online"
 [triggers]
 crons = ["0 * * * *"]
 
-# Path B: publish writes a D1 routes row to the shared `fas` D1. The fgs/host
-# worker (same DB binding) reads it + serves from the fgs-games R2 bucket
-# at games/<slug>/. Replaces the previous CF Pages provisioning that capped
-# the free side at 100 games per CF account.
+# Path B: publish writes a D1 routes row to the FGS-owned `freegamestore` D1.
+# The fgs/host worker (same DB binding) reads it + serves from the fgs-games R2
+# bucket at games/<slug>/. Replaces the previous CF Pages provisioning that
+# capped the free side at 100 games per CF account. Split off the shared `fas`
+# D1 on 2026-07-05 so FGS no longer depends on the FAS store's database
+# (see fgs-architecture-review Tier-2 #1).
 [[d1_databases]]
 binding = "DB"
-database_name = "fas"
-database_id = "a32701c0-5a56-4a12-810d-485166202e39"
+database_name = "freegamestore"
+database_id = "a122751e-11a2-466e-b403-4696f3f4a698"
 
 # Direct invocation of the auth worker (verifies fgs_token via /me). Service
 # binding bypasses the public edge — fetching auth's hostname loops back (CF 522).
