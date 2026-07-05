@@ -1,8 +1,8 @@
 {
-  "version": "0.28.0",
-  "timestamp": "2026-05-23T00:27:14.666Z",
-  "score": 81,
-  "grade": "B",
+  "version": "0.44.0",
+  "timestamp": "2026-07-05T04:50:44.840Z",
+  "score": 74,
+  "grade": "C",
   "checks": [
     {
       "name": "structure",
@@ -18,9 +18,9 @@
           "lockfile"
         ],
         "missing": [],
-        "srcFiles": 2,
-        "testFiles": 1,
-        "testRatio": "50%"
+        "srcFiles": 4,
+        "testFiles": 4,
+        "testRatio": "100%"
       },
       "issues": [
         {
@@ -29,7 +29,7 @@
           "rule": "no-build-script"
         }
       ],
-      "duration": 1
+      "duration": 3
     },
     {
       "name": "lint",
@@ -44,140 +44,176 @@
     },
     {
       "name": "types",
-      "score": 100,
-      "grade": "A",
-      "details": {
-        "errors": 0,
-        "ok": true
-      },
-      "issues": [],
-      "duration": 1322
-    },
-    {
-      "name": "type-safety",
       "score": 80,
       "grade": "B",
       "details": {
-        "as any": 7,
+        "errors": 4,
+        "ok": false
+      },
+      "issues": [
+        {
+          "severity": "error",
+          "file": "node_modules/.pnpm/tinybench@2.9.0/node_modules/tinybench/dist/index.d.ts",
+          "line": 32,
+          "rule": "TS2416",
+          "message": "Property 'addEventListener' in type 'Task' is not assignable to the same property in base type 'EventTarget<Record<string, Event>>'."
+        },
+        {
+          "severity": "error",
+          "file": "node_modules/.pnpm/tinybench@2.9.0/node_modules/tinybench/dist/index.d.ts",
+          "line": 33,
+          "rule": "TS2416",
+          "message": "Property 'removeEventListener' in type 'Task' is not assignable to the same property in base type 'EventTarget<Record<string, Event>>'."
+        },
+        {
+          "severity": "error",
+          "file": "node_modules/.pnpm/tinybench@2.9.0/node_modules/tinybench/dist/index.d.ts",
+          "line": 295,
+          "rule": "TS2416",
+          "message": "Property 'addEventListener' in type 'Bench' is not assignable to the same property in base type 'EventTarget<Record<string, Event>>'."
+        },
+        {
+          "severity": "error",
+          "file": "node_modules/.pnpm/tinybench@2.9.0/node_modules/tinybench/dist/index.d.ts",
+          "line": 296,
+          "rule": "TS2416",
+          "message": "Property 'removeEventListener' in type 'Bench' is not assignable to the same property in base type 'EventTarget<Record<string, Event>>'."
+        }
+      ],
+      "duration": 936
+    },
+    {
+      "name": "type-safety",
+      "score": 70,
+      "grade": "C",
+      "details": {
+        "as any": 8,
         ": any": 6,
-        "filesScanned": 2,
-        "totalUnsafe": 13
+        "filesScanned": 4,
+        "totalUnsafe": 14
       },
       "issues": [
         {
           "severity": "warning",
           "message": "as any",
           "file": "src/index.ts",
-          "line": 39,
-          "rule": "unsafe-type"
-        },
-        {
-          "severity": "warning",
-          "message": ": any",
-          "file": "src/index.ts",
-          "line": 41,
+          "line": 201,
           "rule": "unsafe-type"
         },
         {
           "severity": "warning",
           "message": "as any",
           "file": "src/index.ts",
-          "line": 66,
+          "line": 211,
+          "rule": "unsafe-type"
+        },
+        {
+          "severity": "warning",
+          "message": ": any",
+          "file": "src/index.ts",
+          "line": 222,
           "rule": "unsafe-type"
         },
         {
           "severity": "warning",
           "message": "as any",
           "file": "src/index.ts",
-          "line": 448,
+          "line": 268,
           "rule": "unsafe-type"
         },
         {
           "severity": "warning",
           "message": "as any",
           "file": "src/index.ts",
-          "line": 449,
-          "rule": "unsafe-type"
-        },
-        {
-          "severity": "warning",
-          "message": ": any",
-          "file": "src/publish.ts",
-          "line": 40,
+          "line": 992,
           "rule": "unsafe-type"
         },
         {
           "severity": "warning",
           "message": "as any",
-          "file": "src/publish.ts",
-          "line": 46,
-          "rule": "unsafe-type"
-        },
-        {
-          "severity": "warning",
-          "message": ": any",
-          "file": "src/publish.ts",
-          "line": 49,
+          "file": "src/index.ts",
+          "line": 1196,
           "rule": "unsafe-type"
         },
         {
           "severity": "warning",
           "message": "as any",
-          "file": "src/publish.ts",
-          "line": 55,
-          "rule": "unsafe-type"
-        },
-        {
-          "severity": "warning",
-          "message": ": any",
-          "file": "src/publish.ts",
-          "line": 58,
+          "file": "src/index.ts",
+          "line": 1212,
           "rule": "unsafe-type"
         },
         {
           "severity": "warning",
           "message": "as any",
-          "file": "src/publish.ts",
-          "line": 69,
+          "file": "src/index.ts",
+          "line": 1239,
+          "rule": "unsafe-type"
+        },
+        {
+          "severity": "warning",
+          "message": "as any",
+          "file": "src/index.ts",
+          "line": 1253,
           "rule": "unsafe-type"
         },
         {
           "severity": "warning",
           "message": ": any",
           "file": "src/publish.ts",
-          "line": 155,
+          "line": 97,
           "rule": "unsafe-type"
         },
         {
           "severity": "warning",
           "message": ": any",
           "file": "src/publish.ts",
-          "line": 192,
+          "line": 112,
+          "rule": "unsafe-type"
+        },
+        {
+          "severity": "warning",
+          "message": ": any",
+          "file": "src/publish.ts",
+          "line": 182,
+          "rule": "unsafe-type"
+        },
+        {
+          "severity": "warning",
+          "message": ": any",
+          "file": "src/publish.ts",
+          "line": 254,
+          "rule": "unsafe-type"
+        },
+        {
+          "severity": "warning",
+          "message": ": any",
+          "file": "src/publish.ts",
+          "line": 412,
           "rule": "unsafe-type"
         }
       ],
-      "duration": 2
+      "duration": 3
     },
     {
       "name": "standards",
       "score": 0,
       "grade": "F",
       "details": {
-        "filesScanned": 2,
-        "codeSmells": 31,
-        "largeFiles": 1,
+        "filesScanned": 4,
+        "codeSmells": 124,
+        "largeFiles": 2,
         "namingViolations": 0
       },
       "issues": [
         {
-          "severity": "warning",
-          "message": "468 lines — consider splitting (max 300)",
+          "severity": "error",
+          "message": "1291 lines — split this file (exponential penalty above 300)",
           "file": "src/index.ts",
           "rule": "large-file"
         },
         {
-          "severity": "warning",
-          "message": "286 lines — getting large",
+          "severity": "error",
+          "message": "691 lines — split this file (exponential penalty above 300)",
           "file": "src/publish.ts",
           "rule": "large-file"
         },
@@ -185,262 +221,954 @@
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 190,
+          "line": 335,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 191,
+          "line": 498,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 192,
+          "line": 499,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 193,
+          "line": 500,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 194,
+          "line": 501,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 203,
+          "line": 502,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 204,
+          "line": 511,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 205,
+          "line": 512,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 206,
+          "line": 513,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 207,
+          "line": 514,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 222,
+          "line": 515,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 530,
           "rule": "var keyword"
         },
         {
           "severity": "warning",
           "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
           "file": "src/index.ts",
-          "line": 223,
+          "line": 531,
           "rule": "innerHTML assignment"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 227,
+          "line": 535,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 228,
+          "line": 536,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 229,
+          "line": 537,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 230,
+          "line": 538,
           "rule": "var keyword"
         },
         {
           "severity": "warning",
           "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
           "file": "src/index.ts",
-          "line": 235,
+          "line": 543,
           "rule": "innerHTML assignment"
         },
         {
           "severity": "warning",
           "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
           "file": "src/index.ts",
-          "line": 248,
+          "line": 556,
           "rule": "innerHTML assignment"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 249,
+          "line": 557,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 259,
+          "line": 567,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 265,
+          "line": 573,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 266,
+          "line": 574,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 267,
+          "line": 575,
           "rule": "var keyword"
         },
         {
           "severity": "warning",
           "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
           "file": "src/index.ts",
-          "line": 269,
+          "line": 577,
           "rule": "innerHTML assignment"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 274,
+          "line": 582,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 275,
+          "line": 583,
           "rule": "var keyword"
         },
         {
           "severity": "error",
           "message": "Use const/let instead of var",
           "file": "src/index.ts",
-          "line": 279,
+          "line": 587,
           "rule": "var keyword"
         },
         {
           "severity": "warning",
           "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
           "file": "src/index.ts",
-          "line": 280,
+          "line": 588,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 593,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "Use === instead of ==",
+          "file": "src/index.ts",
+          "line": 594,
+          "rule": "loose equality"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 596,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 597,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 598,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 608,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 611,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 612,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 613,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 614,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 615,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 615,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 616,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 619,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 619,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 621,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 622,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 623,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 626,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 626,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 628,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 629,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 630,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 634,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 636,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 637,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 639,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 640,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 641,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 642,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 645,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 650,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 651,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 652,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 653,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 656,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 657,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 658,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 659,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 661,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 664,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 665,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 667,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 668,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 668,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 669,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 673,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 674,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 674,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 677,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 678,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 679,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 680,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 681,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 682,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 683,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 684,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 686,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 690,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 691,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 692,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 693,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 696,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 701,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 702,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 707,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 709,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 710,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 712,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 713,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 714,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 719,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 723,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 724,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 725,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 726,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 727,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 730,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 731,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 732,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 733,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 736,
+          "rule": "innerHTML assignment"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 741,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 742,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 750,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 751,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 752,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 753,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "error",
+          "message": "Use const/let instead of var",
+          "file": "src/index.ts",
+          "line": 754,
+          "rule": "var keyword"
+        },
+        {
+          "severity": "warning",
+          "message": "console.log in production code",
+          "file": "src/index.ts",
+          "line": 1017,
+          "rule": "console.log"
+        },
+        {
+          "severity": "warning",
+          "message": "console.log in production code",
+          "file": "src/index.ts",
+          "line": 1252,
+          "rule": "console.log"
+        },
+        {
+          "severity": "warning",
+          "message": "console.log in production code",
+          "file": "src/index.ts",
+          "line": 1254,
+          "rule": "console.log"
+        },
+        {
+          "severity": "warning",
+          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
+          "file": "src/publish.ts",
+          "line": 660,
           "rule": "innerHTML assignment"
         },
         {
           "severity": "warning",
           "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
           "file": "src/publish.ts",
-          "line": 253,
+          "line": 664,
           "rule": "innerHTML assignment"
         },
         {
           "severity": "warning",
           "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
           "file": "src/publish.ts",
-          "line": 257,
+          "line": 671,
           "rule": "innerHTML assignment"
         },
         {
-          "severity": "warning",
-          "message": "innerHTML is an XSS vector — use textContent or DOM APIs",
-          "file": "src/publish.ts",
-          "line": 264,
-          "rule": "innerHTML assignment"
+          "severity": "info",
+          "message": "Enable noUncheckedIndexedAccess — array/object index access returns T | undefined, catches real bugs",
+          "rule": "ts-maturity"
+        },
+        {
+          "severity": "info",
+          "message": "Enable verbatimModuleSyntax — enforces explicit type-only imports, better for bundlers",
+          "rule": "ts-maturity"
+        },
+        {
+          "severity": "info",
+          "message": "Enable skipLibCheck — faster builds, skip type-checking .d.ts files from node_modules",
+          "rule": "ts-maturity"
         }
       ],
-      "duration": 3
+      "duration": 4
     },
     {
       "name": "complexity",
-      "score": 81,
+      "score": 78,
       "grade": "B",
       "details": {
-        "totalFiles": 2,
-        "totalLines": 754,
-        "longFunctions": 3,
-        "complexFunctions": 2,
-        "functionCount": 13
+        "totalFiles": 4,
+        "totalLines": 2196,
+        "longFunctions": 5,
+        "complexFunctions": 3,
+        "functionCount": 68
       },
       "issues": [
         {
           "severity": "warning",
-          "message": "renderDashboardShell: 161 lines (max 60)",
+          "message": "fetchGameStatus: 345 lines (max 60)",
           "file": "src/index.ts",
+          "line": 250,
           "rule": "long-function"
         },
         {
           "severity": "warning",
-          "message": "renderDashboardShell: complexity 22 (max 15)",
+          "message": "fetchGameStatus: complexity 37 (max 15)",
           "file": "src/index.ts",
+          "line": 250,
           "rule": "high-complexity"
         },
         {
           "severity": "warning",
-          "message": "renderApiDocs: 116 lines (max 60)",
+          "message": "loadUsers: 137 lines (max 60)",
           "file": "src/index.ts",
+          "line": 625,
           "rule": "long-function"
         },
         {
           "severity": "warning",
-          "message": "handlePublish: 150 lines (max 60)",
-          "file": "src/publish.ts",
+          "message": "loadUsers: complexity 47 (max 15)",
+          "file": "src/index.ts",
+          "line": 625,
+          "rule": "high-complexity"
+        },
+        {
+          "severity": "warning",
+          "message": "renderApiDocs: 115 lines (max 60)",
+          "file": "src/index.ts",
+          "line": 763,
           "rule": "long-function"
         },
         {
           "severity": "warning",
-          "message": "handlePublish: complexity 38 (max 15)",
-          "file": "src/publish.ts",
+          "message": "reconcile: 82 lines (max 60)",
+          "file": "src/index.ts",
+          "line": 939,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "fetch: 157 lines (max 60)",
+          "file": "src/index.ts",
+          "line": 1029,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "fetch: complexity 33 (max 15)",
+          "file": "src/index.ts",
+          "line": 1029,
           "rule": "high-complexity"
         }
       ],
@@ -448,47 +1176,119 @@
     },
     {
       "name": "duplication",
-      "score": 91,
+      "score": 100,
       "grade": "A",
       "details": {
-        "filesScanned": 2,
-        "totalSourceLines": 754,
+        "filesScanned": 4,
+        "totalSourceLines": 2196,
         "duplicateBlocks": 3,
-        "duplicationPct": "2%"
+        "duplicationPct": "1.7%",
+        "tool": "built-in"
       },
       "issues": [
         {
           "severity": "warning",
-          "message": "Duplicate (6 lines): CF_ACCOUNT_ID: string; | CF_API_TOKEN: string;",
-          "file": "src/index.ts:4 ↔ src/publish.ts:6",
-          "rule": "duplicate-code"
+          "message": "Duplicate (22 lines): login: string,",
+          "file": "src/publish.ts:579 ↔ src/publish.ts:508",
+          "rule": "duplicate-code",
+          "snippet": "login: string,"
         },
         {
           "severity": "warning",
-          "message": "Duplicate (6 lines): CF_API_TOKEN: string; | CF_GLOBAL_KEY: string;",
-          "file": "src/index.ts:5 ↔ src/publish.ts:7",
-          "rule": "duplicate-code"
+          "message": "Duplicate (10 lines): message: `Update ${gameId} metadata (${allowed.filter(k => k in updates).join(\", \")})`,",
+          "file": "src/publish.ts:558 ↔ src/publish.ts:438",
+          "rule": "duplicate-code",
+          "snippet": "message: `Update ${gameId} metadata (${allowed.filter(k => k in updates).join(\", \")})`,"
         },
         {
           "severity": "warning",
-          "message": "Duplicate (6 lines): \"id\": \"chess\", | \"name\": \"Chess\",",
-          "file": "src/index.ts:371 ↔ src/publish.ts:274",
-          "rule": "duplicate-code"
+          "message": "Duplicate (9 lines): message: `Delete ${gameId} from games registry`,",
+          "file": "src/publish.ts:609 ↔ src/publish.ts:438",
+          "rule": "duplicate-code",
+          "snippet": "message: `Delete ${gameId} from games registry`,"
         }
       ],
-      "duration": 3
+      "duration": 64
     },
     {
       "name": "error-handling",
-      "score": 100,
-      "grade": "A",
+      "score": 70,
+      "grade": "C",
       "details": {
         "emptyCatch": 0,
         "throwString": 0,
-        "hasErrorBoundary": "n/a"
+        "floatingPromises": 2,
+        "jsonParseUnsafe": 1,
+        "infiniteLoops": 0,
+        "hasErrorBoundary": "n/a",
+        "tool": "built-in"
       },
-      "issues": [],
-      "duration": 1
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "Floating promise — missing await, .catch(), or return",
+          "file": "src/index.ts",
+          "line": 560,
+          "rule": "floating-promise"
+        },
+        {
+          "severity": "warning",
+          "message": "Floating promise — missing await, .catch(), or return",
+          "file": "src/index.ts",
+          "line": 561,
+          "rule": "floating-promise"
+        },
+        {
+          "severity": "warning",
+          "message": "JSON.parse of external data without try-catch — crashes on malformed input",
+          "file": "src/auth.ts",
+          "line": 71,
+          "rule": "unsafe-json-parse"
+        },
+        {
+          "severity": "info",
+          "message": "Catch block may expose error details to caller — consider logging and returning a safe message",
+          "file": "src/publish.ts",
+          "line": 179,
+          "rule": "error-info-leak"
+        },
+        {
+          "severity": "info",
+          "message": "Catch block may expose error details to caller — consider logging and returning a safe message",
+          "file": "src/publish.ts",
+          "line": 180,
+          "rule": "error-info-leak"
+        },
+        {
+          "severity": "info",
+          "message": "Catch block may expose error details to caller — consider logging and returning a safe message",
+          "file": "src/publish.ts",
+          "line": 181,
+          "rule": "error-info-leak"
+        },
+        {
+          "severity": "info",
+          "message": "Catch block may expose error details to caller — consider logging and returning a safe message",
+          "file": "src/publish.ts",
+          "line": 182,
+          "rule": "error-info-leak"
+        },
+        {
+          "severity": "info",
+          "message": "Catch block may expose error details to caller — consider logging and returning a safe message",
+          "file": "src/publish.ts",
+          "line": 251,
+          "rule": "error-info-leak"
+        },
+        {
+          "severity": "info",
+          "message": "Catch block may expose error details to caller — consider logging and returning a safe message",
+          "file": "src/publish.ts",
+          "line": 254,
+          "rule": "error-info-leak"
+        }
+      ],
+      "duration": 5
     },
     {
       "name": "react",
@@ -507,44 +1307,46 @@
       "grade": "A",
       "details": {
         "skipped": true,
-        "reason": "no JSX/TSX files"
+        "reason": "no JSX/TSX/Vue/Svelte files"
       },
       "issues": [],
       "duration": 1
     },
     {
       "name": "docs",
-      "score": 50,
+      "score": 58,
       "grade": "D",
       "details": {
         "readmeLines": 30,
-        "totalExports": 2,
-        "documentedExports": 0,
-        "documentedPct": "0%"
+        "totalExports": 16,
+        "documentedExports": 5,
+        "documentedPct": "31%",
+        "hasChangelog": false
       },
       "issues": [
         {
-          "severity": "warning",
-          "message": "Only 0% of exports have documentation (0/2)",
-          "rule": "undocumented-exports"
+          "severity": "info",
+          "message": "No CHANGELOG.md — version history not documented",
+          "rule": "no-changelog"
         }
       ],
       "duration": 1
     },
     {
       "name": "best-practices",
-      "score": 50,
-      "grade": "D",
+      "score": 70,
+      "grade": "C",
       "details": {
-        "practicesChecked": 18,
-        "practicesFollowed": 9,
+        "practicesChecked": 20,
+        "practicesFollowed": 10,
         "adherence": "50%"
       },
       "issues": [
         {
           "severity": "warning",
-          "message": "No .github/workflows/ — no CI/CD automation. Add GitHub Actions for automated testing and deployment.",
-          "rule": "no-ci"
+          "message": "deploy.yml: no explicit permissions block — defaults to read-write (overly permissive)",
+          "file": ".github/workflows/deploy.yml",
+          "rule": "explicit-permissions"
         },
         {
           "severity": "info",
@@ -590,158 +1392,413 @@
       "duration": 2
     },
     {
+      "name": "env-validation",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "envFiles": [],
+        "hasExample": false
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "git-hygiene",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "skipped": true,
+        "reason": "runner error: require is not defined"
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "memory-safety",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "totalFiles": 4,
+        "affectedFiles": 2,
+        "patterns": 2
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "addEventListener without removeEventListener — may leak if component unmounts",
+          "file": "src/index.ts",
+          "line": 749,
+          "rule": "listener-leak"
+        },
+        {
+          "severity": "warning",
+          "message": "addEventListener without removeEventListener — may leak if component unmounts",
+          "file": "src/publish.ts",
+          "line": 655,
+          "rule": "listener-leak"
+        }
+      ],
+      "duration": 2
+    },
+    {
       "name": "testing",
       "score": 65,
       "grade": "C",
       "details": {
         "pyramid": {
-          "unit": 1,
+          "unit": 4,
           "integration": 0,
           "component": 0,
           "e2e": 0
         },
         "layersPresent": "1/1",
         "e2eTool": "none",
-        "testFiles": 1,
-        "srcFiles": 2,
-        "pairing": "0%",
+        "testFiles": 4,
+        "srcFiles": 4,
+        "pairing": "67%",
         "quality": {
-          "assertionsPerTest": 1,
-          "mockRatio": 0,
+          "assertionsPerTest": 1.7,
+          "mockRatio": 0.02,
           "snapshotRatio": 0
-        },
-        "passed": 1,
-        "failed": 0,
-        "total": 1
+        }
       },
       "issues": [
         {
-          "severity": "warning",
-          "message": "Only 0% of source files have matching test files",
-          "rule": "low-test-pairing"
-        },
-        {
           "severity": "info",
-          "message": "No test file for src/publish.ts",
-          "file": "src/publish.ts",
+          "message": "No test file for src/errlog.ts",
+          "file": "src/errlog.ts",
           "rule": "untested-file"
         }
       ],
-      "duration": 6408
+      "duration": 2
     },
     {
       "name": "secrets",
       "score": 100,
       "grade": "A",
       "details": {
-        "secretsFound": 0
+        "secretsFound": 0,
+        "tool": "gitleaks"
       },
       "issues": [],
-      "duration": 6
+      "duration": 132
     },
     {
       "name": "security",
-      "score": 60,
-      "grade": "C",
+      "score": 75,
+      "grade": "B",
       "details": {
-        "filesScanned": 2,
-        "patterns": 8,
-        "cweCategories": 1,
+        "filesScanned": 4,
+        "patterns": 31,
+        "cweCategories": 2,
         "errors": 0,
-        "warnings": 8
+        "warnings": 30,
+        "storageAudit": {
+          "localStorageSecrets": 1,
+          "sessionStorageSecrets": 0,
+          "hardcodedCredentials": 0,
+          "insecureCookies": 0,
+          "total": 1
+        },
+        "tool": "built-in"
       },
       "issues": [
         {
           "severity": "warning",
           "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
           "file": "src/index.ts",
-          "line": 223,
+          "line": 543,
           "rule": "CWE-79"
         },
         {
           "severity": "warning",
           "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
           "file": "src/index.ts",
-          "line": 235,
+          "line": 556,
           "rule": "CWE-79"
         },
         {
           "severity": "warning",
           "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
           "file": "src/index.ts",
-          "line": 248,
+          "line": 577,
           "rule": "CWE-79"
         },
         {
           "severity": "warning",
           "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
           "file": "src/index.ts",
-          "line": 269,
+          "line": 588,
           "rule": "CWE-79"
         },
         {
           "severity": "warning",
           "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
           "file": "src/index.ts",
-          "line": 280,
+          "line": 612,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 616,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 619,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 623,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 626,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 630,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 639,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 645,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 653,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 658,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 659,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 661,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 683,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 684,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 692,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 693,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 696,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 714,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 726,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 727,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 732,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 733,
+          "rule": "CWE-79"
+        },
+        {
+          "severity": "warning",
+          "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
+          "file": "src/index.ts",
+          "line": 736,
           "rule": "CWE-79"
         },
         {
           "severity": "warning",
           "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
           "file": "src/publish.ts",
-          "line": 253,
+          "line": 660,
           "rule": "CWE-79"
         },
         {
           "severity": "warning",
           "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
           "file": "src/publish.ts",
-          "line": 257,
+          "line": 664,
           "rule": "CWE-79"
         },
         {
           "severity": "warning",
           "message": "XSS: innerHTML assignment — use textContent or DOM APIs",
           "file": "src/publish.ts",
-          "line": 264,
+          "line": 671,
           "rule": "CWE-79"
+        },
+        {
+          "severity": "info",
+          "message": "localStorage.setItem in auth-related file — verify no tokens/secrets are persisted client-side",
+          "file": "src/index.ts",
+          "line": 598,
+          "rule": "CWE-922"
         }
       ],
-      "duration": 4
+      "duration": 9
     },
     {
       "name": "dependencies",
-      "score": 100,
-      "grade": "A",
+      "score": 73,
+      "grade": "C",
       "details": {
         "vulnerabilities": {
           "critical": 0,
-          "high": 0,
-          "moderate": 0,
+          "high": 2,
+          "moderate": 2,
           "low": 0
         },
-        "outdated": 1,
-        "majorOutdated": 0
+        "outdated": 2,
+        "majorOutdated": 1,
+        "licenses": {
+          "copyleft": 0,
+          "unknown": 1
+        }
       },
-      "issues": [],
-      "duration": 1831
+      "issues": [
+        {
+          "severity": "error",
+          "message": "2 high vulnerabilities"
+        },
+        {
+          "severity": "warning",
+          "message": "2 moderate vulnerabilities"
+        },
+        {
+          "severity": "warning",
+          "message": "1 packages behind by a major version",
+          "rule": "major-outdated"
+        },
+        {
+          "severity": "info",
+          "message": "@cloudflare/workers-types 4.20260528.1 → 5.20260705.1",
+          "rule": "outdated-package"
+        },
+        {
+          "severity": "info",
+          "message": "@cloudflare/workers-types@4.20260528.1: license unknown — verify manually",
+          "rule": "unknown-license"
+        }
+      ],
+      "duration": 1544
     },
     {
       "name": "architecture",
       "score": 100,
       "grade": "A",
       "details": {
-        "totalModules": 2,
+        "totalModules": 4,
         "circularDeps": 0,
         "godModules": 0,
         "orphans": 0,
         "highFanOut": 0,
         "connectors": 0,
         "graph": {
+          "src/auth.ts": {
+            "imports": [],
+            "importedBy": [
+              "src/index.ts"
+            ],
+            "dir": "src"
+          },
+          "src/errlog.ts": {
+            "imports": [],
+            "importedBy": [
+              "src/index.ts"
+            ],
+            "dir": "src"
+          },
           "src/index.ts": {
             "imports": [
-              "src/publish.ts"
+              "src/publish.ts",
+              "src/errlog.ts",
+              "src/auth.ts"
             ],
             "importedBy": [],
             "dir": "src"
@@ -754,7 +1811,7 @@
             "dir": "src"
           }
         },
-        "containerSvg": "<svg viewBox=\"0 0 370 120\" xmlns=\"http://www.w3.org/2000/svg\" style=\"width:100%;max-width:370px\"><defs><marker id=\"cont-arrow\" viewBox=\"0 0 10 7\" refX=\"10\" refY=\"3.5\" markerWidth=\"7\" markerHeight=\"5\" orient=\"auto\"><polygon points=\"0 0, 10 3.5, 0 7\" fill=\"#ffffff40\"/></marker></defs><rect x=\"30\" y=\"30\" width=\"140\" height=\"60\" rx=\"8\" fill=\"#d9770615\" stroke=\"#d9770650\"/><text x=\"100\" y=\"54\" text-anchor=\"middle\" fill=\"#e5e5e5\" font-size=\"10\" font-weight=\"700\">Worker</text><text x=\"100\" y=\"70\" text-anchor=\"middle\" fill=\"#6b7280\" font-size=\"8\">[Cloudflare Workers]</text><line x1=\"170\" y1=\"60\" x2=\"200\" y2=\"60\" stroke=\"#ffffff20\" stroke-width=\"1.5\" marker-end=\"url(#cont-arrow)\"/><rect x=\"200\" y=\"30\" width=\"140\" height=\"60\" rx=\"8\" fill=\"#22c55e15\" stroke=\"#22c55e50\"/><text x=\"270\" y=\"54\" text-anchor=\"middle\" fill=\"#e5e5e5\" font-size=\"10\" font-weight=\"700\">API Server</text><text x=\"270\" y=\"70\" text-anchor=\"middle\" fill=\"#6b7280\" font-size=\"8\">[Node.js]</text></svg>",
+        "containerSvg": "",
         "assessment": {
           "pattern": "flat",
           "patternDescription": "All files in one directory — no clear separation of concerns.",
@@ -774,155 +1831,87 @@
             "Low cross-coupling (0%) — packages are well-isolated.",
             "No god modules — healthy dependency distribution."
           ]
-        }
+        },
+        "tool": "built-in"
       },
       "issues": [],
-      "duration": 2
+      "duration": 32
     },
     {
       "name": "performance",
       "score": 100,
       "grade": "A",
       "details": {
-        "filesScanned": 2,
+        "filesScanned": 4,
         "barrelImports": 0,
         "heavyDeps": 0,
         "dynamicOpportunities": 0,
-        "cssInJsRuntime": 0
+        "cssInJsRuntime": 0,
+        "deadExports": 0,
+        "unusedFiles": 0,
+        "unusedDeps": 0,
+        "deadCodeTool": "knip"
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "message": "Large destructured import — if from a barrel, only imported items should be bundled",
+          "file": "src/index.ts",
+          "line": 1,
+          "rule": "large-import"
+        },
+        {
+          "severity": "info",
+          "message": "Large destructured import — if from a barrel, only imported items should be bundled",
+          "file": "src/index.ts",
+          "line": 2,
+          "rule": "large-import"
+        }
+      ],
+      "duration": 930
+    },
+    {
+      "name": "container-health",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "skipped": true,
+        "reason": "no Dockerfile found"
       },
       "issues": [],
-      "duration": 2
+      "duration": 0
     },
     {
       "name": "confusion",
-      "score": 85,
+      "score": 75,
       "grade": "B",
       "details": {
         "fileConfusability": 0,
-        "genericNames": 15,
+        "genericNames": 0,
         "exportCollisions": 0,
-        "ambiguousAbbrevs": 0,
-        "filesScanned": 2
+        "ambiguousAbbrevs": 1,
+        "filesScanned": 4
       },
       "issues": [
         {
           "severity": "warning",
-          "message": "Generic variable: res — use a descriptive name",
-          "file": "src/index.ts",
-          "line": 37,
-          "rule": "generic-name"
-        },
-        {
-          "severity": "warning",
-          "message": "Generic variable: data — use a descriptive name",
-          "file": "src/index.ts",
-          "line": 39,
-          "rule": "generic-name"
-        },
-        {
-          "severity": "warning",
-          "message": "Generic variable: res — use a descriptive name",
-          "file": "src/index.ts",
-          "line": 52,
-          "rule": "generic-name"
-        },
-        {
-          "severity": "warning",
-          "message": "Generic variable: res — use a descriptive name",
-          "file": "src/index.ts",
-          "line": 62,
-          "rule": "generic-name"
-        },
-        {
-          "severity": "warning",
-          "message": "Generic variable: data — use a descriptive name",
-          "file": "src/index.ts",
-          "line": 66,
-          "rule": "generic-name"
-        },
-        {
-          "severity": "warning",
-          "message": "Generic variable: data — use a descriptive name",
-          "file": "src/index.ts",
-          "line": 417,
-          "rule": "generic-name"
-        },
-        {
-          "severity": "warning",
-          "message": "Generic variable: data — use a descriptive name",
-          "file": "src/index.ts",
-          "line": 439,
-          "rule": "generic-name"
-        },
-        {
-          "severity": "warning",
-          "message": "Generic variable: body — use a descriptive name",
-          "file": "src/index.ts",
-          "line": 448,
-          "rule": "generic-name"
-        },
-        {
-          "severity": "warning",
-          "message": "Generic variable: result — use a descriptive name",
-          "file": "src/index.ts",
-          "line": 449,
-          "rule": "generic-name"
-        },
-        {
-          "severity": "warning",
-          "message": "Generic variable: res — use a descriptive name",
-          "file": "src/publish.ts",
-          "line": 41,
-          "rule": "generic-name"
-        },
-        {
-          "severity": "warning",
-          "message": "Generic variable: res — use a descriptive name",
-          "file": "src/publish.ts",
-          "line": 50,
-          "rule": "generic-name"
-        },
-        {
-          "severity": "warning",
-          "message": "Generic variable: res — use a descriptive name",
-          "file": "src/publish.ts",
-          "line": 59,
-          "rule": "generic-name"
-        },
-        {
-          "severity": "warning",
-          "message": "Generic variable: body — use a descriptive name",
-          "file": "src/publish.ts",
-          "line": 251,
-          "rule": "generic-name"
-        },
-        {
-          "severity": "warning",
-          "message": "Generic variable: res — use a descriptive name",
-          "file": "src/publish.ts",
-          "line": 255,
-          "rule": "generic-name"
-        },
-        {
-          "severity": "warning",
-          "message": "Generic variable: data — use a descriptive name",
-          "file": "src/publish.ts",
-          "line": 256,
-          "rule": "generic-name"
+          "message": "Ambiguous abbreviation \"auth\" in filename — could mean: authentication OR authorization",
+          "file": "src/auth.ts",
+          "rule": "ambiguous-abbreviation"
         }
       ],
       "duration": 2
     },
     {
       "name": "context",
-      "score": 95,
-      "grade": "A",
+      "score": 25,
+      "grade": "F",
       "details": {
-        "filesScanned": 2,
-        "totalTokens": 9605,
-        "avgTokensPerFile": 4803,
-        "avgImportsPerFile": 0.5,
-        "highTokenFiles": 1,
+        "filesScanned": 4,
+        "totalTokens": 31690,
+        "avgTokensPerFile": 7923,
+        "avgImportsPerFile": 0.8,
+        "highTokenFiles": 2,
         "heavyImportFiles": 0,
         "circularDeps": 0,
         "contextSinks": 0
@@ -930,8 +1919,14 @@
       "issues": [
         {
           "severity": "warning",
-          "message": "~5912 tokens (>4000) — large context cost for LLMs",
+          "message": "~20726 tokens (>4000) — large context cost for LLMs",
           "file": "src/index.ts",
+          "rule": "high-token-count"
+        },
+        {
+          "severity": "warning",
+          "message": "~8681 tokens (>4000) — large context cost for LLMs",
+          "file": "src/publish.ts",
           "rule": "high-token-count"
         }
       ],
@@ -944,15 +1939,15 @@
       "details": {
         "premium": true,
         "comingSoon": true,
-        "reason": "LLM-powered analysis — coming soon",
+        "reason": "Set VCQA_PRO_KEY to enable LLM-powered analysis",
         "docFiles": [
           "README.md"
         ],
-        "hasJSDoc": false,
-        "description": "Detects contradictions between documentation and code. Finds stale README claims, incorrect JSDoc, outdated API docs, and misleading comments."
+        "hasJSDoc": true,
+        "description": "Detects contradictions between documentation and code. Finds stale README claims, incorrect JSDoc, and misleading comments."
       },
       "issues": [],
-      "duration": 0
+      "duration": 1
     },
     {
       "name": "code-coherence",
@@ -961,20 +1956,118 @@
       "details": {
         "premium": true,
         "comingSoon": true,
-        "reason": "LLM-powered analysis — coming soon",
-        "filesAnalyzed": 2,
-        "totalExports": 3,
-        "totalFunctions": 21,
-        "description": "Detects internal contradictions: inconsistent validation, conflicting defaults, naming drift, dead config flags, and behavioral mismatches across modules."
+        "reason": "Set VCQA_PRO_KEY to enable LLM-powered analysis",
+        "filesAnalyzed": 4,
+        "totalExports": 17,
+        "totalFunctions": 69,
+        "description": "Detects internal contradictions: inconsistent validation, conflicting defaults, naming drift, and behavioral mismatches."
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "comment-staleness",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable comment staleness analysis",
+        "description": "Detects stale comments: TODOs older than 6 months, numeric mismatches, commented-out code, semantic contradictions (LLM-powered)."
       },
       "issues": [],
       "duration": 1
+    },
+    {
+      "name": "html-quality",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "skipped": true,
+        "reason": "no HTML files found"
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "frontend-health",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "skipped": true,
+        "reason": "no component files found"
+      },
+      "issues": [],
+      "duration": 1
+    },
+    {
+      "name": "styling",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "skipped": true,
+        "reason": "no component files found"
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "dead-patterns",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable dead pattern detection",
+        "description": "Detects leftover code from incomplete refactors: fallback paths, parallel implementations, dead guards, hardcoded feature flags. Produces a Feature Map of your codebase."
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "test-audit",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable test audit",
+        "description": "Detects fake and shallow tests: empty test bodies, trivial assertions, tautologies, mock-heavy tests, and tests whose names don't match what they actually verify."
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "file-cohesion",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable file cohesion analysis",
+        "description": "Detects files with multiple responsibilities — the #1 code smell in AI-generated code. Labels each file's concern clusters and suggests concrete split points."
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "design-consistency",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable design consistency analysis",
+        "description": "LLM-powered audit of visual consistency — finds components with duplicate styling, inconsistent spacing scales, and missing component extraction opportunities."
+      },
+      "issues": [],
+      "duration": 0
     }
   ],
   "meta": {
-    "cwd": "/Users/serge/dev/stores/fgs/admin",
-    "node": "v22.21.1",
-    "duration": 9608,
+    "cwd": "/Users/serge-ivo/dev/stores/fgs/admin",
+    "node": "v26.0.0",
+    "duration": 4013,
     "stack": {
       "language": "typescript",
       "framework": "none",
@@ -983,7 +2076,18 @@
       "linter": "none",
       "packageManager": "pnpm"
     },
-    "repoUrl": "https://github.com/freegamestore-online/admin",
+    "workspace": {
+      "isMonorepo": false,
+      "tool": "none",
+      "packages": [],
+      "srcRoots": [
+        "src",
+        "web/src",
+        "lib",
+        "app"
+      ]
+    },
+    "repoUrl": "git@github-personal:freegamestore-online/admin",
     "branch": "main"
   }
 }

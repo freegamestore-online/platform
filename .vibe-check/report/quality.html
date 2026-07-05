@@ -6,15 +6,18 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%226%22%20fill%3D%22%23818cf8%22%2F%3E%3Ctext%20x%3D%2216%22%20y%3D%2222%22%20text-anchor%3D%22middle%22%20font-family%3D%22system-ui%2Csans-serif%22%20font-size%3D%2216%22%20font-weight%3D%22900%22%20fill%3D%22%23fff%22%3EVQ%3C%2Ftext%3E%3C%2Fsvg%3E">
 <title>VibeCode QA — admin</title>
 <style>
-:root{--bg:#09090b;--card:#111115;--border:#1e1e24;--text:#e5e5e5;--muted:#6b7280;--pass:#22c55e;--fail:#ef4444;--warn:#eab308;--info:#6366f1;--accent:#818cf8;--side-w:200px;--top-h:42px}
+:root{--bg:#09090b;--card:#111115;--border:#1e1e24;--text:#e5e5e5;--muted:#6b7280;--pass:#22c55e;--fail:#ef4444;--warn:#eab308;--info:#6366f1;--accent:#818cf8;--side-w:200px;--top-h:42px;--nav-bg:#0c0c0fdd;--side-bg:#0c0c0f;--hover:#14141a;--dim:#555;--card-alt:#0d0d12}
+[data-theme="light"]{--bg:#f5f5f7;--card:#ffffff;--border:#e2e4e9;--text:#1a1a2e;--muted:#64748b;--pass:#16a34a;--fail:#dc2626;--warn:#ca8a04;--info:#4f46e5;--accent:#4f46e5;--nav-bg:#ffffffee;--side-bg:#fafafa;--hover:#eef0f5;--dim:#94a3b8;--card-alt:#f0f0f5}
+html{font-size:17px}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
 code{font-family:"SF Mono",Menlo,monospace;font-size:0.85em}
 
 /* ── Top nav ── */
-.top{position:sticky;top:0;z-index:30;background:#0c0c0fdd;backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;height:var(--top-h)}
-.logo{font-weight:800;font-size:1rem;margin-right:1rem;flex-shrink:0;text-decoration:none;color:var(--text)}
+.top{position:sticky;top:0;z-index:30;background:var(--nav-bg);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;height:var(--top-h)}
+.logo{font-weight:800;font-size:1rem;margin-right:0.5rem;flex-shrink:0;text-decoration:none;color:var(--text)}
 .logo span{color:var(--accent)}
+.nav-project{font-size:0.72rem;color:var(--muted);font-weight:600;margin-right:1rem;padding:0.2rem 0.5rem;background:var(--card);border:1px solid var(--border);border-radius:4px;flex-shrink:0}
 .nav-scroll{display:flex;align-items:center;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex:1}
 .nav-scroll::-webkit-scrollbar{display:none}
 .tn{padding:0 0.7rem;font-size:0.78rem;color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;transition:all 0.15s;white-space:nowrap;line-height:var(--top-h)}
@@ -23,13 +26,13 @@ code{font-family:"SF Mono",Menlo,monospace;font-size:0.85em}
 .hamburger{display:none;background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;padding:0 0.4rem;line-height:var(--top-h)}
 
 /* ── Sidebar ── */
-.side{position:fixed;top:var(--top-h);left:0;bottom:0;width:var(--side-w);background:#0c0c0f;border-right:1px solid var(--border);overflow-y:auto;padding:0.6rem 0;font-size:0.7rem;z-index:20}
+.side{position:fixed;top:var(--top-h);left:0;bottom:0;width:var(--side-w);background:var(--side-bg);border-right:1px solid var(--border);overflow-y:auto;padding:0.6rem 0;font-size:0.7rem;z-index:20}
 .side-section{padding:0.3rem 0;border-bottom:1px solid var(--border)}
 .side-section:last-child{border-bottom:none}
-.side-label{padding:0.2rem 0.8rem;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.05em;color:#444;font-weight:600}
+.side-label{padding:0.2rem 0.8rem;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--dim);font-weight:600}
 .side-score{font-size:1.4rem;font-weight:900;padding:0.2rem 0.8rem}
 .side-cat{display:block;padding:0.3rem 0.8rem;color:var(--muted);font-weight:600;cursor:pointer;text-decoration:none;font-size:0.72rem}
-.side-cat:hover{background:#14141a;color:var(--text)}
+.side-cat:hover{background:var(--hover);color:var(--text)}
 .side-cat-active{color:var(--text);font-weight:700;border-left:2px solid var(--accent);padding-left:calc(0.8rem - 2px)}
 .side-cat-title{padding:0.3rem 0.8rem;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--accent);font-weight:700}
 .side-check{display:block;padding:0.15rem 0.8rem 0.15rem 0.8rem;color:var(--muted);cursor:pointer;text-decoration:none;font-size:0.65rem}
@@ -88,6 +91,16 @@ h3{font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:
 .stack{display:flex;gap:0.35rem;flex-wrap:wrap;margin-top:1rem}
 .stack span{background:var(--card);border:1px solid var(--border);padding:0.1rem 0.45rem;border-radius:9999px;font-size:0.62rem;color:var(--muted)}
 
+/* ── Workspace / Repo structure ── */
+.ws-info{display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;margin-bottom:0.5rem;font-size:0.72rem;color:var(--muted)}
+.ws-badge{background:var(--accent);color:#fff;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.65rem;font-weight:700}
+.ws-pkgs{display:flex;flex-direction:column;gap:0.15rem}
+.ws-pkg{display:flex;gap:0.6rem;align-items:center;font-size:0.68rem;padding:0.15rem 0.4rem;background:var(--card);border-radius:4px}
+.ws-path{font-family:monospace;color:var(--text);min-width:140px}
+.ws-name{color:var(--muted);flex:1}
+.ws-flags{color:var(--muted);font-size:0.6rem}
+.ws-more{font-size:0.62rem;color:var(--muted);padding:0.2rem 0.4rem}
+
 /* ── Category pages ── */
 .cat-head{margin-bottom:0.3rem}
 .bar2{height:4px;background:var(--card);border-radius:2px;margin-bottom:1.5rem;overflow:hidden}
@@ -100,7 +113,7 @@ h3{font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:
 .ch-g{font-size:2rem;font-weight:900}
 .ch-s{display:block;font-size:0.7rem;color:var(--muted)}
 .pri{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;padding:0.15rem 0.5rem;border-radius:9999px;border:1px solid currentColor;flex-shrink:0}
-.info-panel{background:#0d0d12;border:1px solid var(--border);border-radius:0.5rem;padding:0.7rem 0.9rem;margin-bottom:1rem;font-size:0.72rem;line-height:1.6}
+.info-panel{background:var(--card-alt);border:1px solid var(--border);border-radius:0.5rem;padding:0.7rem 0.9rem;margin-bottom:1rem;font-size:0.72rem;line-height:1.6}
 .ip-row{margin-bottom:0.4rem;display:flex;gap:0.5rem}
 .ip-row:last-child{margin-bottom:0}
 .ip-label{color:var(--accent);font-weight:700;min-width:2.5rem;flex-shrink:0}
@@ -122,7 +135,16 @@ h3{font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:
 .ir.info .is{color:var(--info);background:#6366f118}
 .il{color:var(--accent);min-width:2rem;flex-shrink:0}
 .im{flex:1;word-break:break-word}
-.iru{color:#555;font-size:0.55rem}
+.iru{color:var(--dim);font-size:0.55rem}
+
+/* ── Source code snippets ── */
+.src-block{background:var(--card-alt);border:1px solid var(--border);border-radius:6px;margin:0.3rem 0 0.5rem 0.5rem;padding:0.3rem 0;font-family:"SF Mono",Menlo,monospace;font-size:0.62rem;line-height:1.6;overflow-x:auto}
+.src-ln{padding:0 0.5rem;white-space:pre}
+.src-hl{padding:0 0.5rem;white-space:pre;background:#eab30815;border-left:2px solid var(--warn)}
+.src-num{color:var(--dim);margin-right:0.5rem;user-select:none;display:inline-block;min-width:2.5rem;text-align:right}
+.src-prompt{padding:0.3rem 0.5rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end}
+.src-fix-btn{background:var(--card);border:1px solid var(--border);color:var(--accent);font-size:0.62rem;padding:0.2rem 0.6rem;border-radius:4px;cursor:pointer;font-family:inherit}
+.src-fix-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
 
 /* ── All issues table ── */
 .isf{color:var(--muted);font-size:0.75rem;margin-bottom:0.8rem}
@@ -134,7 +156,7 @@ h3{font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:
 .is2{font-weight:800;width:1rem}
 .ic2{color:var(--muted);width:70px}
 .il2{color:var(--muted)}
-.iru2{color:#555;font-size:0.58rem}
+.iru2{color:var(--dim);font-size:0.58rem}
 
 /* ── File health ── */
 .fr{display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;font-size:0.7rem}
@@ -146,7 +168,7 @@ h3{font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:
 .hm-name{width:200px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:"SF Mono",monospace;font-size:0.65rem}
 .hm-bar{height:14px;border-radius:3px;min-width:4px}
 .hm-count{color:var(--muted);font-size:0.65rem;flex-shrink:0;min-width:50px}
-.hm-checks{font-size:0.58rem;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hm-checks{font-size:0.58rem;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* ── Premium cards ── */
 .pro-card{background:linear-gradient(135deg,#0f0f1a 0%,#13131f 100%);border:1px solid #2a2a3d;border-radius:0.75rem;padding:1.5rem;position:relative;overflow:hidden}
@@ -173,6 +195,8 @@ h3{font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:
 
 .footer{text-align:center;color:var(--muted);font-size:0.58rem;margin-top:2rem;padding:0.8rem 0;border-top:1px solid var(--border)}
 .footer a{color:var(--muted)}
+.muted{color:var(--muted)}
+.deeper-tools code{background:var(--border);padding:0.1rem 0.4rem;border-radius:4px;font-size:0.62rem;color:var(--accent);margin-right:0.3rem}
 .flink{color:var(--accent);text-decoration:none;font-family:"SF Mono",monospace}.flink:hover{text-decoration:underline}
 .arch-svg{margin:1rem 0;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .arch-svg svg{border-radius:8px}
@@ -218,96 +242,307 @@ h3{font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:
 .hm-name{width:90px}
 .ov-check{display:none}
 }
+
+/* ── Feature Map (Pro) ── */
+.fm-header{margin-bottom:1.5rem}
+.fm-header h2{display:flex;align-items:center;gap:0.6rem}
+.fm-stats{display:flex;gap:1.5rem;margin-bottom:2rem;padding:1rem 1.2rem;background:var(--card);border:1px solid var(--border);border-radius:12px}
+.fm-stat{display:flex;flex-direction:column;align-items:center}
+.fm-stat-n{font-size:1.6rem;font-weight:900;line-height:1.2}
+.fm-stat-l{font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;font-weight:600}
+.fm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem}
+.fm-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.2rem;transition:border-color 0.15s}
+.fm-card:hover{border-color:#333}
+.fm-card-issue{border-color:#eab30830;background:linear-gradient(135deg,var(--card) 0%,#1a1a0f 100%)}
+.fm-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.4rem}
+.fm-card-label{font-weight:800;font-size:0.95rem}
+.fm-card-desc{font-size:0.72rem;color:var(--muted);margin-bottom:0.5rem;line-height:1.4}
+.fm-card-dir{font-size:0.65rem;color:var(--dim);font-family:"SF Mono",monospace;margin-bottom:0.6rem}
+.fm-card-badge{font-size:0.6rem;font-weight:700;padding:0.15rem 0.5rem;border-radius:9999px;white-space:nowrap}
+.fm-ok{background:#22c55e18;color:var(--pass)}
+.fm-warn{background:#eab30818;color:var(--warn)}
+.fm-info{background:#6366f118;color:var(--info)}
+.fm-card-files{display:flex;flex-direction:column;gap:0.15rem;margin-bottom:0.6rem}
+.fm-file{font-size:0.68rem;color:var(--muted);font-family:"SF Mono",monospace}
+.fm-file a{color:var(--accent);text-decoration:none}
+.fm-file a:hover{text-decoration:underline}
+.fm-more{color:var(--dim);font-style:italic}
+.fm-findings{margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:0.3rem}
+.fm-finding{display:flex;align-items:baseline;gap:0.4rem;font-size:0.68rem;line-height:1.4}
+.fm-f-sev{font-weight:800;font-size:0.6rem;width:1rem;flex-shrink:0}
+.fm-f-warn .fm-f-sev{color:var(--warn)}
+.fm-f-info .fm-f-sev{color:var(--info)}
+.fm-f-loc{color:var(--dim);font-family:"SF Mono",monospace;flex-shrink:0}
+.fm-f-loc a{color:var(--accent);text-decoration:none}
+.fm-f-msg{color:var(--text)}
+.fm-f-rule{color:var(--dim);font-size:0.6rem;font-family:"SF Mono",monospace}
+
+/* Teaser (no Pro key) */
+.fm-teaser{margin-top:1.5rem}
+.fm-teaser-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;margin-bottom:2rem}
+.fm-card-blur{filter:blur(3px);opacity:0.5;pointer-events:none;user-select:none}
+.fm-cta{text-align:center;padding:2rem;background:linear-gradient(135deg,#0f0f1a,#13131f);border:1px solid #2a2a3d;border-radius:12px}
+.fm-cta code{background:#1a1a2e;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.8rem}
+@media(max-width:640px){
+.fm-grid,.fm-teaser-grid{grid-template-columns:1fr}
+.fm-stats{flex-wrap:wrap;gap:1rem}
+}
+
+/* ── Preferences panel ── */
+.prefs-btn{background:none;border:1px solid var(--border);color:var(--muted);font-size:0.72rem;cursor:pointer;padding:0.2rem 0.5rem;border-radius:6px;margin-left:auto;flex-shrink:0;font-family:inherit;line-height:1.4}
+.prefs-btn:hover{color:var(--text);border-color:var(--dim)}
+.prefs-panel{display:none;position:absolute;top:var(--top-h);right:1rem;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:0.8rem 1rem;z-index:40;min-width:200px;box-shadow:0 8px 30px #0008}
+.prefs-panel.open{display:block}
+.prefs-label{font-size:0.6rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--dim);font-weight:600;margin-bottom:0.3rem}
+.prefs-label:not(:first-child){margin-top:0.7rem}
+.prefs-row{display:flex;gap:0.3rem}
+.prefs-opt{background:var(--card-alt);border:1px solid var(--border);color:var(--muted);font-size:0.68rem;padding:0.25rem 0.6rem;border-radius:6px;cursor:pointer;font-family:inherit;transition:all 0.1s}
+.prefs-opt:hover{color:var(--text);border-color:var(--dim)}
+.prefs-opt.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+[data-theme="light"] .prefs-panel{box-shadow:0 8px 30px #0002}
+
+/* ── Actions page ── */
+.act-summary{display:flex;gap:1.5rem;margin-bottom:2rem}
+.act-stat{text-align:center}
+.act-stat-n{display:block;font-size:1.8rem;font-weight:700;line-height:1.2}
+.act-stat-l{font-size:0.72rem;color:var(--muted)}
+.act-section{margin-bottom:2.5rem}
+.act-section h3{display:flex;align-items:center;gap:0.5rem;font-size:1rem;margin-bottom:0.3rem}
+.act-icon{display:inline-flex;align-items:center;justify-content:center;width:1.6rem;height:1.6rem;border-radius:8px;font-size:0.9rem}
+.act-count{font-size:0.72rem;color:var(--muted);font-weight:400}
+.act-desc{font-size:0.78rem;color:var(--muted);margin-bottom:0.8rem}
+.act-cmd{margin-bottom:1rem}
+.act-cmd code{display:inline-block;background:var(--card);border:1px solid var(--border);padding:0.3rem 0.8rem;border-radius:6px;font-size:0.78rem;color:var(--accent)}
+.act-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:0.8rem}
+.act-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.8rem 1rem}
+.act-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem}
+.act-check{font-size:0.78rem;font-weight:600}
+.act-fix{font-size:0.78rem;color:var(--pass);margin-bottom:0.5rem;padding:0.3rem 0.5rem;background:var(--pass)10;border-radius:4px}
+.act-rec{font-size:0.75rem;color:var(--muted);margin-bottom:0.5rem;line-height:1.4}
+.act-item{font-size:0.72rem;color:var(--dim);padding:0.15rem 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.act-details{margin-top:0.5rem}
+.act-details summary{font-size:0.75rem;color:var(--muted);cursor:pointer}
+.act-table{width:100%;font-size:0.72rem;margin-top:0.3rem}
+.act-table td{padding:0.2rem 0.4rem;border-bottom:1px solid var(--border)}
+.act-table .act-check{color:var(--muted);white-space:nowrap}
+@media(max-width:600px){.act-summary{flex-direction:column;gap:0.8rem;align-items:center}.act-grid{grid-template-columns:1fr}}
+
+/* ── Delta banner ── */
+.delta-banner{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1.2rem 1.5rem;margin-bottom:2rem}
+.delta-head{display:flex;align-items:center;gap:1rem;margin-bottom:0.5rem}
+.delta-title{font-weight:700;font-size:0.9rem}
+.delta-score{font-size:0.85rem;color:var(--muted)}
+.delta-arrow{font-weight:800;font-size:1rem}
+.delta-stats{display:flex;gap:1.2rem;font-size:0.78rem;margin-bottom:0.5rem}
+.delta-checks{display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.5rem}
+.delta-chip{font-size:0.7rem;padding:0.15rem 0.5rem;background:var(--card-alt);border:1px solid var(--border);border-radius:4px;white-space:nowrap}
+.delta-fixed,.delta-new{font-size:0.75rem;color:var(--muted);margin-top:0.3rem}
 </style>
 </head>
 <body>
 
 <nav class="top">
   <a class="logo" href="index.html"><span>VibeCode</span> QA</a>
+  <span class="nav-project">admin</span>
   <button class="hamburger" onclick="toggleMenu()" aria-label="Menu">&#9776;</button>
-  <div class="nav-scroll"><a class="tn" href="index.html">Overview</a><a class="tn active" href="foundations.html">Checks</a><a class="tn" href="trends.html">Trends</a><a class="tn" href="issues.html">Issues (91)</a><a class="tn" href="files.html">Files</a></div>
+  <div class="nav-scroll"><a class="tn" href="index.html">Overview</a><a class="tn active" href="foundations.html">Checks</a><a class="tn" href="feature-map.html">Feature Map</a><a class="tn" href="trends.html">Trends</a><a class="tn" href="actions.html">Actions</a><a class="tn" href="issues.html">Issues (222)</a><a class="tn" href="files.html">Files</a></div>
+  <button class="prefs-btn" onclick="togglePrefs()" aria-label="Preferences">Aa</button>
+  <div class="prefs-panel" id="prefs">
+    <div class="prefs-label">Theme</div>
+    <div class="prefs-row">
+      <button class="prefs-opt" data-theme-opt="dark" onclick="setTheme('dark')">Dark</button>
+      <button class="prefs-opt" data-theme-opt="light" onclick="setTheme('light')">Light</button>
+    </div>
+    <div class="prefs-label">Font size</div>
+    <div class="prefs-row">
+      <button class="prefs-opt" data-font-opt="14" onclick="setFont(14)">Compact</button>
+      <button class="prefs-opt" data-font-opt="17" onclick="setFont(17)">Default</button>
+      <button class="prefs-opt" data-font-opt="20" onclick="setFont(20)">Large</button>
+    </div>
+  </div>
 </nav>
 
-<aside class="side" id="sidebar"><div class="side-section"><div class="side-label">Score</div><div class="side-score" style="color:#84cc16">B 81</div></div><div class="side-section"><a class="side-cat" href="foundations.html">Foundations <span style="color:#eab308">70</span></a><a class="side-cat side-cat-active" href="quality.html">Quality <span style="color:#eab308">74</span></a><a class="side-check" href="quality.html#complexity" title="Complexity"><span style="color:#84cc16">B 81</span> Complexity</a><a class="side-check" href="quality.html#duplication" title="Duplication"><span style="color:#22c55e">A 91</span> Duplication</a><a class="side-check" href="quality.html#error-handling" title="Error Handling"><span style="color:#22c55e">A 100</span> Error Handling</a><a class="side-check" href="quality.html#react" title="React Patterns"><span style="color:#555">— </span> React Patterns</a><a class="side-check" href="quality.html#accessibility" title="Accessibility"><span style="color:#555">— </span> Accessibility</a><a class="side-check" href="quality.html#docs" title="Documentation"><span style="color:#f97316">D 50</span> Documentation</a><a class="side-check" href="quality.html#best-practices" title="Best Practices"><span style="color:#f97316">D 50</span> Best Practices</a><a class="side-cat" href="testing.html">Testing <span style="color:#eab308">65</span></a><a class="side-cat" href="architecture.html">Architecture <span style="color:#22c55e">100</span></a><a class="side-cat" href="security.html">Security <span style="color:#84cc16">87</span></a><a class="side-cat" href="ai-readiness.html">AI Readiness <span style="color:#22c55e">90</span></a><a class="side-cat" href="ai-analysis.html">AI Analysis <span class="pro-badge" style="font-size:0.5rem;padding:0.08rem 0.35rem">PRO</span></a></div><div class="side-section side-views"><div class="side-label" style="margin-top:0.3rem">Views</div><a class="side-check" href="issues.html">Issues <span style="color:var(--muted)">91</span></a><a class="side-check" href="files.html">Files <span style="color:var(--muted)">2</span></a></div></aside>
+<aside class="side" id="sidebar"><div class="side-section"><div class="side-label">Score</div><div class="side-score" style="color:#eab308">C 74</div></div><div class="side-section"><a class="side-cat" href="foundations.html">Foundations <span style="color:#eab308">63</span></a><a class="side-cat side-cat-active" href="quality.html">Quality <span style="color:#84cc16">75</span></a><a class="side-check" href="quality.html#complexity" title="Complexity"><span style="color:#84cc16">B 78</span> Complexity</a><a class="side-check" href="quality.html#duplication" title="Duplication"><span style="color:#22c55e">A 100</span> Duplication</a><a class="side-check" href="quality.html#error-handling" title="Error Handling"><span style="color:#eab308">C 70</span> Error Handling</a><a class="side-check" href="quality.html#react" title="React Patterns"><span style="color:var(--dim)">— </span> React Patterns</a><a class="side-check" href="quality.html#accessibility" title="Accessibility"><span style="color:var(--dim)">— </span> Accessibility</a><a class="side-check" href="quality.html#docs" title="Documentation"><span style="color:#f97316">D 58</span> Documentation</a><a class="side-check" href="quality.html#best-practices" title="Best Practices"><span style="color:#eab308">C 70</span> Best Practices</a><a class="side-cat" href="testing.html">Testing <span style="color:#eab308">65</span></a><a class="side-cat" href="architecture.html">Architecture <span style="color:#22c55e">100</span></a><a class="side-cat" href="security.html">Security <span style="color:#84cc16">83</span></a><a class="side-cat" href="ai-readiness.html">AI Readiness <span style="color:#f97316">50</span></a><a class="side-cat" href="ai-analysis.html">AI Analysis <span class="pro-badge" style="font-size:0.5rem;padding:0.08rem 0.35rem">PRO</span></a></div><div class="side-section side-views"><div class="side-label" style="margin-top:0.3rem">Views</div><a class="side-check" href="issues.html">Issues <span style="color:var(--muted)">222</span></a><a class="side-check" href="files.html">Files <span style="color:var(--muted)">6</span></a></div></aside>
 
 <div class="content">
   
-<div class="cat-head"><span style="color:#eab308;font-size:1.8rem;font-weight:900">74</span><span style="color:#eab308">/100</span><span style="color:var(--muted);margin-left:0.5rem">Quality</span></div>
-<div class="bar2"><div class="bf2" style="width:74%;background:#eab308"></div></div>
+<div class="cat-head"><span style="color:#84cc16;font-size:1.8rem;font-weight:900">75</span><span style="color:#84cc16">/100</span><span style="color:var(--muted);margin-left:0.5rem">Quality</span></div>
+<div class="bar2"><div class="bf2" style="width:75%;background:#84cc16"></div></div>
 <section class="check-section" id="complexity">
-<div class="ch-head"><span class="ch-g" style="color:#84cc16">B</span><div><b>Complexity</b><span class="ch-s">81/100 · weight 5% · 4ms · 5 issues</span></div><span class="pri" style="color:#f97316">high</span></div>
-<div class="info-panel"><div class="ip-row"><span class="ip-label">What</span><span>Measures cognitive complexity of each function: how many branches (if/else/switch/for/while/ternary/&amp;&amp;/||) and how many lines. Functions over 60 lines or with complexity over 15 are flagged.</span></div><div class="ip-row"><span class="ip-label">Risk</span><span>Complex functions are the #1 source of bugs. Research shows defect density increases exponentially with cyclomatic complexity above 10 (McCabe, 1976). Complex code is also harder to review, test, and modify safely.</span></div><div class="ip-row"><span class="ip-label">Fix</span><span>Extract complex functions into smaller ones. Use early returns to reduce nesting. Replace conditional chains with lookup tables or strategy patterns. Aim for functions under 30 lines with complexity under 10.</span></div></div>
+<div class="ch-head"><span class="ch-g" style="color:#84cc16">B</span><div><b>Complexity</b><span class="ch-s">78/100 · weight 5% · 4ms · 8 issues</span></div><span class="pri" style="color:#f97316">high</span></div>
+<div class="info-panel"><div class="ip-row"><span class="ip-label">What</span><span>Measures cognitive complexity of each function: how many branches (if/else/switch/for/while/ternary/&amp;&amp;/||) and how many lines. Functions over 60 lines or with complexity over 15 are flagged.</span></div><div class="ip-row"><span class="ip-label">Risk</span><span>Complex functions are the #1 source of bugs. Research shows defect density increases exponentially with cyclomatic complexity above 10 (McCabe, 1976). Complex code is also harder to review, test, and modify safely.</span></div><div class="ip-row"><span class="ip-label">Fix</span><span>Extract complex functions into smaller ones. Use early returns to reduce nesting. Replace conditional chains with lookup tables or strategy patterns. Aim for functions under 30 lines with complexity under 10.</span></div><div class="ip-row"><span class="ip-label">Go deeper</span><span class="deeper-tools"><code>biome (noExcessiveCognitiveComplexity)</code> <code>SonarQube</code></span></div></div>
 
 
 
-<div class="kvs"><div class="kv"><span class="k">totalFiles</span><span class="v">2</span></div><div class="kv"><span class="k">totalLines</span><span class="v">754</span></div><div class="kv"><span class="k">longFunctions</span><span class="v">3</span></div><div class="kv"><span class="k">complexFunctions</span><span class="v">2</span></div><div class="kv"><span class="k">functionCount</span><span class="v">13</span></div></div>
-<div class="iss-list"><div class="fg"><div class="fn"><a href="https://github.com/freegamestore-online/admin/blob/main/src/index.ts" target="_blank" rel="noopener" class="flink">src/index.ts</a> <span class="fc">3</span></div><div class="ir warning"><span class="is">W</span><span class="im">renderDashboardShell: 161 lines (max 60)</span><span class="iru">long-function</span><button class="cp-btn" data-prompt="Fix this issue in src/index.ts
-warning: renderDashboardShell: 161 lines (max 60) (long-function)
-Check: complexity" title="Copy fix prompt">📋</button></div><div class="ir warning"><span class="is">W</span><span class="im">renderDashboardShell: complexity 22 (max 15)</span><span class="iru">high-complexity</span><button class="cp-btn" data-prompt="Fix this issue in src/index.ts
-warning: renderDashboardShell: complexity 22 (max 15) (high-complexity)
-Check: complexity" title="Copy fix prompt">📋</button></div><div class="ir warning"><span class="is">W</span><span class="im">renderApiDocs: 116 lines (max 60)</span><span class="iru">long-function</span><button class="cp-btn" data-prompt="Fix this issue in src/index.ts
-warning: renderApiDocs: 116 lines (max 60) (long-function)
-Check: complexity" title="Copy fix prompt">📋</button></div></div><div class="fg"><div class="fn"><a href="https://github.com/freegamestore-online/admin/blob/main/src/publish.ts" target="_blank" rel="noopener" class="flink">src/publish.ts</a> <span class="fc">2</span></div><div class="ir warning"><span class="is">W</span><span class="im">handlePublish: 150 lines (max 60)</span><span class="iru">long-function</span><button class="cp-btn" data-prompt="Fix this issue in src/publish.ts
-warning: handlePublish: 150 lines (max 60) (long-function)
-Check: complexity" title="Copy fix prompt">📋</button></div><div class="ir warning"><span class="is">W</span><span class="im">handlePublish: complexity 38 (max 15)</span><span class="iru">high-complexity</span><button class="cp-btn" data-prompt="Fix this issue in src/publish.ts
-warning: handlePublish: complexity 38 (max 15) (high-complexity)
-Check: complexity" title="Copy fix prompt">📋</button></div></div></div>
+
+<div class="kvs"><div class="kv"><span class="k">totalFiles</span><span class="v">4</span></div><div class="kv"><span class="k">totalLines</span><span class="v">2196</span></div><div class="kv"><span class="k">longFunctions</span><span class="v">5</span></div><div class="kv"><span class="k">complexFunctions</span><span class="v">3</span></div><div class="kv"><span class="k">functionCount</span><span class="v">68</span></div></div>
+<div class="iss-list"><div class="fg"><div class="fn">src/index.ts <span class="fc">8</span></div><div class="ir warning"><span class="is">W</span><span class="il">250</span><span class="im">fetchGameStatus: 345 lines (max 60)</span><span class="iru">long-function</span><button class="cp-btn" data-prompt="Fix this issue in src/index.ts:250
+warning: fetchGameStatus: 345 lines (max 60) (long-function)
+Check: complexity" title="Copy fix prompt">📋</button></div><div class="src-block"><div class="src-ln"><span class="src-num"> 246</span>    return null;</div><div class="src-ln"><span class="src-num"> 247</span>  }</div><div class="src-ln"><span class="src-num"> 248</span>}</div><div class="src-ln"><span class="src-num"> 249</span></div><div class="src-hl"><span class="src-num"> 250</span>async function fetchGameStatus(game: GameConfig, env: Env) {</div><div class="src-ln"><span class="src-num"> 251</span>  // Path B (R2) games have no CF Pages project — querying one always 404s and</div><div class="src-ln"><span class="src-num"> 252</span>  // reports a bogus &quot;no_project&quot; error. Every current FGS game is on Path B,</div><div class="src-ln"><span class="src-num"> 253</span>  // so without this short-circuit the whole dashboard reads as broken.</div><div class="src-ln"><span class="src-num"> 254</span>  if (game.hostedOn === &quot;r2&quot;) {</div><div class="src-prompt"><button class="cp-btn src-fix-btn" data-prompt="Fix this warning in src/index.ts:250
+fetchGameStatus: 345 lines (max 60) (long-function)
+Check: complexity
+
+Analyze the code, explain the issue, and provide the fix." title="Copy fix prompt with source context">Copy fix prompt</button></div></div><div class="ir warning"><span class="is">W</span><span class="il">250</span><span class="im">fetchGameStatus: complexity 37 (max 15)</span><span class="iru">high-complexity</span><button class="cp-btn" data-prompt="Fix this issue in src/index.ts:250
+warning: fetchGameStatus: complexity 37 (max 15) (high-complexity)
+Check: complexity" title="Copy fix prompt">📋</button></div><div class="src-block"><div class="src-ln"><span class="src-num"> 246</span>    return null;</div><div class="src-ln"><span class="src-num"> 247</span>  }</div><div class="src-ln"><span class="src-num"> 248</span>}</div><div class="src-ln"><span class="src-num"> 249</span></div><div class="src-hl"><span class="src-num"> 250</span>async function fetchGameStatus(game: GameConfig, env: Env) {</div><div class="src-ln"><span class="src-num"> 251</span>  // Path B (R2) games have no CF Pages project — querying one always 404s and</div><div class="src-ln"><span class="src-num"> 252</span>  // reports a bogus &quot;no_project&quot; error. Every current FGS game is on Path B,</div><div class="src-ln"><span class="src-num"> 253</span>  // so without this short-circuit the whole dashboard reads as broken.</div><div class="src-ln"><span class="src-num"> 254</span>  if (game.hostedOn === &quot;r2&quot;) {</div><div class="src-prompt"><button class="cp-btn src-fix-btn" data-prompt="Fix this warning in src/index.ts:250
+fetchGameStatus: complexity 37 (max 15) (high-complexity)
+Check: complexity
+
+Analyze the code, explain the issue, and provide the fix." title="Copy fix prompt with source context">Copy fix prompt</button></div></div><div class="ir warning"><span class="is">W</span><span class="il">625</span><span class="im">loadUsers: 137 lines (max 60)</span><span class="iru">long-function</span><button class="cp-btn" data-prompt="Fix this issue in src/index.ts:625
+warning: loadUsers: 137 lines (max 60) (long-function)
+Check: complexity" title="Copy fix prompt">📋</button></div><div class="src-block"><div class="src-ln"><span class="src-num"> 621</span>        var r=await fetch(&#39;/api/errors?limit=200&#39;,{credentials:&#39;include&#39;});var rows=await r.json();</div><div class="src-ln"><span class="src-num"> 622</span>        tb.innerHTML=rows.length?rows.map(function(e){return &#39;&lt;tr&gt;&lt;td style=&quot;white-space:nowrap&quot;&gt;&#39;+timeAgo(e.ts)+&#39;&lt;br&gt;&lt;small class=&quot;gray&quot;&gt;&#39;+esc(e.ts)+&#39; UTC&lt;/small&gt;&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;src-tag&quot;&gt;&#39;+esc(e.source)+&#39;&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&#39;+esc(e.user_github||&#39;--&#39;)+&#39;&lt;/td&gt;&lt;td&gt;&lt;strong class=&quot;red&quot;&gt;&#39;+esc(e.message)+&#39;&lt;/strong&gt;&#39;+(e.stack?&#39;&lt;pre class=&quot;stack&quot;&gt;&#39;+esc(e.stack)+&#39;&lt;/pre&gt;&#39;:&#39;&#39;)+&#39;&lt;/td&gt;&lt;td class=&quot;gray&quot; style=&quot;font-size:0.75rem&quot;&gt;&#39;+esc(e.context||&#39;&#39;)+&#39;&lt;/td&gt;&lt;/tr&gt;&#39;}).join(&#39;&#39;):&#39;&lt;tr&gt;&lt;td colspan=&quot;5&quot; class=&quot;green&quot;&gt;No errors logged — clean.&lt;/td&gt;&lt;/tr&gt;&#39;;</div><div class="src-ln"><span class="src-num"> 623</span>      }catch(e){tb.innerHTML=&#39;&lt;tr&gt;&lt;td colspan=&quot;5&quot; class=&quot;red&quot;&gt;Failed to load errors: &#39;+esc(e)+&#39;&lt;/td&gt;&lt;/tr&gt;&#39;}</div><div class="src-ln"><span class="src-num"> 624</span>    }</div><div class="src-hl"><span class="src-num"> 625</span>    async function loadUsers(){</div><div class="src-ln"><span class="src-num"> 626</span>      var tb=document.getElementById(&#39;userTable&#39;);tb.innerHTML=&#39;&lt;tr&gt;&lt;td colspan=&quot;3&quot; class=&quot;loading&quot;&gt;Loading...&lt;/td&gt;&lt;/tr&gt;&#39;;</div><div class="src-ln"><span class="src-num"> 627</span>      try{</div><div class="src-ln"><span class="src-num"> 628</span>        var r=await fetch(&#39;/api/users&#39;,{credentials:&#39;include&#39;});var rows=await r.json();</div><div class="src-ln"><span class="src-num"> 629</span>        tb.innerHTML=rows.length?rows.map(function(u){return &#39;&lt;tr&gt;&lt;td&gt;&lt;a href=&quot;https://github.com/&#39;+esc(u.login)+&#39;&quot; target=&quot;_blank&quot;&gt;&#39;+esc(u.login)+&#39;&lt;/a&gt;&lt;/td&gt;&lt;td&gt;&lt;strong&gt;&#39;+u.games.length+&#39;&lt;/strong&gt;&lt;/td&gt;&lt;td class=&quot;gray&quot; style=&quot;font-size:0.8rem&quot;&gt;&#39;+u.games.map(esc).join(&#39;, &#39;)+&#39;&lt;/td&gt;&lt;/tr&gt;&#39;}).join(&#39;&#39;):&#39;&lt;tr&gt;&lt;td colspan=&quot;3&quot; class=&quot;gray&quot;&gt;No creators yet.&lt;/td&gt;&lt;/tr&gt;&#39;;</div><div class="src-prompt"><button class="cp-btn src-fix-btn" data-prompt="Fix this warning in src/index.ts:625
+loadUsers: 137 lines (max 60) (long-function)
+Check: complexity
+
+Analyze the code, explain the issue, and provide the fix." title="Copy fix prompt with source context">Copy fix prompt</button></div></div><div class="ir warning"><span class="is">W</span><span class="il">625</span><span class="im">loadUsers: complexity 47 (max 15)</span><span class="iru">high-complexity</span><button class="cp-btn" data-prompt="Fix this issue in src/index.ts:625
+warning: loadUsers: complexity 47 (max 15) (high-complexity)
+Check: complexity" title="Copy fix prompt">📋</button></div><div class="src-block"><div class="src-ln"><span class="src-num"> 621</span>        var r=await fetch(&#39;/api/errors?limit=200&#39;,{credentials:&#39;include&#39;});var rows=await r.json();</div><div class="src-ln"><span class="src-num"> 622</span>        tb.innerHTML=rows.length?rows.map(function(e){return &#39;&lt;tr&gt;&lt;td style=&quot;white-space:nowrap&quot;&gt;&#39;+timeAgo(e.ts)+&#39;&lt;br&gt;&lt;small class=&quot;gray&quot;&gt;&#39;+esc(e.ts)+&#39; UTC&lt;/small&gt;&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;src-tag&quot;&gt;&#39;+esc(e.source)+&#39;&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&#39;+esc(e.user_github||&#39;--&#39;)+&#39;&lt;/td&gt;&lt;td&gt;&lt;strong class=&quot;red&quot;&gt;&#39;+esc(e.message)+&#39;&lt;/strong&gt;&#39;+(e.stack?&#39;&lt;pre class=&quot;stack&quot;&gt;&#39;+esc(e.stack)+&#39;&lt;/pre&gt;&#39;:&#39;&#39;)+&#39;&lt;/td&gt;&lt;td class=&quot;gray&quot; style=&quot;font-size:0.75rem&quot;&gt;&#39;+esc(e.context||&#39;&#39;)+&#39;&lt;/td&gt;&lt;/tr&gt;&#39;}).join(&#39;&#39;):&#39;&lt;tr&gt;&lt;td colspan=&quot;5&quot; class=&quot;green&quot;&gt;No errors logged — clean.&lt;/td&gt;&lt;/tr&gt;&#39;;</div><div class="src-ln"><span class="src-num"> 623</span>      }catch(e){tb.innerHTML=&#39;&lt;tr&gt;&lt;td colspan=&quot;5&quot; class=&quot;red&quot;&gt;Failed to load errors: &#39;+esc(e)+&#39;&lt;/td&gt;&lt;/tr&gt;&#39;}</div><div class="src-ln"><span class="src-num"> 624</span>    }</div><div class="src-hl"><span class="src-num"> 625</span>    async function loadUsers(){</div><div class="src-ln"><span class="src-num"> 626</span>      var tb=document.getElementById(&#39;userTable&#39;);tb.innerHTML=&#39;&lt;tr&gt;&lt;td colspan=&quot;3&quot; class=&quot;loading&quot;&gt;Loading...&lt;/td&gt;&lt;/tr&gt;&#39;;</div><div class="src-ln"><span class="src-num"> 627</span>      try{</div><div class="src-ln"><span class="src-num"> 628</span>        var r=await fetch(&#39;/api/users&#39;,{credentials:&#39;include&#39;});var rows=await r.json();</div><div class="src-ln"><span class="src-num"> 629</span>        tb.innerHTML=rows.length?rows.map(function(u){return &#39;&lt;tr&gt;&lt;td&gt;&lt;a href=&quot;https://github.com/&#39;+esc(u.login)+&#39;&quot; target=&quot;_blank&quot;&gt;&#39;+esc(u.login)+&#39;&lt;/a&gt;&lt;/td&gt;&lt;td&gt;&lt;strong&gt;&#39;+u.games.length+&#39;&lt;/strong&gt;&lt;/td&gt;&lt;td class=&quot;gray&quot; style=&quot;font-size:0.8rem&quot;&gt;&#39;+u.games.map(esc).join(&#39;, &#39;)+&#39;&lt;/td&gt;&lt;/tr&gt;&#39;}).join(&#39;&#39;):&#39;&lt;tr&gt;&lt;td colspan=&quot;3&quot; class=&quot;gray&quot;&gt;No creators yet.&lt;/td&gt;&lt;/tr&gt;&#39;;</div><div class="src-prompt"><button class="cp-btn src-fix-btn" data-prompt="Fix this warning in src/index.ts:625
+loadUsers: complexity 47 (max 15) (high-complexity)
+Check: complexity
+
+Analyze the code, explain the issue, and provide the fix." title="Copy fix prompt with source context">Copy fix prompt</button></div></div><div class="ir warning"><span class="is">W</span><span class="il">763</span><span class="im">renderApiDocs: 115 lines (max 60)</span><span class="iru">long-function</span><button class="cp-btn" data-prompt="Fix this issue in src/index.ts:763
+warning: renderApiDocs: 115 lines (max 60) (long-function)
+Check: complexity" title="Copy fix prompt">📋</button></div><div class="src-block"><div class="src-ln"><span class="src-num"> 759</span>&lt;/body&gt;</div><div class="src-ln"><span class="src-num"> 760</span>&lt;/html&gt;`;</div><div class="src-ln"><span class="src-num"> 761</span>}</div><div class="src-ln"><span class="src-num"> 762</span></div><div class="src-hl"><span class="src-num"> 763</span>function renderApiDocs(): string {</div><div class="src-ln"><span class="src-num"> 764</span>  return `&lt;!DOCTYPE html&gt;</div><div class="src-ln"><span class="src-num"> 765</span>&lt;html lang=&quot;en&quot;&gt;</div><div class="src-ln"><span class="src-num"> 766</span>&lt;head&gt;</div><div class="src-ln"><span class="src-num"> 767</span>  &lt;meta charset=&quot;UTF-8&quot;&gt;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;&gt;</div><div class="src-prompt"><button class="cp-btn src-fix-btn" data-prompt="Fix this warning in src/index.ts:763
+renderApiDocs: 115 lines (max 60) (long-function)
+Check: complexity
+
+Analyze the code, explain the issue, and provide the fix." title="Copy fix prompt with source context">Copy fix prompt</button></div></div><div class="ir warning"><span class="is">W</span><span class="il">939</span><span class="im">reconcile: 82 lines (max 60)</span><span class="iru">long-function</span><button class="cp-btn" data-prompt="Fix this issue in src/index.ts:939
+warning: reconcile: 82 lines (max 60) (long-function)
+Check: complexity" title="Copy fix prompt">📋</button></div><div class="src-block"><div class="src-ln"><span class="src-num"> 935</span> *    - missingRoute → re-insert the idempotent host route (registry is truth).</div><div class="src-ln"><span class="src-num"> 936</span> *    - orphanRoute  → delete the route (registry is truth; the game is delisted).</div><div class="src-ln"><span class="src-num"> 937</span> *  It never archives/deletes a repo. If the registry read failed it heals</div><div class="src-ln"><span class="src-num"> 938</span> *  NOTHING — a bad read must never delete a live route. */</div><div class="src-hl"><span class="src-num"> 939</span>async function reconcile(env: Env, heal = false): Promise&lt;ReconcileReport&gt; {</div><div class="src-ln"><span class="src-num"> 940</span>  const items = await fetchRegistryItems(env);</div><div class="src-ln"><span class="src-num"> 941</span>  const ts = new Date().toISOString();</div><div class="src-ln"><span class="src-num"> 942</span></div><div class="src-ln"><span class="src-num"> 943</span>  const routeRows = env.DB</div><div class="src-prompt"><button class="cp-btn src-fix-btn" data-prompt="Fix this warning in src/index.ts:939
+reconcile: 82 lines (max 60) (long-function)
+Check: complexity
+
+Analyze the code, explain the issue, and provide the fix." title="Copy fix prompt with source context">Copy fix prompt</button></div></div><div class="ir warning"><span class="is">W</span><span class="il">1029</span><span class="im">fetch: 157 lines (max 60)</span><span class="iru">long-function</span><button class="cp-btn" data-prompt="Fix this issue in src/index.ts:1029
+warning: fetch: 157 lines (max 60) (long-function)
+Check: complexity" title="Copy fix prompt">📋</button></div><div class="src-block"><div class="src-ln"><span class="src-num">1025</span>    ctx.waitUntil(reconcile(env, true));</div><div class="src-ln"><span class="src-num">1026</span>    ctx.waitUntil(pruneErrors(env.DB));</div><div class="src-ln"><span class="src-num">1027</span>  },</div><div class="src-ln"><span class="src-num">1028</span></div><div class="src-hl"><span class="src-num">1029</span>  async fetch(request: Request, env: Env): Promise&lt;Response&gt; {</div><div class="src-ln"><span class="src-num">1030</span>    const url = new URL(request.url);</div><div class="src-ln"><span class="src-num">1031</span></div><div class="src-ln"><span class="src-num">1032</span>    // CORS preflight — unauthenticated (a preflight carries no cookies).</div><div class="src-ln"><span class="src-num">1033</span>    if (request.method === &quot;OPTIONS&quot;) {</div><div class="src-prompt"><button class="cp-btn src-fix-btn" data-prompt="Fix this warning in src/index.ts:1029
+fetch: 157 lines (max 60) (long-function)
+Check: complexity
+
+Analyze the code, explain the issue, and provide the fix." title="Copy fix prompt with source context">Copy fix prompt</button></div></div><div class="ir warning"><span class="is">W</span><span class="il">1029</span><span class="im">fetch: complexity 33 (max 15)</span><span class="iru">high-complexity</span><button class="cp-btn" data-prompt="Fix this issue in src/index.ts:1029
+warning: fetch: complexity 33 (max 15) (high-complexity)
+Check: complexity" title="Copy fix prompt">📋</button></div><div class="src-block"><div class="src-ln"><span class="src-num">1025</span>    ctx.waitUntil(reconcile(env, true));</div><div class="src-ln"><span class="src-num">1026</span>    ctx.waitUntil(pruneErrors(env.DB));</div><div class="src-ln"><span class="src-num">1027</span>  },</div><div class="src-ln"><span class="src-num">1028</span></div><div class="src-hl"><span class="src-num">1029</span>  async fetch(request: Request, env: Env): Promise&lt;Response&gt; {</div><div class="src-ln"><span class="src-num">1030</span>    const url = new URL(request.url);</div><div class="src-ln"><span class="src-num">1031</span></div><div class="src-ln"><span class="src-num">1032</span>    // CORS preflight — unauthenticated (a preflight carries no cookies).</div><div class="src-ln"><span class="src-num">1033</span>    if (request.method === &quot;OPTIONS&quot;) {</div><div class="src-prompt"><button class="cp-btn src-fix-btn" data-prompt="Fix this warning in src/index.ts:1029
+fetch: complexity 33 (max 15) (high-complexity)
+Check: complexity
+
+Analyze the code, explain the issue, and provide the fix." title="Copy fix prompt with source context">Copy fix prompt</button></div></div></div></div>
 </section><section class="check-section" id="duplication">
-<div class="ch-head"><span class="ch-g" style="color:#22c55e">A</span><div><b>Duplication</b><span class="ch-s">91/100 · weight 5% · 3ms · 3 issues</span></div><span class="pri" style="color:#eab308">medium</span></div>
-<div class="info-panel"><div class="ip-row"><span class="ip-label">What</span><span>Detects copy-pasted code blocks of 6+ lines across source files. Duplication is measured as a percentage of total source lines involved in duplicate blocks.</span></div><div class="ip-row"><span class="ip-label">Risk</span><span>Duplicated code means bugs must be fixed in multiple places. Miss one copy and the bug persists. DRY (Don&#39;t Repeat Yourself) violations increase maintenance cost linearly with each copy.</span></div><div class="ip-row"><span class="ip-label">Fix</span><span>Extract duplicated logic into shared functions or modules. If two files share the same pattern, create a helper. If the duplication is across repos, consider vendoring a shared module.</span></div></div>
+<div class="ch-head"><span class="ch-g" style="color:#22c55e">A</span><div><b>Duplication</b><span class="ch-s">100/100 · weight 3% · 64ms · 3 issues</span></div><span class="pri" style="color:#eab308">medium</span></div>
+<div class="info-panel"><div class="ip-row"><span class="ip-label">What</span><span>Detects copy-pasted code blocks of 6+ lines across source files. Duplication is measured as a percentage of total source lines involved in duplicate blocks.</span></div><div class="ip-row"><span class="ip-label">Risk</span><span>Duplicated code means bugs must be fixed in multiple places. Miss one copy and the bug persists. DRY (Don&#39;t Repeat Yourself) violations increase maintenance cost linearly with each copy.</span></div><div class="ip-row"><span class="ip-label">Fix</span><span>Extract duplicated logic into shared functions or modules. If two files share the same pattern, create a helper. If the duplication is across repos, consider vendoring a shared module.</span></div><div class="ip-row"><span class="ip-label">Go deeper</span><span class="deeper-tools"><code>jscpd</code> <code>SonarQube</code></span></div></div>
 
 
 
-<div class="kvs"><div class="kv"><span class="k">filesScanned</span><span class="v">2</span></div><div class="kv"><span class="k">totalSourceLines</span><span class="v">754</span></div><div class="kv"><span class="k">duplicateBlocks</span><span class="v">3</span></div><div class="kv"><span class="k">duplicationPct</span><span class="v">2%</span></div></div>
-<div class="iss-list"><div class="fg"><div class="fn"><a href="https://github.com/freegamestore-online/admin/blob/main/src/index.ts" target="_blank" rel="noopener" class="flink">src/index.ts</a> <span class="fc">3</span></div><div class="ir warning"><span class="is">W</span><span class="im">Duplicate (6 lines): CF_ACCOUNT_ID: string; | CF_API_TOKEN: string;</span><span class="iru">duplicate-code</span><button class="cp-btn" data-prompt="Fix this issue in src/index.ts
-warning: Duplicate (6 lines): CF_ACCOUNT_ID: string; | CF_API_TOKEN: string; (duplicate-code)
-Check: duplication" title="Copy fix prompt">📋</button></div><div class="ir warning"><span class="is">W</span><span class="im">Duplicate (6 lines): CF_API_TOKEN: string; | CF_GLOBAL_KEY: string;</span><span class="iru">duplicate-code</span><button class="cp-btn" data-prompt="Fix this issue in src/index.ts
-warning: Duplicate (6 lines): CF_API_TOKEN: string; | CF_GLOBAL_KEY: string; (duplicate-code)
-Check: duplication" title="Copy fix prompt">📋</button></div><div class="ir warning"><span class="is">W</span><span class="im">Duplicate (6 lines): &quot;id&quot;: &quot;chess&quot;, | &quot;name&quot;: &quot;Chess&quot;,</span><span class="iru">duplicate-code</span><button class="cp-btn" data-prompt="Fix this issue in src/index.ts
-warning: Duplicate (6 lines): &quot;id&quot;: &quot;chess&quot;, | &quot;name&quot;: &quot;Chess&quot;, (duplicate-code)
+
+<div class="kvs"><div class="kv"><span class="k">filesScanned</span><span class="v">4</span></div><div class="kv"><span class="k">totalSourceLines</span><span class="v">2196</span></div><div class="kv"><span class="k">duplicateBlocks</span><span class="v">3</span></div><div class="kv"><span class="k">duplicationPct</span><span class="v">1.7%</span></div><div class="kv"><span class="k">tool</span><span class="v">built-in</span></div></div>
+<div class="iss-list"><div class="fg"><div class="fn">src/publish.ts <span class="fc">3</span></div><div class="ir warning"><span class="is">W</span><span class="im">Duplicate (22 lines): login: string,</span><span class="iru">duplicate-code</span><button class="cp-btn" data-prompt="login: string," title="Copy snippet to search">🔍</button><button class="cp-btn" data-prompt="Fix this issue in src/publish.ts
+warning: Duplicate (22 lines): login: string, (duplicate-code)
+Check: duplication" title="Copy fix prompt">📋</button></div><div class="ir warning"><span class="is">W</span><span class="im">Duplicate (10 lines): message: `Update ${gameId} metadata (${allowed.filter(k =&gt; k in updates).join(&quot;, &quot;)})`,</span><span class="iru">duplicate-code</span><button class="cp-btn" data-prompt="message: `Update ${gameId} metadata (${allowed.filter(k =&gt; k in updates).join(&quot;, &quot;)})`," title="Copy snippet to search">🔍</button><button class="cp-btn" data-prompt="Fix this issue in src/publish.ts
+warning: Duplicate (10 lines): message: `Update ${gameId} metadata (${allowed.filter(k =&gt; k in updates).join(&quot;, &quot;)})`, (duplicate-code)
+Check: duplication" title="Copy fix prompt">📋</button></div><div class="ir warning"><span class="is">W</span><span class="im">Duplicate (9 lines): message: `Delete ${gameId} from games registry`,</span><span class="iru">duplicate-code</span><button class="cp-btn" data-prompt="message: `Delete ${gameId} from games registry`," title="Copy snippet to search">🔍</button><button class="cp-btn" data-prompt="Fix this issue in src/publish.ts
+warning: Duplicate (9 lines): message: `Delete ${gameId} from games registry`, (duplicate-code)
 Check: duplication" title="Copy fix prompt">📋</button></div></div></div>
 </section><section class="check-section" id="error-handling">
-<div class="ch-head"><span class="ch-g" style="color:#22c55e">A</span><div><b>Error Handling</b><span class="ch-s">100/100 · weight 3% · 1ms · 0 issues</span></div><span class="pri" style="color:#f97316">high</span></div>
-<div class="info-panel"><div class="ip-row"><span class="ip-label">What</span><span>Detects poor error handling: empty catch blocks, throw with string literals, catch-and-rethrow without context, Promise.then() without .catch(), missing React Error Boundaries.</span></div><div class="ip-row"><span class="ip-label">Risk</span><span>Empty catch blocks silently swallow errors. throw &#39;string&#39; loses stack traces. Missing Error Boundaries in React cause the entire app to crash on render errors.</span></div><div class="ip-row"><span class="ip-label">Fix</span><span>Handle or log every catch. Use throw new Error() for stack traces. Add Error Boundaries in React. Chain .catch() on promises.</span></div></div>
+<div class="ch-head"><span class="ch-g" style="color:#eab308">C</span><div><b>Error Handling</b><span class="ch-s">70/100 · weight 3% · 5ms · 9 issues</span></div><span class="pri" style="color:#f97316">high</span></div>
+<div class="info-panel"><div class="ip-row"><span class="ip-label">What</span><span>Detects poor error handling: empty catch blocks, throw string literals, swallowed .catch(), floating promises, JSON.parse without try-catch, infinite loops, process.exit() in library code, and missing unhandledRejection handlers.</span></div><div class="ip-row"><span class="ip-label">Risk</span><span>Empty catch blocks silently swallow errors. throw &#39;string&#39; loses stack traces. Unhandled JSON.parse crashes on malformed input. Missing Error Boundaries in React cause the entire app to crash on render errors. Unhandled promise rejections crash Node.js 15+.</span></div><div class="ip-row"><span class="ip-label">Fix</span><span>Handle or log every catch. Use throw new Error() for stack traces. Wrap JSON.parse in try-catch. Add Error Boundaries in React. Add process.on(&#39;unhandledRejection&#39;) in server entry points.</span></div><div class="ip-row"><span class="ip-label">Go deeper</span><span class="deeper-tools"><code>@typescript-eslint/no-floating-promises</code> <code>eslint-plugin-promise</code></span></div></div>
 
 
 
-<div class="kvs"><div class="kv"><span class="k">emptyCatch</span><span class="v">0</span></div><div class="kv"><span class="k">throwString</span><span class="v">0</span></div><div class="kv"><span class="k">hasErrorBoundary</span><span class="v">n/a</span></div></div>
-<p style="color:var(--muted);font-size:0.8rem;margin-top:1rem">No issues found.</p>
+
+<div class="kvs"><div class="kv"><span class="k">emptyCatch</span><span class="v">0</span></div><div class="kv"><span class="k">throwString</span><span class="v">0</span></div><div class="kv"><span class="k">floatingPromises</span><span class="v">2</span></div><div class="kv"><span class="k">jsonParseUnsafe</span><span class="v">1</span></div><div class="kv"><span class="k">infiniteLoops</span><span class="v">0</span></div><div class="kv"><span class="k">hasErrorBoundary</span><span class="v">n/a</span></div><div class="kv"><span class="k">tool</span><span class="v">built-in</span></div></div>
+<div class="iss-list"><div class="fg"><div class="fn">src/index.ts <span class="fc">2</span></div><div class="ir warning"><span class="is">W</span><span class="il">560</span><span class="im">Floating promise — missing await, .catch(), or return</span><span class="iru">floating-promise</span><button class="cp-btn" data-prompt="Fix this issue in src/index.ts:560
+warning: Floating promise — missing await, .catch(), or return (floating-promise)
+Check: error-handling" title="Copy fix prompt">📋</button></div><div class="src-block"><div class="src-ln"><span class="src-num"> 556</span>      document.getElementById(&#39;dataTable&#39;).innerHTML=&#39;&lt;tr&gt;&lt;td colspan=&quot;6&quot; class=&quot;loading&quot;&gt;Loading...&lt;/td&gt;&lt;/tr&gt;&#39;;</div><div class="src-ln"><span class="src-num"> 557</span>      var t0=Date.now();</div><div class="src-ln"><span class="src-num"> 558</span>      try{</div><div class="src-ln"><span class="src-num"> 559</span>        var [gamesRes,qualityRes]=await Promise.all([</div><div class="src-hl"><span class="src-num"> 560</span>          fetch(&#39;/api/status&#39;,{credentials:&#39;include&#39;}),</div><div class="src-ln"><span class="src-num"> 561</span>          fetch(&#39;/api/quality&#39;,{credentials:&#39;include&#39;})</div><div class="src-ln"><span class="src-num"> 562</span>        ]);</div><div class="src-ln"><span class="src-num"> 563</span>        if(!gamesRes.ok){document.getElementById(&#39;meta&#39;).textContent=&#39;API error&#39;;return}</div><div class="src-ln"><span class="src-num"> 564</span>        gameData=await gamesRes.json();</div><div class="src-prompt"><button class="cp-btn src-fix-btn" data-prompt="Fix this warning in src/index.ts:560
+Floating promise — missing await, .catch(), or return (floating-promise)
+Check: error-handling
+
+Analyze the code, explain the issue, and provide the fix." title="Copy fix prompt with source context">Copy fix prompt</button></div></div><div class="ir warning"><span class="is">W</span><span class="il">561</span><span class="im">Floating promise — missing await, .catch(), or return</span><span class="iru">floating-promise</span><button class="cp-btn" data-prompt="Fix this issue in src/index.ts:561
+warning: Floating promise — missing await, .catch(), or return (floating-promise)
+Check: error-handling" title="Copy fix prompt">📋</button></div><div class="src-block"><div class="src-ln"><span class="src-num"> 557</span>      var t0=Date.now();</div><div class="src-ln"><span class="src-num"> 558</span>      try{</div><div class="src-ln"><span class="src-num"> 559</span>        var [gamesRes,qualityRes]=await Promise.all([</div><div class="src-ln"><span class="src-num"> 560</span>          fetch(&#39;/api/status&#39;,{credentials:&#39;include&#39;}),</div><div class="src-hl"><span class="src-num"> 561</span>          fetch(&#39;/api/quality&#39;,{credentials:&#39;include&#39;})</div><div class="src-ln"><span class="src-num"> 562</span>        ]);</div><div class="src-ln"><span class="src-num"> 563</span>        if(!gamesRes.ok){document.getElementById(&#39;meta&#39;).textContent=&#39;API error&#39;;return}</div><div class="src-ln"><span class="src-num"> 564</span>        gameData=await gamesRes.json();</div><div class="src-ln"><span class="src-num"> 565</span>        qualityMap={};</div><div class="src-prompt"><button class="cp-btn src-fix-btn" data-prompt="Fix this warning in src/index.ts:561
+Floating promise — missing await, .catch(), or return (floating-promise)
+Check: error-handling
+
+Analyze the code, explain the issue, and provide the fix." title="Copy fix prompt with source context">Copy fix prompt</button></div></div></div><div class="fg"><div class="fn">src/auth.ts <span class="fc">1</span></div><div class="ir warning"><span class="is">W</span><span class="il">71</span><span class="im">JSON.parse of external data without try-catch — crashes on malformed input</span><span class="iru">unsafe-json-parse</span><button class="cp-btn" data-prompt="Fix this issue in src/auth.ts:71
+warning: JSON.parse of external data without try-catch — crashes on malformed input (unsafe-json-parse)
+Check: error-handling" title="Copy fix prompt">📋</button></div><div class="src-block"><div class="src-ln"><span class="src-num">  67</span>      sig,</div><div class="src-ln"><span class="src-num">  68</span>      encoder.encode(`${parts[0]}.${parts[1]}`),</div><div class="src-ln"><span class="src-num">  69</span>    );</div><div class="src-ln"><span class="src-num">  70</span>    if (!valid) return null;</div><div class="src-hl"><span class="src-num">  71</span>    const payload = JSON.parse(atob(parts[1]!)) as { sub: string; exp: number };</div><div class="src-ln"><span class="src-num">  72</span>    if (typeof payload.exp !== &quot;number&quot; || payload.exp &lt; Math.floor(Date.now() / 1000)) return null;</div><div class="src-ln"><span class="src-num">  73</span>    return payload.sub;</div><div class="src-ln"><span class="src-num">  74</span>  } catch {</div><div class="src-ln"><span class="src-num">  75</span>    return null;</div><div class="src-prompt"><button class="cp-btn src-fix-btn" data-prompt="Fix this warning in src/auth.ts:71
+JSON.parse of external data without try-catch — crashes on malformed input (unsafe-json-parse)
+Check: error-handling
+
+Analyze the code, explain the issue, and provide the fix." title="Copy fix prompt with source context">Copy fix prompt</button></div></div></div><div class="fg"><div class="fn">src/publish.ts <span class="fc">6</span></div><div class="ir info"><span class="is">I</span><span class="il">179</span><span class="im">Catch block may expose error details to caller — consider logging and returning a safe message</span><span class="iru">error-info-leak</span><button class="cp-btn" data-prompt="Fix this issue in src/publish.ts:179
+info: Catch block may expose error details to caller — consider logging and returning a safe message (error-info-leak)
+Check: error-handling" title="Copy fix prompt">📋</button></div><div class="src-block"><div class="src-ln"><span class="src-num"> 175</span>      .bind(slug, STORE_CONFIG.domain, r2Prefix, STORE_CONFIG.registryKey, now)</div><div class="src-ln"><span class="src-num"> 176</span>      .run();</div><div class="src-ln"><span class="src-num"> 177</span>    return {</div><div class="src-ln"><span class="src-num"> 178</span>      name: &quot;Hosting route&quot;,</div><div class="src-hl"><span class="src-num"> 179</span>      status: &quot;ok&quot;,</div><div class="src-ln"><span class="src-num"> 180</span>      detail: `${slug}.${STORE_CONFIG.domain} → r2://${STORE_CONFIG.r2Bucket}/${r2Prefix}`,</div><div class="src-ln"><span class="src-num"> 181</span>    };</div><div class="src-ln"><span class="src-num"> 182</span>  } catch (e: any) {</div><div class="src-ln"><span class="src-num"> 183</span>    return { name: &quot;Hosting route&quot;, status: &quot;fail&quot;, detail: e?.message ?? &quot;D1 insert failed&quot; };</div><div class="src-prompt"><button class="cp-btn src-fix-btn" data-prompt="Fix this info in src/publish.ts:179
+Catch block may expose error details to caller — consider logging and returning a safe message (error-info-leak)
+Check: error-handling
+
+Analyze the code, explain the issue, and provide the fix." title="Copy fix prompt with source context">Copy fix prompt</button></div></div><div class="ir info"><span class="is">I</span><span class="il">180</span><span class="im">Catch block may expose error details to caller — consider logging and returning a safe message</span><span class="iru">error-info-leak</span><button class="cp-btn" data-prompt="Fix this issue in src/publish.ts:180
+info: Catch block may expose error details to caller — consider logging and returning a safe message (error-info-leak)
+Check: error-handling" title="Copy fix prompt">📋</button></div><div class="src-block"><div class="src-ln"><span class="src-num"> 176</span>      .run();</div><div class="src-ln"><span class="src-num"> 177</span>    return {</div><div class="src-ln"><span class="src-num"> 178</span>      name: &quot;Hosting route&quot;,</div><div class="src-ln"><span class="src-num"> 179</span>      status: &quot;ok&quot;,</div><div class="src-hl"><span class="src-num"> 180</span>      detail: `${slug}.${STORE_CONFIG.domain} → r2://${STORE_CONFIG.r2Bucket}/${r2Prefix}`,</div><div class="src-ln"><span class="src-num"> 181</span>    };</div><div class="src-ln"><span class="src-num"> 182</span>  } catch (e: any) {</div><div class="src-ln"><span class="src-num"> 183</span>    return { name: &quot;Hosting route&quot;, status: &quot;fail&quot;, detail: e?.message ?? &quot;D1 insert failed&quot; };</div><div class="src-ln"><span class="src-num"> 184</span>  }</div><div class="src-prompt"><button class="cp-btn src-fix-btn" data-prompt="Fix this info in src/publish.ts:180
+Catch block may expose error details to caller — consider logging and returning a safe message (error-info-leak)
+Check: error-handling
+
+Analyze the code, explain the issue, and provide the fix." title="Copy fix prompt with source context">Copy fix prompt</button></div></div><div class="ir info"><span class="is">I</span><span class="il">181</span><span class="im">Catch block may expose error details to caller — consider logging and returning a safe message</span><span class="iru">error-info-leak</span><button class="cp-btn" data-prompt="Fix this issue in src/publish.ts:181
+info: Catch block may expose error details to caller — consider logging and returning a safe message (error-info-leak)
+Check: error-handling" title="Copy fix prompt">📋</button></div><div class="src-block"><div class="src-ln"><span class="src-num"> 177</span>    return {</div><div class="src-ln"><span class="src-num"> 178</span>      name: &quot;Hosting route&quot;,</div><div class="src-ln"><span class="src-num"> 179</span>      status: &quot;ok&quot;,</div><div class="src-ln"><span class="src-num"> 180</span>      detail: `${slug}.${STORE_CONFIG.domain} → r2://${STORE_CONFIG.r2Bucket}/${r2Prefix}`,</div><div class="src-hl"><span class="src-num"> 181</span>    };</div><div class="src-ln"><span class="src-num"> 182</span>  } catch (e: any) {</div><div class="src-ln"><span class="src-num"> 183</span>    return { name: &quot;Hosting route&quot;, status: &quot;fail&quot;, detail: e?.message ?? &quot;D1 insert failed&quot; };</div><div class="src-ln"><span class="src-num"> 184</span>  }</div><div class="src-ln"><span class="src-num"> 185</span>}</div><div class="src-prompt"><button class="cp-btn src-fix-btn" data-prompt="Fix this info in src/publish.ts:181
+Catch block may expose error details to caller — consider logging and returning a safe message (error-info-leak)
+Check: error-handling
+
+Analyze the code, explain the issue, and provide the fix." title="Copy fix prompt with source context">Copy fix prompt</button></div></div><div class="ir info"><span class="is">I</span><span class="il">182</span><span class="im">Catch block may expose error details to caller — consider logging and returning a safe message</span><span class="iru">error-info-leak</span><button class="cp-btn" data-prompt="Fix this issue in src/publish.ts:182
+info: Catch block may expose error details to caller — consider logging and returning a safe message (error-info-leak)
+Check: error-handling" title="Copy fix prompt">📋</button></div><div class="src-block"><div class="src-ln"><span class="src-num"> 178</span>      name: &quot;Hosting route&quot;,</div><div class="src-ln"><span class="src-num"> 179</span>      status: &quot;ok&quot;,</div><div class="src-ln"><span class="src-num"> 180</span>      detail: `${slug}.${STORE_CONFIG.domain} → r2://${STORE_CONFIG.r2Bucket}/${r2Prefix}`,</div><div class="src-ln"><span class="src-num"> 181</span>    };</div><div class="src-hl"><span class="src-num"> 182</span>  } catch (e: any) {</div><div class="src-ln"><span class="src-num"> 183</span>    return { name: &quot;Hosting route&quot;, status: &quot;fail&quot;, detail: e?.message ?? &quot;D1 insert failed&quot; };</div><div class="src-ln"><span class="src-num"> 184</span>  }</div><div class="src-ln"><span class="src-num"> 185</span>}</div><div class="src-ln"><span class="src-num"> 186</span></div><div class="src-prompt"><button class="cp-btn src-fix-btn" data-prompt="Fix this info in src/publish.ts:182
+Catch block may expose error details to caller — consider logging and returning a safe message (error-info-leak)
+Check: error-handling
+
+Analyze the code, explain the issue, and provide the fix." title="Copy fix prompt with source context">Copy fix prompt</button></div></div><div class="ir info"><span class="is">I</span><span class="il">251</span><span class="im">Catch block may expose error details to caller — consider logging and returning a safe message</span><span class="iru">error-info-leak</span><button class="cp-btn" data-prompt="Fix this issue in src/publish.ts:251
+info: Catch block may expose error details to caller — consider logging and returning a safe message (error-info-leak)
+Check: error-handling" title="Copy fix prompt">📋</button></div><div class="src-block"><div class="src-ln"><span class="src-num"> 247</span>      parents: [headSha],</div><div class="src-ln"><span class="src-num"> 248</span>    });</div><div class="src-ln"><span class="src-num"> 249</span>    if (!commit.sha) return { name: &quot;Naming&quot;, status: &quot;fail&quot;, detail: &quot;commit failed&quot; };</div><div class="src-ln"><span class="src-num"> 250</span>    const upd = await ghApi(env, `/repos/${repo}/git/refs/heads/main`, &quot;PATCH&quot;, { sha: commit.sha });</div><div class="src-hl"><span class="src-num"> 251</span>    return upd.ref</div><div class="src-ln"><span class="src-num"> 252</span>      ? { name: &quot;Naming&quot;, status: &quot;ok&quot;, detail: `substituted APPNAME in ${treeItems.length} files` }</div><div class="src-ln"><span class="src-num"> 253</span>      : { name: &quot;Naming&quot;, status: &quot;fail&quot;, detail: &quot;ref update failed&quot; };</div><div class="src-ln"><span class="src-num"> 254</span>  } catch (e: any) {</div><div class="src-ln"><span class="src-num"> 255</span>    return { name: &quot;Naming&quot;, status: &quot;fail&quot;, detail: e?.message ?? &quot;substitution error&quot; };</div><div class="src-prompt"><button class="cp-btn src-fix-btn" data-prompt="Fix this info in src/publish.ts:251
+Catch block may expose error details to caller — consider logging and returning a safe message (error-info-leak)
+Check: error-handling
+
+Analyze the code, explain the issue, and provide the fix." title="Copy fix prompt with source context">Copy fix prompt</button></div></div><div class="ir info"><span class="is">I</span><span class="il">254</span><span class="im">Catch block may expose error details to caller — consider logging and returning a safe message</span><span class="iru">error-info-leak</span><button class="cp-btn" data-prompt="Fix this issue in src/publish.ts:254
+info: Catch block may expose error details to caller — consider logging and returning a safe message (error-info-leak)
+Check: error-handling" title="Copy fix prompt">📋</button></div><div class="src-block"><div class="src-ln"><span class="src-num"> 250</span>    const upd = await ghApi(env, `/repos/${repo}/git/refs/heads/main`, &quot;PATCH&quot;, { sha: commit.sha });</div><div class="src-ln"><span class="src-num"> 251</span>    return upd.ref</div><div class="src-ln"><span class="src-num"> 252</span>      ? { name: &quot;Naming&quot;, status: &quot;ok&quot;, detail: `substituted APPNAME in ${treeItems.length} files` }</div><div class="src-ln"><span class="src-num"> 253</span>      : { name: &quot;Naming&quot;, status: &quot;fail&quot;, detail: &quot;ref update failed&quot; };</div><div class="src-hl"><span class="src-num"> 254</span>  } catch (e: any) {</div><div class="src-ln"><span class="src-num"> 255</span>    return { name: &quot;Naming&quot;, status: &quot;fail&quot;, detail: e?.message ?? &quot;substitution error&quot; };</div><div class="src-ln"><span class="src-num"> 256</span>  }</div><div class="src-ln"><span class="src-num"> 257</span>}</div><div class="src-ln"><span class="src-num"> 258</span></div><div class="src-prompt"><button class="cp-btn src-fix-btn" data-prompt="Fix this info in src/publish.ts:254
+Catch block may expose error details to caller — consider logging and returning a safe message (error-info-leak)
+Check: error-handling
+
+Analyze the code, explain the issue, and provide the fix." title="Copy fix prompt with source context">Copy fix prompt</button></div></div></div></div>
 </section><section class="check-section" id="react">
-<div class="ch-head"><span class="ch-g" style="color:#555">—</span><div><b>React Patterns</b><span class="ch-s">skipped · weight 3% · 0ms · 0 issues</span></div><span class="pri" style="color:#f97316">high</span></div>
-<div class="info-panel"><div class="ip-row"><span class="ip-label">What</span><span>Checks React-specific patterns: conditional hook calls (violates Rules of Hooks), missing key props in .map(), index as key, prop spreading on DOM elements, and excessive inline handlers.</span></div><div class="ip-row"><span class="ip-label">Risk</span><span>Conditional hooks cause React to crash at runtime. Missing keys cause incorrect reconciliation — items can swap, duplicate, or lose state. Index keys break when lists are reordered or filtered.</span></div><div class="ip-row"><span class="ip-label">Fix</span><span>Never call hooks inside conditions, loops, or nested functions. Always provide a unique, stable key in .map(). Avoid spreading unknown props onto DOM elements. Extract inline handlers for readability.</span></div></div>
+<div class="ch-head"><span class="ch-g" style="color:var(--dim)">—</span><div><b>React Patterns</b><span class="ch-s">skipped · weight 3% · 0ms · 0 issues</span></div><span class="pri" style="color:#f97316">high</span></div>
+<div class="info-panel"><div class="ip-row"><span class="ip-label">What</span><span>Checks React-specific patterns: conditional hook calls (violates Rules of Hooks), missing key props in .map(), index as key, prop spreading on DOM elements, and excessive inline handlers.</span></div><div class="ip-row"><span class="ip-label">Risk</span><span>Conditional hooks cause React to crash at runtime. Missing keys cause incorrect reconciliation — items can swap, duplicate, or lose state. Index keys break when lists are reordered or filtered.</span></div><div class="ip-row"><span class="ip-label">Fix</span><span>Never call hooks inside conditions, loops, or nested functions. Always provide a unique, stable key in .map(). Avoid spreading unknown props onto DOM elements. Extract inline handlers for readability.</span></div><div class="ip-row"><span class="ip-label">Go deeper</span><span class="deeper-tools"><code>eslint-plugin-react-hooks</code> <code>eslint-plugin-react</code></span></div></div>
 <p class="skip-r">not a React project</p>
+
 
 
 
 <p style="color:var(--muted);font-size:0.8rem;margin-top:1rem">No issues found.</p>
 </section><section class="check-section" id="accessibility">
-<div class="ch-head"><span class="ch-g" style="color:#555">—</span><div><b>Accessibility</b><span class="ch-s">skipped · weight 4% · 1ms · 0 issues</span></div><span class="pri" style="color:#f97316">high</span></div>
-<div class="info-panel"><div class="ip-row"><span class="ip-label">What</span><span>Checks common accessibility violations: images without alt text, click handlers on non-interactive elements without keyboard support, form controls without labels, autoFocus usage, positive tabIndex, and missing html lang attribute.</span></div><div class="ip-row"><span class="ip-label">Risk</span><span>1 in 4 adults has a disability (CDC). Missing alt text makes images invisible to screen readers. Click-only divs exclude keyboard users. Unlabeled inputs are unusable with assistive technology. Missing lang attribute breaks screen reader pronunciation.</span></div><div class="ip-row"><span class="ip-label">Fix</span><span>Add alt text to all images (use alt=&quot;&quot; for decorative). Use &lt;button&gt; for clickable elements, not &lt;div onClick&gt;. Label all form controls with &lt;label&gt;, aria-label, or aria-labelledby. Set lang on &lt;html&gt;.</span></div></div>
-<p class="skip-r">no JSX/TSX files</p>
+<div class="ch-head"><span class="ch-g" style="color:var(--dim)">—</span><div><b>Accessibility</b><span class="ch-s">skipped · weight 4% · 1ms · 0 issues</span></div><span class="pri" style="color:#f97316">high</span></div>
+<div class="info-panel"><div class="ip-row"><span class="ip-label">What</span><span>Checks common accessibility violations: images without alt text, click handlers on non-interactive elements without keyboard support, form controls without labels, autoFocus usage, positive tabIndex, and missing html lang attribute.</span></div><div class="ip-row"><span class="ip-label">Risk</span><span>1 in 4 adults has a disability (CDC). Missing alt text makes images invisible to screen readers. Click-only divs exclude keyboard users. Unlabeled inputs are unusable with assistive technology. Missing lang attribute breaks screen reader pronunciation.</span></div><div class="ip-row"><span class="ip-label">Fix</span><span>Add alt text to all images (use alt=&quot;&quot; for decorative). Use &lt;button&gt; for clickable elements, not &lt;div onClick&gt;. Label all form controls with &lt;label&gt;, aria-label, or aria-labelledby. Set lang on &lt;html&gt;.</span></div><div class="ip-row"><span class="ip-label">Go deeper</span><span class="deeper-tools"><code>eslint-plugin-jsx-a11y</code> <code>axe-core</code></span></div></div>
+<p class="skip-r">no JSX/TSX/Vue/Svelte files</p>
+
 
 
 
 <p style="color:var(--muted);font-size:0.8rem;margin-top:1rem">No issues found.</p>
 </section><section class="check-section" id="docs">
-<div class="ch-head"><span class="ch-g" style="color:#f97316">D</span><div><b>Documentation</b><span class="ch-s">50/100 · weight 3% · 1ms · 1 issues</span></div><span class="pri" style="color:#6b7280">low</span></div>
+<div class="ch-head"><span class="ch-g" style="color:#f97316">D</span><div><b>Documentation</b><span class="ch-s">58/100 · weight 3% · 1ms · 1 issues</span></div><span class="pri" style="color:#6b7280">low</span></div>
 <div class="info-panel"><div class="ip-row"><span class="ip-label">What</span><span>Checks README quality (existence, length, sections) and JSDoc coverage (what percentage of exported functions/classes have documentation comments).</span></div><div class="ip-row"><span class="ip-label">Risk</span><span>Undocumented code is hard to onboard to and easy to misuse. Missing README means new contributors can&#39;t get started. Undocumented exports become tribal knowledge that leaves when people leave.</span></div><div class="ip-row"><span class="ip-label">Fix</span><span>Write a README with: what it does, how to install, how to run, how to develop. Add JSDoc comments to all public exports — even a one-line description helps.</span></div></div>
 
 
 
-<div class="kvs"><div class="kv"><span class="k">readmeLines</span><span class="v">30</span></div><div class="kv"><span class="k">totalExports</span><span class="v">2</span></div><div class="kv"><span class="k">documentedExports</span><span class="v">0</span></div><div class="kv"><span class="k">documentedPct</span><span class="v">0%</span></div></div>
-<div class="iss-list"><div class="fg"><div class="fn">General</div><div class="ir warning"><span class="is">W</span><span class="im">Only 0% of exports have documentation (0/2)</span><span class="iru">undocumented-exports</span></div></div></div>
+
+<div class="kvs"><div class="kv"><span class="k">readmeLines</span><span class="v">30</span></div><div class="kv"><span class="k">totalExports</span><span class="v">16</span></div><div class="kv"><span class="k">documentedExports</span><span class="v">5</span></div><div class="kv"><span class="k">documentedPct</span><span class="v">31%</span></div><div class="kv"><span class="k">hasChangelog</span><span class="v">false</span></div></div>
+<div class="iss-list"><div class="fg"><div class="fn">General</div><div class="ir info"><span class="is">I</span><span class="im">No CHANGELOG.md — version history not documented</span><span class="iru">no-changelog</span></div></div></div>
 </section><section class="check-section" id="best-practices">
-<div class="ch-head"><span class="ch-g" style="color:#f97316">D</span><div><b>Best Practices</b><span class="ch-s">50/100 · weight 3% · 2ms · 9 issues</span></div><span class="pri" style="color:#eab308">medium</span></div>
+<div class="ch-head"><span class="ch-g" style="color:#eab308">C</span><div><b>Best Practices</b><span class="ch-s">70/100 · weight 3% · 2ms · 9 issues</span></div><span class="pri" style="color:#eab308">medium</span></div>
 <div class="info-panel"><div class="ip-row"><span class="ip-label">What</span><span>Advisory check for industry-standard CI/CD, supply chain, and repo hygiene practices. Checks: GitHub Actions with explicit permissions, OIDC instead of long-lived tokens, pinned action SHAs, frozen lockfile in CI, committed lockfile, engine constraints, SECURITY.md, CODEOWNERS, CONTRIBUTING.md, .env.example, pre-commit hooks, automated dependency updates (Dependabot/Renovate).</span></div><div class="ip-row"><span class="ip-label">Risk</span><span>Missing CI/CD practices lead to supply chain attacks (tj-actions breach affected 23,000 repos in 2025). Long-lived tokens can be stolen from CI logs. Unpinned actions allow tag-poisoning. No lockfile means non-reproducible builds. No SECURITY.md means vulnerabilities go unreported.</span></div><div class="ip-row"><span class="ip-label">Fix</span><span>Pin third-party actions to SHA. Use OIDC trusted publishing instead of tokens. Set explicit permissions in workflows. Add SECURITY.md, CODEOWNERS, and CONTRIBUTING.md. Configure Dependabot or Renovate for automated dependency updates. Add pre-commit hooks.</span></div></div>
 
 
 
-<div class="kvs"><div class="kv"><span class="k">practicesChecked</span><span class="v">18</span></div><div class="kv"><span class="k">practicesFollowed</span><span class="v">9</span></div><div class="kv"><span class="k">adherence</span><span class="v">50%</span></div></div>
-<div class="iss-list"><div class="fg"><div class="fn">General</div><div class="ir warning"><span class="is">W</span><span class="im">No .github/workflows/ — no CI/CD automation. Add GitHub Actions for automated testing and deployment.</span><span class="iru">no-ci</span></div><div class="ir info"><span class="is">I</span><span class="im">No SECURITY.md — users don&#39;t know how to report vulnerabilities</span><span class="iru">security-policy</span></div><div class="ir info"><span class="is">I</span><span class="im">No CODEOWNERS file — no mandatory reviewers for critical paths</span><span class="iru">codeowners</span></div><div class="ir info"><span class="is">I</span><span class="im">No CONTRIBUTING.md — onboarding is harder for new contributors</span><span class="iru">contributing-guide</span></div><div class="ir info"><span class="is">I</span><span class="im">No pre-commit hooks (husky/lefthook) — lint/format not enforced before commit</span><span class="iru">pre-commit-hooks</span></div><div class="ir info"><span class="is">I</span><span class="im">No Dependabot/Renovate — dependency updates are manual and often forgotten</span><span class="iru">automated-deps</span></div><div class="ir warning"><span class="is">W</span><span class="im">No linter config (ESLint/Biome/dart analyze) — code style not enforced</span><span class="iru">linter-config</span></div><div class="ir info"><span class="is">I</span><span class="im">No test coverage configuration — coverage thresholds not enforced</span><span class="iru">coverage-config</span></div><div class="ir info"><span class="is">I</span><span class="im">No commit convention enforcement (commitlint/changesets) — changelog generation is manual</span><span class="iru">conventional-commits</span></div></div></div>
+
+<div class="kvs"><div class="kv"><span class="k">practicesChecked</span><span class="v">20</span></div><div class="kv"><span class="k">practicesFollowed</span><span class="v">10</span></div><div class="kv"><span class="k">adherence</span><span class="v">50%</span></div></div>
+<div class="iss-list"><div class="fg"><div class="fn">.github/workflows/deploy.yml <span class="fc">1</span></div><div class="ir warning"><span class="is">W</span><span class="im">deploy.yml: no explicit permissions block — defaults to read-write (overly permissive)</span><span class="iru">explicit-permissions</span><button class="cp-btn" data-prompt="Fix this issue in .github/workflows/deploy.yml
+warning: deploy.yml: no explicit permissions block — defaults to read-write (overly permissive) (explicit-permissions)
+Check: best-practices" title="Copy fix prompt">📋</button></div></div><div class="fg"><div class="fn">General</div><div class="ir info"><span class="is">I</span><span class="im">No SECURITY.md — users don&#39;t know how to report vulnerabilities</span><span class="iru">security-policy</span></div><div class="ir info"><span class="is">I</span><span class="im">No CODEOWNERS file — no mandatory reviewers for critical paths</span><span class="iru">codeowners</span></div><div class="ir info"><span class="is">I</span><span class="im">No CONTRIBUTING.md — onboarding is harder for new contributors</span><span class="iru">contributing-guide</span></div><div class="ir info"><span class="is">I</span><span class="im">No pre-commit hooks (husky/lefthook) — lint/format not enforced before commit</span><span class="iru">pre-commit-hooks</span></div><div class="ir info"><span class="is">I</span><span class="im">No Dependabot/Renovate — dependency updates are manual and often forgotten</span><span class="iru">automated-deps</span></div><div class="ir warning"><span class="is">W</span><span class="im">No linter config (ESLint/Biome/dart analyze) — code style not enforced</span><span class="iru">linter-config</span></div><div class="ir info"><span class="is">I</span><span class="im">No test coverage configuration — coverage thresholds not enforced</span><span class="iru">coverage-config</span></div><div class="ir info"><span class="is">I</span><span class="im">No commit convention enforcement (commitlint/changesets) — changelog generation is manual</span><span class="iru">conventional-commits</span></div></div></div>
 </section>
-  <div class="footer">Generated by <a href="https://vibecodeqa.online">VibeCode QA</a> v0.28.0 &mdash; <code>npx @vibecodeqa/cli</code></div>
+  <div class="footer">Generated by <a href="https://vibecodeqa.online">VibeCode QA</a> v0.44.0 &mdash; <code>npx @vibecodeqa/cli</code></div>
 </div>
 
 <script>
@@ -328,5 +563,38 @@ document.addEventListener('click',function(ev){
   try{navigator.clipboard.writeText(text)}catch(e){const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta)}
   btn.textContent='\u2713';setTimeout(function(){btn.textContent='\ud83d\udccb'},1000);
 });
+/* Preferences */
+function togglePrefs(){document.getElementById('prefs').classList.toggle('open')}
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  try{localStorage.setItem('vcqa-theme',t)}catch(e){}
+  updPrefsUI();
+}
+function setFont(s){
+  document.documentElement.style.fontSize=s+'px';
+  try{localStorage.setItem('vcqa-font',s)}catch(e){}
+  updPrefsUI();
+}
+function updPrefsUI(){
+  var t;try{t=localStorage.getItem('vcqa-theme')}catch(e){}
+  t=t||'dark';
+  document.querySelectorAll('[data-theme-opt]').forEach(function(b){b.classList.toggle('active',b.dataset.themeOpt===t)});
+  var f;try{f=localStorage.getItem('vcqa-font')}catch(e){}
+  f=f||'17';
+  document.querySelectorAll('[data-font-opt]').forEach(function(b){b.classList.toggle('active',b.dataset.fontOpt===f)});
+}
+/* Apply saved prefs on load */
+(function(){
+  var t;try{t=localStorage.getItem('vcqa-theme')}catch(e){}
+  if(t)document.documentElement.setAttribute('data-theme',t);
+  var f;try{f=localStorage.getItem('vcqa-font')}catch(e){}
+  if(f)document.documentElement.style.fontSize=f+'px';
+  updPrefsUI();
+  /* Close prefs panel on outside click */
+  document.addEventListener('click',function(ev){
+    var p=document.getElementById('prefs');
+    if(p.classList.contains('open')&&!ev.target.closest('.prefs-panel')&&!ev.target.closest('.prefs-btn'))p.classList.remove('open');
+  });
+})();
 </script>
 </body></html>

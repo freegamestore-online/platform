@@ -6,15 +6,18 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%226%22%20fill%3D%22%23818cf8%22%2F%3E%3Ctext%20x%3D%2216%22%20y%3D%2222%22%20text-anchor%3D%22middle%22%20font-family%3D%22system-ui%2Csans-serif%22%20font-size%3D%2216%22%20font-weight%3D%22900%22%20fill%3D%22%23fff%22%3EVQ%3C%2Ftext%3E%3C%2Fsvg%3E">
 <title>VibeCode QA — admin</title>
 <style>
-:root{--bg:#09090b;--card:#111115;--border:#1e1e24;--text:#e5e5e5;--muted:#6b7280;--pass:#22c55e;--fail:#ef4444;--warn:#eab308;--info:#6366f1;--accent:#818cf8;--side-w:200px;--top-h:42px}
+:root{--bg:#09090b;--card:#111115;--border:#1e1e24;--text:#e5e5e5;--muted:#6b7280;--pass:#22c55e;--fail:#ef4444;--warn:#eab308;--info:#6366f1;--accent:#818cf8;--side-w:200px;--top-h:42px;--nav-bg:#0c0c0fdd;--side-bg:#0c0c0f;--hover:#14141a;--dim:#555;--card-alt:#0d0d12}
+[data-theme="light"]{--bg:#f5f5f7;--card:#ffffff;--border:#e2e4e9;--text:#1a1a2e;--muted:#64748b;--pass:#16a34a;--fail:#dc2626;--warn:#ca8a04;--info:#4f46e5;--accent:#4f46e5;--nav-bg:#ffffffee;--side-bg:#fafafa;--hover:#eef0f5;--dim:#94a3b8;--card-alt:#f0f0f5}
+html{font-size:17px}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
 code{font-family:"SF Mono",Menlo,monospace;font-size:0.85em}
 
 /* ── Top nav ── */
-.top{position:sticky;top:0;z-index:30;background:#0c0c0fdd;backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;height:var(--top-h)}
-.logo{font-weight:800;font-size:1rem;margin-right:1rem;flex-shrink:0;text-decoration:none;color:var(--text)}
+.top{position:sticky;top:0;z-index:30;background:var(--nav-bg);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;height:var(--top-h)}
+.logo{font-weight:800;font-size:1rem;margin-right:0.5rem;flex-shrink:0;text-decoration:none;color:var(--text)}
 .logo span{color:var(--accent)}
+.nav-project{font-size:0.72rem;color:var(--muted);font-weight:600;margin-right:1rem;padding:0.2rem 0.5rem;background:var(--card);border:1px solid var(--border);border-radius:4px;flex-shrink:0}
 .nav-scroll{display:flex;align-items:center;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex:1}
 .nav-scroll::-webkit-scrollbar{display:none}
 .tn{padding:0 0.7rem;font-size:0.78rem;color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;transition:all 0.15s;white-space:nowrap;line-height:var(--top-h)}
@@ -23,13 +26,13 @@ code{font-family:"SF Mono",Menlo,monospace;font-size:0.85em}
 .hamburger{display:none;background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;padding:0 0.4rem;line-height:var(--top-h)}
 
 /* ── Sidebar ── */
-.side{position:fixed;top:var(--top-h);left:0;bottom:0;width:var(--side-w);background:#0c0c0f;border-right:1px solid var(--border);overflow-y:auto;padding:0.6rem 0;font-size:0.7rem;z-index:20}
+.side{position:fixed;top:var(--top-h);left:0;bottom:0;width:var(--side-w);background:var(--side-bg);border-right:1px solid var(--border);overflow-y:auto;padding:0.6rem 0;font-size:0.7rem;z-index:20}
 .side-section{padding:0.3rem 0;border-bottom:1px solid var(--border)}
 .side-section:last-child{border-bottom:none}
-.side-label{padding:0.2rem 0.8rem;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.05em;color:#444;font-weight:600}
+.side-label{padding:0.2rem 0.8rem;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--dim);font-weight:600}
 .side-score{font-size:1.4rem;font-weight:900;padding:0.2rem 0.8rem}
 .side-cat{display:block;padding:0.3rem 0.8rem;color:var(--muted);font-weight:600;cursor:pointer;text-decoration:none;font-size:0.72rem}
-.side-cat:hover{background:#14141a;color:var(--text)}
+.side-cat:hover{background:var(--hover);color:var(--text)}
 .side-cat-active{color:var(--text);font-weight:700;border-left:2px solid var(--accent);padding-left:calc(0.8rem - 2px)}
 .side-cat-title{padding:0.3rem 0.8rem;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--accent);font-weight:700}
 .side-check{display:block;padding:0.15rem 0.8rem 0.15rem 0.8rem;color:var(--muted);cursor:pointer;text-decoration:none;font-size:0.65rem}
@@ -88,6 +91,16 @@ h3{font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:
 .stack{display:flex;gap:0.35rem;flex-wrap:wrap;margin-top:1rem}
 .stack span{background:var(--card);border:1px solid var(--border);padding:0.1rem 0.45rem;border-radius:9999px;font-size:0.62rem;color:var(--muted)}
 
+/* ── Workspace / Repo structure ── */
+.ws-info{display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;margin-bottom:0.5rem;font-size:0.72rem;color:var(--muted)}
+.ws-badge{background:var(--accent);color:#fff;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.65rem;font-weight:700}
+.ws-pkgs{display:flex;flex-direction:column;gap:0.15rem}
+.ws-pkg{display:flex;gap:0.6rem;align-items:center;font-size:0.68rem;padding:0.15rem 0.4rem;background:var(--card);border-radius:4px}
+.ws-path{font-family:monospace;color:var(--text);min-width:140px}
+.ws-name{color:var(--muted);flex:1}
+.ws-flags{color:var(--muted);font-size:0.6rem}
+.ws-more{font-size:0.62rem;color:var(--muted);padding:0.2rem 0.4rem}
+
 /* ── Category pages ── */
 .cat-head{margin-bottom:0.3rem}
 .bar2{height:4px;background:var(--card);border-radius:2px;margin-bottom:1.5rem;overflow:hidden}
@@ -100,7 +113,7 @@ h3{font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:
 .ch-g{font-size:2rem;font-weight:900}
 .ch-s{display:block;font-size:0.7rem;color:var(--muted)}
 .pri{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;padding:0.15rem 0.5rem;border-radius:9999px;border:1px solid currentColor;flex-shrink:0}
-.info-panel{background:#0d0d12;border:1px solid var(--border);border-radius:0.5rem;padding:0.7rem 0.9rem;margin-bottom:1rem;font-size:0.72rem;line-height:1.6}
+.info-panel{background:var(--card-alt);border:1px solid var(--border);border-radius:0.5rem;padding:0.7rem 0.9rem;margin-bottom:1rem;font-size:0.72rem;line-height:1.6}
 .ip-row{margin-bottom:0.4rem;display:flex;gap:0.5rem}
 .ip-row:last-child{margin-bottom:0}
 .ip-label{color:var(--accent);font-weight:700;min-width:2.5rem;flex-shrink:0}
@@ -122,7 +135,16 @@ h3{font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:
 .ir.info .is{color:var(--info);background:#6366f118}
 .il{color:var(--accent);min-width:2rem;flex-shrink:0}
 .im{flex:1;word-break:break-word}
-.iru{color:#555;font-size:0.55rem}
+.iru{color:var(--dim);font-size:0.55rem}
+
+/* ── Source code snippets ── */
+.src-block{background:var(--card-alt);border:1px solid var(--border);border-radius:6px;margin:0.3rem 0 0.5rem 0.5rem;padding:0.3rem 0;font-family:"SF Mono",Menlo,monospace;font-size:0.62rem;line-height:1.6;overflow-x:auto}
+.src-ln{padding:0 0.5rem;white-space:pre}
+.src-hl{padding:0 0.5rem;white-space:pre;background:#eab30815;border-left:2px solid var(--warn)}
+.src-num{color:var(--dim);margin-right:0.5rem;user-select:none;display:inline-block;min-width:2.5rem;text-align:right}
+.src-prompt{padding:0.3rem 0.5rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end}
+.src-fix-btn{background:var(--card);border:1px solid var(--border);color:var(--accent);font-size:0.62rem;padding:0.2rem 0.6rem;border-radius:4px;cursor:pointer;font-family:inherit}
+.src-fix-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
 
 /* ── All issues table ── */
 .isf{color:var(--muted);font-size:0.75rem;margin-bottom:0.8rem}
@@ -134,7 +156,7 @@ h3{font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:
 .is2{font-weight:800;width:1rem}
 .ic2{color:var(--muted);width:70px}
 .il2{color:var(--muted)}
-.iru2{color:#555;font-size:0.58rem}
+.iru2{color:var(--dim);font-size:0.58rem}
 
 /* ── File health ── */
 .fr{display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;font-size:0.7rem}
@@ -146,7 +168,7 @@ h3{font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:
 .hm-name{width:200px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:"SF Mono",monospace;font-size:0.65rem}
 .hm-bar{height:14px;border-radius:3px;min-width:4px}
 .hm-count{color:var(--muted);font-size:0.65rem;flex-shrink:0;min-width:50px}
-.hm-checks{font-size:0.58rem;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hm-checks{font-size:0.58rem;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* ── Premium cards ── */
 .pro-card{background:linear-gradient(135deg,#0f0f1a 0%,#13131f 100%);border:1px solid #2a2a3d;border-radius:0.75rem;padding:1.5rem;position:relative;overflow:hidden}
@@ -173,6 +195,8 @@ h3{font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:
 
 .footer{text-align:center;color:var(--muted);font-size:0.58rem;margin-top:2rem;padding:0.8rem 0;border-top:1px solid var(--border)}
 .footer a{color:var(--muted)}
+.muted{color:var(--muted)}
+.deeper-tools code{background:var(--border);padding:0.1rem 0.4rem;border-radius:4px;font-size:0.62rem;color:var(--accent);margin-right:0.3rem}
 .flink{color:var(--accent);text-decoration:none;font-family:"SF Mono",monospace}.flink:hover{text-decoration:underline}
 .arch-svg{margin:1rem 0;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .arch-svg svg{border-radius:8px}
@@ -218,44 +242,156 @@ h3{font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:
 .hm-name{width:90px}
 .ov-check{display:none}
 }
+
+/* ── Feature Map (Pro) ── */
+.fm-header{margin-bottom:1.5rem}
+.fm-header h2{display:flex;align-items:center;gap:0.6rem}
+.fm-stats{display:flex;gap:1.5rem;margin-bottom:2rem;padding:1rem 1.2rem;background:var(--card);border:1px solid var(--border);border-radius:12px}
+.fm-stat{display:flex;flex-direction:column;align-items:center}
+.fm-stat-n{font-size:1.6rem;font-weight:900;line-height:1.2}
+.fm-stat-l{font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;font-weight:600}
+.fm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem}
+.fm-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.2rem;transition:border-color 0.15s}
+.fm-card:hover{border-color:#333}
+.fm-card-issue{border-color:#eab30830;background:linear-gradient(135deg,var(--card) 0%,#1a1a0f 100%)}
+.fm-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.4rem}
+.fm-card-label{font-weight:800;font-size:0.95rem}
+.fm-card-desc{font-size:0.72rem;color:var(--muted);margin-bottom:0.5rem;line-height:1.4}
+.fm-card-dir{font-size:0.65rem;color:var(--dim);font-family:"SF Mono",monospace;margin-bottom:0.6rem}
+.fm-card-badge{font-size:0.6rem;font-weight:700;padding:0.15rem 0.5rem;border-radius:9999px;white-space:nowrap}
+.fm-ok{background:#22c55e18;color:var(--pass)}
+.fm-warn{background:#eab30818;color:var(--warn)}
+.fm-info{background:#6366f118;color:var(--info)}
+.fm-card-files{display:flex;flex-direction:column;gap:0.15rem;margin-bottom:0.6rem}
+.fm-file{font-size:0.68rem;color:var(--muted);font-family:"SF Mono",monospace}
+.fm-file a{color:var(--accent);text-decoration:none}
+.fm-file a:hover{text-decoration:underline}
+.fm-more{color:var(--dim);font-style:italic}
+.fm-findings{margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:0.3rem}
+.fm-finding{display:flex;align-items:baseline;gap:0.4rem;font-size:0.68rem;line-height:1.4}
+.fm-f-sev{font-weight:800;font-size:0.6rem;width:1rem;flex-shrink:0}
+.fm-f-warn .fm-f-sev{color:var(--warn)}
+.fm-f-info .fm-f-sev{color:var(--info)}
+.fm-f-loc{color:var(--dim);font-family:"SF Mono",monospace;flex-shrink:0}
+.fm-f-loc a{color:var(--accent);text-decoration:none}
+.fm-f-msg{color:var(--text)}
+.fm-f-rule{color:var(--dim);font-size:0.6rem;font-family:"SF Mono",monospace}
+
+/* Teaser (no Pro key) */
+.fm-teaser{margin-top:1.5rem}
+.fm-teaser-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;margin-bottom:2rem}
+.fm-card-blur{filter:blur(3px);opacity:0.5;pointer-events:none;user-select:none}
+.fm-cta{text-align:center;padding:2rem;background:linear-gradient(135deg,#0f0f1a,#13131f);border:1px solid #2a2a3d;border-radius:12px}
+.fm-cta code{background:#1a1a2e;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.8rem}
+@media(max-width:640px){
+.fm-grid,.fm-teaser-grid{grid-template-columns:1fr}
+.fm-stats{flex-wrap:wrap;gap:1rem}
+}
+
+/* ── Preferences panel ── */
+.prefs-btn{background:none;border:1px solid var(--border);color:var(--muted);font-size:0.72rem;cursor:pointer;padding:0.2rem 0.5rem;border-radius:6px;margin-left:auto;flex-shrink:0;font-family:inherit;line-height:1.4}
+.prefs-btn:hover{color:var(--text);border-color:var(--dim)}
+.prefs-panel{display:none;position:absolute;top:var(--top-h);right:1rem;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:0.8rem 1rem;z-index:40;min-width:200px;box-shadow:0 8px 30px #0008}
+.prefs-panel.open{display:block}
+.prefs-label{font-size:0.6rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--dim);font-weight:600;margin-bottom:0.3rem}
+.prefs-label:not(:first-child){margin-top:0.7rem}
+.prefs-row{display:flex;gap:0.3rem}
+.prefs-opt{background:var(--card-alt);border:1px solid var(--border);color:var(--muted);font-size:0.68rem;padding:0.25rem 0.6rem;border-radius:6px;cursor:pointer;font-family:inherit;transition:all 0.1s}
+.prefs-opt:hover{color:var(--text);border-color:var(--dim)}
+.prefs-opt.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+[data-theme="light"] .prefs-panel{box-shadow:0 8px 30px #0002}
+
+/* ── Actions page ── */
+.act-summary{display:flex;gap:1.5rem;margin-bottom:2rem}
+.act-stat{text-align:center}
+.act-stat-n{display:block;font-size:1.8rem;font-weight:700;line-height:1.2}
+.act-stat-l{font-size:0.72rem;color:var(--muted)}
+.act-section{margin-bottom:2.5rem}
+.act-section h3{display:flex;align-items:center;gap:0.5rem;font-size:1rem;margin-bottom:0.3rem}
+.act-icon{display:inline-flex;align-items:center;justify-content:center;width:1.6rem;height:1.6rem;border-radius:8px;font-size:0.9rem}
+.act-count{font-size:0.72rem;color:var(--muted);font-weight:400}
+.act-desc{font-size:0.78rem;color:var(--muted);margin-bottom:0.8rem}
+.act-cmd{margin-bottom:1rem}
+.act-cmd code{display:inline-block;background:var(--card);border:1px solid var(--border);padding:0.3rem 0.8rem;border-radius:6px;font-size:0.78rem;color:var(--accent)}
+.act-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:0.8rem}
+.act-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.8rem 1rem}
+.act-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem}
+.act-check{font-size:0.78rem;font-weight:600}
+.act-fix{font-size:0.78rem;color:var(--pass);margin-bottom:0.5rem;padding:0.3rem 0.5rem;background:var(--pass)10;border-radius:4px}
+.act-rec{font-size:0.75rem;color:var(--muted);margin-bottom:0.5rem;line-height:1.4}
+.act-item{font-size:0.72rem;color:var(--dim);padding:0.15rem 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.act-details{margin-top:0.5rem}
+.act-details summary{font-size:0.75rem;color:var(--muted);cursor:pointer}
+.act-table{width:100%;font-size:0.72rem;margin-top:0.3rem}
+.act-table td{padding:0.2rem 0.4rem;border-bottom:1px solid var(--border)}
+.act-table .act-check{color:var(--muted);white-space:nowrap}
+@media(max-width:600px){.act-summary{flex-direction:column;gap:0.8rem;align-items:center}.act-grid{grid-template-columns:1fr}}
+
+/* ── Delta banner ── */
+.delta-banner{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1.2rem 1.5rem;margin-bottom:2rem}
+.delta-head{display:flex;align-items:center;gap:1rem;margin-bottom:0.5rem}
+.delta-title{font-weight:700;font-size:0.9rem}
+.delta-score{font-size:0.85rem;color:var(--muted)}
+.delta-arrow{font-weight:800;font-size:1rem}
+.delta-stats{display:flex;gap:1.2rem;font-size:0.78rem;margin-bottom:0.5rem}
+.delta-checks{display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.5rem}
+.delta-chip{font-size:0.7rem;padding:0.15rem 0.5rem;background:var(--card-alt);border:1px solid var(--border);border-radius:4px;white-space:nowrap}
+.delta-fixed,.delta-new{font-size:0.75rem;color:var(--muted);margin-top:0.3rem}
 </style>
 </head>
 <body>
 
 <nav class="top">
   <a class="logo" href="index.html"><span>VibeCode</span> QA</a>
+  <span class="nav-project">admin</span>
   <button class="hamburger" onclick="toggleMenu()" aria-label="Menu">&#9776;</button>
-  <div class="nav-scroll"><a class="tn active" href="index.html">Overview</a><a class="tn" href="foundations.html">Checks</a><a class="tn" href="trends.html">Trends</a><a class="tn" href="issues.html">Issues (91)</a><a class="tn" href="files.html">Files</a></div>
+  <div class="nav-scroll"><a class="tn active" href="index.html">Overview</a><a class="tn" href="foundations.html">Checks</a><a class="tn" href="feature-map.html">Feature Map</a><a class="tn" href="trends.html">Trends</a><a class="tn" href="actions.html">Actions</a><a class="tn" href="issues.html">Issues (222)</a><a class="tn" href="files.html">Files</a></div>
+  <button class="prefs-btn" onclick="togglePrefs()" aria-label="Preferences">Aa</button>
+  <div class="prefs-panel" id="prefs">
+    <div class="prefs-label">Theme</div>
+    <div class="prefs-row">
+      <button class="prefs-opt" data-theme-opt="dark" onclick="setTheme('dark')">Dark</button>
+      <button class="prefs-opt" data-theme-opt="light" onclick="setTheme('light')">Light</button>
+    </div>
+    <div class="prefs-label">Font size</div>
+    <div class="prefs-row">
+      <button class="prefs-opt" data-font-opt="14" onclick="setFont(14)">Compact</button>
+      <button class="prefs-opt" data-font-opt="17" onclick="setFont(17)">Default</button>
+      <button class="prefs-opt" data-font-opt="20" onclick="setFont(20)">Large</button>
+    </div>
+  </div>
 </nav>
 
-<aside class="side" id="sidebar"><div class="side-section"><div class="side-label">Score</div><div class="side-score" style="color:#84cc16">B 81</div></div><div class="side-section"><a class="side-cat" href="foundations.html">Foundations <span style="color:#eab308">70</span></a><a class="side-cat" href="quality.html">Quality <span style="color:#eab308">74</span></a><a class="side-cat" href="testing.html">Testing <span style="color:#eab308">65</span></a><a class="side-cat" href="architecture.html">Architecture <span style="color:#22c55e">100</span></a><a class="side-cat" href="security.html">Security <span style="color:#84cc16">87</span></a><a class="side-cat" href="ai-readiness.html">AI Readiness <span style="color:#22c55e">90</span></a><a class="side-cat" href="ai-analysis.html">AI Analysis <span class="pro-badge" style="font-size:0.5rem;padding:0.08rem 0.35rem">PRO</span></a></div><div class="side-section side-views"><div class="side-label" style="margin-top:0.3rem">Views</div><a class="side-check" href="issues.html">Issues <span style="color:var(--muted)">91</span></a><a class="side-check" href="files.html">Files <span style="color:var(--muted)">2</span></a></div></aside>
+<aside class="side" id="sidebar"><div class="side-section"><div class="side-label">Score</div><div class="side-score" style="color:#eab308">C 74</div></div><div class="side-section"><a class="side-cat" href="foundations.html">Foundations <span style="color:#eab308">63</span></a><a class="side-cat" href="quality.html">Quality <span style="color:#84cc16">75</span></a><a class="side-cat" href="testing.html">Testing <span style="color:#eab308">65</span></a><a class="side-cat" href="architecture.html">Architecture <span style="color:#22c55e">100</span></a><a class="side-cat" href="security.html">Security <span style="color:#84cc16">83</span></a><a class="side-cat" href="ai-readiness.html">AI Readiness <span style="color:#f97316">50</span></a><a class="side-cat" href="ai-analysis.html">AI Analysis <span class="pro-badge" style="font-size:0.5rem;padding:0.08rem 0.35rem">PRO</span></a></div><div class="side-section side-views"><div class="side-label" style="margin-top:0.3rem">Views</div><a class="side-check" href="issues.html">Issues <span style="color:var(--muted)">222</span></a><a class="side-check" href="files.html">Files <span style="color:var(--muted)">6</span></a></div></aside>
 
 <div class="content">
   
 <div class="dash">
   <div class="hero">
-    <svg viewBox="0 0 100 100" style="width:100px;height:100px"><circle cx="50" cy="50" r="42" fill="none" stroke="#1e1e24" stroke-width="7"/><circle cx="50" cy="50" r="42" fill="none" stroke="#84cc16" stroke-width="7" stroke-dasharray="263.89378290154264" stroke-dashoffset="50.13981875129309" stroke-linecap="round" transform="rotate(-90 50 50)"/></svg>
+    <svg viewBox="0 0 100 100" style="width:100px;height:100px"><circle cx="50" cy="50" r="42" fill="none" stroke="#444" stroke-width="7"/><circle cx="50" cy="50" r="42" fill="none" stroke="#eab308" stroke-width="7" stroke-dasharray="263.89378290154264" stroke-dashoffset="68.61238355440108" stroke-linecap="round" transform="rotate(-90 50 50)"/></svg>
     <div class="hc">
-      <span class="hg" style="color:#84cc16">B</span>
-      <span class="hs" style="color:#84cc16">81/100</span>
-      <span class="hd">17 checks · 91 issues · 9608ms</span>
+      <span class="hg" style="color:#eab308">C</span>
+      <span class="hs" style="color:#eab308">74/100</span>
+      <span class="hd">19 checks · 222 issues · 4013ms</span>
     </div>
   </div>
-  <div class="radar"><svg viewBox="0 0 240 240"><polygon points="120,97.5 139.48557158514987,108.75 139.48557158514987,131.25 120,142.5 100.51442841485013,131.25 100.51442841485013,108.75000000000001" fill="none" stroke="#1e1e24" stroke-width="0.7"/><polygon points="120,75 158.97114317029974,97.5 158.97114317029974,142.5 120,165 81.02885682970026,142.5 81.02885682970025,97.50000000000003" fill="none" stroke="#1e1e24" stroke-width="0.7"/><polygon points="120,52.5 178.4567147554496,86.25 178.4567147554496,153.75 120,187.5 61.543285244550404,153.75000000000003 61.54328524455036,86.25000000000004" fill="none" stroke="#1e1e24" stroke-width="0.7"/><polygon points="120,30 197.94228634059948,75 197.94228634059948,165 120,210 42.057713659400534,165.00000000000003 42.05771365940049,75.00000000000006" fill="none" stroke="#1e1e24" stroke-width="0.7"/><line x1="120" y1="120" x2="120" y2="30" stroke="#1e1e24" stroke-width="0.7"/><text x="120" y="14" text-anchor="middle" dominant-baseline="middle" fill="#6b7280" font-size="9" font-weight="600">Foundations</text><line x1="120" y1="120" x2="197.94228634059948" y2="75" stroke="#1e1e24" stroke-width="0.7"/><text x="211.79869280115048" y="67" text-anchor="middle" dominant-baseline="middle" fill="#6b7280" font-size="9" font-weight="600">Quality</text><line x1="120" y1="120" x2="197.94228634059948" y2="165" stroke="#1e1e24" stroke-width="0.7"/><text x="211.7986928011505" y="173" text-anchor="middle" dominant-baseline="middle" fill="#6b7280" font-size="9" font-weight="600">Testing</text><line x1="120" y1="120" x2="120" y2="210" stroke="#1e1e24" stroke-width="0.7"/><text x="120" y="226" text-anchor="middle" dominant-baseline="middle" fill="#6b7280" font-size="9" font-weight="600">Architecture</text><line x1="120" y1="120" x2="42.057713659400534" y2="165.00000000000003" stroke="#1e1e24" stroke-width="0.7"/><text x="28.20130719884952" y="173.00000000000003" text-anchor="middle" dominant-baseline="middle" fill="#6b7280" font-size="9" font-weight="600">Security</text><line x1="120" y1="120" x2="42.05771365940049" y2="75.00000000000006" stroke="#1e1e24" stroke-width="0.7"/><text x="28.201307198849463" y="67.00000000000006" text-anchor="middle" dominant-baseline="middle" fill="#6b7280" font-size="9" font-weight="600">AI Readiness</text><polygon points="120,57.00000000000001 177.6772918920436,86.7 170.66248612138966,149.25 120,210 52.190210883678475,159.15000000000003 49.85194229346044,79.50000000000006" fill="#818cf825" stroke="#818cf8" stroke-width="1.5"/><circle cx="120" cy="57.00000000000001" r="3.5" fill="#818cf8"/><circle cx="177.6772918920436" cy="86.7" r="3.5" fill="#818cf8"/><circle cx="170.66248612138966" cy="149.25" r="3.5" fill="#818cf8"/><circle cx="120" cy="210" r="3.5" fill="#818cf8"/><circle cx="52.190210883678475" cy="159.15000000000003" r="3.5" fill="#818cf8"/><circle cx="49.85194229346044" cy="79.50000000000006" r="3.5" fill="#818cf8"/></svg></div>
+  <div class="radar"><svg viewBox="0 0 240 240"><polygon points="120,97.5 139.48557158514987,108.75 139.48557158514987,131.25 120,142.5 100.51442841485013,131.25 100.51442841485013,108.75000000000001" fill="none" stroke="#444" stroke-width="0.7"/><polygon points="120,75 158.97114317029974,97.5 158.97114317029974,142.5 120,165 81.02885682970026,142.5 81.02885682970025,97.50000000000003" fill="none" stroke="#444" stroke-width="0.7"/><polygon points="120,52.5 178.4567147554496,86.25 178.4567147554496,153.75 120,187.5 61.543285244550404,153.75000000000003 61.54328524455036,86.25000000000004" fill="none" stroke="#444" stroke-width="0.7"/><polygon points="120,30 197.94228634059948,75 197.94228634059948,165 120,210 42.057713659400534,165.00000000000003 42.05771365940049,75.00000000000006" fill="none" stroke="#444" stroke-width="0.7"/><line x1="120" y1="120" x2="120" y2="30" stroke="#444" stroke-width="0.7"/><text x="120" y="14" text-anchor="middle" dominant-baseline="middle" fill="#6b7280" font-size="9" font-weight="600">Foundations</text><line x1="120" y1="120" x2="197.94228634059948" y2="75" stroke="#444" stroke-width="0.7"/><text x="211.79869280115048" y="67" text-anchor="middle" dominant-baseline="middle" fill="#6b7280" font-size="9" font-weight="600">Quality</text><line x1="120" y1="120" x2="197.94228634059948" y2="165" stroke="#444" stroke-width="0.7"/><text x="211.7986928011505" y="173" text-anchor="middle" dominant-baseline="middle" fill="#6b7280" font-size="9" font-weight="600">Testing</text><line x1="120" y1="120" x2="120" y2="210" stroke="#444" stroke-width="0.7"/><text x="120" y="226" text-anchor="middle" dominant-baseline="middle" fill="#6b7280" font-size="9" font-weight="600">Architecture</text><line x1="120" y1="120" x2="42.057713659400534" y2="165.00000000000003" stroke="#444" stroke-width="0.7"/><text x="28.20130719884952" y="173.00000000000003" text-anchor="middle" dominant-baseline="middle" fill="#6b7280" font-size="9" font-weight="600">Security</text><line x1="120" y1="120" x2="42.05771365940049" y2="75.00000000000006" stroke="#444" stroke-width="0.7"/><text x="28.201307198849463" y="67.00000000000006" text-anchor="middle" dominant-baseline="middle" fill="#6b7280" font-size="9" font-weight="600">AI Readiness</text><polygon points="120,63.3 178.4567147554496,86.25 170.66248612138966,149.25 120,210 55.30790233730244,157.35000000000002 81.02885682970025,97.50000000000003" fill="#818cf825" stroke="#818cf8" stroke-width="1.5"/><circle cx="120" cy="63.3" r="3.5" fill="#818cf8"/><circle cx="178.4567147554496" cy="86.25" r="3.5" fill="#818cf8"/><circle cx="170.66248612138966" cy="149.25" r="3.5" fill="#818cf8"/><circle cx="120" cy="210" r="3.5" fill="#818cf8"/><circle cx="55.30790233730244" cy="157.35000000000002" r="3.5" fill="#818cf8"/><circle cx="81.02885682970025" cy="97.50000000000003" r="3.5" fill="#818cf8"/></svg></div>
 </div>
-<div class="cats"><a class="cc" href="foundations.html"><div class="cc-s" style="color:#eab308">70</div><div class="cc-l">Foundations</div><div class="cc-m"><span class="mc" style="color:#22c55e" title="structure: 100">A</span><span class="mc" style="color:#555" title="lint: skip">—</span><span class="mc" style="color:#22c55e" title="types: 100">A</span><span class="mc" style="color:#84cc16" title="type-safety: 80">B</span><span class="mc" style="color:#ef4444" title="standards: 0">F</span></div></a><a class="cc" href="quality.html"><div class="cc-s" style="color:#eab308">74</div><div class="cc-l">Quality</div><div class="cc-m"><span class="mc" style="color:#84cc16" title="complexity: 81">B</span><span class="mc" style="color:#22c55e" title="duplication: 91">A</span><span class="mc" style="color:#22c55e" title="error-handling: 100">A</span><span class="mc" style="color:#555" title="react: skip">—</span><span class="mc" style="color:#555" title="accessibility: skip">—</span><span class="mc" style="color:#f97316" title="docs: 50">D</span><span class="mc" style="color:#f97316" title="best-practices: 50">D</span></div></a><a class="cc" href="testing.html"><div class="cc-s" style="color:#eab308">65</div><div class="cc-l">Testing</div><div class="cc-m"><span class="mc" style="color:#eab308" title="testing: 65">C</span></div></a><a class="cc" href="architecture.html"><div class="cc-s" style="color:#22c55e">100</div><div class="cc-l">Architecture</div><div class="cc-m"><span class="mc" style="color:#22c55e" title="architecture: 100">A</span><span class="mc" style="color:#22c55e" title="performance: 100">A</span></div></a><a class="cc" href="security.html"><div class="cc-s" style="color:#84cc16">87</div><div class="cc-l">Security</div><div class="cc-m"><span class="mc" style="color:#22c55e" title="secrets: 100">A</span><span class="mc" style="color:#eab308" title="security: 60">C</span><span class="mc" style="color:#22c55e" title="dependencies: 100">A</span></div></a><a class="cc" href="ai-readiness.html"><div class="cc-s" style="color:#22c55e">90</div><div class="cc-l">AI Readiness</div><div class="cc-m"><span class="mc" style="color:#84cc16" title="confusion: 85">B</span><span class="mc" style="color:#22c55e" title="context: 95">A</span></div></a><a class="cc" href="ai-analysis.html"><div class="cc-s" style="color:#ef4444">0</div><div class="cc-l">AI Analysis</div><div class="cc-m"><span class="mc" style="color:#ef4444" title="doc-coherence: 0">F</span><span class="mc" style="color:#ef4444" title="code-coherence: 0">F</span></div></a></div>
+<div class="cats"><a class="cc" href="foundations.html"><div class="cc-s" style="color:#eab308">63</div><div class="cc-l">Foundations</div><div class="cc-m"><span class="mc" style="color:#22c55e" title="structure: 100">A</span><span class="mc" style="color:var(--dim)" title="lint: skip">—</span><span class="mc" style="color:#84cc16" title="types: 80">B</span><span class="mc" style="color:#eab308" title="type-safety: 70">C</span><span class="mc" style="color:#ef4444" title="standards: 0">F</span></div></a><a class="cc" href="quality.html"><div class="cc-s" style="color:#84cc16">75</div><div class="cc-l">Quality</div><div class="cc-m"><span class="mc" style="color:#84cc16" title="complexity: 78">B</span><span class="mc" style="color:#22c55e" title="duplication: 100">A</span><span class="mc" style="color:#eab308" title="error-handling: 70">C</span><span class="mc" style="color:var(--dim)" title="react: skip">—</span><span class="mc" style="color:var(--dim)" title="accessibility: skip">—</span><span class="mc" style="color:#f97316" title="docs: 58">D</span><span class="mc" style="color:#eab308" title="best-practices: 70">C</span></div></a><a class="cc" href="testing.html"><div class="cc-s" style="color:#eab308">65</div><div class="cc-l">Testing</div><div class="cc-m"><span class="mc" style="color:#eab308" title="testing: 65">C</span></div></a><a class="cc" href="architecture.html"><div class="cc-s" style="color:#22c55e">100</div><div class="cc-l">Architecture</div><div class="cc-m"><span class="mc" style="color:#22c55e" title="architecture: 100">A</span><span class="mc" style="color:#22c55e" title="performance: 100">A</span></div></a><a class="cc" href="security.html"><div class="cc-s" style="color:#84cc16">83</div><div class="cc-l">Security</div><div class="cc-m"><span class="mc" style="color:#22c55e" title="secrets: 100">A</span><span class="mc" style="color:#84cc16" title="security: 75">B</span><span class="mc" style="color:#eab308" title="dependencies: 73">C</span></div></a><a class="cc" href="ai-readiness.html"><div class="cc-s" style="color:#f97316">50</div><div class="cc-l">AI Readiness</div><div class="cc-m"><span class="mc" style="color:#84cc16" title="confusion: 75">B</span><span class="mc" style="color:#ef4444" title="context: 25">F</span></div></a><a class="cc" href="ai-analysis.html"><div class="cc-s" style="color:#ef4444">0</div><div class="cc-l">AI Analysis</div><div class="cc-m"><span class="mc" style="color:#ef4444" title="doc-coherence: 0">F</span><span class="mc" style="color:#ef4444" title="code-coherence: 0">F</span><span class="mc" style="color:#ef4444" title="comment-staleness: 0">F</span><span class="mc" style="color:#ef4444" title="dead-patterns: 0">F</span><span class="mc" style="color:#ef4444" title="test-audit: 0">F</span></div></a></div>
+<div class="ov-section"><h3>Repository Structure</h3>
+<div class="ws-info"><div class="ws-badge">Single Package</div></div></div>
 <div class="ov-section"><h3>Score Timeline</h3><div class="timeline"><svg viewBox="0 0 600 120" width="600" height="120">
-<defs><linearGradient id="tlg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#818cf8" stop-opacity="0.3"/><stop offset="100%" stop-color="#818cf8" stop-opacity="0.02"/></linearGradient></defs>
-<line x1="35" y1="76.3" x2="580" y2="76.3" stroke="#1e1e24" stroke-width="0.7"/><text x="29" y="76.3" text-anchor="end" dominant-baseline="middle" fill="#555" font-size="8">25</text><line x1="35" y1="57.5" x2="580" y2="57.5" stroke="#1e1e24" stroke-width="0.7"/><text x="29" y="57.5" text-anchor="end" dominant-baseline="middle" fill="#555" font-size="8">50</text><line x1="35" y1="38.8" x2="580" y2="38.8" stroke="#1e1e24" stroke-width="0.7"/><text x="29" y="38.8" text-anchor="end" dominant-baseline="middle" fill="#555" font-size="8">75</text>
-<polygon points="35.0,95.0 35.0,45.5 307.5,45.5 580.0,34.2 580.0,95.0" fill="url(#tlg)"/>
-<polyline points="35.0,45.5 307.5,45.5 580.0,34.2" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="35.0" cy="45.5" r="3" fill="#eab308"><title>2026-05-23 — 66</title></circle><circle cx="307.5" cy="45.5" r="3" fill="#eab308"><title>2026-05-23 — 66</title></circle><circle cx="580.0" cy="34.2" r="3" fill="#84cc16"><title>2026-05-23 — 81</title></circle><text x="35.0" y="116" text-anchor="middle" fill="#555" font-size="7">05-23</text><text x="307.5" y="116" text-anchor="middle" fill="#555" font-size="7">05-23</text><text x="580.0" y="116" text-anchor="middle" fill="#555" font-size="7">05-23</text>
+<defs><linearGradient id="tlg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#818cf8" stop-opacity="0.3"/><stop offset="100%" stop-color="#818cf8" stop-opacity="0.02"/></linearGradient></defs>
+<line x1="35" y1="76.3" x2="580" y2="76.3" stroke="#444" stroke-width="0.7"/><text x="29" y="76.3" text-anchor="end" dominant-baseline="middle" fill="#888" font-size="8">25</text><line x1="35" y1="57.5" x2="580" y2="57.5" stroke="#444" stroke-width="0.7"/><text x="29" y="57.5" text-anchor="end" dominant-baseline="middle" fill="#888" font-size="8">50</text><line x1="35" y1="38.8" x2="580" y2="38.8" stroke="#444" stroke-width="0.7"/><text x="29" y="38.8" text-anchor="end" dominant-baseline="middle" fill="#888" font-size="8">75</text>
+<polygon points="35.0,95.0 35.0,45.5 216.7,45.5 398.3,34.2 580.0,39.5 580.0,95.0" fill="url(#tlg1)"/>
+<polyline points="35.0,45.5 216.7,45.5 398.3,34.2 580.0,39.5" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="35.0" cy="45.5" r="3" fill="#eab308"><title>2026-05-23 — 66</title></circle><circle cx="216.7" cy="45.5" r="3" fill="#eab308"><title>2026-05-23 — 66</title></circle><circle cx="398.3" cy="34.2" r="3" fill="#84cc16"><title>2026-05-23 — 81</title></circle><circle cx="580.0" cy="39.5" r="3" fill="#eab308"><title>2026-07-05 — 74</title></circle><text x="35.0" y="116" text-anchor="middle" fill="#888" font-size="7">05-23</text><text x="398.3" y="116" text-anchor="middle" fill="#888" font-size="7">05-23</text><text x="580.0" y="116" text-anchor="middle" fill="#888" font-size="7">07-05</text>
 </svg></div></div>
-<div class="ov-section"><h3>All Checks</h3><div class="bars"><div class="brow"><span class="bl">standards</span><div class="bb"><div class="bf" style="width:0%;background:#ef4444"></div></div><span class="bv" style="color:#ef4444">F 0</span></div><div class="brow"><span class="bl">docs</span><div class="bb"><div class="bf" style="width:50%;background:#f97316"></div></div><span class="bv" style="color:#f97316">D 50</span></div><div class="brow"><span class="bl">best-practices</span><div class="bb"><div class="bf" style="width:50%;background:#f97316"></div></div><span class="bv" style="color:#f97316">D 50</span></div><div class="brow"><span class="bl">security</span><div class="bb"><div class="bf" style="width:60%;background:#eab308"></div></div><span class="bv" style="color:#eab308">C 60</span></div><div class="brow"><span class="bl">testing</span><div class="bb"><div class="bf" style="width:65%;background:#eab308"></div></div><span class="bv" style="color:#eab308">C 65</span></div><div class="brow"><span class="bl">type-safety</span><div class="bb"><div class="bf" style="width:80%;background:#84cc16"></div></div><span class="bv" style="color:#84cc16">B 80</span></div><div class="brow"><span class="bl">complexity</span><div class="bb"><div class="bf" style="width:81%;background:#84cc16"></div></div><span class="bv" style="color:#84cc16">B 81</span></div><div class="brow"><span class="bl">confusion</span><div class="bb"><div class="bf" style="width:85%;background:#84cc16"></div></div><span class="bv" style="color:#84cc16">B 85</span></div><div class="brow"><span class="bl">duplication</span><div class="bb"><div class="bf" style="width:91%;background:#22c55e"></div></div><span class="bv" style="color:#22c55e">A 91</span></div><div class="brow"><span class="bl">context</span><div class="bb"><div class="bf" style="width:95%;background:#22c55e"></div></div><span class="bv" style="color:#22c55e">A 95</span></div><div class="brow"><span class="bl">structure</span><div class="bb"><div class="bf" style="width:100%;background:#22c55e"></div></div><span class="bv" style="color:#22c55e">A 100</span></div><div class="brow"><span class="bl">types</span><div class="bb"><div class="bf" style="width:100%;background:#22c55e"></div></div><span class="bv" style="color:#22c55e">A 100</span></div><div class="brow"><span class="bl">error-handling</span><div class="bb"><div class="bf" style="width:100%;background:#22c55e"></div></div><span class="bv" style="color:#22c55e">A 100</span></div><div class="brow"><span class="bl">secrets</span><div class="bb"><div class="bf" style="width:100%;background:#22c55e"></div></div><span class="bv" style="color:#22c55e">A 100</span></div><div class="brow"><span class="bl">dependencies</span><div class="bb"><div class="bf" style="width:100%;background:#22c55e"></div></div><span class="bv" style="color:#22c55e">A 100</span></div><div class="brow"><span class="bl">architecture</span><div class="bb"><div class="bf" style="width:100%;background:#22c55e"></div></div><span class="bv" style="color:#22c55e">A 100</span></div><div class="brow"><span class="bl">performance</span><div class="bb"><div class="bf" style="width:100%;background:#22c55e"></div></div><span class="bv" style="color:#22c55e">A 100</span></div></div></div>
-<div class="ov-section"><h3>Top Issues</h3><div class="ov-issue error"><span class="is">E</span><span class="ov-check">standards</span><span class="ov-loc"><a href="https://github.com/freegamestore-online/admin/blob/main/src/index.ts#L190" target="_blank" rel="noopener" class="flink">src/index.ts</a></span><span class="ov-msg">Use const/let instead of var</span></div><div class="ov-issue error"><span class="is">E</span><span class="ov-check">standards</span><span class="ov-loc"><a href="https://github.com/freegamestore-online/admin/blob/main/src/index.ts#L191" target="_blank" rel="noopener" class="flink">src/index.ts</a></span><span class="ov-msg">Use const/let instead of var</span></div><div class="ov-issue error"><span class="is">E</span><span class="ov-check">standards</span><span class="ov-loc"><a href="https://github.com/freegamestore-online/admin/blob/main/src/index.ts#L192" target="_blank" rel="noopener" class="flink">src/index.ts</a></span><span class="ov-msg">Use const/let instead of var</span></div><div class="ov-issue error"><span class="is">E</span><span class="ov-check">standards</span><span class="ov-loc"><a href="https://github.com/freegamestore-online/admin/blob/main/src/index.ts#L193" target="_blank" rel="noopener" class="flink">src/index.ts</a></span><span class="ov-msg">Use const/let instead of var</span></div><div class="ov-issue error"><span class="is">E</span><span class="ov-check">standards</span><span class="ov-loc"><a href="https://github.com/freegamestore-online/admin/blob/main/src/index.ts#L194" target="_blank" rel="noopener" class="flink">src/index.ts</a></span><span class="ov-msg">Use const/let instead of var</span></div><div class="ov-issue error"><span class="is">E</span><span class="ov-check">standards</span><span class="ov-loc"><a href="https://github.com/freegamestore-online/admin/blob/main/src/index.ts#L203" target="_blank" rel="noopener" class="flink">src/index.ts</a></span><span class="ov-msg">Use const/let instead of var</span></div><div class="ov-issue error"><span class="is">E</span><span class="ov-check">standards</span><span class="ov-loc"><a href="https://github.com/freegamestore-online/admin/blob/main/src/index.ts#L204" target="_blank" rel="noopener" class="flink">src/index.ts</a></span><span class="ov-msg">Use const/let instead of var</span></div><div class="ov-issue error"><span class="is">E</span><span class="ov-check">standards</span><span class="ov-loc"><a href="https://github.com/freegamestore-online/admin/blob/main/src/index.ts#L205" target="_blank" rel="noopener" class="flink">src/index.ts</a></span><span class="ov-msg">Use const/let instead of var</span></div><div class="ov-issue error"><span class="is">E</span><span class="ov-check">standards</span><span class="ov-loc"><a href="https://github.com/freegamestore-online/admin/blob/main/src/index.ts#L206" target="_blank" rel="noopener" class="flink">src/index.ts</a></span><span class="ov-msg">Use const/let instead of var</span></div><div class="ov-issue error"><span class="is">E</span><span class="ov-check">standards</span><span class="ov-loc"><a href="https://github.com/freegamestore-online/admin/blob/main/src/index.ts#L207" target="_blank" rel="noopener" class="flink">src/index.ts</a></span><span class="ov-msg">Use const/let instead of var</span></div><a class="ov-link" href="issues.html">View all 91 issues →</a></div>
-<div class="ov-section"><h3>File Hotspots</h3><div class="fr"><span class="ff"><a href="https://github.com/freegamestore-online/admin/blob/main/src/index.ts" target="_blank" rel="noopener" class="flink">src/index.ts</a></span><div class="fb"><div class="fbf" style="width:100%;background:var(--fail)"></div></div><span class="fv">23E 32W</span></div><div class="fr"><span class="ff"><a href="https://github.com/freegamestore-online/admin/blob/main/src/publish.ts" target="_blank" rel="noopener" class="flink">src/publish.ts</a></span><div class="fb"><div class="fbf" style="width:100%;background:var(--warn)"></div></div><span class="fv">0E 24W</span></div></div>
+<div class="ov-section"><h3>All Checks</h3><div class="bars"><div class="brow"><span class="bl">standards</span><div class="bb"><div class="bf" style="width:0%;background:#ef4444"></div></div><span class="bv" style="color:#ef4444">F 0</span></div><div class="brow"><span class="bl">memory-safety</span><div class="bb"><div class="bf" style="width:0%;background:#ef4444"></div></div><span class="bv" style="color:#ef4444">F 0</span></div><div class="brow"><span class="bl">context</span><div class="bb"><div class="bf" style="width:25%;background:#ef4444"></div></div><span class="bv" style="color:#ef4444">F 25</span></div><div class="brow"><span class="bl">docs</span><div class="bb"><div class="bf" style="width:58%;background:#f97316"></div></div><span class="bv" style="color:#f97316">D 58</span></div><div class="brow"><span class="bl">testing</span><div class="bb"><div class="bf" style="width:65%;background:#eab308"></div></div><span class="bv" style="color:#eab308">C 65</span></div><div class="brow"><span class="bl">type-safety</span><div class="bb"><div class="bf" style="width:70%;background:#eab308"></div></div><span class="bv" style="color:#eab308">C 70</span></div><div class="brow"><span class="bl">error-handling</span><div class="bb"><div class="bf" style="width:70%;background:#eab308"></div></div><span class="bv" style="color:#eab308">C 70</span></div><div class="brow"><span class="bl">best-practices</span><div class="bb"><div class="bf" style="width:70%;background:#eab308"></div></div><span class="bv" style="color:#eab308">C 70</span></div><div class="brow"><span class="bl">dependencies</span><div class="bb"><div class="bf" style="width:73%;background:#eab308"></div></div><span class="bv" style="color:#eab308">C 73</span></div><div class="brow"><span class="bl">security</span><div class="bb"><div class="bf" style="width:75%;background:#84cc16"></div></div><span class="bv" style="color:#84cc16">B 75</span></div><div class="brow"><span class="bl">confusion</span><div class="bb"><div class="bf" style="width:75%;background:#84cc16"></div></div><span class="bv" style="color:#84cc16">B 75</span></div><div class="brow"><span class="bl">complexity</span><div class="bb"><div class="bf" style="width:78%;background:#84cc16"></div></div><span class="bv" style="color:#84cc16">B 78</span></div><div class="brow"><span class="bl">types</span><div class="bb"><div class="bf" style="width:80%;background:#84cc16"></div></div><span class="bv" style="color:#84cc16">B 80</span></div><div class="brow"><span class="bl">structure</span><div class="bb"><div class="bf" style="width:100%;background:#22c55e"></div></div><span class="bv" style="color:#22c55e">A 100</span></div><div class="brow"><span class="bl">duplication</span><div class="bb"><div class="bf" style="width:100%;background:#22c55e"></div></div><span class="bv" style="color:#22c55e">A 100</span></div><div class="brow"><span class="bl">env-validation</span><div class="bb"><div class="bf" style="width:100%;background:#22c55e"></div></div><span class="bv" style="color:#22c55e">A 100</span></div><div class="brow"><span class="bl">secrets</span><div class="bb"><div class="bf" style="width:100%;background:#22c55e"></div></div><span class="bv" style="color:#22c55e">A 100</span></div><div class="brow"><span class="bl">architecture</span><div class="bb"><div class="bf" style="width:100%;background:#22c55e"></div></div><span class="bv" style="color:#22c55e">A 100</span></div><div class="brow"><span class="bl">performance</span><div class="bb"><div class="bf" style="width:100%;background:#22c55e"></div></div><span class="bv" style="color:#22c55e">A 100</span></div></div></div>
+<div class="ov-section"><h3>Top Issues</h3><div class="ov-issue error"><span class="is">E</span><span class="ov-check">types</span><span class="ov-loc">node_modules/.pnpm/tinybench@2.9.0/node_modules/tinybench/dist/index.d.ts</span><span class="ov-msg">Property &#39;addEventListener&#39; in type &#39;Task&#39; is not assignable to the same property in base type &#39;EventTarget&lt;Record&lt;string, Event&gt;&gt;&#39;.</span></div><div class="ov-issue error"><span class="is">E</span><span class="ov-check">types</span><span class="ov-loc">node_modules/.pnpm/tinybench@2.9.0/node_modules/tinybench/dist/index.d.ts</span><span class="ov-msg">Property &#39;removeEventListener&#39; in type &#39;Task&#39; is not assignable to the same property in base type &#39;EventTarget&lt;Record&lt;string, Event&gt;&gt;&#39;.</span></div><div class="ov-issue error"><span class="is">E</span><span class="ov-check">types</span><span class="ov-loc">node_modules/.pnpm/tinybench@2.9.0/node_modules/tinybench/dist/index.d.ts</span><span class="ov-msg">Property &#39;addEventListener&#39; in type &#39;Bench&#39; is not assignable to the same property in base type &#39;EventTarget&lt;Record&lt;string, Event&gt;&gt;&#39;.</span></div><div class="ov-issue error"><span class="is">E</span><span class="ov-check">types</span><span class="ov-loc">node_modules/.pnpm/tinybench@2.9.0/node_modules/tinybench/dist/index.d.ts</span><span class="ov-msg">Property &#39;removeEventListener&#39; in type &#39;Bench&#39; is not assignable to the same property in base type &#39;EventTarget&lt;Record&lt;string, Event&gt;&gt;&#39;.</span></div><div class="ov-issue error"><span class="is">E</span><span class="ov-check">standards</span><span class="ov-loc">src/index.ts</span><span class="ov-msg">1291 lines — split this file (exponential penalty above 300)</span></div><div class="ov-issue error"><span class="is">E</span><span class="ov-check">standards</span><span class="ov-loc">src/publish.ts</span><span class="ov-msg">691 lines — split this file (exponential penalty above 300)</span></div><div class="ov-issue error"><span class="is">E</span><span class="ov-check">standards</span><span class="ov-loc">src/index.ts</span><span class="ov-msg">Use const/let instead of var</span></div><div class="ov-issue error"><span class="is">E</span><span class="ov-check">standards</span><span class="ov-loc">src/index.ts</span><span class="ov-msg">Use const/let instead of var</span></div><div class="ov-issue error"><span class="is">E</span><span class="ov-check">standards</span><span class="ov-loc">src/index.ts</span><span class="ov-msg">Use const/let instead of var</span></div><div class="ov-issue error"><span class="is">E</span><span class="ov-check">standards</span><span class="ov-loc">src/index.ts</span><span class="ov-msg">Use const/let instead of var</span></div><a class="ov-link" href="issues.html">View all 222 issues →</a></div>
+<div class="ov-section"><h3>File Hotspots</h3><div class="fr"><span class="ff">src/index.ts</span><div class="fb"><div class="fbf" style="width:100%;background:var(--fail)"></div></div><span class="fv">84E 89W</span></div><div class="fr"><span class="ff">src/publish.ts</span><div class="fb"><div class="fbf" style="width:100%;background:var(--fail)"></div></div><span class="fv">1E 22W</span></div><div class="fr"><span class="ff">node_modules/.pnpm/tinybench@2.9.0/node_modules/tinybench/dist/index.d.ts</span><div class="fb"><div class="fbf" style="width:20%;background:var(--fail)"></div></div><span class="fv">4E 0W</span></div><div class="fr"><span class="ff">src/auth.ts</span><div class="fb"><div class="fbf" style="width:10%;background:var(--warn)"></div></div><span class="fv">0E 2W</span></div><div class="fr"><span class="ff">.github/workflows/deploy.yml</span><div class="fb"><div class="fbf" style="width:5%;background:var(--warn)"></div></div><span class="fv">0E 1W</span></div><a class="ov-link" href="files.html">View all 6 files →</a></div>
 <div class="stack"><span>language: <b>typescript</b></span><span>testRunner: <b>vitest</b></span><span>packageManager: <b>pnpm</b></span></div>
-  <div class="footer">Generated by <a href="https://vibecodeqa.online">VibeCode QA</a> v0.28.0 &mdash; <code>npx @vibecodeqa/cli</code></div>
+  <div class="footer">Generated by <a href="https://vibecodeqa.online">VibeCode QA</a> v0.44.0 &mdash; <code>npx @vibecodeqa/cli</code></div>
 </div>
 
 <script>
@@ -276,5 +412,38 @@ document.addEventListener('click',function(ev){
   try{navigator.clipboard.writeText(text)}catch(e){const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta)}
   btn.textContent='\u2713';setTimeout(function(){btn.textContent='\ud83d\udccb'},1000);
 });
+/* Preferences */
+function togglePrefs(){document.getElementById('prefs').classList.toggle('open')}
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  try{localStorage.setItem('vcqa-theme',t)}catch(e){}
+  updPrefsUI();
+}
+function setFont(s){
+  document.documentElement.style.fontSize=s+'px';
+  try{localStorage.setItem('vcqa-font',s)}catch(e){}
+  updPrefsUI();
+}
+function updPrefsUI(){
+  var t;try{t=localStorage.getItem('vcqa-theme')}catch(e){}
+  t=t||'dark';
+  document.querySelectorAll('[data-theme-opt]').forEach(function(b){b.classList.toggle('active',b.dataset.themeOpt===t)});
+  var f;try{f=localStorage.getItem('vcqa-font')}catch(e){}
+  f=f||'17';
+  document.querySelectorAll('[data-font-opt]').forEach(function(b){b.classList.toggle('active',b.dataset.fontOpt===f)});
+}
+/* Apply saved prefs on load */
+(function(){
+  var t;try{t=localStorage.getItem('vcqa-theme')}catch(e){}
+  if(t)document.documentElement.setAttribute('data-theme',t);
+  var f;try{f=localStorage.getItem('vcqa-font')}catch(e){}
+  if(f)document.documentElement.style.fontSize=f+'px';
+  updPrefsUI();
+  /* Close prefs panel on outside click */
+  document.addEventListener('click',function(ev){
+    var p=document.getElementById('prefs');
+    if(p.classList.contains('open')&&!ev.target.closest('.prefs-panel')&&!ev.target.closest('.prefs-btn'))p.classList.remove('open');
+  });
+})();
 </script>
 </body></html>
