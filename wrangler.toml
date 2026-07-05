@@ -10,12 +10,14 @@ id = "b2aae28db28f4971b68d0a917b93103e"
 binding = "SESSIONS"
 id = "5ee61cf0158843be85e4e6e3f12bb35b"
 
-# Admin's "fas" D1 — shared so the create Pages Function can write the durable
-# error_log the admin console reads (crashes/errors surface on the panel).
+# FGS-owned `freegamestore` D1 (same DB the admin worker binds) — the create
+# Pages Function writes the durable error_log the admin console reads
+# (crashes/errors surface on the panel). Split off the shared `fas` D1 on
+# 2026-07-05 so FGS stands alone (see fgs-architecture-review Tier-2 #1).
 [[d1_databases]]
 binding = "DB"
-database_name = "fas"
-database_id = "a32701c0-5a56-4a12-810d-485166202e39"
+database_name = "freegamestore"
+database_id = "a122751e-11a2-466e-b403-4696f3f4a698"
 
 # Persistent Pages Function logs — so /api/create's step + failure logs are
 # queryable after the fact (the failing request had nowhere durable to log).
