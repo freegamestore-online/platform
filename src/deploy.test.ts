@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getConfig } from "./config";
+import { deadlineStatus, resolveSeedFiles } from "./deploy";
 // We can't import deployApp/pushUpdate directly (they make real API calls)
 // but we can test the makeGhApi pattern and the deploy flow logic by
 // testing executeInfraTool which wraps them.
@@ -186,6 +187,59 @@ describe("deploy ID validation edge cases", () => {
       { appId: null, files: new Map(), env: mockEnv, config: appsConfig, onDeployStatus: vi.fn(), onAppDeployed: vi.fn() },
     );
     expect(result).not.toContain("invalid");
+  });
+});
+
+describe("deadlineStatus — deploy waiter timeout must never falsely report live", () => {
+  const url = "https://snake.freegamestore.online";
+
+  it("stays calm ('still building', NOT live) when polling was clean but slow", () => {
+    const status = deadlineStatus(false, null, url);
+    expect(status.phase).toBe("building");
+    // Crucially: never 'live' — that masked builds that hadn't actually finished.
+    expect(status.phase).not.toBe("live");
+    if (status.phase === "building") expect(status.deployUrl).toBe(url);
+  });
+
+  it("reports error/status-unknown (NOT live) when the last poll errored", () => {
+    const status = deadlineStatus(true, "GitHub API 503", url);
+    expect(status.phase).toBe("error");
+    expect(status.phase).not.toBe("live");
+    if (status.phase === "error") {
+      expect(status.error).toContain("unknown");
+      expect(status.error).toContain("GitHub API 503");
+      expect(status.error).toContain(url);
+    }
+  });
+
+  it("reports error even without a specific last-error string", () => {
+    const status = deadlineStatus(true, null, url);
+    expect(status.phase).toBe("error");
+  });
+});
+
+describe("resolveSeedFiles — Path B hard-fails rather than seed a non-SDK template", () => {
+  const games = getConfig("games"); // pathB
+  const apps = getConfig("apps"); // not pathB
+
+  it("throws for a Path B store when the template fetch returned null", () => {
+    // Seeding the bundled inline GAME_FILES (no SDK) here would tell the model to
+    // import @freegamestore/games that isn't present → a silent broken build.
+    expect(() => resolveSeedFiles(games, null)).toThrow(/template/i);
+  });
+
+  it("returns the fetched seed for a Path B store when present", () => {
+    const seed = { "web/src/App.tsx": "// real SDK template" };
+    const files = resolveSeedFiles(games, seed);
+    expect(files["web/src/App.tsx"]).toBe("// real SDK template");
+    // A copy, not the same reference (freshSession spreads it).
+    expect(files).not.toBe(seed);
+  });
+
+  it("falls back to the inline template for a non-Path-B store on null seed", () => {
+    const files = resolveSeedFiles(apps, null);
+    expect(files["web/src/components/Shell.tsx"]).toBeTruthy();
+    expect(Object.keys(files).length).toBeGreaterThan(0);
   });
 });
 

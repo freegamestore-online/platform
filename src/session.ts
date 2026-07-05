@@ -4,13 +4,12 @@
 import { runAgentTurn } from "./agent";
 import type { StoreConfig } from "./config";
 import { getConfig } from "./config";
-import { fetchRepoFiles, fetchRepoHeadSha, fetchTemplateSeed, type DeployEnv, type DeployStatus } from "./deploy";
+import { fetchRepoFiles, fetchRepoHeadSha, fetchTemplateSeed, resolveSeedFiles, type DeployEnv, type DeployStatus } from "./deploy";
 import type { Env } from "./index";
 import { executeInfraTool } from "./infra-exec";
 import { ownsGame } from "./ownership";
 import type { AIConfig, Message, TokenUsage } from "./providers/types";
 import { type PushSubscription, sendWebPush } from "./push";
-import { getTemplateFiles } from "./template";
 import { resolveUserKey } from "./keys";
 import { allowDeploy, allowRequest } from "./ratelimit";
 import { enforceSessionBudget } from "./session-budget";
@@ -67,7 +66,10 @@ const MAX_DEPLOY_LOG = 200;
 //   - if the estimated serialized size still exceeds the soft cap, the oldest
 //     messages are trimmed until it fits, rather than throwing.
 const TOOLCALL_CONTENT_MAX = 2 * 1024; // 2 KB — inline placeholder above this
-const SESSION_SOFT_MAX_BYTES = 1.8 * 1024 * 1024; // stay well under the ~2 MB DO cap
+// UTF-8 BYTES (the budget now measures real bytes, not UTF-16 length). Lowered
+// from 1.8 MB → 1.6 MB for more headroom under the ~2 MB DO value cap, since
+// multibyte content now correctly counts for more than one byte per char.
+const SESSION_SOFT_MAX_BYTES = 1.6 * 1024 * 1024;
 
 // Hard ceiling for a single chat turn. A turn can legitimately run for minutes
 // (a deploy polls GitHub Actions for up to ~3 min), so this is generous — its
@@ -146,14 +148,19 @@ export class AgentSession implements DurableObject {
 
   /** A brand-new session, seeded from the canonical template repo
    *  (template-game-canvas) so the agent authors against the SAME SDK-based
-   *  scaffold admin's /generate produces. Falls back to the bundled inline
-   *  template if the fetch fails (leaving `seed` undefined → the delta baseline
-   *  falls back to the inline template too, staying self-consistent). */
+   *  scaffold admin's /generate produces. For Path B (FGS games) a failed
+   *  template fetch HARD-FAILS (resolveSeedFiles throws) rather than seeding the
+   *  bundled inline scaffold, which is NOT SDK-based and would leave the model
+   *  importing @freegamestore/games that isn't present → a silent broken build.
+   *  Non-Path-B stores keep the inline template as a valid fallback. */
   private async freshSession(): Promise<SessionState> {
     const seed = await fetchTemplateSeed(this.config, this.env.GITHUB_TOKEN);
+    // Throws (Path B) when the template fetch failed — surfaced to the user by
+    // the /chat|/reset handlers instead of seeding an unbuildable template.
+    const files = resolveSeedFiles(this.config, seed);
     return {
       messages: [],
-      files: { ...(seed ?? getTemplateFiles(this.config)) },
+      files,
       seed: seed ?? undefined,
       tokenUsage: { input: 0, output: 0 },
       deployStatus: null,
@@ -597,6 +604,11 @@ export class AgentSession implements DurableObject {
   }
 
   private logError(source: string, message: string) {
+    // Emit to Workers Logs ([observability] is enabled in wrangler.toml) so
+    // failures are diagnosable FLEET-WIDE, not just in this DO's per-session
+    // errors[] (which requires knowing the session id + hitting /errors). This is
+    // the only sink that surfaces a broken deploy/turn across all sessions.
+    console.error(`[${this.config.store}-agent] ${source}: ${message}`);
     if (!this.session) return;
     this.session.errors.push({ timestamp: new Date().toISOString(), source, message: message.slice(0, 500) });
     if (this.session.errors.length > MAX_ERRORS) this.session.errors = this.session.errors.slice(-MAX_ERRORS);

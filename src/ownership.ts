@@ -17,32 +17,63 @@ export interface RegistryGame {
   appUrl?: string;
 }
 
-function gh(path: string, token: string, agentName: string): Promise<Response> {
+function gh(path: string, token: string, agentName: string, accept = "application/vnd.github+json"): Promise<Response> {
   // resilientFetch adds a timeout + transient-failure retry but leaves the body
   // untouched, so the caller's `.status` checks (204 = member/collaborator) work
   // exactly as before.
   return resilientFetch(`https://api.github.com${path}`, {
     headers: {
       Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
+      Accept: accept,
       "User-Agent": agentName,
       "X-GitHub-Api-Version": "2022-11-28",
     },
   });
 }
 
-/** Look up a single game in the store registry by id. Null on miss/error. */
-export async function fetchRegistryGame(config: StoreConfig, id: string): Promise<RegistryGame | null> {
-  const url = `https://raw.githubusercontent.com/${config.org}/${config.storeRepo}/main/registry.json`;
+/** Fetch the store registry games array (source of truth).
+ *  Prefers the authenticated GitHub contents API, which is NOT CDN-cached, so a
+ *  game provisioned seconds ago appears immediately. `raw.githubusercontent.com`
+ *  (the fallback) is edge-cached ~5min, which made a just-provisioned game look
+ *  "not found" and un-editable by its own creator for minutes. Mirrors the
+ *  publisher's `_games.ts getRegistry` (vendored copy, kept in sync by hand).
+ *  Returns null only when EVERY attempt failed. */
+async function fetchRegistry(config: StoreConfig, token: string): Promise<RegistryGame[] | null> {
+  // Authenticated contents API — uncached. Accept: raw returns the file body
+  // directly (not the base64-wrapped metadata envelope).
   try {
-    const res = await fetch(url, { headers: { "User-Agent": config.agentName } });
-    if (!res.ok) return null;
-    const reg = (await res.json()) as Record<string, RegistryGame[] | undefined>;
-    const games = reg[config.nounPlural] ?? [];
-    return games.find((g) => g.id === id) ?? null;
+    const res = await gh(
+      `/repos/${config.org}/${config.storeRepo}/contents/registry.json`,
+      token,
+      config.agentName,
+      "application/vnd.github.raw+json",
+    );
+    if (res.ok) {
+      const reg = (await res.json()) as Record<string, RegistryGame[] | undefined>;
+      return reg[config.nounPlural] ?? [];
+    }
   } catch {
-    return null;
+    /* fall through to the raw CDN URL */
   }
+  // Fallback: the CDN-cached raw URL (no token needed).
+  try {
+    const url = `https://raw.githubusercontent.com/${config.org}/${config.storeRepo}/main/registry.json`;
+    const res = await fetch(url, { headers: { "User-Agent": config.agentName } });
+    if (res.ok) {
+      const reg = (await res.json()) as Record<string, RegistryGame[] | undefined>;
+      return reg[config.nounPlural] ?? [];
+    }
+  } catch {
+    /* both attempts failed */
+  }
+  return null;
+}
+
+/** Look up a single game in the store registry by id. Null on miss/error. */
+export async function fetchRegistryGame(config: StoreConfig, token: string, id: string): Promise<RegistryGame | null> {
+  const games = await fetchRegistry(config, token);
+  if (!games) return null;
+  return games.find((g) => g.id === id) ?? null;
 }
 
 /**
@@ -60,7 +91,7 @@ export async function ownsGame(
   id: string,
   login: string,
 ): Promise<{ owns: boolean; game: RegistryGame | null }> {
-  const game = await fetchRegistryGame(config, id);
+  const game = await fetchRegistryGame(config, token, id);
   if (!game) return { owns: false, game: null };
 
   const lc = login.toLowerCase();

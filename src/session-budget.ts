@@ -18,10 +18,20 @@
 import type { Message } from "./providers/types";
 
 export interface BudgetOpts {
-  /** Soft ceiling for the serialized session (bytes, estimated as JSON length). */
+  /** Soft ceiling for the serialized session, measured in UTF-8 BYTES — the same
+   *  unit the Durable Object value cap uses. (The old code measured
+   *  `JSON.stringify().length`, i.e. UTF-16 code units, so multibyte content —
+   *  emoji, CJK, accents — could pass the estimate yet blow the real byte cap and
+   *  freeze the session on save.) */
   softMaxBytes: number;
   /** write_file tool-call bodies longer than this are replaced with a placeholder. */
   toolCallMaxBytes: number;
+}
+
+const encoder = new TextEncoder();
+/** UTF-8 byte length of a string — what the DO value cap actually counts. */
+function byteLen(s: string): number {
+  return encoder.encode(s).length;
 }
 
 /** Replace oversized write_file tool-call `content` with a placeholder in place. */
@@ -43,10 +53,16 @@ export function stripLargeToolCallBodies(messages: Message[], toolCallMaxBytes: 
 export function enforceSessionBudget(session: { messages: Message[] }, opts: BudgetOpts): number {
   stripLargeToolCallBodies(session.messages, opts.toolCallMaxBytes);
 
-  // Cheap estimate: JSON string length in chars ≈ bytes for mostly-ASCII source.
+  // Measure the WHOLE blob's UTF-8 byte size ONCE, then subtract each dropped
+  // message's own serialized cost as we trim — instead of re-stringifying the
+  // entire (up-to-2 MB) blob on every loop iteration, which was O(n²) on a long
+  // transcript. Removing the head message shrinks the array by exactly that
+  // message's JSON plus its one comma separator, so the running total stays exact.
   let trimmed = 0;
-  while (session.messages.length > 1 && JSON.stringify(session).length > opts.softMaxBytes) {
-    session.messages.shift();
+  let total = byteLen(JSON.stringify(session));
+  while (session.messages.length > 1 && total > opts.softMaxBytes) {
+    const removed = session.messages.shift()!;
+    total -= byteLen(JSON.stringify(removed)) + 1; // +1 for the comma separator
     trimmed++;
   }
 

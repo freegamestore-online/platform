@@ -4,10 +4,13 @@ import { ownsGame } from "./ownership";
 
 const games = getConfig("games");
 
+// The authenticated (uncached) contents API is now the PRIMARY registry read;
+// raw.githubusercontent.com is only the fallback.
+const CONTENTS_URL = "https://api.github.com/repos/freegamestore-online/freegamestore/contents/registry.json";
 const REGISTRY_URL = "https://raw.githubusercontent.com/freegamestore-online/freegamestore/main/registry.json";
 
 function registry(items: unknown[]) {
-  return { ok: true, json: () => Promise.resolve({ games: items }) };
+  return { ok: true, status: 200, json: () => Promise.resolve({ games: items }) };
 }
 
 let originalFetch: typeof fetch;
@@ -19,9 +22,11 @@ afterEach(() => {
 });
 
 describe("ownsGame — registry-primary ownership", () => {
-  it("owns when creatorGithub matches (case-insensitive), no GitHub API call", async () => {
+  it("owns when creatorGithub matches (case-insensitive), reading the uncached contents API", async () => {
     const fetchMock = vi.fn(async (url: string) => {
-      if (url === REGISTRY_URL) return registry([{ id: "snake", name: "Snake", creatorGithub: "Serge-The-Dev" }]);
+      // Fresh read: the authenticated contents API answers, so we never touch
+      // the CDN-cached raw URL (the staleness bug this fix closes).
+      if (url === CONTENTS_URL) return registry([{ id: "snake", name: "Snake", creatorGithub: "Serge-The-Dev" }]);
       throw new Error(`unexpected fetch: ${url}`);
     });
     globalThis.fetch = fetchMock as any;
@@ -29,13 +34,45 @@ describe("ownsGame — registry-primary ownership", () => {
     const res = await ownsGame(games, "tok", "snake", "serge-the-dev");
     expect(res.owns).toBe(true);
     expect(res.game?.name).toBe("Snake");
-    // Only the registry was fetched — no /orgs or /collaborators calls.
+    // Only the contents API was fetched — no raw CDN, no /orgs or /collaborators.
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe(CONTENTS_URL);
+  });
+
+  it("reads a just-provisioned game from the uncached contents API (fresh-read path)", async () => {
+    // The CDN still serves a STALE registry that predates the new game; the
+    // contents API has it. The fresh read must win.
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === CONTENTS_URL) return registry([{ id: "brand-new", name: "Brand New", creatorGithub: "creator" }]);
+      if (url === REGISTRY_URL) return registry([]); // stale CDN — no new game
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    globalThis.fetch = fetchMock as any;
+
+    const res = await ownsGame(games, "tok", "brand-new", "creator");
+    expect(res.owns).toBe(true);
+    expect(res.game?.name).toBe("Brand New");
+    // The stale raw URL was never consulted.
+    expect(fetchMock.mock.calls.every((c) => c[0] !== REGISTRY_URL)).toBe(true);
+  });
+
+  it("falls back to the raw CDN URL when the contents API fails", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      // 404 is non-retryable, so resilientFetch returns it immediately (no backoff).
+      if (url === CONTENTS_URL) return { ok: false, status: 404 } as any; // contents API miss
+      if (url === REGISTRY_URL) return registry([{ id: "snake", creatorGithub: "creator" }]);
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    globalThis.fetch = fetchMock as any;
+
+    const res = await ownsGame(games, "tok", "snake", "creator");
+    expect(res.owns).toBe(true);
+    expect(fetchMock.mock.calls.some((c) => c[0] === REGISTRY_URL)).toBe(true);
   });
 
   it("does not own when creatorGithub differs and not an org member", async () => {
     const fetchMock = vi.fn(async (url: string) => {
-      if (url === REGISTRY_URL) return registry([{ id: "snake", creatorGithub: "someone-else" }]);
+      if (url === CONTENTS_URL) return registry([{ id: "snake", creatorGithub: "someone-else" }]);
       // org membership check → not a member (404)
       return { status: 404 } as any;
     });
@@ -48,7 +85,7 @@ describe("ownsGame — registry-primary ownership", () => {
 
   it("owns as org member even when creatorGithub differs", async () => {
     const fetchMock = vi.fn(async (url: string) => {
-      if (url === REGISTRY_URL) return registry([{ id: "snake", creatorGithub: "someone-else" }]);
+      if (url === CONTENTS_URL) return registry([{ id: "snake", creatorGithub: "someone-else" }]);
       if (url.includes("/orgs/") && url.includes("/members/")) return { status: 204 } as any;
       throw new Error(`unexpected fetch: ${url}`);
     });
@@ -60,7 +97,7 @@ describe("ownsGame — registry-primary ownership", () => {
 
   it("owns a legacy (no creatorGithub) game via accepted collaboration", async () => {
     const fetchMock = vi.fn(async (url: string) => {
-      if (url === REGISTRY_URL) return registry([{ id: "oldie" }]);
+      if (url === CONTENTS_URL) return registry([{ id: "oldie" }]);
       if (url.includes("/orgs/") && url.includes("/members/")) return { status: 404 } as any;
       if (url.includes("/collaborators/")) return { status: 204 } as any;
       throw new Error(`unexpected fetch: ${url}`);
@@ -73,7 +110,7 @@ describe("ownsGame — registry-primary ownership", () => {
 
   it("returns game=null and owns=false when the game is not in the registry", async () => {
     const fetchMock = vi.fn(async (url: string) => {
-      if (url === REGISTRY_URL) return registry([{ id: "other" }]);
+      if (url === CONTENTS_URL) return registry([{ id: "other" }]);
       throw new Error(`unexpected fetch: ${url}`);
     });
     globalThis.fetch = fetchMock as any;

@@ -92,6 +92,27 @@ describe("enforceSessionBudget — anti-brick guard", () => {
     expect(session.messages.length).toBe(1);
   });
 
+  it("measures UTF-8 BYTES, not UTF-16 length — multibyte content can't sneak past the cap", () => {
+    // Each emoji is 1 JS string "char" via .length accounting in the OLD code but
+    // 4 UTF-8 bytes. A transcript that looks small by .length must still be
+    // trimmed when its real byte size exceeds the cap.
+    const emoji = "😀"; // 2 UTF-16 code units, 4 UTF-8 bytes
+    const messages: Message[] = [];
+    for (let i = 0; i < 40; i++) messages.push({ role: "user", content: emoji.repeat(300) });
+    const session = { messages };
+
+    const charLen = JSON.stringify(session).length;
+    const byteLen = new TextEncoder().encode(JSON.stringify(session)).length;
+    // Sanity: bytes materially exceed UTF-16 length for this content.
+    expect(byteLen).toBeGreaterThan(charLen);
+
+    const softMax = 4000; // bytes
+    const trimmed = enforceSessionBudget(session, { softMaxBytes: softMax, toolCallMaxBytes: 2048 });
+    expect(trimmed).toBeGreaterThan(0);
+    // The result must fit the cap in BYTES (the unit the DO enforces).
+    expect(new TextEncoder().encode(JSON.stringify(session)).length).toBeLessThanOrEqual(softMax);
+  });
+
   it("never leaves a leading orphaned tool_result after trimming (would 400 the provider)", () => {
     // The oldest turn is assistant(tool_use) → tool_result. If the assistant is
     // trimmed but the tool_result survives at the head, the next provider call

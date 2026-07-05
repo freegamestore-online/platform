@@ -61,4 +61,23 @@ describe("substituteAppName", () => {
     expect(files.get("package.json")).toBe(`{"name":"my-game"}`);
     expect(files.get("web/index.html")).toBe(`<title>My Game — FreeGameStore</title>`);
   });
+
+  it("in index.html, rewrites the analytics slug (app=APPNAME) to the ID, and the title to the display name", () => {
+    // Matches admin's rule exactly. A blanket APPNAME→display-name replace would
+    // push `app=My Game` into the analytics loader and break attribution.
+    const files = new Map<string, string>([
+      ["web/index.html", `<title>APPNAME — FreeGameStore</title>\n<script src="/v1/analytics.js?app=APPNAME"></script>`],
+    ]);
+    substituteAppName(files, "my-game", "My Game");
+    const html = files.get("web/index.html")!;
+    expect(html).toContain("app=my-game"); // analytics slug → the ID
+    expect(html).not.toContain("app=My Game");
+    expect(html).toContain("<title>My Game — FreeGameStore</title>"); // title → display name
+  });
+
+  it("does not corrupt a display name containing regex replacement tokens ($&)", () => {
+    const files = new Map<string, string>([["web/src/App.tsx", `<h1>APPNAME</h1>`]]);
+    substituteAppName(files, "cash", "Cash $& Co");
+    expect(files.get("web/src/App.tsx")).toBe(`<h1>Cash $& Co</h1>`);
+  });
 });

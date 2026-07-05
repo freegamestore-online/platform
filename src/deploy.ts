@@ -36,6 +36,25 @@ export type DeployStatus =
   | { phase: "live"; appUrl: string }
   | { phase: "error"; error: string };
 
+/** Decide the status a deploy WAITER emits when it hits its deadline without ever
+ *  observing a conclusive success. Never returns `live`: claiming "live" on a
+ *  timeout masked builds that were still failing or that we simply couldn't
+ *  reach. If the last poll erred (or no poll ever returned clean data) the status
+ *  is genuinely UNKNOWN → `error`. Only when polling was clean but the build is
+ *  merely slow do we stay in the calm "still building" state. Pure + exported so
+ *  the timeout branch can be unit-tested without a 3-minute poll loop. */
+export function deadlineStatus(sawPollError: boolean, lastError: string | null, appUrl: string): DeployStatus {
+  if (sawPollError) {
+    return {
+      phase: "error",
+      error: `Deploy status unknown — could not confirm the build finished${
+        lastError ? ` (${lastError})` : ""
+      }. It may still complete; check ${appUrl} shortly, or push an update to retry.`,
+    };
+  }
+  return { phase: "building", deployUrl: appUrl };
+}
+
 async function cfApi(token: string, _accountId: string, path: string, method = "GET", body?: unknown) {
   const res = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
     method,
@@ -198,6 +217,8 @@ export async function deployApp(
   onStatus({ phase: "building", deployUrl: previewUrl });
 
   const deadline = Date.now() + 150_000; // 2.5 min
+  let sawPollError = false;
+  let lastError: string | null = null;
   while (Date.now() < deadline) {
     await sleep(8000);
     try {
@@ -206,6 +227,7 @@ export async function deployApp(
         env.CF_ACCOUNT_ID,
         `/accounts/${env.CF_ACCOUNT_ID}/pages/projects/${cfProject}/deployments?sort_by=created_on&sort_order=desc&per_page=1`,
       );
+      sawPollError = false; // this poll returned cleanly
       const dep = deps.result?.[0];
       if (!dep) continue;
       if (dep.latest_stage?.status === "success") {
@@ -224,13 +246,22 @@ export async function deployApp(
             .map((l: any) => l.line || "")
             .join("\n")
             .slice(-2000);
-        } catch {}
+        } catch (err) {
+          console.error(`[deploy] CF Pages build-log fetch failed for ${cfProject}: ${String(err)}`);
+        }
         onStatus({ phase: "error", error: `Build failed.\n\n${buildLog || "(no logs)"}` });
         return;
       }
-    } catch {}
+    } catch (err) {
+      sawPollError = true;
+      lastError = String(err);
+      console.error(`[deploy] CF Pages deployment poll failed for ${cfProject}: ${lastError}`);
+    }
   }
-  onStatus({ phase: "live", appUrl: previewUrl }); // timeout — assume building
+  // Deadline hit WITHOUT a confirmed success. Never claim "live" — that masked a
+  // still-failing or unreachable build. Stay calm ("still building") only when
+  // the last poll was clean; otherwise the status is genuinely unknown.
+  onStatus(deadlineStatus(sawPollError, lastError, previewUrl));
 }
 
 /** Path B: register the D1 host route + store registry entry via the admin
@@ -278,11 +309,27 @@ async function registerViaAdmin(
 
 /** Canonical APPNAME substitution (shared with infra-exec at deploy time):
  *  the id (slug) in package.json manifests, the display name everywhere else.
- *  Mutates `files` in place. */
+ *  Mutates `files` in place. Mirrors admin's `substituteTemplatePlaceholders`
+ *  rule exactly so the agent and admin never diverge on a re-authored file. */
 export function substituteAppName(files: Map<string, string>, appId: string, appName: string): void {
+  // Function replacer: a display name containing `$&`/`$1`/`$'` must be inserted
+  // literally, not interpreted as a replacement pattern (which would corrupt it).
+  const nameFn = () => appName;
   for (const [path, content] of files) {
     if (!content.includes("APPNAME")) continue;
-    files.set(path, content.replace(/APPNAME/g, path.includes("package.json") ? appId : appName));
+    if (path.includes("package.json")) {
+      // Manifests use the slug (npm name grammar) — never the display name.
+      files.set(path, content.replace(/APPNAME/g, appId));
+    } else if (path.endsWith("index.html")) {
+      // index.html carries BOTH the cookieless analytics slug (?app=APPNAME → the
+      // game ID) AND the human <title> (APPNAME → display name). Rewrite the
+      // analytics slug to the ID FIRST, then the remaining APPNAMEs to the display
+      // name — matching admin. A blanket APPNAME→display-name replace would push
+      // `app=<displayName>` and break this game's analytics attribution.
+      files.set(path, content.replace(/app=APPNAME/g, `app=${appId}`).replace(/APPNAME/g, nameFn));
+    } else {
+      files.set(path, content.replace(/APPNAME/g, nameFn));
+    }
   }
 }
 
@@ -397,6 +444,8 @@ async function waitForActionsDeploy(
 ): Promise<void> {
   const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
   const deadline = Date.now() + 180_000; // 3 min — compliance + build + R2 sync
+  let sawPollError = false;
+  let lastError: string | null = null;
   while (Date.now() < deadline) {
     await sleep(8000);
     try {
@@ -404,6 +453,7 @@ async function waitForActionsDeploy(
       // workflows (ci/compliance/deploy), so "latest run of any workflow" would
       // read the wrong conclusion.
       const runs = await ghApi(`/repos/${config.org}/${repoId}/actions/workflows/deploy.yml/runs?per_page=1`);
+      sawPollError = false; // this poll returned cleanly
       const run = runs.workflow_runs?.[0];
       if (!run || run.status !== "completed") continue;
       if (run.conclusion === "success") {
@@ -423,13 +473,22 @@ async function waitForActionsDeploy(
           const failedJob = (jobs.jobs || []).find((j: any) => j.conclusion === "failure");
           const failedStep = failedJob?.steps?.find((s: any) => s.conclusion === "failure");
           detail = failedJob ? `${failedJob.name}${failedStep ? " › " + failedStep.name : ""}` : "";
-        } catch {}
+        } catch (err) {
+          console.error(`[deploy] Actions job detail fetch failed for ${config.org}/${repoId}: ${String(err)}`);
+        }
         onStatus({ phase: "error", error: `Deploy workflow ${run.conclusion}${detail ? `: ${detail}` : ""}. See ${run.html_url || "the repo's Actions tab"} for logs.` });
         return;
       }
-    } catch {}
+    } catch (err) {
+      sawPollError = true;
+      lastError = String(err);
+      console.error(`[deploy] Actions deploy poll failed for ${config.org}/${repoId}: ${lastError}`);
+    }
   }
-  onStatus({ phase: "live", appUrl }); // timed out — the run may still finish
+  // Deadline hit WITHOUT a confirmed success. Never claim "live" — that reported
+  // a failing/stuck build as shipped. Stay calm ("still building") only when the
+  // last poll was clean; otherwise the status is genuinely unknown.
+  onStatus(deadlineStatus(sawPollError, lastError, appUrl));
 }
 
 /** Push all files as a single commit via the Git Data API (tree + commit + ref). */
@@ -627,6 +686,24 @@ export async function fetchTemplateSeed(config: StoreConfig, token: string): Pro
   } catch {
     return null;
   }
+}
+
+/** Resolve the file set a BRAND-NEW session seeds from, given the result of
+ *  fetchTemplateSeed. Path B stores (FGS games) MUST author against the fetched
+ *  SDK-based template (template-game-canvas): their system prompt tells the model
+ *  to import `@freegamestore/games`, which the bundled inline GAME_FILES scaffold
+ *  does NOT provide. Seeding that inline fallback on a fetch failure produces a
+ *  game that references a package that isn't there → a silent, unbuildable
+ *  deploy. So when the template fetch failed (`seed === null`) we HARD-FAIL with a
+ *  clear, user-surfaced error rather than seed a prompt-incompatible template.
+ *  Non-Path-B stores (FAS apps) keep the inline template as a valid fallback. */
+export function resolveSeedFiles(config: StoreConfig, seed: Record<string, string> | null): Record<string, string> {
+  if (config.pathB && !seed) {
+    throw new Error(
+      `Could not load the ${config.storeName} ${config.noun} template — the studio can't start a new ${config.noun} right now. Please retry in a moment.`,
+    );
+  }
+  return { ...(seed ?? getTemplateFiles(config)) };
 }
 
 function sleep(ms: number) {
