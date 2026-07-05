@@ -3,7 +3,8 @@
 // Body: { id, name, category, icon, iconBg, description, type?, creatorGithub? }
 //
 // Path B (since 2026-05-28): instead of creating a CF Pages project, this
-// writes a row to the shared `fas` D1 `routes` table. The fgs/host Worker
+// writes a row to the FGS-owned `freegamestore` D1 `routes` table (split off the
+// formerly-shared `fas` DB on 2026-07-05). The fgs/host Worker
 // (`*.freegamestore.online/*`) reads that table and serves from
 // `r2://fgs-games/games/<slug>/`. The per-game GH Actions deploy.yml
 // (in template-game-canvas) syncs build output to the right R2 prefix on

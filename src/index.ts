@@ -1271,9 +1271,18 @@ export default {
       }
     }
 
-    // Render dashboard; the manual provision form lives in its own Provision tab
-    // now (not appended to every page) — creators normally self-serve via the
-    // console, so it's an admin escape hatch rather than the primary path.
+    // Fallthrough (any unmatched path/method) also renders the console shell, so
+    // it must be gated like "/" — otherwise GET /anything served the full,
+    // indexable dashboard HTML to anyone (info disclosure; the /api/* it calls
+    // still 401, but the shell shouldn't be world-readable). Non-admins get the
+    // sign-in page.
+    const { email, isAdmin } = await authenticateAdmin(request, env);
+    if (!isAdmin) {
+      return new Response(renderSignIn(email), {
+        status: 200,
+        headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+      });
+    }
     let html = renderDashboardShell();
     html = html.replace("<!--PROVISION-->", renderProvisionForm());
     return new Response(html, { headers: { "Content-Type": "text/html", "Cache-Control": "no-store" } });
