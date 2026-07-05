@@ -145,7 +145,13 @@ export async function runAgentTurn(
 
   async function send(event: StreamEvent) {
     const line = `data: ${JSON.stringify(event)}\n\n`;
-    await writer.write(encoder.encode(line));
+    // Swallow write failures. If the client disconnected mid-generation (a
+    // refresh), the stream write rejects — but that MUST NOT abort the turn.
+    // The DO is kept alive by waitUntil, so generation completes and the real
+    // reply is persisted; letting the write throw made the turn save an "Error"
+    // instead of the reply (the "disappearing conversation" bug). The client
+    // reloads the saved transcript via /history.
+    await writer.write(encoder.encode(line)).catch(() => {});
   }
 
   let retries = 0;
