@@ -160,6 +160,20 @@ describe("executeTool — file tools", () => {
     const result = executeTool({ id: "1", name: "search_files", input: { pattern: "foo" } }, files, appsConfig);
     expect(result.content).toContain("a.txt:2:");
   });
+
+  it("search_files supports alternation (a|b and grep-style a\\|b)", () => {
+    const files = new Map([["App.tsx", "const w = 1;\nconst h = 2;\nuseEffect(() => {});\nplain line"]]);
+    // `a|b` — either term.
+    const or = executeTool({ id: "1", name: "search_files", input: { pattern: "const w =|useEffect" } }, files, appsConfig);
+    expect(or.content).toContain("App.tsx:1:");
+    expect(or.content).toContain("App.tsx:3:");
+    expect(or.content).not.toContain("plain line");
+    // grep BRE-style `\|` (what the model often emits) matches the same, instead
+    // of being taken literally and returning nothing (the angrry "stuck" bug).
+    const bre = executeTool({ id: "2", name: "search_files", input: { pattern: "innerWidth\\|const h =\\|resize" } }, files, appsConfig);
+    expect(bre.content).toContain("App.tsx:2:");
+    expect(bre.isError).toBeFalsy();
+  });
 });
 
 describe("looksLikePlaceholder (echoed-status / elision guard)", () => {

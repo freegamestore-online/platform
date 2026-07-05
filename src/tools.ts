@@ -96,11 +96,11 @@ const FILE_TOOLS: ToolDef[] = [
   {
     name: "search_files",
     description:
-      "Search across all project files for a text pattern (case-insensitive). Returns matching lines with file paths. Use for finding usages, debugging, or understanding the codebase.",
+      "Search across all project files for text (case-insensitive SUBSTRING match, not regex). Supports alternation: `a|b` matches lines containing 'a' OR 'b' — use it to find several terms in one call. Returns matching lines with file paths. Use for finding usages, debugging, or understanding the codebase.",
     parameters: {
       type: "object",
       properties: {
-        pattern: { type: "string", description: "Text to search for (case-insensitive substring match)" },
+        pattern: { type: "string", description: "Text to search for (case-insensitive substring). Use `term1|term2` to match any of several terms in one search." },
       },
       required: ["pattern"],
     },
@@ -343,18 +343,32 @@ export function executeTool(toolCall: ToolCall, files: Map<string, string>, conf
     }
 
     case "search_files": {
-      const pattern = ((input.pattern as string) || "").toLowerCase();
-      if (!pattern) return { id, content: "Error: pattern is required", isError: true };
+      const raw = ((input.pattern as string) || "").trim();
+      if (!raw) return { id, content: "Error: pattern is required", isError: true };
+      // Case-insensitive substring search with ALTERNATION. The model naturally
+      // reaches for `a|b` or grep-BRE `a\|b` to search several terms at once; this
+      // tool is substring-based, so those used to match literally and return
+      // nothing — the agent then burned turns re-searching one term at a time
+      // (the angrry "stuck investigating" incident). Split on `|`/`\|` and match
+      // ANY term. A lone `|` (no terms) falls back to the raw string.
+      const terms = raw
+        .split(/\s*\\?\|\s*/)
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean);
+      const needles = terms.length > 0 ? terms : [raw.toLowerCase()];
       const matches: string[] = [];
       for (const [path, content] of files) {
         const lines = content.split("\n");
         for (let i = 0; i < lines.length; i++) {
-          if (lines[i].toLowerCase().includes(pattern)) {
+          const line = lines[i].toLowerCase();
+          if (needles.some((n) => line.includes(n))) {
             matches.push(`${path}:${i + 1}: ${lines[i].trim()}`);
+            if (matches.length >= 50) break;
           }
         }
+        if (matches.length >= 50) break;
       }
-      return { id, content: matches.length ? matches.slice(0, 50).join("\n") : `No matches for "${pattern}"` };
+      return { id, content: matches.length ? matches.slice(0, 50).join("\n") : `No matches for "${raw}"` };
     }
 
     case "run_compliance_check": {
