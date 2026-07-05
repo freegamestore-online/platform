@@ -91,4 +91,19 @@ describe("enforceSessionBudget — anti-brick guard", () => {
     expect(trimmed).toBe(0);
     expect(session.messages.length).toBe(1);
   });
+
+  it("never leaves a leading orphaned tool_result after trimming (would 400 the provider)", () => {
+    // The oldest turn is assistant(tool_use) → tool_result. If the assistant is
+    // trimmed but the tool_result survives at the head, the next provider call
+    // 400s. The guard must drop the orphaned tool_result too.
+    const messages: Message[] = [
+      { role: "assistant", content: "", toolCalls: [{ id: "t0", name: "write_file", input: { path: "a.ts", content: "x".repeat(2000) } }] },
+      { role: "tool_result", content: "", toolResults: [{ id: "t0", content: "ok" }] },
+      { role: "user", content: "b".repeat(2000) },
+      { role: "assistant", content: "reply".repeat(400) },
+    ];
+    const session = { messages };
+    enforceSessionBudget(session, { softMaxBytes: 1500, toolCallMaxBytes: 2048 });
+    expect(session.messages[0].role).not.toBe("tool_result");
+  });
 });

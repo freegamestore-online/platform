@@ -49,5 +49,15 @@ export function enforceSessionBudget(session: { messages: Message[] }, opts: Bud
     session.messages.shift();
     trimmed++;
   }
+
+  // Trimming from the front can leave a `tool_result` whose originating
+  // `tool_use` was trimmed — an orphaned tool_result at the head of the history
+  // makes the provider reject the next turn with a 400 (tool_result without a
+  // preceding tool_use), which would brick the session: the very failure this
+  // budget guard exists to prevent. Drop any leading orphaned tool_results.
+  while (session.messages.length > 1 && session.messages[0].role === "tool_result") {
+    session.messages.shift();
+    trimmed++;
+  }
   return trimmed;
 }
