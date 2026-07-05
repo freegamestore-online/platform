@@ -7,7 +7,7 @@ import { GoogleAdapter } from "./providers/google";
 import { OpenAIAdapter } from "./providers/openai";
 import type { AIConfig, Message, ProviderAdapter, StreamEvent, TokenUsage, ToolCall, ToolResult } from "./providers/types";
 import { healPoisonedHistory } from "./session-budget";
-import { getSystemPrompt } from "./template";
+import { getSystemPrompt, detectEngine } from "./template";
 import { clampToolResultForHistory, executeTool, getToolDefinitions, INFRA_TOOLS } from "./tools";
 
 /**
@@ -90,8 +90,12 @@ export async function runAgentTurn(
   const MAX_LOOPS = 25;
   const toolDefinitions = getToolDefinitions(storeConfig);
 
-  // Build dynamic system prompt with session context
-  let systemPrompt = getSystemPrompt(storeConfig);
+  // Build dynamic system prompt with session context. Detect the game's engine
+  // from its loaded web/package.json so the agent gets engine-correct authoring
+  // guidance (KAPLAY / Phaser / react-three-fiber / raw canvas) instead of the
+  // old canvas-only prompt.
+  const engine = detectEngine(files);
+  let systemPrompt = getSystemPrompt(storeConfig, engine);
   if (ctx) {
     const noun = storeConfig.noun;
     const Noun = storeConfig.Noun;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getConfig } from "./config";
-import { getSystemPrompt, getTemplateFiles } from "./template";
+import { getSystemPrompt, getTemplateFiles, detectEngine } from "./template";
 
 const appsConfig = getConfig("apps");
 const gamesConfig = getConfig("games");
@@ -140,5 +140,94 @@ describe("getSystemPrompt", () => {
     expect(prompt).toContain("localStorage");
     expect(prompt).toContain("Dark mode");
     expect(prompt).toContain("sidebar");
+  });
+});
+
+describe("detectEngine", () => {
+  const filesWith = (webPkg: unknown): Map<string, string> =>
+    new Map([["web/package.json", JSON.stringify(webPkg)]]);
+
+  it("detects phaser from dependencies", () => {
+    expect(detectEngine(filesWith({ dependencies: { phaser: "^3.90.0" } }))).toBe("phaser");
+  });
+
+  it("detects kaplay from dependencies", () => {
+    expect(detectEngine(filesWith({ dependencies: { kaplay: "^3001.0.0" } }))).toBe("kaplay");
+  });
+
+  it("detects r3f from @react-three/fiber", () => {
+    expect(detectEngine(filesWith({ dependencies: { "@react-three/fiber": "^9", three: "^0.184" } }))).toBe("r3f");
+  });
+
+  it("detects r3f from a bare three dependency", () => {
+    expect(detectEngine(filesWith({ dependencies: { three: "^0.184" } }))).toBe("r3f");
+  });
+
+  it("defaults to canvas when no engine dependency is present", () => {
+    expect(detectEngine(filesWith({ dependencies: { react: "^19", "@freegamestore/games": "^0.14.0" } }))).toBe("canvas");
+  });
+
+  it("defaults to canvas when web/package.json is missing", () => {
+    expect(detectEngine(new Map())).toBe("canvas");
+  });
+
+  it("defaults to canvas when web/package.json is unparseable", () => {
+    expect(detectEngine(new Map([["web/package.json", "{ not json"]]))).toBe("canvas");
+  });
+
+  it("prefers phaser over an incidental three (only one engine wins deterministically)", () => {
+    // Guard the precedence order: phaser is checked before three/r3f.
+    expect(detectEngine(filesWith({ dependencies: { phaser: "^3.90.0", three: "^0.184" } }))).toBe("phaser");
+  });
+});
+
+describe("getSystemPrompt — per engine", () => {
+  const promptFor = (engine: Parameters<typeof getSystemPrompt>[1]) => getSystemPrompt(gamesConfig, engine);
+
+  // `drawGlow` is a symbol unique to the raw-canvas lib/canvas helpers, so its
+  // absence proves the engine guide isn't teaching canvas helpers as the build
+  // path (the guides may still *mention* useGameLoop in a "do NOT use" warning).
+  it("kaplay prompt teaches KAPLAY, not the canvas helpers", () => {
+    const prompt = promptFor("kaplay");
+    expect(prompt).toContain("KAPLAY");
+    expect(prompt).toContain("k.add");
+    expect(prompt).toContain("game.ts");
+    expect(prompt).not.toContain("drawGlow");
+  });
+
+  it("phaser prompt teaches Phaser scenes + arcade physics, not the canvas helpers", () => {
+    const prompt = promptFor("phaser");
+    expect(prompt).toContain("Phaser");
+    expect(prompt).toContain("Phaser.Scene");
+    expect(prompt).toContain("Arcade");
+    expect(prompt).not.toContain("drawGlow");
+  });
+
+  it("r3f prompt teaches react-three-fiber + useFrame", () => {
+    const prompt = promptFor("r3f");
+    expect(prompt).toContain("react-three-fiber");
+    expect(prompt).toContain("useFrame");
+    expect(prompt).not.toContain("drawGlow");
+  });
+
+  it("canvas is the default engine and keeps the raw-canvas helpers", () => {
+    expect(getSystemPrompt(gamesConfig)).toBe(promptFor("canvas"));
+    expect(promptFor("canvas")).toContain("useGameLoop");
+    expect(promptFor("canvas")).toContain("lib/canvas");
+  });
+
+  it("every engine prompt keeps the shared platform + security rules", () => {
+    for (const engine of ["canvas", "kaplay", "phaser", "r3f"] as const) {
+      const prompt = promptFor(engine);
+      expect(prompt).toContain("FreeGameStore");
+      expect(prompt).toContain("GameShell");
+      expect(prompt).toContain("@freegamestore/games");
+      expect(prompt).toContain("list_deployed_games");
+      // Never leak the wrong store's brand into a game prompt.
+      expect(prompt).not.toContain("FreeAppStore");
+      // The deploy/security guardrails must survive the engine split.
+      expect(prompt).toContain("push_update");
+      expect(prompt).toContain("frozen-lockfile");
+    }
   });
 });
