@@ -1,65 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { checkBuildSanity, scan } from "./build-sanity";
+import { checkBuildSanity, stripToSkeleton } from "./build-sanity";
 
 const f = (path: string, content: string) => new Map([[path, content]]);
 
-describe("scan — skeleton & balance (no false positives)", () => {
-  it("balances plain code", () => {
-    const { brace, paren, bracket } = scan("function f() { const a = [1, 2]; return (a); }");
-    expect([brace, paren, bracket]).toEqual([0, 0, 0]);
+describe("stripToSkeleton — hides embedded code, never invents column-0 code", () => {
+  it("blanks line & block comment bodies", () => {
+    const sk = stripToSkeleton(`// function ghost() {}\n/* function ghost2() {} */\nconst x = 1;`);
+    expect(sk).not.toContain("ghost");
+    expect(sk).toContain("const x");
   });
 
-  it("ignores braces inside strings", () => {
-    const { brace } = scan(`const s = "a } b { c"; const t = 'x } y';`);
-    expect(brace).toBe(0);
+  it("blanks template-literal bodies (even multi-line, code-looking)", () => {
+    const sk = stripToSkeleton("const t = `\nfunction ghost() {}\n`;\nconst real = 2;");
+    expect(sk).not.toContain("ghost");
+    expect(sk).toContain("const real");
   });
 
-  it("ignores braces inside line & block comments", () => {
-    const { brace } = scan(`// a } stray {\n/* another } { here */\nconst x = 1;`);
-    expect(brace).toBe(0);
+  it("auto-closes an unterminated quote at newline (JSX apostrophe safety)", () => {
+    // The apostrophe in "Don't" must NOT swallow the following lines.
+    const sk = stripToSkeleton(`<h1>Don't stop</h1>\nconst score = 1;`);
+    expect(sk).toContain("const score");
   });
 
-  it("ignores braces inside regex character classes", () => {
-    const { brace, bracket } = scan(`const re = /[{}]/g; const m = "hi".match(/\\d{2,3}/);`);
-    expect(brace).toBe(0);
-    expect(bracket).toBe(0);
-  });
-
-  it("handles template literals with interpolation (real braces inside)", () => {
-    const src = "const html = `<div class=${cls}>${items.map((x) => `<li>${x}</li>`).join('')}</div>`;";
-    const { brace, paren } = scan(src);
-    expect(brace).toBe(0);
-    expect(paren).toBe(0);
-  });
-
-  it("does not treat division as regex", () => {
-    const { brace, bracket } = scan(`const r = width / 2; const c = arr[0] / count;`);
-    expect(brace).toBe(0);
-    expect(bracket).toBe(0);
-  });
-
-  it("treats regex after a keyword correctly", () => {
-    const { brace } = scan(`function ok(s) { return /[{]/.test(s); }`);
-    expect(brace).toBe(0);
-  });
-
-  it("survives JSX with expressions and closing tags", () => {
-    const src = `export default function App() {
-      return (
-        <div className="wrap">
-          {items.map((it) => <li key={it.id}>{it.name}</li>)}
-          <span>{count / total}</span>
-        </div>
-      );
-    }`;
-    const { brace, paren } = scan(src);
-    expect(brace).toBe(0);
-    expect(paren).toBe(0);
-  });
-
-  it("detects a genuinely truncated file", () => {
-    const { brace } = scan(`function f() { if (x) { doThing();`);
-    expect(brace).toBeGreaterThan(0);
+  it("preserves line structure (column-0 anchors survive)", () => {
+    const src = `const a = 1;\n  const b = 2;\nfunction c() {}`;
+    const sk = stripToSkeleton(src);
+    expect(sk.split("\n")).toHaveLength(3);
+    expect(/^const a/m.test(sk)).toBe(true);
+    expect(/^\s+const b/m.test(sk)).toBe(true);
   });
 });
 
@@ -99,61 +67,52 @@ function b() {
     expect(checkBuildSanity(f("web/src/App.tsx", src))).toHaveLength(0);
   });
 
-  it("does NOT flag a name that only appears in strings/comments", () => {
-    const src = `const draw = () => {};\n// function draw() {}\nconst note = "function draw() {}";`;
+  it("does NOT flag a name that only appears in strings/comments/templates", () => {
+    const src = `const draw = () => {};\n// function draw() {}\nconst note = "function draw() {}";\nconst tpl = \`\nfunction draw(){}\n\`;`;
     expect(checkBuildSanity(f("web/src/App.tsx", src))).toHaveLength(0);
   });
 });
 
-describe("checkBuildSanity — other blocking failures", () => {
-  it("flags multiple default exports", () => {
+describe("checkBuildSanity — multiple default exports", () => {
+  it("flags two default exports", () => {
     const src = `export default function A() { return null; }\nexport default function B() { return null; }`;
     const findings = checkBuildSanity(f("web/src/App.tsx", src));
     expect(findings.some((x) => x.problem.includes("export default"))).toBe(true);
   });
-
-  it("flags unbalanced braces from a truncated component", () => {
-    const findings = checkBuildSanity(f("web/src/App.tsx", `export default function App() {\n  return <div>hi</div>;`));
-    expect(findings.some((x) => x.problem.includes("curly braces"))).toBe(true);
-  });
 });
 
-describe("checkBuildSanity — scope & clean passes", () => {
-  it("only inspects web/src compiled sources", () => {
-    // Duplicate decls in a non-compiled path must be ignored.
-    const files = new Map([
-      ["scripts/tool.ts", `const X = 1;\nconst X = 2;`],
-      ["web/public/data.json", `{ "a": 1 }`],
-      ["README.md", `function foo(){}\nfunction foo(){}`],
-    ]);
-    expect(checkBuildSanity(files)).toHaveLength(0);
-  });
-
-  it("passes a realistic clean App.tsx", () => {
+describe("checkBuildSanity — NO false positives on real-world patterns", () => {
+  it("passes JSX with apostrophes, regex, templates, generics, division", () => {
     const src = `import { useState } from "react";
 
 const TILE = 32;
 type Cell = { x: number; y: number };
+const clean = (s: string) => s.replace(/[^a-z{}]/gi, "");
 
-function neighbors(c: Cell): Cell[] {
-  return [
-    { x: c.x + 1, y: c.y },
-    { x: c.x - 1, y: c.y },
-  ];
+function neighbors<T extends Cell>(c: T): Cell[] {
+  return [{ x: c.x + 1, y: c.y }, { x: c.x - 1, y: c.y }];
 }
 
 export default function App() {
   const [score, setScore] = useState(0);
-  const label = \`Score: \${score}\`;
   const rate = score / (TILE || 1);
   return (
     <main>
-      <h1>{label}</h1>
-      <p>{neighbors({ x: 0, y: 0 }).length} moves — rate {rate}</p>
+      <h1>Don't stop — you're winning!</h1>
+      <p>It's {neighbors({ x: 0, y: 0 } as Cell).length} moves, rate {rate}</p>
+      {score > 0 && <span>Player's best: {clean("a{b}")}</span>}
       <button onClick={() => setScore((s) => s + 1)}>+1</button>
     </main>
   );
 }`;
     expect(checkBuildSanity(f("web/src/App.tsx", src))).toHaveLength(0);
+  });
+
+  it("only inspects web/src compiled sources", () => {
+    const files = new Map([
+      ["scripts/tool.ts", `const X = 1;\nconst X = 2;`],
+      ["README.md", `function foo(){}\nfunction foo(){}`],
+    ]);
+    expect(checkBuildSanity(files)).toHaveLength(0);
   });
 });

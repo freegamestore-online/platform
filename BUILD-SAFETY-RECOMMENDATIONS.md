@@ -9,13 +9,18 @@ and silently served a stale version for ~30 min.
 
 - **#1 — in-worker build-sanity gate (`src/build-sanity.ts`).** `checkBuildSanity()`
   runs BLOCKING before `deploy`/`push_update` in `infra-exec.ts`. It scans every
-  compiled source (`web/src/**.{ts,tsx,js,jsx}`) on a comment/string/template/regex
-  -stripped skeleton and blocks on: **duplicate top-level declarations** (the exact
-  `climberadventure` failure), multiple `export default`, and unbalanced braces/
-  parens/brackets (truncated files). On a hit the deploy is refused and the precise
-  problem is returned to the agent as the tool result, so it self-corrects in-session
-  instead of failing CI and serving a stale build. Covered by `build-sanity.test.ts`
-  (17 cases: regex/JSX/template-literal false-positive guards + the incident pattern).
+  compiled source (`web/src/**.{ts,tsx,js,jsx}`) on a comment/string/template-stripped
+  skeleton and blocks on: **duplicate top-level declarations** (the exact
+  `climberadventure` failure) and multiple `export default`. On a hit the deploy is
+  refused and the precise problem is returned to the agent as the tool result, so it
+  self-corrects in-session instead of failing CI and serving a stale build.
+  **Deliberately narrow:** a brace/paren balance check was prototyped and DROPPED —
+  a char scanner can't tell a string quote from a JSX-text apostrophe ("Don't",
+  "Player's") without a real parser, so it flagged **12 of 54 live published games**
+  as "unbalanced." A gate that blocks ~1-in-5 legitimate deploys is worse than the
+  bug. Duplicate-declaration detection is immune (it only reads column-0 declarations;
+  an apostrophe can at worst HIDE a line, never invent one) and validated at **0 false
+  positives across all 54 games + every template.** Covered by `build-sanity.test.ts`.
 - **#2 — verify-before-ship prompt** (`template.ts`, game + app prompts): explicit
   "write_file OVERWRITES the whole file — never append a second copy of a function"
   rule, under the typecheck-errors guidance.
