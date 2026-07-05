@@ -176,6 +176,17 @@ export function GameSettings() {
           </div>
         </Card>
 
+        {/* Conversation — reset the AI chat without touching the game. */}
+        <Card className="mt-6">
+          <h2 className="text-lg font-semibold mb-1">Conversation</h2>
+          <p className="text-sm mb-3" style={{ color: "var(--muted)" }}>
+            Start a fresh chat for “{game.name}”. This clears the current AI conversation and reloads the game's real files into a clean chat — the game, its code, and its live site are untouched. Use it if a chat gets stuck or confused.
+          </p>
+          <Button variant="secondary" onClick={() => navigate(`/create?game=${encodeURIComponent(game.id)}&fresh=1`)} className="px-5">
+            Start a fresh chat
+          </Button>
+        </Card>
+
         {/* Danger zone */}
         <section className="flex flex-col gap-3 p-5 rounded-2xl mt-6" style={{ background: "color-mix(in srgb, #ef4444 5%, var(--surface))", border: "1px solid color-mix(in srgb, #ef4444 30%, var(--border))" }}>
           <h2 className="text-lg font-semibold" style={{ color: "#ef4444" }}>Delete game</h2>

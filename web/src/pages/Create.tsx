@@ -52,10 +52,15 @@ export function Create() {
     // duplicate session for a game that already has one.
     if (!gameId || loading || !user || agent.projectsLoading || openedGameRef.current === gameId) return;
     openedGameRef.current = gameId;
-    void agent.openGame(gameId).finally(() => {
+    // ?fresh=1 (from a game's settings) starts a CLEAN chat for the game instead
+    // of reopening its existing conversation — the escape hatch for a session
+    // whose history has gone bad. Otherwise open/resume the game normally.
+    const fresh = searchParams.get("fresh") === "1";
+    const open = fresh ? agent.startFreshChat(gameId) : agent.openGame(gameId);
+    void open.finally(() => {
       setSearchParams({}, { replace: true });
     });
-  }, [searchParams, loading, user, agent.projectsLoading, agent.openGame, setSearchParams]);
+  }, [searchParams, loading, user, agent.projectsLoading, agent.openGame, agent.startFreshChat, setSearchParams]);
 
   // Deep-link: /create?session=<id> resumes an in-progress draft session (opened
   // from the dashboard's Drafts list). Unlike ?game=, a draft has no live repo to
@@ -342,6 +347,8 @@ export function Create() {
           // Unified: "new" from the picker opens the one template picker, not a
           // blank canvas session.
           onCreate={() => { setPickerOpen(false); setNewOpen(true); }}
+          onDelete={(id) => agent.deleteProject(id)}
+          onFreshChat={(appId) => { setPickerOpen(false); void agent.startFreshChat(appId); }}
           onClose={() => setPickerOpen(false)}
         />
       )}

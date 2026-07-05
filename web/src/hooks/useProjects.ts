@@ -206,6 +206,58 @@ export function useProjects() {
     return id;
   }, [projects, setCurrentId]);
 
+  // Start a FRESH chat for an already-built game: mint a brand-new session id
+  // (a new Durable Object = a clean, empty transcript) and IMPORT the game's real
+  // repo files into it, then remove the game's OLD session(s) from the list. This
+  // is the escape hatch for a session whose conversation has gone bad — you keep
+  // the deployed game and its code, and just start the chat over. `openGame`
+  // deliberately REUSES an existing session (to preserve history), so it can't
+  // escape a poisoned one; this is the deliberate opposite. Returns the new id.
+  const startFreshChat = useCallback(async (gameId: string): Promise<string> => {
+    // Every session currently bound to this game — local list + authoritative
+    // server index — so we can drop them all (a game may have accreted more than
+    // one session across browsers/deploys).
+    const stale = new Set(projects.filter((p) => p.appId === gameId).map((p) => p.id));
+    try {
+      const server = await fetchSessions(new AbortController().signal);
+      server.filter((p) => p.appId === gameId).forEach((p) => stale.add(p.id));
+    } catch {
+      // Offline — drop just the local ones; the next reload reconciles.
+    }
+
+    const id = crypto.randomUUID();
+    const res = await fetch(`${AGENT_URL}/session/${id}/import`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: gameId }),
+    });
+    if (!res.ok) {
+      const msg = ((await res.json().catch(() => ({}))) as { error?: string }).error;
+      throw new Error(msg || `Couldn't start a fresh chat for "${gameId}" (${res.status}).`);
+    }
+    const data = (await res.json()) as { name?: string; appUrl?: string };
+    const project: Project = {
+      id,
+      name: data.name || gameId,
+      createdAt: new Date().toISOString(),
+      updatedAt: Date.now(),
+      deployed: true,
+      appId: gameId,
+      appUrl: data.appUrl || `https://${gameId}.freegamestore.online`,
+    };
+    // Swap in the fresh session and drop every stale one for this game.
+    setProjects((prev) => [project, ...prev.filter((p) => !stale.has(p.id))]);
+    setCurrentId(id);
+    putSession(project);
+    // Best-effort: remove the stale index rows server-side (their DO transcripts
+    // become orphaned + unreachable, which is fine — nothing references them).
+    for (const oldId of stale) {
+      fetch(`${AGENT_URL}/sessions/${oldId}`, { method: "DELETE", credentials: "include" }).catch(() => {});
+    }
+    return id;
+  }, [projects, setCurrentId]);
+
   const rename = useCallback((id: string, name: string) => {
     setProjects((prev) => {
       const existing = prev.find((project) => project.id === id);
@@ -248,5 +300,5 @@ export function useProjects() {
     });
   }, []);
 
-  return { projects, currentId, loading, loadError, reload, create, switchTo, openGame, rename, markDeployed, deleteProject };
+  return { projects, currentId, loading, loadError, reload, create, switchTo, openGame, startFreshChat, rename, markDeployed, deleteProject };
 }

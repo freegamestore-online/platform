@@ -103,6 +103,20 @@ export function useAgent() {
     }
   }, [projectsMgr, resetUI]);
 
+  // Start a clean chat for an already-built game (keeps the game, resets the
+  // conversation). The escape hatch when a session's history has gone bad.
+  const startFreshChat = useCallback(async (gameId: string): Promise<string | null> => {
+    if (isStreamingRef.current) return null;
+    try {
+      const id = await projectsMgr.startFreshChat(gameId);
+      resetUI();
+      return id;
+    } catch (e) {
+      setError((e as Error).message || `Couldn't start a fresh chat for ${gameId}.`);
+      return null;
+    }
+  }, [projectsMgr, resetUI]);
+
   const loadHistory = useCallback(async () => {
     if (!sessionId) {
       setMessages(DEFAULT_MESSAGES);
@@ -342,7 +356,7 @@ export function useAgent() {
     messages, visibleCount, showEarlier, isStreaming, tokensIn, tokensOut, deployState, error, dismissError,
     projects: projectsMgr.projects, currentProjectId: projectsMgr.currentId,
     projectsError: projectsMgr.loadError, projectsLoading: projectsMgr.loading, reloadProjects: projectsMgr.reload,
-    sendMessage, createProject, switchProject, openGame, loadHistory,
+    sendMessage, createProject, switchProject, openGame, startFreshChat, loadHistory,
     deleteProject: projectsMgr.deleteProject,
   };
 }
