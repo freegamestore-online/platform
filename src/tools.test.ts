@@ -117,19 +117,29 @@ describe("executeTool — file tools", () => {
     expect(result.isError).toBe(true);
   });
 
-  it("rejects a destructive truncated write (>90% shrink of a real file)", () => {
+  it("accepts a big-shrink write but WARNS (refactor-friendly; truncation caught at build, not by wedging)", () => {
     const files = new Map<string, string>();
-    files.set("web/src/lib/physics.ts", "x".repeat(5894)); // the real angrry case
-    // A 46-byte stub over a 5894-byte module = truncated write → must be refused,
-    // and the original content must survive.
+    files.set("web/src/lib/physics.ts", "x".repeat(5894));
+    // A >90% shrink used to be hard-REJECTED, but that false-positived on
+    // intentional modularization (slim a big file, move code to new modules) and
+    // the agent looped on the rejection → no-progress breaker killed the session
+    // (the 3D-template wedge). Now accept + warn; a genuine truncation is caught
+    // by the build gate (which blocks deploy), so nothing broken ships.
     const result = executeTool(
       { id: "1", name: "write_file", input: { path: "web/src/lib/physics.ts", content: 'import { Bird } from "../types";' } },
       files,
       appsConfig,
     );
-    expect(result.isError).toBe(true);
-    expect(result.content).toContain("truncated");
-    expect(files.get("web/src/lib/physics.ts")!.length).toBe(5894); // NOT destroyed
+    expect(result.isError).toBeFalsy();
+    expect(result.content).toMatch(/90% smaller|re-send the COMPLETE file/i);
+    expect(files.get("web/src/lib/physics.ts")).toBe('import { Bird } from "../types";'); // write applied
+  });
+
+  it("does NOT warn on a moderate shrink (normal edit)", () => {
+    const files = new Map<string, string>([["a.ts", "y".repeat(2000)]]);
+    const r = executeTool({ id: "1", name: "write_file", input: { path: "a.ts", content: "z".repeat(1200) } }, files, appsConfig);
+    expect(r.isError).toBeFalsy();
+    expect(r.content).not.toMatch(/90% smaller/);
   });
 
   it("allows a normal edit and a legitimate moderate shrink", () => {

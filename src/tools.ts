@@ -283,29 +283,26 @@ export function executeTool(toolCall: ToolCall, files: Map<string, string>, conf
       // as a tool error the agent can recover from — not a throw.
       const size = byteLen(content);
 
-      // Destructive-truncation guard. If this write would REPLACE a substantial
-      // existing file with a tiny fraction of its size, it's almost never an
-      // intentional edit — it's a truncated/incomplete generation (e.g. the model
-      // hit its max_tokens output limit mid-write and only the import line made
-      // it, leaving a ~46-byte stub over a 6KB module). Accepting it silently
-      // destroys the file AND the follow-up build breaks; the turn then stalls.
-      // Reject it so the real content survives and the agent re-sends the COMPLETE
-      // file. Only fires on a drastic shrink (<10%) of a non-trivial file, so a
-      // legitimate slimming edit is unaffected.
+      // Big-shrink WARNING (not a hard error). Replacing a substantial file with
+      // a tiny fraction of its size CAN be a truncated/incomplete generation (the
+      // model hit its max_tokens limit mid-write, leaving a stub) — but it is just
+      // as often an INTENTIONAL refactor: slimming a large file into a thin
+      // orchestrator after moving its code into new modules (exactly what the
+      // system prompt tells the agent to do). Hard-rejecting blocked those
+      // legitimate refactors, the agent re-sent the same correct content, and the
+      // no-progress breaker then killed the session (the 3D-template refactor
+      // wedge). So ACCEPT the write and warn instead: a genuine truncation is
+      // caught downstream by the build/compliance gate, which blocks the deploy
+      // (deploy no longer false-succeeds), so nothing broken ever ships.
+      let shrinkWarning = "";
       const prev = files.get(path);
       if (prev !== undefined) {
         const prevSize = byteLen(prev);
         if (prevSize >= 500 && size < prevSize * 0.1) {
-          return {
-            id,
-            content:
-              `Error: refusing to write ${path} — the new content is ${size} bytes but the current file is ${prevSize} bytes ` +
-              `(a >90% shrink). This is almost always a truncated/incomplete write (e.g. an output cut off mid-file), which would ` +
-              `delete most of the code. Re-send the COMPLETE file contents in ONE write_file call. If the file is too large to ` +
-              `fit in one response, SPLIT it into smaller modules and write each one in full instead. If you genuinely mean to ` +
-              `replace it with a much smaller file, first delete_file it, then write the new one.`,
-            isError: true,
-          };
+          shrinkWarning =
+            ` — NOTE: this replaced a ${prevSize}-byte file with ${size} bytes (>90% smaller). If that was a truncated/` +
+            `incomplete write, re-send the COMPLETE file now. If you intentionally moved the code into other modules, make ` +
+            `sure you actually wrote those module files.`;
         }
       }
       if (size > WRITE_FILE_MAX_BYTES) {
@@ -339,7 +336,7 @@ export function executeTool(toolCall: ToolCall, files: Map<string, string>, conf
       }
 
       files.set(path, content);
-      return { id, content: `Wrote ${path} (${content.length} bytes)` };
+      return { id, content: `Wrote ${path} (${content.length} bytes)${shrinkWarning}` };
     }
 
     case "read_file": {
