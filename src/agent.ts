@@ -185,6 +185,13 @@ export async function runAgentTurn(
   // accumulate, so legitimate repeated edits to a file are unaffected.
   const toolCallCounts = new Map<string, number>();
   const REPEAT_LIMIT = 3;
+  // No-progress breaker: consecutive rounds where EVERY file tool errored. Unlike
+  // the exact-repeat breaker above, this catches VARIED flailing — e.g. the angrry
+  // loop, where each rejected write had a different placeholder ("[2722 bytes…]",
+  // "[3038 bytes…]") to a different file, so no two calls were identical. A single
+  // successful file op resets it.
+  let errorStreak = 0;
+  const ERROR_STREAK_LIMIT = 4;
 
   for (let loop = 0; loop < MAX_LOOPS; loop++) {
     // Stagger API calls — wait between rounds to avoid rate limits
@@ -334,6 +341,12 @@ export async function runAgentTurn(
       break;
     }
 
+    // Track the no-progress streak: all file tools in this round errored → the
+    // model is flailing (e.g. every write rejected as a placeholder). Any success
+    // resets it. (Only file rounds reach here; infra rounds broke above.)
+    if (results.length > 0 && results.every((r) => r.isError)) errorStreak++;
+    else errorStreak = 0;
+
     // All tools were file tools — add results and continue the loop
     const toolResultMsg: Message = {
       role: "tool_result",
@@ -343,6 +356,18 @@ export async function runAgentTurn(
     messages.push(toolResultMsg);
     newMessages.push(toolResultMsg);
     onCheckpoint?.(newMessages);
+
+    if (errorStreak >= ERROR_STREAK_LIMIT) {
+      const note =
+        `I hit repeated errors writing files (${errorStreak} rounds in a row) without making progress, so I stopped ` +
+        `instead of looping. This happens when a file's content isn't coming through correctly. Your deployed game is ` +
+        `unchanged and safe. Please start a fresh chat for this game and describe the change again — it'll apply cleanly.`;
+      await send({ type: "text", data: `\n\n⚠️ ${note}` });
+      const stopMsg: Message = { role: "assistant", content: `⚠️ ${note}` };
+      newMessages.push(stopMsg);
+      onCheckpoint?.(newMessages);
+      break;
+    }
   }
 
   if (infraRequests.length === 0) {
