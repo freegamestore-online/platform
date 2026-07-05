@@ -9,7 +9,23 @@ export interface ServerSession {
   gameId?: string;
   gameUrl?: string;
   deployed: boolean;
+  tokens?: { input: number; output: number };
   createdAt: string; // D1 datetime text, e.g. "2026-06-29 21:26:52"
+}
+
+/** Account-wide usage totals from GET /sessions. */
+export interface UsageTotals {
+  input: number;
+  output: number;
+  games: number;
+}
+
+/** Compact a token count for display: 1234 → "1.2k", 2_500_000 → "2.5M". */
+export function formatTokens(n: number): string {
+  if (!n || n < 0) return "0";
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}k`;
+  return `${(n / 1_000_000).toFixed(1)}M`;
 }
 
 export interface Project {
@@ -20,6 +36,7 @@ export interface Project {
   appId?: string;
   appUrl?: string;
   deployed: boolean;
+  tokens?: { input: number; output: number };
 }
 
 export interface DraftSession {
@@ -41,6 +58,7 @@ export function mapServerSession(s: ServerSession, nowMs: number): Project {
     appId: s.gameId,
     appUrl: s.gameUrl,
     deployed: s.deployed,
+    tokens: s.tokens,
     createdAt: valid ? new Date(ms).toISOString() : new Date(nowMs).toISOString(),
     updatedAt: valid ? ms : nowMs,
   };

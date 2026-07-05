@@ -5,9 +5,12 @@ import { TextSizeSetting } from "../components/TextSizeSetting";
 import { KidModeSetting } from "../components/KidModeSetting";
 import { LoadingShell, SignInShell } from "../components/PageShell";
 import { useAuth } from "../hooks/useAuth";
+import { useUsage } from "../hooks/useUsage";
+import { formatTokens } from "../lib/sessions";
 
 export function Profile() {
   const { user, creator, loading, signIn, signOut } = useAuth();
+  const { totals, games: usageGames } = useUsage();
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -118,6 +121,49 @@ export function Profile() {
             />
           )}
         </div>
+
+        {/* Token usage — how much AI the account has spent, in total and per game.
+            Reads the agent session index (same source as the studio picker), so
+            it's free to show. Hidden entirely until there's something to report. */}
+        {totals && totals.input + totals.output > 0 && (
+          <div className="mb-8">
+            <h3
+              className="text-base font-bold mb-3 pb-2 border-b"
+              style={{ borderColor: "var(--border)" }}
+            >
+              AI Usage
+            </h3>
+            <DetailRow
+              label="Tokens used (total)"
+              value={formatTokens(totals.input + totals.output)}
+              valueStyle={{ color: "var(--accent)" }}
+            />
+            <DetailRow label="Input / Output" value={`${formatTokens(totals.input)} in · ${formatTokens(totals.output)} out`} />
+            {usageGames.length > 0 && (
+              <div className="mt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--muted)" }}>
+                  By game
+                </p>
+                {usageGames.map((g) => (
+                  <div
+                    key={g.id}
+                    className="flex justify-between items-center gap-3 py-2 border-b text-sm"
+                    style={{ borderColor: "var(--border)" }}
+                  >
+                    <span className="truncate min-w-0">{g.name}</span>
+                    <span
+                      className="shrink-0 font-mono text-xs tabular-nums"
+                      style={{ color: "var(--muted)" }}
+                      title={`${(g.input + g.output).toLocaleString()} tokens (${g.input.toLocaleString()} in / ${g.output.toLocaleString()} out)`}
+                    >
+                      {formatTokens(g.input + g.output)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Session */}
         <div className="mb-8">

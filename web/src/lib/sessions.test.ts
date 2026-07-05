@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mapServerSession, toDrafts, type ServerSession } from "./sessions";
+import { formatTokens, mapServerSession, toDrafts, type ServerSession } from "./sessions";
 
 const NOW = Date.UTC(2026, 6, 3, 12, 0, 0); // fixed clock for determinism
 
@@ -25,6 +25,22 @@ describe("mapServerSession", () => {
 
   it("names an untitled session 'Untitled'", () => {
     expect(mapServerSession(session({ name: "" }), NOW).name).toBe("Untitled");
+  });
+
+  it("carries token usage through when present", () => {
+    const p = mapServerSession(session({ tokens: { input: 100, output: 40 } }), NOW);
+    expect(p.tokens).toEqual({ input: 100, output: 40 });
+  });
+});
+
+describe("formatTokens", () => {
+  it("passes small counts through and compacts thousands/millions", () => {
+    expect(formatTokens(0)).toBe("0");
+    expect(formatTokens(-3)).toBe("0");
+    expect(formatTokens(950)).toBe("950");
+    expect(formatTokens(1234)).toBe("1.2k");
+    expect(formatTokens(45678)).toBe("46k");
+    expect(formatTokens(2_500_000)).toBe("2.5M");
   });
 });
 
