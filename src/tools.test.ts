@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import { getConfig } from "./config";
 import { getTemplateFiles } from "./template";
 import {
+  clampToolResultForHistory,
+  DEFAULT_TOOL_HISTORY_CAP,
   executeTool,
   getToolDefinitions,
   INFRA_TOOLS,
   looksLikePlaceholder,
+  READ_FILE_HISTORY_CAP,
   WRITE_FILE_MAX_BYTES,
   WRITE_FILE_MAX_FILES,
   WRITE_FILE_MAX_TOTAL_BYTES,
@@ -342,5 +345,105 @@ describe("run_compliance_check", () => {
     const result = executeTool({ id: "1", name: "run_compliance_check", input: {} }, files, appsConfig);
     expect(result.content).toContain("NOTE: APPNAME placeholders");
     expect(result.content).not.toContain("FAIL: APPNAME placeholders");
+  });
+});
+
+// The two tool behaviors that stalled the agent on angrry: read results getting
+// starved, and multi-term searches silently matching nothing. Lock both down.
+describe("clampToolResultForHistory (read must not be starved)", () => {
+  it("gives read_file a big budget — a whole ~15KB game file survives intact", () => {
+    const file = "x".repeat(15_000); // a real 300-500 line game file
+    const out = clampToolResultForHistory("read_file", file);
+    expect(out).toBe(file); // NOT truncated — this was the "file got cut off" bug
+    expect(out.length).toBe(15_000);
+  });
+
+  it("truncates an over-cap read_file with a recovery note", () => {
+    const huge = "y".repeat(READ_FILE_HISTORY_CAP + 5_000);
+    const out = clampToolResultForHistory("read_file", huge);
+    expect(out.length).toBeLessThan(huge.length);
+    expect(out.startsWith("y".repeat(READ_FILE_HISTORY_CAP))).toBe(true);
+    expect(out).toContain("truncated");
+    expect(out).toMatch(/read a specific section|split/i);
+  });
+
+  it("keeps non-read tools tight (search/list can't flood context)", () => {
+    const big = "z".repeat(DEFAULT_TOOL_HISTORY_CAP + 1_000);
+    const out = clampToolResultForHistory("search_files", big);
+    expect(out.length).toBeLessThan(big.length);
+    expect(out).toContain("truncated");
+    // read_file's budget is far larger than everything else.
+    expect(READ_FILE_HISTORY_CAP).toBeGreaterThan(DEFAULT_TOOL_HISTORY_CAP * 5);
+  });
+
+  it("leaves small results untouched (no spurious note)", () => {
+    expect(clampToolResultForHistory("read_file", "short")).toBe("short");
+    expect(clampToolResultForHistory("list_files", "a.ts\nb.ts")).toBe("a.ts\nb.ts");
+    expect(clampToolResultForHistory("read_file", "")).toBe("");
+  });
+});
+
+describe("executeTool — search_files (alternation + robustness)", () => {
+  const files = () =>
+    new Map<string, string>([
+      ["web/src/App.tsx", "const w = canvasSize.w;\nconst h = canvasSize.h;\nwindow.innerWidth;\nuseEffect(() => {});\nplain text line"],
+      ["web/src/lib/physics.ts", "export const GRAVITY = 800;\nfunction resize() {}"],
+    ]);
+
+  it("matches ANY term for a|b (single call across multiple terms)", () => {
+    const r = executeTool({ id: "1", name: "search_files", input: { pattern: "innerWidth|GRAVITY|resize" } }, files(), gamesConfig);
+    expect(r.content).toContain("App.tsx:3:");
+    expect(r.content).toContain("physics.ts:1:");
+    expect(r.content).toContain("physics.ts:2:");
+    expect(r.content).not.toContain("plain text line");
+  });
+
+  it("handles grep-BRE alternation a\\|b (what the model actually emits)", () => {
+    // This is the exact form from the angrry transcript that matched NOTHING.
+    const r = executeTool({ id: "1", name: "search_files", input: { pattern: "innerWidth\\|innerHeight\\|resize\\|observer" } }, files(), gamesConfig);
+    expect(r.isError).toBeFalsy();
+    expect(r.content).toContain("App.tsx:3:"); // innerWidth
+    expect(r.content).toContain("physics.ts:2:"); // resize
+  });
+
+  it("tolerates whitespace around the pipe", () => {
+    const r = executeTool({ id: "1", name: "search_files", input: { pattern: "const w = | const h =" } }, files(), gamesConfig);
+    expect(r.content).toContain("App.tsx:1:");
+    expect(r.content).toContain("App.tsx:2:");
+  });
+
+  it("is case-insensitive", () => {
+    const r = executeTool({ id: "1", name: "search_files", input: { pattern: "GRAVITY|useeffect" } }, files(), gamesConfig);
+    expect(r.content).toContain("physics.ts:1:");
+    expect(r.content).toContain("App.tsx:4:");
+  });
+
+  it("single-term search still works (no false alternation)", () => {
+    const r = executeTool({ id: "1", name: "search_files", input: { pattern: "canvasSize" } }, files(), gamesConfig);
+    expect(r.content).toContain("App.tsx:1:");
+    expect(r.content).toContain("App.tsx:2:");
+  });
+
+  it("reports no matches (not an error) with the original pattern", () => {
+    const r = executeTool({ id: "1", name: "search_files", input: { pattern: "nonexistent|alsomissing" } }, files(), gamesConfig);
+    expect(r.isError).toBeFalsy();
+    expect(r.content).toContain("No matches");
+  });
+
+  it("errors on an empty pattern", () => {
+    const r = executeTool({ id: "1", name: "search_files", input: { pattern: "  " } }, files(), gamesConfig);
+    expect(r.isError).toBe(true);
+  });
+
+  it("caps output at 50 matches", () => {
+    const big = new Map<string, string>([["big.ts", Array.from({ length: 200 }, (_, i) => `line ${i} hit`).join("\n")]]);
+    const r = executeTool({ id: "1", name: "search_files", input: { pattern: "hit" } }, big, gamesConfig);
+    expect(r.content.split("\n").length).toBeLessThanOrEqual(50);
+  });
+
+  it("advertises alternation in the tool description so the model uses it", () => {
+    const def = getToolDefinitions(gamesConfig).find((t) => t.name === "search_files")!;
+    expect(def.description.toLowerCase()).toContain("alternation");
+    expect(def.description).toContain("|");
   });
 });

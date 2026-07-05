@@ -22,6 +22,27 @@ function totalBytes(files: Map<string, string>): number {
   return total;
 }
 
+// How much of a tool result is kept in the conversation history sent to the
+// model. read_file needs a MUCH larger budget than the rest: a game file is
+// routinely 300-500 lines (~15KB), and a too-small cap means the agent sees only
+// the top of the file it explicitly opened, then thrashes on piecemeal searches
+// until it runs out of turns (the angrry "the file got cut off → stuck" bug).
+export const READ_FILE_HISTORY_CAP = 24_000; // ~a whole typical game file
+export const DEFAULT_TOOL_HISTORY_CAP = 2_000;
+
+/**
+ * Clamp a tool result for the conversation history so one call can't dominate the
+ * context, giving read_file a generous budget and everything else a tight one.
+ * Over-cap content gets a clear note telling the model how to recover. Pure +
+ * exported so the cap is unit-tested (it's load-bearing: too small starves the
+ * agent, too large blows the context budget).
+ */
+export function clampToolResultForHistory(toolName: string, content: string): string {
+  const cap = toolName === "read_file" ? READ_FILE_HISTORY_CAP : DEFAULT_TOOL_HISTORY_CAP;
+  if (content.length <= cap) return content;
+  return `${content.slice(0, cap)}\n… [truncated ${content.length - cap} more chars — read a specific section, or split this file into smaller modules]`;
+}
+
 // A tool-result-shaped status echo the model sometimes writes AS content instead
 // of the real source: "[3038 bytes written to x.ts]", "2.5 KB written to …", our
 // own "Wrote x.ts (3038 bytes)" ack, etc. Both are ANCHORED — they must be what

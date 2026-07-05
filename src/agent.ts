@@ -8,7 +8,7 @@ import { OpenAIAdapter } from "./providers/openai";
 import type { AIConfig, Message, ProviderAdapter, StreamEvent, TokenUsage, ToolCall, ToolResult } from "./providers/types";
 import { healPoisonedHistory } from "./session-budget";
 import { getSystemPrompt } from "./template";
-import { executeTool, getToolDefinitions, INFRA_TOOLS } from "./tools";
+import { clampToolResultForHistory, executeTool, getToolDefinitions, INFRA_TOOLS } from "./tools";
 
 /**
  * Stable signature for a tool call (name + path + a cheap content hash), used by
@@ -320,17 +320,11 @@ export async function runAgentTurn(
     for (const tc of fileToolCalls) {
       const result = executeTool(tc, files, storeConfig);
       // Cap tool results kept in the conversation so one call can't dominate the
-      // context — but read_file needs a MUCH larger budget than the rest. A game
-      // file is routinely 300-500 lines (~15KB); the old blanket 1500-char cap
-      // meant the agent saw only ~40 lines of the file it explicitly opened, so
-      // it could never understand a real game and thrashed on piecemeal searches
-      // until it ran out of turns (the angrry "reads got truncated → stuck" bug).
-      // read_file: 24KB (a whole typical file). Everything else stays tight.
-      const cap = tc.name === "read_file" ? 24_000 : 2_000;
-      const full = result.content;
-      const clipped = full.length > cap ? `${full.slice(0, cap)}\n… [truncated ${full.length - cap} more chars — read a specific section, or split this file into smaller modules]` : full;
-      results.push({ ...result, content: clipped });
-      await send({ type: "tool_result", data: JSON.stringify({ id: tc.id, tool: tc.name, result: full.slice(0, 400) }) });
+      // context — read_file gets a large budget so the agent can actually see a
+      // whole game file (see clampToolResultForHistory). The live SSE preview to
+      // the client stays short (400 chars) — it's a status line, not the record.
+      results.push({ ...result, content: clampToolResultForHistory(tc.name, result.content) });
+      await send({ type: "tool_result", data: JSON.stringify({ id: tc.id, tool: tc.name, result: result.content.slice(0, 400) }) });
     }
 
     // Collect infra tools — session will execute them and build the
