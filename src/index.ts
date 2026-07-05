@@ -657,9 +657,13 @@ function renderDashboardShell(): string {
         var funded=d.funded||[];compInitProviders(funded);
         document.getElementById('compFunded').textContent=funded.length?('Funded: '+funded.join(', ')+'.'):'No platform keys set yet — add a COMP_KEY_<PROVIDER> secret to fund one.';
         var g=d.grants||[];
-        tb.innerHTML=g.length?g.map(function(x){return '<tr><td>'+esc(x.userId)+'</td><td>'+esc(x.provider)+'</td><td>'+esc(x.model)+'</td><td class="gray">'+esc(x.note||'')+'</td><td class="gray">'+esc(x.grantedBy||'')+'</td><td class="gray">'+esc(x.expiresAt||'never')+'</td><td><button onclick="revokeComp(\''+esc(x.userId)+'\')">Revoke</button></td></tr>'}).join(''):'<tr><td colspan="7" class="gray">No complimentary grants.</td></tr>';
+        tb.innerHTML=g.length?g.map(function(x){return '<tr><td>'+esc(x.userId)+'</td><td>'+esc(x.provider)+'</td><td>'+esc(x.model)+'</td><td class="gray">'+esc(x.note||'')+'</td><td class="gray">'+esc(x.grantedBy||'')+'</td><td class="gray">'+esc(x.expiresAt||'never')+'</td><td><button class="revoke-btn" data-uid="'+esc(x.userId)+'">Revoke</button></td></tr>'}).join(''):'<tr><td colspan="7" class="gray">No complimentary grants.</td></tr>';
       }catch(e){tb.innerHTML='<tr><td colspan="7" class="red">Failed: '+esc(e)+'</td></tr>'}
     }
+    // Delegated revoke handler — a data-uid attribute avoids quoting a value into
+    // an inline onclick, which inside this template-literal-in-a-string mis-escapes
+    // (\\' collapses to ') and would break the entire console script.
+    document.addEventListener('click',function(ev){var t=ev.target;var b=t&&t.closest?t.closest('.revoke-btn'):null;if(b)revokeComp(b.getAttribute('data-uid'));});
     setSize((function(){try{return localStorage.getItem('fgs_admin_textsize')}catch(e){return null}})()||'md');
     showTab('overview');
   </script>
