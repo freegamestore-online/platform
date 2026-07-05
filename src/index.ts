@@ -492,18 +492,17 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     // -- agent_build (delegate code-gen to the platform's VibeCode agent) --
     this.server.tool(
       "agent_build",
-      "Hand a natural-language prompt to the FreeGameStore VibeCode AGENT — the platform's own AI writes the code AND deploys it. FGS agent is bring-your-own-key: pass your AI provider api_key. Long-running; builds in the background. Returns session_id — poll agent_status for progress.",
+      "Hand a natural-language prompt to the FreeGameStore VibeCode AGENT — the platform's own AI writes the code AND deploys it. By default it uses the AI key saved for your account (the platform's encrypted key vault); pass api_key only to override with a different key. Long-running; builds in the background. Returns session_id — poll agent_status for progress.",
       {
         prompt: z.string().describe("What to build, in plain English. Include a desired game id."),
-        api_key: z.string().describe("Your AI provider API key (BYO — FGS agent has no key vault). Spent against your own account."),
-        provider: z.enum(["anthropic", "openai", "google", "github"]).optional().describe("AI provider for your key (default anthropic)"),
+        api_key: z.string().optional().describe("Override key. Optional — defaults to the key saved for your account in the vault. Provider must match the saved key (or pass provider)."),
+        provider: z.enum(["anthropic", "openai", "google", "github"]).optional().describe("AI provider (default anthropic). Must match the saved/override key."),
         model: z.string().optional().describe("Model id"),
         session_id: z.string().optional().describe("Continue an existing build session"),
       },
       async ({ prompt, api_key, provider, model, session_id }) => {
         const token = this.props.token;
         if (!token) return txt("Not authenticated. Connect with a FGS session token.");
-        if (!api_key) return txt("agent_build requires an api_key — FGS agent is bring-your-own-key.");
         const prov = provider ?? "anthropic";
         const defaultModel: Record<string, string> = {
           anthropic: "claude-sonnet-4-6",
@@ -526,7 +525,9 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
           const res = await fetch(`${this.env.AGENT_BASE}/session/${sid}/chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ message: prompt, aiConfig: { provider: prov, model: model ?? defaultModel[prov] ?? "claude-sonnet-4-6", apiKey: api_key } }),
+            // Omit apiKey when not overridden so the agent resolves the account's
+            // vault key server-side (session.ts: aiConfig.apiKey || resolveUserKey).
+            body: JSON.stringify({ message: prompt, aiConfig: { provider: prov, model: model ?? defaultModel[prov] ?? "claude-sonnet-4-6", ...(api_key ? { apiKey: api_key } : {}) } }),
             signal: ctrl.signal,
           });
           if (!res.ok || !res.body) {
@@ -585,8 +586,8 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       {
         game_id: z.string().describe("The id/slug of a game you own, e.g. 'kart-racers'"),
         prompt: z.string().optional().describe("What to change, in plain English. Omit to just open/sync without editing."),
-        api_key: z.string().optional().describe("Your AI provider API key (BYO). Required only if you pass a prompt."),
-        provider: z.enum(["anthropic", "openai", "google", "github"]).optional().describe("AI provider (default anthropic)"),
+        api_key: z.string().optional().describe("Override key. Optional — defaults to the key saved for your account in the vault."),
+        provider: z.enum(["anthropic", "openai", "google", "github"]).optional().describe("AI provider (default anthropic). Must match the saved/override key."),
         model: z.string().optional().describe("Model id"),
       },
       async ({ game_id, prompt, api_key, provider, model }) => {
@@ -624,8 +625,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
         }).catch(() => {});
 
         const opened = `Opened **${name}** (\`${gid}\`) in VibeCode — ${impData.fileCount ?? "?"} file(s) ${impData.unchanged ? "already in sync" : "synced"} from the repo. Session \`${sid}\`.`;
-        if (!prompt) return txt(`${opened}\n\nCall edit_game again with a \`prompt\` (and \`api_key\`) to have the agent make changes, or use update_files to edit directly.`);
-        if (!api_key) return txt(`${opened}\n\nTo change it by prompt, pass \`api_key\` (BYO). Or edit directly with update_files.`);
+        if (!prompt) return txt(`${opened}\n\nCall edit_game again with a \`prompt\` to have the agent make changes (it uses your saved key), or use update_files to edit directly.`);
 
         // 3) Run one agent turn (same streaming contract as agent_build).
         const prov = provider ?? "anthropic";
@@ -638,7 +638,8 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
           const res = await fetch(`${this.env.AGENT_BASE}/session/${sid}/chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ message: prompt, aiConfig: { provider: prov, model: model ?? defaultModel[prov] ?? "claude-sonnet-4-6", apiKey: api_key } }),
+            // Omit apiKey when not overridden → agent uses the account vault key.
+            body: JSON.stringify({ message: prompt, aiConfig: { provider: prov, model: model ?? defaultModel[prov] ?? "claude-sonnet-4-6", ...(api_key ? { apiKey: api_key } : {}) } }),
             signal: ctrl.signal,
           });
           if (!res.ok || !res.body) { clearTimeout(timer); return txt(`${opened}\n\nAgent edit failed (${res.status}): ${(await res.text()).slice(0, 300)}`); }
