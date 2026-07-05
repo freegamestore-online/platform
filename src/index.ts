@@ -443,8 +443,23 @@ function renderDashboardShell(): string {
 
   <div id="tab-users" class="tabpanel">
     <h2>Registered users <span id="userCount" class="gray"></span></h2>
-    <p class="meta">Everyone who has signed in — including users who haven't published a game (so they don't appear under Creators below). To give someone a complimentary key: pick a funded provider + model in the <em>Complimentary access</em> form further down, then hit <strong>Grant</strong> on their row.</p>
-    <table><tr><th>User</th><th>ID</th><th>Registered</th><th>Comp access</th><th></th></tr><tbody id="allUsersTable"><tr><td colspan="5" class="loading">--</td></tr></tbody></table>
+    <p class="meta">Everyone who has signed in — including users who haven't published a game. To let someone build with a paid model, click <strong>Add key</strong> on their row and paste an API key. It goes into their account, and their studio uses it automatically — nothing else to set up.</p>
+    <table><tr><th>User</th><th>ID</th><th>Registered</th><th>Keys</th><th></th></tr><tbody id="allUsersTable"><tr><td colspan="5" class="loading">--</td></tr></tbody></table>
+
+    <div id="keyModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;align-items:center;justify-content:center">
+      <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:0.75rem;padding:1.25rem;max-width:440px;width:90%">
+        <h3 style="margin-bottom:0.75rem">Add API key for <span id="keyModalUser"></span></h3>
+        <label class="meta">Provider</label>
+        <select id="keyModalProvider" style="margin:0.25rem 0 0.75rem"><option value="anthropic">Anthropic (Claude)</option><option value="openai">OpenAI</option><option value="google">Google (Gemini)</option><option value="github">GitHub Models</option></select>
+        <label class="meta">API key (paste it — stored encrypted, never shown again)</label>
+        <input id="keyModalKey" type="password" placeholder="sk-ant-..." autocomplete="off" style="margin-top:0.25rem" />
+        <div id="keyModalMsg" class="meta" style="margin-top:0.5rem"></div>
+        <div style="display:flex;gap:0.5rem;margin-top:0.9rem">
+          <button class="addkey-btn" onclick="saveKey()">Save key</button>
+          <button onclick="closeKeyModal()" style="background:#2a2a2a;color:#ccc;border:1px solid #3a3a3a;border-radius:0.35rem;padding:0.4rem 0.75rem;cursor:pointer;font-size:0.85rem">Cancel</button>
+        </div>
+      </div>
+    </div>
 
     <h2 style="margin-top:2rem">Creators</h2>
     <p class="meta">Derived from the store registry (creatorGithub), most games first.</p>
@@ -455,6 +470,10 @@ function renderDashboardShell(): string {
     .compform input,.compform select{background:#1a1a1a;color:#e5e5e5;border:1px solid #2a2a2a;border-radius:0.35rem;padding:0.4rem 0.5rem;font-size:0.85rem}
     .compform button,#compTable button,.grant-btn,.revoke-btn{background:#1e3a5f;color:#93c5fd;border:1px solid #2a4a6f;border-radius:0.35rem;padding:0.4rem 0.75rem;cursor:pointer;font-size:0.85rem}
     #compTable button,.revoke-btn{background:#3a1e1e;color:#fca5a5;border-color:#5a2a2a}
+    .addkey-btn{background:#14342a;color:#6ee7b7;border:1px solid #1f5140;border-radius:0.35rem;padding:0.4rem 0.75rem;cursor:pointer;font-size:0.85rem;font-weight:600}
+    .keychip{display:inline-flex;align-items:center;gap:0.25rem;background:#14342a;color:#6ee7b7;border:1px solid #1f5140;border-radius:0.35rem;padding:0.1rem 0.4rem;font-size:0.78rem;margin:0 0.15rem 0.15rem 0}
+    .keychip button{background:none;border:none;color:#6ee7b7;cursor:pointer;font-size:0.95rem;padding:0;line-height:1}
+    #keyModal input,#keyModal select{background:#0f0f0f;color:#e5e5e5;border:1px solid #2a2a2a;border-radius:0.35rem;padding:0.5rem;font-size:0.9rem;width:100%}
     </style>
     <h2 style="margin-top:2rem">Complimentary access</h2>
     <p class="meta">Grant select users free builds on a platform-funded key. A grant only kicks in when the user has <em>no key of their own</em> (BYO always wins) and no game is charged to them. <span id="compFunded" class="gray"></span></p>
@@ -618,9 +637,10 @@ function renderDashboardShell(): string {
         var u=d.users||[];
         document.getElementById('userCount').textContent=u.length?('('+u.length+')'):'';
         tb.innerHTML=u.length?u.map(function(x){
-          var comp=x.grant?('<span class="green">'+esc(x.grant.provider)+' / '+esc(x.grant.model)+'</span>'+(x.grant.expiresAt?' <span class="gray">(until '+esc((x.grant.expiresAt||'').slice(0,10))+')</span>':'')):'<span class="gray">--</span>';
-          var action=x.grant?'<button class="revoke-btn" data-uid="'+esc(x.id)+'">Revoke</button>':'<button class="grant-btn" data-uid="'+esc(x.id)+'">Grant</button>';
-          return '<tr><td>'+esc(x.name)+'</td><td class="gray" style="font-size:0.8rem">'+esc(x.id)+'</td><td class="gray" style="font-size:0.8rem">'+esc((x.createdAt||'').slice(0,10))+'</td><td>'+comp+'</td><td>'+action+'</td></tr>';
+          var keys=x.keys||[];
+          var chips=keys.length?keys.map(function(p){return '<span class="keychip">'+esc(p)+' <button class="rmkey-btn" data-uid="'+esc(x.id)+'" data-prov="'+esc(p)+'" title="Remove key">x</button></span>'}).join(''):'<span class="gray">none</span>';
+          var action='<button class="addkey-btn" data-uid="'+esc(x.id)+'" data-name="'+esc(x.name)+'">Add key</button>';
+          return '<tr><td>'+esc(x.name)+'</td><td class="gray" style="font-size:0.8rem">'+esc(x.id)+'</td><td class="gray" style="font-size:0.8rem">'+esc((x.createdAt||'').slice(0,10))+'</td><td>'+chips+'</td><td>'+action+'</td></tr>';
         }).join(''):'<tr><td colspan="5" class="gray">No registered users.</td></tr>';
       }catch(e){tb.innerHTML='<tr><td colspan="5" class="red">Failed: '+esc(e)+'</td></tr>'}
     }
@@ -693,11 +713,43 @@ function renderDashboardShell(): string {
         tb.innerHTML=g.length?g.map(function(x){return '<tr><td>'+esc(x.userId)+'</td><td>'+esc(x.provider)+'</td><td>'+esc(x.model)+'</td><td class="gray">'+esc(x.note||'')+'</td><td class="gray">'+esc(x.grantedBy||'')+'</td><td class="gray">'+esc(x.expiresAt||'never')+'</td><td><button class="revoke-btn" data-uid="'+esc(x.userId)+'">Revoke</button></td></tr>'}).join(''):'<tr><td colspan="7" class="gray">No complimentary grants.</td></tr>';
       }catch(e){tb.innerHTML='<tr><td colspan="7" class="red">Failed: '+esc(e)+'</td></tr>'}
     }
-    // Delegated grant/revoke handlers — data-uid attributes avoid quoting a value
-    // into an inline onclick, which inside this template-literal-in-a-string
-    // mis-escapes (\\' collapses to ') and would break the entire console script.
+    // Add-a-key flow: click "Add key" on a user row → paste a provider key → it
+    // lands in that user's encrypted vault; their studio auto-selects a provider
+    // they have a key for, so they can build immediately.
+    var keyTargetUid=null;
+    function openKeyModal(uid,name){keyTargetUid=uid;document.getElementById('keyModalUser').textContent=name||uid;document.getElementById('keyModalKey').value='';document.getElementById('keyModalMsg').textContent='';document.getElementById('keyModal').style.display='flex';}
+    function closeKeyModal(){document.getElementById('keyModal').style.display='none';keyTargetUid=null;}
+    async function saveKey(){
+      var provider=document.getElementById('keyModalProvider').value;
+      var key=document.getElementById('keyModalKey').value.trim();
+      var msg=document.getElementById('keyModalMsg');
+      if(!keyTargetUid){msg.innerHTML='<span class="red">No user selected.</span>';return;}
+      if(!key){msg.innerHTML='<span class="red">Paste an API key first.</span>';return;}
+      msg.textContent='Saving...';
+      try{
+        var r=await fetch('/api/userkey',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:keyTargetUid,provider:provider,key:key})});
+        var d=await r.json().catch(function(){return{}});
+        if(!r.ok){msg.innerHTML='<span class="red">'+esc(d.error||('Failed ('+r.status+')'))+'</span>';return;}
+        msg.innerHTML='<span class="green">Saved '+esc(provider)+' key. They can build now.</span>';
+        loadAllUsers();
+        setTimeout(closeKeyModal,900);
+      }catch(e){msg.innerHTML='<span class="red">'+esc(e)+'</span>'}
+    }
+    async function removeKey(uid,provider){
+      if(!confirm('Remove the '+provider+' key for this user?'))return;
+      try{
+        var r=await fetch('/api/userkey/delete',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:uid,provider:provider})});
+        if(!r.ok){var d=await r.json().catch(function(){return{}});alert('Remove failed: '+(d.error||r.status));return;}
+        loadAllUsers();
+      }catch(e){alert('Remove failed: '+e)}
+    }
+    // Delegated handlers — data-* attributes avoid quoting values into inline
+    // onclick, which inside this template-literal-in-a-string mis-escapes
+    // (\\' collapses to ') and would break the entire console script.
     document.addEventListener('click',function(ev){
       var t=ev.target;if(!t||!t.closest)return;
+      var ak=t.closest('.addkey-btn');if(ak){openKeyModal(ak.getAttribute('data-uid'),ak.getAttribute('data-name'));return;}
+      var rk=t.closest('.rmkey-btn');if(rk){removeKey(rk.getAttribute('data-uid'),rk.getAttribute('data-prov'));return;}
       var rb=t.closest('.revoke-btn');if(rb){revokeComp(rb.getAttribute('data-uid'));return;}
       var gb=t.closest('.grant-btn');if(gb){grantUser(gb.getAttribute('data-uid'));return;}
     });
@@ -1103,15 +1155,18 @@ export default {
     //   GET    /api/comp            → list grants + which providers are funded
     //   POST   /api/comp            → { login, provider, model, note?, expiresAt? }
     //   DELETE /api/comp/:userId    → revoke (userId = github:<id>)
-    if (url.pathname === "/api/comp" || url.pathname.startsWith("/api/comp/") || url.pathname === "/api/allusers") {
+    if (url.pathname === "/api/comp" || url.pathname.startsWith("/api/comp/") || url.pathname === "/api/allusers" || url.pathname.startsWith("/api/userkey")) {
       const { email, isAdmin } = await authenticateAdmin(request, env);
       if (!isAdmin) return jsonResponse({ error: "unauthorized" }, 401, request);
       if (!env.AGENT || !env.INTERNAL_TOKEN) {
-        return jsonResponse({ error: "complimentary grants not wired (missing AGENT binding or INTERNAL_TOKEN)" }, 500, request);
+        return jsonResponse({ error: "admin↔agent not wired (missing AGENT binding or INTERNAL_TOKEN)" }, 500, request);
       }
-      // /api/allusers → the agent's registered-users listing; /api/comp* → grants.
+      // Map admin paths → agent paths: /api/allusers → users listing,
+      // /api/userkey* → vault key write, /api/comp* → complimentary grants.
       const agentPath = url.pathname === "/api/allusers"
         ? "/v1/admin/users"
+        : url.pathname.startsWith("/api/userkey")
+        ? url.pathname.replace(/^\/api\/userkey/, "/v1/admin/userkey")
         : url.pathname.replace(/^\/api\/comp/, "/v1/admin/comp");
       const res = await env.AGENT.fetch("https://agent.freegamestore.online" + agentPath, {
         method: request.method,
