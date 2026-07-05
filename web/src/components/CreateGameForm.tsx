@@ -17,11 +17,20 @@ const CATEGORIES = [
   { value: "casual", label: "Casual" },
 ];
 
-const TEMPLATES = [
-  { value: "canvas", label: "Canvas", desc: "HTML5 Canvas for 2D arcade, platformers, and action games" },
-  { value: "grid", label: "Grid", desc: "Tile-based grid for puzzles, board games, and strategy" },
-  { value: "cards", label: "Cards", desc: "Card layout for solitaire, memory, and card games" },
-  { value: "3d", label: "3D", desc: "Three.js for 3D racing, flying, and 3D worlds" },
+// The three headline engines a creator builds on. The agent authors real engine
+// code (KAPLAY verbs / Phaser scenes / react-three-fiber) rather than hand-rolling
+// a game loop and physics, so games come out playable, not truncated.
+const ENGINES = [
+  { value: "kaplay", label: "KAPLAY", tag: "Easiest · 2D", desc: "Beginner-friendly 2D arcade engine. Sprites, input, gravity and collisions as one-line verbs — the fastest path to a playable game." },
+  { value: "phaser", label: "Phaser", tag: "Powerful · 2D", desc: "The industry-standard 2D engine. Scenes, arcade physics, tilemaps and tweens — for platformers, shooters and bigger games." },
+  { value: "3d", label: "Three.js", tag: "3D", desc: "react-three-fiber + Three.js for 3D worlds, racing and flying games." },
+];
+
+// No-engine starters for creators who want full control or a DOM-based board.
+const STARTERS = [
+  { value: "canvas", label: "Raw Canvas", desc: "Hand-rolled HTML5 canvas 2D — full control, no engine." },
+  { value: "grid", label: "Grid", desc: "CSS-grid board for puzzles, match-3 and word games." },
+  { value: "cards", label: "Cards", desc: "DOM card layout for solitaire and memory games." },
 ];
 
 const ID_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
@@ -59,7 +68,9 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
   const [icon, setIcon] = useState("\uD83C\uDFAE");
   const [iconBg, setIconBg] = useState("#1a2e26");
   const [description, setDescription] = useState("");
-  const [template, setTemplate] = useState("canvas");
+  // Default to KAPLAY: the easiest engine, best for quick/beginner game-building.
+  const [template, setTemplate] = useState("kaplay");
+  const [showStarters, setShowStarters] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ steps: ProvisionStep[]; success: boolean } | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -205,20 +216,46 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
       </div>
 
       <fieldset>
-        <legend className="block text-sm font-medium mb-2">Template</legend>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {TEMPLATES.map((t) => (
-            <label key={t.value} className="flex items-start gap-3 p-3 rounded-lg cursor-pointer"
+        <legend className="block text-sm font-medium mb-1">Build on</legend>
+        <p className="text-xs mb-2" style={{ color: "var(--muted)" }}>
+          Pick a game engine — the AI builds real engine code so your game comes out playable.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {ENGINES.map((t) => (
+            <label key={t.value} className="flex flex-col gap-1 p-3 rounded-lg cursor-pointer"
               style={{ background: template === t.value ? "var(--accent-soft)" : "var(--bg)", border: `1px solid ${template === t.value ? "var(--accent)" : "var(--border)"}` }}>
-              <input type="radio" name="template" value={t.value} checked={template === t.value}
-                onChange={(e) => setTemplate(e.target.value)} className="mt-1 accent-emerald-500" />
-              <div>
-                <p className="font-medium text-sm">{t.label}</p>
-                <p className="text-xs" style={{ color: "var(--muted)" }}>{t.desc}</p>
-              </div>
+              <span className="flex items-center gap-2">
+                <input type="radio" name="template" value={t.value} checked={template === t.value}
+                  onChange={(e) => setTemplate(e.target.value)} className="accent-emerald-500" />
+                <span className="font-medium text-sm">{t.label}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full ml-auto whitespace-nowrap"
+                  style={{ background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)" }}>{t.tag}</span>
+              </span>
+              <span className="text-xs" style={{ color: "var(--muted)" }}>{t.desc}</span>
             </label>
           ))}
         </div>
+
+        <button type="button" onClick={() => setShowStarters((v) => !v)}
+          className="text-xs mt-2 hover:underline" style={{ color: "var(--muted)" }}>
+          {showStarters ? "Hide no-engine starters" : "Or start from a simple no-engine template →"}
+        </button>
+
+        {showStarters && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+            {STARTERS.map((t) => (
+              <label key={t.value} className="flex flex-col gap-1 p-3 rounded-lg cursor-pointer"
+                style={{ background: template === t.value ? "var(--accent-soft)" : "var(--bg)", border: `1px solid ${template === t.value ? "var(--accent)" : "var(--border)"}` }}>
+                <span className="flex items-center gap-2">
+                  <input type="radio" name="template" value={t.value} checked={template === t.value}
+                    onChange={(e) => setTemplate(e.target.value)} className="accent-emerald-500" />
+                  <span className="font-medium text-sm">{t.label}</span>
+                </span>
+                <span className="text-xs" style={{ color: "var(--muted)" }}>{t.desc}</span>
+              </label>
+            ))}
+          </div>
+        )}
       </fieldset>
 
       {submitError && <p className="text-sm font-medium" style={{ color: "var(--error)" }}>{submitError}</p>}

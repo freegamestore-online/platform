@@ -27,6 +27,8 @@ export interface RegistryGame {
   developer?: string;
   firstPublished?: string;
   updatedAt?: string;
+  /** Engine/template the game was generated from (kaplay|phaser|3d|canvas|grid|cards). */
+  engine?: string;
 }
 
 export interface GameRepo {
