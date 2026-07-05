@@ -68,9 +68,9 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
   const [icon, setIcon] = useState("\uD83C\uDFAE");
   const [iconBg, setIconBg] = useState("#1a2e26");
   const [description, setDescription] = useState("");
-  // Default to KAPLAY: the easiest engine, best for quick/beginner game-building.
-  const [template, setTemplate] = useState("kaplay");
-  const [showStarters, setShowStarters] = useState(false);
+  // Default stays "canvas" (unchanged from before engines were added) so the
+  // existing create flow is preserved — engines are additive, not a replacement.
+  const [template, setTemplate] = useState("canvas");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ steps: ProvisionStep[]; success: boolean } | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -216,10 +216,12 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
       </div>
 
       <fieldset>
-        <legend className="block text-sm font-medium mb-1">Build on</legend>
+        <legend className="block text-sm font-medium mb-1">Template</legend>
         <p className="text-xs mb-2" style={{ color: "var(--muted)" }}>
-          Pick a game engine — the AI builds real engine code so your game comes out playable.
+          Build on a game engine (the AI writes real engine code), or start from a simple no-engine template.
         </p>
+
+        <p className="text-xs font-medium mb-1" style={{ color: "var(--muted)" }}>Game engines</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {ENGINES.map((t) => (
             <label key={t.value} className="flex flex-col gap-1 p-3 rounded-lg cursor-pointer"
@@ -236,26 +238,20 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
           ))}
         </div>
 
-        <button type="button" onClick={() => setShowStarters((v) => !v)}
-          className="text-xs mt-2 hover:underline" style={{ color: "var(--muted)" }}>
-          {showStarters ? "Hide no-engine starters" : "Or start from a simple no-engine template →"}
-        </button>
-
-        {showStarters && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
-            {STARTERS.map((t) => (
-              <label key={t.value} className="flex flex-col gap-1 p-3 rounded-lg cursor-pointer"
-                style={{ background: template === t.value ? "var(--accent-soft)" : "var(--bg)", border: `1px solid ${template === t.value ? "var(--accent)" : "var(--border)"}` }}>
-                <span className="flex items-center gap-2">
-                  <input type="radio" name="template" value={t.value} checked={template === t.value}
-                    onChange={(e) => setTemplate(e.target.value)} className="accent-emerald-500" />
-                  <span className="font-medium text-sm">{t.label}</span>
-                </span>
-                <span className="text-xs" style={{ color: "var(--muted)" }}>{t.desc}</span>
-              </label>
-            ))}
-          </div>
-        )}
+        <p className="text-xs font-medium mt-3 mb-1" style={{ color: "var(--muted)" }}>No-engine starters</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {STARTERS.map((t) => (
+            <label key={t.value} className="flex flex-col gap-1 p-3 rounded-lg cursor-pointer"
+              style={{ background: template === t.value ? "var(--accent-soft)" : "var(--bg)", border: `1px solid ${template === t.value ? "var(--accent)" : "var(--border)"}` }}>
+              <span className="flex items-center gap-2">
+                <input type="radio" name="template" value={t.value} checked={template === t.value}
+                  onChange={(e) => setTemplate(e.target.value)} className="accent-emerald-500" />
+                <span className="font-medium text-sm">{t.label}</span>
+              </span>
+              <span className="text-xs" style={{ color: "var(--muted)" }}>{t.desc}</span>
+            </label>
+          ))}
+        </div>
       </fieldset>
 
       {submitError && <p className="text-sm font-medium" style={{ color: "var(--error)" }}>{submitError}</p>}
