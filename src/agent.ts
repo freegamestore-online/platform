@@ -6,6 +6,7 @@ import { GitHubModelsAdapter } from "./providers/github";
 import { GoogleAdapter } from "./providers/google";
 import { OpenAIAdapter } from "./providers/openai";
 import type { AIConfig, Message, ProviderAdapter, StreamEvent, TokenUsage, ToolCall, ToolResult } from "./providers/types";
+import { healPoisonedHistory } from "./session-budget";
 import { getSystemPrompt } from "./template";
 import { executeTool, getToolDefinitions, INFRA_TOOLS } from "./tools";
 
@@ -155,6 +156,12 @@ export async function runAgentTurn(
       cleaned.push(m);
     }
   }
+
+  // Heal poisoned history BEFORE the model sees it: normalize any content-shaped
+  // write_file placeholder ("[N bytes written to path]") to the instructional
+  // elided-marker, so even an already-poisoned session recovers next turn (the
+  // angrry loop, where the model imitated the placeholder from its own history).
+  healPoisonedHistory(cleaned);
 
   const messages: Message[] = [...cleaned, { role: "user", content: userMessage }];
   const newMessages: Message[] = [{ role: "user", content: userMessage }];

@@ -16,6 +16,7 @@
  */
 
 import type { Message } from "./providers/types";
+import { looksLikePlaceholder } from "./tools";
 
 export interface BudgetOpts {
   /** Soft ceiling for the serialized session, measured in UTF-8 BYTES — the same
@@ -34,6 +35,44 @@ function byteLen(s: string): number {
   return encoder.encode(s).length;
 }
 
+/**
+ * Marker that replaces an elided write_file body in the transcript. It is
+ * deliberately INSTRUCTIONAL, not content-shaped: the previous marker
+ * ("[N bytes written to path]") read like a plausible terse value, so on the next
+ * turn the model imitated its own history and wrote that string AS the file's
+ * content — poisoning the session into an endless placeholder loop (the angrry
+ * incident). This phrasing reads as a system note the model won't reproduce, and
+ * if it ever does, `looksLikePlaceholder` (tools.ts) rejects it. Keep the two in
+ * sync. Exported so the history-healer can normalize old poisoned sessions to it.
+ */
+export function elidedBodyMarker(path: string): string {
+  return `[the full source of ${path} is already saved — omitted here to save space. To view it call read_file; to edit it output the COMPLETE real code. Never write this note as file content.]`;
+}
+
+/**
+ * Heal a poisoned transcript in place. A write_file tool call whose `content` is a
+ * content-shaped placeholder — the OLD compaction marker "[N bytes written to
+ * path]", or any echo/elision string the model may have written — is normalized to
+ * the instructional elided-marker. Fed back verbatim, such a placeholder makes the
+ * model imitate it and write it as real content (the angrry loop); this runs on the
+ * history BEFORE it reaches the model, so even an already-poisoned session recovers.
+ * Returns the number of tool calls healed.
+ */
+export function healPoisonedHistory(messages: Message[]): number {
+  let healed = 0;
+  for (const m of messages) {
+    if (m.role !== "assistant" || !m.toolCalls) continue;
+    for (const tc of m.toolCalls) {
+      if (tc.name === "write_file" && typeof tc.input?.content === "string" && looksLikePlaceholder(tc.input.content)) {
+        const path = typeof tc.input.path === "string" ? tc.input.path : "file";
+        tc.input = { ...tc.input, content: elidedBodyMarker(path) };
+        healed++;
+      }
+    }
+  }
+  return healed;
+}
+
 /** Replace oversized write_file tool-call `content` with a placeholder in place. */
 export function stripLargeToolCallBodies(messages: Message[], toolCallMaxBytes: number): void {
   for (const m of messages) {
@@ -42,7 +81,7 @@ export function stripLargeToolCallBodies(messages: Message[], toolCallMaxBytes: 
       const content = tc.input?.content;
       if (tc.name === "write_file" && typeof content === "string" && content.length > toolCallMaxBytes) {
         const path = typeof tc.input.path === "string" ? tc.input.path : "file";
-        tc.input = { ...tc.input, content: `[${content.length} bytes written to ${path}]` };
+        tc.input = { ...tc.input, content: elidedBodyMarker(path) };
       }
     }
   }

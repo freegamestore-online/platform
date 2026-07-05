@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "./providers/types";
-import { enforceSessionBudget, stripLargeToolCallBodies } from "./session-budget";
+import { elidedBodyMarker, enforceSessionBudget, healPoisonedHistory, stripLargeToolCallBodies } from "./session-budget";
+import { looksLikePlaceholder } from "./tools";
 
 describe("stripLargeToolCallBodies", () => {
-  it("replaces a large write_file body with a byte-count placeholder", () => {
+  it("replaces a large write_file body with a NON-imitable instructional marker", () => {
     const body = "x".repeat(50_000);
     const messages: Message[] = [
       { role: "user", content: "make it" },
@@ -11,7 +12,13 @@ describe("stripLargeToolCallBodies", () => {
     ];
     stripLargeToolCallBodies(messages, 2048);
     const stored = messages[1].toolCalls![0].input.content as string;
-    expect(stored).toBe("[50000 bytes written to web/src/App.tsx]");
+    // CRITICAL: must NOT be the old "[N bytes written to path]" form — that read
+    // like content and the model imitated it (the angrry poisoning loop).
+    expect(stored).not.toMatch(/^\[\d+ bytes written to/);
+    expect(stored).toBe(elidedBodyMarker("web/src/App.tsx"));
+    // And the marker is itself recognized as a placeholder, so if the model ever
+    // copies it back as content, write_file rejects it.
+    expect(looksLikePlaceholder(stored)).toBe(true);
     // Other input fields survive.
     expect(messages[1].toolCalls![0].input.path).toBe("web/src/App.tsx");
   });
@@ -31,6 +38,35 @@ describe("stripLargeToolCallBodies", () => {
     ];
     stripLargeToolCallBodies(messages, 2048);
     expect(messages[0].toolCalls![0].input.content).toBe(big);
+  });
+});
+
+describe("healPoisonedHistory (breaks the placeholder-imitation loop)", () => {
+  it("normalizes an OLD content-shaped placeholder to the instructional marker", () => {
+    // The exact poison from the angrry session: a past write_file whose content
+    // was compacted to "[N bytes written to path]" and fed back to the model.
+    const messages: Message[] = [
+      { role: "user", content: "fix the physics" },
+      {
+        role: "assistant",
+        content: "",
+        toolCalls: [{ id: "t1", name: "write_file", input: { path: "web/src/lib/levels.ts", content: "[2714 bytes written to web/src/lib/levels.ts]" } }],
+      },
+    ];
+    const healed = healPoisonedHistory(messages);
+    expect(healed).toBe(1);
+    const c = messages[1].toolCalls![0].input.content as string;
+    expect(c).toBe(elidedBodyMarker("web/src/lib/levels.ts"));
+    expect(c).not.toMatch(/^\[\d+ bytes written to/); // no longer imitable
+  });
+
+  it("leaves real source and non-write tool calls untouched", () => {
+    const messages: Message[] = [
+      { role: "assistant", content: "", toolCalls: [{ id: "t1", name: "write_file", input: { path: "a.ts", content: "export const A = 1;" } }] },
+      { role: "assistant", content: "", toolCalls: [{ id: "t2", name: "read_file", input: { path: "a.ts" } }] },
+    ];
+    expect(healPoisonedHistory(messages)).toBe(0);
+    expect(messages[0].toolCalls![0].input.content).toBe("export const A = 1;");
   });
 });
 
