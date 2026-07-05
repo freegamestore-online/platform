@@ -57,6 +57,15 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    // TEMP DIAGNOSTIC (remove after): /__dbg_dump/:sessionId forwards to the DO,
+    // which logs its persisted transcript STRUCTURE to Workers Logs (no data over
+    // HTTP). Root-causing the "only my first message survives" report.
+    const dbg = path.match(/^\/__dbg_dump\/([a-zA-Z0-9_-]{1,64})$/);
+    if (dbg) {
+      const stub = env.SESSION.get(env.SESSION.idFromName(dbg[1]));
+      return stub.fetch(new Request("https://do/__dbg_dump"));
+    }
+
     // Per-user session list (D1) — /sessions, /sessions/:id
     const sessionsResp = await handleSessionsApi(request, env, config.domain, corsHeaders(request, config.domain));
     if (sessionsResp) return sessionsResp;

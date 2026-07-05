@@ -208,6 +208,31 @@ export class AgentSession implements DurableObject {
       return new Response(null, { status: 204, headers: corsHeaders(request, this.config.domain) });
     }
 
+    // TEMP DIAGNOSTIC (remove after): dump this session's persisted transcript
+    // STRUCTURE to Workers Logs only — no data over HTTP, unguessable path. Used
+    // to root-cause the "only my first message survives" report. Reads storage
+    // directly (not the in-memory cache) so it reflects exactly what a reload sees.
+    if (path === "/__dbg_dump") {
+      const stored = await this.state.storage.get<SessionState>("session");
+      if (!stored) {
+        console.error(`[dbg] no stored session`);
+        return new Response(null, { status: 204 });
+      }
+      const enc = new TextEncoder();
+      const blobBytes = enc.encode(JSON.stringify(stored)).length;
+      const filesBytes = enc.encode(JSON.stringify(stored.files || {})).length;
+      const seedBytes = enc.encode(JSON.stringify(stored.seed || {})).length;
+      const msgs = (stored.messages || []).map((m) => ({
+        role: m.role,
+        len: m.content?.length || 0,
+        tc: m.toolCalls?.map((t) => t.name),
+        tr: m.toolResults?.length,
+      }));
+      console.error(`[dbg] appId=${stored.appId} msgs=${(stored.messages || []).length} blob=${blobBytes}B files=${filesBytes}B seed=${seedBytes}B errors=${JSON.stringify(stored.errors || [])}`);
+      console.error(`[dbg] messages=${JSON.stringify(msgs)}`);
+      return new Response(null, { status: 204 });
+    }
+
     try {
       // Ownership gate. The worker has already verified identity and set
       // X-Auth-User; bind this session to the first authenticated caller
