@@ -1,4 +1,9 @@
 import { resolveCreator } from "./_auth";
+// Single source of truth shared with create.ts so "Check" always agrees with
+// what "Create Game" accepts. Re-exported for callers/tests importing it here.
+import { validateId } from "./_validate";
+
+export { validateId };
 
 interface Env {
   GITHUB_TOKEN: string;
@@ -8,22 +13,6 @@ interface Env {
 }
 
 const ORG = "freegamestore-online";
-
-// Same reserved ids + grammar the create path enforces, so "Check" agrees with
-// what "Create Game" will accept.
-const INFRA_REPOS = new Set([
-  "freegamestore", "submissions", "template-game-canvas", "template-game-3d",
-  "template-game-grid", "template-game-cards", "brand", "ops", "sdk",
-]);
-
-export function validateId(id: string): string | null {
-  if (!id) return "ID is required";
-  if (id.length > 58) return "58 characters max";
-  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(id)) return "Lowercase letters, numbers, dashes only. No leading/trailing dash.";
-  if (id.startsWith("free") || id.startsWith("pro")) return "Cannot start with 'free' or 'pro'";
-  if (INFRA_REPOS.has(id)) return "Reserved id";
-  return null;
-}
 
 /**
  * GET /api/check-id?id=<id> — is this game id available? Auth-gated (uses the

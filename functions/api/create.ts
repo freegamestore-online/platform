@@ -1,6 +1,12 @@
 import { resolveCreator, corsHeaders } from "./_auth";
 import { listUserGames } from "./_games";
 import { recordError, fetchWithTimeout } from "./_errlog";
+// Single source of truth shared with check-id.ts so the create gate and the
+// availability check can never disagree on which ids are valid. Re-exported to
+// preserve create.ts's existing public surface.
+import { validateId } from "./_validate";
+
+export { validateId };
 
 interface Env {
   GITHUB_TOKEN: string;
@@ -25,21 +31,6 @@ const CONFIG = {
   // lives in admin's handlePublish; this endpoint just authorizes + forwards.
   adminProvision: "https://admin.freegamestore.online/api/provision",
 };
-
-// Reserved / infrastructure repos that must never be targetable via /api/create.
-const INFRA_REPOS = new Set([
-  "freegamestore", "submissions", "template-game-canvas", "template-game-3d",
-  "template-game-grid", "template-game-cards", "brand", "ops", "sdk",
-]);
-
-export function validateId(id: string): string | null {
-  if (!id) return "ID is required";
-  if (id.length > 58) return "ID must be 58 characters or less";
-  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(id)) return "Lowercase letters, numbers, dashes only. No start/end dash.";
-  if (id.startsWith("free") || id.startsWith("pro")) return "Cannot start with 'free' or 'pro'";
-  if (INFRA_REPOS.has(id)) return "Reserved id";
-  return null;
-}
 
 const gh = (token: string) => ({
   Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "User-Agent": "freegamestore-publisher",
