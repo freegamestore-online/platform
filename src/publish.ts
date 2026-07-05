@@ -55,6 +55,29 @@ function slugify(name: string): string {
     .slice(0, 58);
 }
 
+/** Canonical category: lowercase, spaces→hyphens (PLATFORM-ISSUES C). The
+ *  storefront mixes `casual`/`Casual`/`Brain Training` otherwise, a trap for any
+ *  case-sensitive filter. Empty → the default. */
+function normalizeCategory(cat?: string): string {
+  const c = (cat ?? "").trim().toLowerCase().replace(/\s+/g, "-");
+  return c || "casual";
+}
+
+/** Display name for the registry (PLATFORM-ISSUES D). When the caller passes a
+ *  slug-shaped name (equals the id, or all-lowercase-hyphenated), the store would
+ *  show the raw slug as the title — so title-case it. A real title (has caps or
+ *  spaces) is left untouched. */
+function displayName(name: string, id: string): string {
+  const n = name.trim();
+  const slugShaped = n === id || /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(n);
+  if (!slugShaped) return n;
+  return n
+    .split(/[-\s]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
 interface Step {
   name: string;
   status: "ok" | "skip" | "fail";
@@ -248,10 +271,16 @@ export async function handlePublish(
   // The CLI sends only `name`; derive a slug if `id` is omitted. Apply
   // sensible defaults for the fields the CLI doesn't collect.
   const id = req.id ?? slugify(req.name);
-  const icon = req.icon ?? "🎮";
-  const iconBg = req.iconBg ?? "#ecfdf5";
-  const category = req.category ?? "casual";
-  const description = req.description ?? req.oneliner ?? req.name;
+  // `||` not `??` throughout: the VibeCode/CLI caller sends "" (not null) for
+  // fields the creator left blank, and an empty string in the registry makes the
+  // storefront build DROP the whole game from the store + search
+  // (PLATFORM-ISSUES A1 + REGISTRY-VALIDATION-RECOMMENDATIONS). `||` falls back on
+  // "" too, so a blank field is never persisted.
+  const icon = req.icon || "🎮";
+  const iconBg = req.iconBg || "#ecfdf5";
+  const category = normalizeCategory(req.category);
+  const description = req.description || req.oneliner || req.name;
+  const name = displayName(req.name, id);
   const templateRepo = TEMPLATE_REPOS[req.template ?? ""] ?? STORE_CONFIG.templateRepo;
   const idError = validateId(id);
   if (idError) {
@@ -304,7 +333,7 @@ export async function handlePublish(
         detail: `Created ${config.org}/${id} from ${templateRepo}`,
       });
       // Rewrite APPNAME placeholders (only meaningful on a fresh generate).
-      steps.push(await substituteTemplatePlaceholders(env, config.org, id, req.name));
+      steps.push(await substituteTemplatePlaceholders(env, config.org, id, name));
     } else {
       steps.push({
         name: "GitHub repo",
@@ -389,7 +418,7 @@ export async function handlePublish(
     }
     items.push({
       id,
-      name: req.name,
+      name,
       category,
       icon,
       iconBg,
@@ -406,7 +435,7 @@ export async function handlePublish(
     content[key] = items;
 
     const updateResult = await ghApi(env, registryPath, "PUT", {
-      message: `Add ${req.name} to games registry`,
+      message: `Add ${name} to games registry`,
       content: btoa(
         Array.from(new TextEncoder().encode(JSON.stringify(content, null, 2)))
           .map((b) => String.fromCharCode(b))
@@ -415,7 +444,7 @@ export async function handlePublish(
       sha: registryFile.sha,
     });
     if (updateResult.content) {
-      return { name: "Store registry", status: "ok", detail: `Added ${req.name}` };
+      return { name: "Store registry", status: "ok", detail: `Added ${name}` };
     }
     if (updateResult.__status === 409) {
       return null; // contended — caller retries once

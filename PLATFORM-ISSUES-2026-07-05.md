@@ -1,7 +1,23 @@
 # FGS platform issues — 2026-07-05
 
-**Status:** report — no code changed.
+**Status:** A1, A2, B, C, D FIXED 2026-07-05; E deferred (needs reconcile job).
 **Author:** generated during a storefront/publish audit, 2026-07-05.
+
+## Resolution
+
+- **A1** (admin `??` lets `description:""` into registry) — FIXED `admin/src/publish.ts`:
+  `||` (not `??`) for `description`/`icon`/`iconBg`, so a blank field is never persisted.
+- **A2** (build drops empty-optional-field games) — FIXED `freegamestore/build.js`
+  (commit 0a05839): sanitize-and-keep for display-only fields; 79/79 build.
+- **B** (test fixture live in prod store) — FIXED `freegamestore/build.js`: the store
+  build excludes any id ending `-test`/`-fixture` (or `test:true`) with a log. Removed
+  `mcp-hybrid-test` AND `mcp-snake-test` from the public store + search.
+- **C** (category not normalized) — FIXED: `normalizeCategory()` at publish (lowercase,
+  spaces→hyphens).
+- **D** (raw-id display names) — FIXED: `displayName()` title-cases a slug-shaped name
+  at publish.
+- **E** (name drift after rebuild, e.g. pixeljump) — DEFERRED: belongs in the
+  `reconcile.ts` drift job (reconcile registry `name` from the game manifest).
 **Scope:** platform-owned bugs (provisioning, registry, storefront build). Excludes
 per-game content bugs. All findings verified against the live registry (79 games)
 and the current `main` of each repo.
