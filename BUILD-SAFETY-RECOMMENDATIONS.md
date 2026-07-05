@@ -1,9 +1,26 @@
 # Build-safety recommendations for the FGS VibeCode agent
 
-**Status:** proposal — no code changed yet.
+**Status:** #1 + #2 IMPLEMENTED 2026-07-05 (see below); #3 deferred.
 **Author:** generated during incident review, 2026-07-05.
 **Trigger:** `climberadventure` shipped a broken build to `main` that failed CI
 and silently served a stale version for ~30 min.
+
+## Implemented
+
+- **#1 — in-worker build-sanity gate (`src/build-sanity.ts`).** `checkBuildSanity()`
+  runs BLOCKING before `deploy`/`push_update` in `infra-exec.ts`. It scans every
+  compiled source (`web/src/**.{ts,tsx,js,jsx}`) on a comment/string/template/regex
+  -stripped skeleton and blocks on: **duplicate top-level declarations** (the exact
+  `climberadventure` failure), multiple `export default`, and unbalanced braces/
+  parens/brackets (truncated files). On a hit the deploy is refused and the precise
+  problem is returned to the agent as the tool result, so it self-corrects in-session
+  instead of failing CI and serving a stale build. Covered by `build-sanity.test.ts`
+  (17 cases: regex/JSX/template-literal false-positive guards + the incident pattern).
+- **#2 — verify-before-ship prompt** (`template.ts`, game + app prompts): explicit
+  "write_file OVERWRITES the whole file — never append a second copy of a function"
+  rule, under the typecheck-errors guidance.
+
+#3 (poll deploy status after push → surface CI failure → notify creator) is still open.
 
 ---
 

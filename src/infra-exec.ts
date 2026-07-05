@@ -1,5 +1,6 @@
 /** Execute infra tools server-side. Extracted from session.ts to keep it manageable. */
 
+import { checkBuildSanity, formatSanityBlock } from "./build-sanity";
 import type { StoreConfig } from "./config";
 import type { DeployEnv, DeployStatus } from "./deploy";
 import { deployApp, pushUpdate, substituteAppName } from "./deploy";
@@ -55,6 +56,18 @@ export async function executeInfraTool(tc: ToolCall, ctx: ExecContext): Promise<
     }
     if (ctx.appId && ctx.appId !== id) {
       return `Error: this session already deployed "${ctx.appId}". Create a new project for a different ${config.noun}.`;
+    }
+  }
+
+  // Build-sanity gate: before ANY ship (deploy or update), statically verify the
+  // compiled source can build. A broken generation (duplicate top-level block,
+  // truncated file, unbalanced braces) otherwise fails CI silently and keeps the
+  // old version live. Blocking here turns that into an in-session self-correction.
+  if (tc.name === "deploy" || tc.name === "push_update") {
+    const findings = checkBuildSanity(ctx.files);
+    if (findings.length) {
+      ctx.onDeployStatus({ phase: "error", error: `Build check failed: ${findings.map((f) => f.file).join(", ")}` });
+      return formatSanityBlock(findings, config.noun);
     }
   }
 
