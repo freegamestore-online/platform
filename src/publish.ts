@@ -323,6 +323,22 @@ export async function handlePublish(
       status: "skip",
       detail: `${config.org}/${id} already exists`,
     });
+    // Heal an interrupted provision: if a prior provision generated the repo but
+    // was cut off before the naming commit (e.g. the caller timed out after
+    // /generate), the game is stuck titled "APPNAME" and a plain re-provision
+    // used to skip substitution forever. Re-run it — but ONLY when root
+    // package.json still contains APPNAME, which proves the repo is an
+    // unsubstituted fresh generate. On an established game every target file has
+    // already lost its placeholder, so this never rewrites real game code.
+    const rootPkg = await ghApi(env, `/repos/${config.org}/${id}/contents/package.json`);
+    const pkgRaw = rootPkg.content
+      ? new TextDecoder().decode(
+          Uint8Array.from(atob(rootPkg.content.replace(/\n/g, "")), (c) => c.charCodeAt(0)),
+        )
+      : "";
+    if (pkgRaw.includes("APPNAME")) {
+      steps.push(await substituteTemplatePlaceholders(env, config.org, id, name));
+    }
   } else {
     const createRepo = await ghApi(
       env,

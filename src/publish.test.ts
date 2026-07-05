@@ -149,6 +149,69 @@ describe("handlePublish repo-existence fail-safe", () => {
   });
 });
 
+describe("handlePublish interrupted-provision heal", () => {
+  // Stub GitHub so the target repo already exists; `pkgJson` is what root
+  // package.json contains (drives the APPNAME-still-present gate).
+  function stub(pkgJson: string) {
+    const calls: { url: string; method: string }[] = [];
+    vi.stubGlobal("fetch", async (input: unknown, init?: { method?: string; body?: string }) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      const method = init?.method ?? "GET";
+      calls.push({ url, method });
+      if (method === "GET" && url.endsWith("/repos/freegamestore-online/chess")) {
+        return new Response(JSON.stringify({ id: 123 }), { status: 200 }); // repo exists
+      }
+      if (method === "GET" && url.includes("/contents/package.json")) {
+        return new Response(JSON.stringify({ content: btoa(pkgJson) }), { status: 200 });
+      }
+      if (method === "GET" && url.includes("/contents/")) {
+        return new Response(JSON.stringify({}), { status: 404 }); // other targets absent
+      }
+      if (method === "GET" && url.includes("/git/ref/heads/main")) {
+        return new Response(JSON.stringify({ object: { sha: "headsha" } }), { status: 200 });
+      }
+      if (method === "GET" && url.includes("/git/commits/")) {
+        return new Response(JSON.stringify({ tree: { sha: "basetree" } }), { status: 200 });
+      }
+      if (method === "POST" && url.includes("/git/blobs")) {
+        return new Response(JSON.stringify({ sha: "blobsha" }), { status: 200 });
+      }
+      if (method === "POST" && url.includes("/git/trees")) {
+        return new Response(JSON.stringify({ sha: "treesha" }), { status: 200 });
+      }
+      if (method === "POST" && url.includes("/git/commits")) {
+        return new Response(JSON.stringify({ sha: "commitsha" }), { status: 200 });
+      }
+      if (method === "PATCH" && url.includes("/git/refs/heads/main")) {
+        return new Response(JSON.stringify({ ref: "refs/heads/main" }), { status: 200 });
+      }
+      // registry read/write + everything else benign
+      return new Response(
+        JSON.stringify({ ok: true, content: btoa(JSON.stringify({ games: [] })), sha: "s" }),
+        { status: 200 },
+      );
+    });
+    return calls;
+  }
+
+  it("re-runs substitution when the existing repo still has APPNAME (heals a cut-off provision)", async () => {
+    const calls = stub(JSON.stringify({ name: "APPNAME" }));
+    const env = { GITHUB_TOKEN: "x", DB: undefined } as unknown as Parameters<typeof handlePublish>[1];
+    const res = await handlePublish({ id: "chess", name: "Chess", category: "arcade", creatorGithub: "serge-the-dev" }, env);
+    expect(calls.some((c) => c.method === "POST" && c.url.includes("/git/commits"))).toBe(true);
+    expect(res.steps.some((s) => s.name === "Naming")).toBe(true);
+  });
+
+  it("does NOT re-substitute an established game (package.json already named)", async () => {
+    const calls = stub(JSON.stringify({ name: "chess" }));
+    const env = { GITHUB_TOKEN: "x", DB: undefined } as unknown as Parameters<typeof handlePublish>[1];
+    const res = await handlePublish({ id: "chess", name: "Chess", category: "arcade", creatorGithub: "serge-the-dev" }, env);
+    // The game's real files are never rewritten: no naming commit, no Naming step.
+    expect(calls.some((c) => c.method === "POST" && c.url.includes("/git/commits"))).toBe(false);
+    expect(res.steps.some((s) => s.name === "Naming")).toBe(false);
+  });
+});
+
 describe("handlePublish owner validation", () => {
   it("aborts before any repo/registry write when creatorGithub is malformed", async () => {
     const calls: string[] = [];
