@@ -212,7 +212,7 @@ async function substituteTemplatePlaceholders(
     { path: "web/index.html", rewrite: (s) => s.replace(/app=APPNAME/g, `app=${id}`).replace(/APPNAME/g, () => name) },
     { path: "web/src/App.tsx", rewrite: (s) => s.replace(/APPNAME/g, () => name) },
     { path: "web/vite.config.ts", rewrite: (s) => s.replace(/APPNAME/g, () => name) },
-    { path: "CLAUDE.md", rewrite: (s) => s.replace(/APPNAME/g, name) },
+    { path: "CLAUDE.md", rewrite: (s) => s.replace(/APPNAME/g, () => name) },
   ];
   try {
     // Generate is async — poll for the repo's main ref before committing.
@@ -327,16 +327,17 @@ export async function handlePublish(
     // was cut off before the naming commit (e.g. the caller timed out after
     // /generate), the game is stuck titled "APPNAME" and a plain re-provision
     // used to skip substitution forever. Re-run it — but ONLY when root
-    // package.json still contains APPNAME, which proves the repo is an
-    // unsubstituted fresh generate. On an established game every target file has
-    // already lost its placeholder, so this never rewrites real game code.
+    // package.json's NAME is still literally "APPNAME", which proves the repo is
+    // an unsubstituted fresh generate. Matching the `"name": "APPNAME"` field
+    // (not a bare "APPNAME" substring) guarantees we never rewrite an established
+    // game whose own source happens to contain the word APPNAME.
     const rootPkg = await ghApi(env, `/repos/${config.org}/${id}/contents/package.json`);
     const pkgRaw = rootPkg.content
       ? new TextDecoder().decode(
           Uint8Array.from(atob(rootPkg.content.replace(/\n/g, "")), (c) => c.charCodeAt(0)),
         )
       : "";
-    if (pkgRaw.includes("APPNAME")) {
+    if (/"name"\s*:\s*"APPNAME"/.test(pkgRaw)) {
       steps.push(await substituteTemplatePlaceholders(env, config.org, id, name));
     }
   } else {
@@ -451,8 +452,11 @@ export async function handlePublish(
       ...(req.creatorGithub ? { creatorGithub: req.creatorGithub } : {}),
       // Which engine/template this game was generated from (kaplay|phaser|3d|
       // canvas|grid|cards). Lets the storefront + studio show the engine and
-      // lets the agent load engine-correct authoring context on import.
-      ...(req.template ? { engine: req.template } : {}),
+      // lets the agent load engine-correct authoring context on import. Only
+      // record a key that actually maps to a template repo — an unknown/typo'd
+      // key falls back to canvas at generate time, so writing it here would
+      // claim an engine the source doesn't match.
+      ...(req.template && TEMPLATE_REPOS[req.template] ? { engine: req.template } : {}),
       // Set once, on first add. `me.ts` reads this for the game's createdAt.
       firstPublished: nowIso,
     });
