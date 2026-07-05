@@ -193,7 +193,7 @@ export function renderDashboardShell(): string {
       var q=qualityMap[d.id];
       var scoreCell=q?'<span class="quality-score '+qualityClass(q.score)+'">'+q.score+'</span>':'<span class="q-gray">--</span>';
       var loadCell=q?q.loadTimeMs+'ms':'<span class="q-gray">--</span>';
-      return '<tr data-name="'+d.name.toLowerCase()+'" data-live="'+(live==='ok'?'1':'0')+'"><td><strong>'+d.name+'</strong><br><small style="color:#888">'+d.id+'</small></td><td>'+dot+'</td><td>'+scoreCell+'</td><td>'+loadCell+'</td><td><a href="https://'+d.domain+'" target="_blank">'+d.domain+'</a></td><td><a href="https://github.com/'+d.org+'/'+d.id+'" target="_blank" style="font-size:0.8rem">'+d.org+'/'+d.id+'</a></td></tr>';
+      return '<tr data-name="'+esc(d.name.toLowerCase())+'" data-live="'+(live==='ok'?'1':'0')+'"><td><strong>'+esc(d.name)+'</strong><br><small style="color:#888">'+esc(d.id)+'</small></td><td>'+dot+'</td><td>'+scoreCell+'</td><td>'+loadCell+'</td><td><a href="https://'+esc(d.domain)+'" target="_blank">'+esc(d.domain)+'</a></td><td><a href="https://github.com/'+esc(d.org)+'/'+esc(d.id)+'" target="_blank" style="font-size:0.8rem">'+esc(d.org)+'/'+esc(d.id)+'</a></td></tr>';
     }
 
     function setFilter(f){
@@ -208,7 +208,7 @@ export function renderDashboardShell(): string {
     }
     function buildLetterBar(){
       var letters=[...new Set(gameData.map(function(d){return d.name[0].toUpperCase()}))].sort();
-      document.getElementById('letterBar').innerHTML=letters.map(function(l){return '<button class="letter-btn" onclick="setLetter(\\x27'+l+'\\x27)">'+l+'</button>'}).join('');
+      document.getElementById('letterBar').innerHTML=letters.map(function(l){return '<button class="letter-btn" onclick="setLetter(\\x27'+esc(l)+'\\x27)">'+esc(l)+'</button>'}).join('');
     }
     function applyFilter(){renderTable()}
     function renderTable(){
