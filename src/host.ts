@@ -17,7 +17,7 @@ export interface Route {
 }
 
 /**
- * Map a Host header like "kanban.freeappstore.online" to its R2 prefix.
+ * Map a Host header like "2048.freegamestore.online" to its R2 prefix.
  * Returns null if no row matches; caller serves 404.
  *
  * Lookup is keyed by (slug, zone) so the same slug can exist on multiple
