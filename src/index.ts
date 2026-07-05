@@ -1,5 +1,3 @@
-import { vaultList, vaultSet, vaultGet, vaultDelete } from "./vault";
-
 interface Env {
   DB: D1Database;
   GOOGLE_CLIENT_ID: string;
@@ -76,22 +74,6 @@ export async function jwtVerify(token: string, secret: string): Promise<Record<s
 
 // --- CORS ---
 
-// First-party origins — the only ones trusted with credentialed access to
-// SENSITIVE endpoints (the AI-key vault). Game subdomains
-// (<game>.freegamestore.online) serve untrusted user content and are
-// deliberately excluded: without this, any published game could fetch
-// /vault/get with the player's session cookie and exfiltrate their decrypted
-// BYO API keys.
-const FIRST_PARTY_ORIGINS = new Set([
-  "https://freegamestore.online",
-  "https://console.freegamestore.online",
-  "http://localhost:5173",
-]);
-
-export function isFirstParty(origin: string): boolean {
-  return FIRST_PARTY_ORIGINS.has(origin);
-}
-
 // Broad CORS for identity endpoints (/me, OAuth) that games legitimately need
 // for the GameAuth component. Reflects any *.freegamestore.online; safe because
 // these endpoints expose only the player's own public identity, never secrets.
@@ -100,19 +82,6 @@ function cors(request: Request): Record<string, string> {
   const allowed = ALLOWED_ORIGIN.test(origin) || origin === "https://freegamestore.online" || origin === "http://localhost:5173";
   return {
     "Access-Control-Allow-Origin": allowed ? origin : "",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Credentials": "true",
-    "Access-Control-Max-Age": "86400",
-    Vary: "Origin",
-  };
-}
-
-// Strict CORS for the vault — first-party origins only, never game subdomains.
-export function corsVault(request: Request): Record<string, string> {
-  const origin = request.headers.get("Origin") ?? "";
-  return {
-    "Access-Control-Allow-Origin": isFirstParty(origin) ? origin : "",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Credentials": "true",
@@ -241,6 +210,7 @@ export async function handleCallback(request: Request, env: Env): Promise<Respon
   });
 
   if (!tokenRes.ok) {
+    console.error(`Google token exchange failed: HTTP ${tokenRes.status} ${await tokenRes.text().catch(() => "")}`);
     return new Response("Token exchange failed", { status: 502 });
   }
 
@@ -252,6 +222,7 @@ export async function handleCallback(request: Request, env: Env): Promise<Respon
   });
 
   if (!userRes.ok) {
+    console.error(`Google userinfo fetch failed: HTTP ${userRes.status} ${await userRes.text().catch(() => "")}`);
     return new Response("Failed to fetch user info", { status: 502 });
   }
 
@@ -332,53 +303,6 @@ export async function handleMe(request: Request, env: Env): Promise<Response> {
   );
 }
 
-// --- AI key vault (requires a valid session) ---
-
-async function handleVault(request: Request, env: Env, path: string): Promise<Response> {
-  // Strict CORS — the vault returns decrypted API keys, so responses carry an
-  // Access-Control-Allow-Origin only for first-party origins. A game subdomain
-  // gets an empty ACAO and the browser blocks the read.
-  const vjson = (data: unknown, status: number) =>
-    new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json", ...corsVault(request) } });
-
-  // Defense in depth: refuse outright if a cross-origin caller presents a
-  // non-first-party Origin (e.g. <game>.freegamestore.online). Same-origin /
-  // server-to-server callers send no Origin and still require a valid session.
-  const origin = request.headers.get("Origin");
-  if (origin && !isFirstParty(origin)) return vjson({ error: "forbidden" }, 403);
-
-  const token = getCookie(request, COOKIE_NAME);
-  const payload = token ? await jwtVerify(token, env.JWT_SECRET) : null;
-  if (!payload?.sub) return vjson({ error: "Not signed in" }, 401);
-  const userId = payload.sub as string;
-
-  if (request.method === "GET" && path === "/vault") {
-    return vjson({ providers: await vaultList(env.DB, userId) }, 200);
-  }
-
-  if (request.method === "POST" && path === "/vault/set") {
-    const body = (await request.json().catch(() => ({}))) as { provider?: string; key?: string };
-    if (!body.provider || !body.key) return vjson({ error: "provider and key required" }, 400);
-    await vaultSet(env.DB, env.JWT_SECRET, userId, body.provider, body.key);
-    return vjson({ ok: true }, 200);
-  }
-
-  if (request.method === "POST" && path === "/vault/get") {
-    const body = (await request.json().catch(() => ({}))) as { provider?: string };
-    if (!body.provider) return vjson({ error: "provider required" }, 400);
-    return vjson({ key: await vaultGet(env.DB, env.JWT_SECRET, userId, body.provider) }, 200);
-  }
-
-  if (request.method === "POST" && path === "/vault/delete") {
-    const body = (await request.json().catch(() => ({}))) as { provider?: string };
-    if (!body.provider) return vjson({ error: "provider required" }, 400);
-    await vaultDelete(env.DB, userId, body.provider);
-    return vjson({ ok: true }, 200);
-  }
-
-  return vjson({ error: "Not found" }, 404);
-}
-
 function handleLogout(request: Request): Response {
   const referrer = safeRedirect(request.headers.get("Referer"));
   return new Response(null, {
@@ -448,6 +372,7 @@ async function handleGitHubCallback(request: Request, env: Env): Promise<Respons
   });
 
   if (!tokenRes.ok) {
+    console.error(`GitHub token exchange failed: HTTP ${tokenRes.status} ${await tokenRes.text().catch(() => "")}`);
     return new Response("Token exchange failed", { status: 502 });
   }
 
@@ -462,6 +387,7 @@ async function handleGitHubCallback(request: Request, env: Env): Promise<Respons
   });
 
   if (!userRes.ok) {
+    console.error(`GitHub userinfo fetch failed: HTTP ${userRes.status} ${await userRes.text().catch(() => "")}`);
     return new Response("Failed to fetch user info", { status: 502 });
   }
 
@@ -511,11 +437,9 @@ export default {
     // platform/docs/API-CONTRACT.md (additive-only contract).
     const path = url.pathname.startsWith("/v1/") ? url.pathname.slice(3) : url.pathname;
 
-    // CORS preflight — vault preflights use the strict first-party allowlist so
-    // a game origin's preflight fails and the browser never sends the request.
+    // CORS preflight
     if (request.method === "OPTIONS") {
-      const headers = path === "/vault" || path.startsWith("/vault/") ? corsVault(request) : cors(request);
-      return new Response(null, { status: 204, headers });
+      return new Response(null, { status: 204, headers: cors(request) });
     }
 
     // GitHub OAuth (primary — used by console + CLI)
@@ -542,11 +466,6 @@ export default {
     // POST /logout
     if (request.method === "POST" && path === "/logout") {
       return handleLogout(request);
-    }
-
-    // AI key vault — /vault, /vault/set, /vault/get, /vault/delete
-    if (path === "/vault" || path.startsWith("/vault/")) {
-      return handleVault(request, env, path);
     }
 
     return json({ error: "Not found" }, 404, request);

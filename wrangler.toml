@@ -3,6 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2024-12-01"
 workers_dev = false
 
+[observability]
+enabled = true
+
 [vars]
 GOOGLE_CLIENT_ID = "891659870829-33roehi8s6431qb5n4jt3bn6rd29gnuq.apps.googleusercontent.com"
 
