@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button, Card, Input, Select, Label } from "./ui";
 
 interface ProvisionStep {
@@ -79,17 +79,27 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
 
   const idError = validateId(gameId);
 
+  // Always holds the latest id so an in-flight availability check can tell if the
+  // user edited the id while it was running (and ignore its now-stale result).
+  const latestIdRef = useRef(gameId);
+  latestIdRef.current = gameId;
+
   // Check availability up front (repo existence) so the user isn't told "taken"
   // only after hitting Create. Cleared whenever the id changes.
   const checkId = async () => {
     if (!gameId || idError) return;
+    const checkedId = gameId;
     setChecking(true);
     setCheckResult(null);
     try {
-      const r = await fetch(`/api/check-id?id=${encodeURIComponent(gameId)}`, { credentials: "include" });
+      const r = await fetch(`/api/check-id?id=${encodeURIComponent(checkedId)}`, { credentials: "include" });
       const d = (await r.json().catch(() => ({}))) as { available?: boolean; reason?: string };
+      // Drop the result if the id changed while this request was in flight —
+      // otherwise a stale "taken" could block a now-different, valid id.
+      if (latestIdRef.current !== checkedId) return;
       setCheckResult({ available: !!d.available, reason: d.reason });
     } catch {
+      if (latestIdRef.current !== checkedId) return;
       setCheckResult({ available: false, reason: "Couldn't check — try again" });
     } finally {
       setChecking(false);
