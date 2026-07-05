@@ -3,6 +3,11 @@ main = "src/index.ts"
 compatibility_date = "2024-12-01"
 workers_dev = false
 
+# Emit invocation logs to Workers Logs so host failures (D1/R2 blips → 503,
+# unexpected exceptions) are visible without redeploying with extra logging.
+[observability]
+enabled = true
+
 # Catches every subdomain under freegamestore.online. The wildcard DNS
 # record + wildcard SSL cert on the zone makes Path B scale to thousands
 # of games without per-game DNS / CF Pages provisioning.

@@ -1,5 +1,18 @@
-import { describe, expect, it } from "vitest";
-import { buildSyntheticVersion, contentType, etagsMatch, type Route, r2KeyFor, resolveRoute, securityHeaders, shouldRevalidate } from "../host";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  __clearRouteCache,
+  buildSyntheticVersion,
+  contentType,
+  etagsMatch,
+  type Route,
+  r2KeyFor,
+  resolveRoute,
+  resolveRouteCached,
+  ROUTE_CACHE_NEG_TTL_MS,
+  ROUTE_CACHE_TTL_MS,
+  securityHeaders,
+  shouldRevalidate,
+} from "../host";
 
 // Minimal D1 stub — verifies the SQL shape and parameter binding without
 // spinning up a real D1. Real schema integration is exercised by the
@@ -12,6 +25,25 @@ function mockDb(rows: Route[]): D1Database {
       }),
     }),
   } as unknown as D1Database;
+}
+
+// D1 stub that counts how many times a query is actually executed, so we can
+// assert the cache collapses N asset requests into a single D1 read. Optionally
+// throws to simulate a D1 blip.
+function countingDb(rows: Route[], opts: { throwOnQuery?: boolean } = {}): { db: D1Database; calls: () => number } {
+  let calls = 0;
+  const db = {
+    prepare: (_sql: string) => ({
+      bind: (slug: string, zone: string) => ({
+        first: async () => {
+          calls++;
+          if (opts.throwOnQuery) throw new Error("D1_ERROR: simulated blip");
+          return rows.find((r) => r.slug === slug && r.zone === zone) ?? null;
+        },
+      }),
+    }),
+  } as unknown as D1Database;
+  return { db, calls: () => calls };
 }
 
 const kanban: Route = { slug: "kanban", zone: "freegamestore.online", r2_prefix: "games/kanban", store: "games" };
@@ -47,6 +79,62 @@ describe("resolveRoute", () => {
     const db = mockDb([kanban, games]);
     expect((await resolveRoute(db, "kanban.freegamestore.online"))?.r2_prefix).toBe("games/kanban");
     expect((await resolveRoute(db, "kanban.freegamestore.online"))?.r2_prefix).toBe("games/kanban");
+  });
+});
+
+describe("resolveRouteCached (in-isolate route cache)", () => {
+  beforeEach(() => {
+    __clearRouteCache();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-05T00:00:00.000Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    __clearRouteCache();
+  });
+
+  it("collapses repeated lookups for the same host into a single D1 read", async () => {
+    const { db, calls } = countingDb([kanban]);
+    for (let i = 0; i < 50; i++) {
+      const r = await resolveRouteCached(db, "kanban.freegamestore.online");
+      expect(r?.r2_prefix).toBe("games/kanban");
+    }
+    expect(calls()).toBe(1);
+  });
+
+  it("re-queries D1 after the positive TTL expires", async () => {
+    const { db, calls } = countingDb([kanban]);
+    await resolveRouteCached(db, "kanban.freegamestore.online");
+    expect(calls()).toBe(1);
+    vi.advanceTimersByTime(ROUTE_CACHE_TTL_MS + 1);
+    await resolveRouteCached(db, "kanban.freegamestore.online");
+    expect(calls()).toBe(2);
+  });
+
+  it("caches negative lookups only briefly so a fresh publish appears quickly", async () => {
+    const { db, calls } = countingDb([kanban]);
+    // Unknown slug — cached, so a second immediate call does not re-hit D1.
+    expect(await resolveRouteCached(db, "brandnew.freegamestore.online")).toBeNull();
+    expect(await resolveRouteCached(db, "brandnew.freegamestore.online")).toBeNull();
+    expect(calls()).toBe(1);
+    // ...but the negative entry expires much sooner than a positive one.
+    expect(ROUTE_CACHE_NEG_TTL_MS).toBeLessThan(ROUTE_CACHE_TTL_MS);
+    vi.advanceTimersByTime(ROUTE_CACHE_NEG_TTL_MS + 1);
+    expect(await resolveRouteCached(db, "brandnew.freegamestore.online")).toBeNull();
+    expect(calls()).toBe(2);
+  });
+
+  it("keys the cache by cleaned host (case-insensitive, port-stripped)", async () => {
+    const { db, calls } = countingDb([kanban]);
+    await resolveRouteCached(db, "kanban.freegamestore.online");
+    await resolveRouteCached(db, "KANBAN.FreeGameStore.Online");
+    await resolveRouteCached(db, "kanban.freegamestore.online:8443");
+    expect(calls()).toBe(1);
+  });
+
+  it("propagates a D1 error to the caller (handler wraps it into a 503)", async () => {
+    const { db } = countingDb([kanban], { throwOnQuery: true });
+    await expect(resolveRouteCached(db, "kanban.freegamestore.online")).rejects.toThrow(/D1_ERROR/);
   });
 });
 
@@ -111,8 +199,8 @@ describe("contentType", () => {
 // The analytics pipeline (loader, beacon, BYO tags) depends on these directives
 // being permissive enough to allow the platform origins. A future tightening
 // pass that drops the broad `https:` from script-src + connect-src must keep
-// the explicit api.freeappstore.online / cloudflareinsights / googletagmanager /
-// plausible.io origins or analytics breaks across every app.
+// the explicit api.freegamestore.online / cloudflareinsights / googletagmanager /
+// plausible.io origins or analytics breaks across every game.
 
 describe("buildSyntheticVersion (fallback version.json from R2 metadata)", () => {
   const body = buildSyntheticVersion('pong', new Date('2026-07-04T09:30:00.000Z'), '"abc123etag"');
@@ -155,11 +243,13 @@ describe("securityHeaders", () => {
     expect(asset.get("cache-control")).toContain("immutable");
   });
 
-  it("CSP allows the platform analytics loader endpoint", () => {
+  it("CSP allows this store's own analytics loader endpoint (FGS, not FAS)", () => {
     const csp = html.get("content-security-policy") ?? "";
-    expect(csp).toContain("https://api.freeappstore.online");
-    expect(csp).toMatch(/script-src[^;]*https:\/\/api\.freeappstore\.online/);
-    expect(csp).toMatch(/connect-src[^;]*https:\/\/api\.freeappstore\.online/);
+    expect(csp).toContain("https://api.freegamestore.online");
+    expect(csp).toMatch(/script-src[^;]*https:\/\/api\.freegamestore\.online/);
+    expect(csp).toMatch(/connect-src[^;]*https:\/\/api\.freegamestore\.online/);
+    // Regression: must NOT reference a sibling store's origin.
+    expect(csp).not.toContain("freeappstore.online");
   });
 
   it("CSP allows CF Web Analytics beacon (cookieless first-party)", () => {
@@ -282,7 +372,36 @@ describe("legacy fallback (integration shape only)", () => {
 });
 
 // --- analytics loader (fleet-wide /v1/analytics.js) ---
-import { buildAnalyticsLoader, ANALYTICS_APP_ID_RE } from "../index";
+import worker, { buildAnalyticsLoader, ANALYTICS_APP_ID_RE } from "../index";
+
+// The fetch handler must degrade a backend blip to a clean 503, not throw.
+describe("fetch handler resilience (D1 blip → 503, not raw 500)", () => {
+  const ctx = { waitUntil: () => {}, passThroughOnException: () => {} } as unknown as ExecutionContext;
+
+  const envWith = (db: D1Database) => ({ DB: db, APPS: {} as R2Bucket }) as never;
+
+  it("returns 503 (not an exception) when the route lookup throws", async () => {
+    __clearRouteCache();
+    const { db } = countingDb([], { throwOnQuery: true });
+    const req = new Request("https://brokengame.freegamestore.online/index.html", {
+      headers: { host: "brokengame.freegamestore.online" },
+    });
+    const res = await worker.fetch(req, envWith(db), ctx);
+    expect(res.status).toBe(503);
+    expect(res.headers.get("retry-after")).toBe("5");
+    expect(res.headers.get("cache-control")).toContain("no-store");
+  });
+
+  it("still returns 404 (not 503) for a genuinely-unknown slug", async () => {
+    __clearRouteCache();
+    const { db } = countingDb([]); // healthy D1, no matching row
+    const req = new Request("https://nosuchgame.freegamestore.online/", {
+      headers: { host: "nosuchgame.freegamestore.online" },
+    });
+    const res = await worker.fetch(req, envWith(db), ctx);
+    expect(res.status).toBe(404);
+  });
+});
 
 describe("analytics loader", () => {
   it("accepts valid game ids incl. leading-digit (2048)", () => {

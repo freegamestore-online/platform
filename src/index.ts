@@ -12,7 +12,7 @@
  * PLATFORM_SUBDOMAINS is just www → apex redirect + future hooks.
  */
 
-import { type Env, type Route, buildSyntheticVersion, contentType, etagsMatch, r2KeyFor, resolveRoute, securityHeaders, shouldRevalidate } from "./host";
+import { type Env, type Route, buildSyntheticVersion, contentType, etagsMatch, r2KeyFor, resolveRouteCached, securityHeaders, shouldRevalidate } from "./host";
 
 type PlatformDispatch =
   | { type: "service"; binding: keyof Env }
@@ -47,35 +47,59 @@ const PLATFORM_SUBDOMAINS: Record<string, PlatformDispatch> = {
 
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(req.url);
-    const host = req.headers.get("host") ?? url.host;
+    // Wrap the whole handler: a D1 (route lookup) or R2 (asset read) blip must
+    // degrade to a clean 503 for the one request, not surface as an unhandled
+    // rejection that CF turns into a raw 500 for EVERY game subdomain at once.
+    // A genuinely-unknown slug still returns 404 below (that's not an error).
+    try {
+      const url = new URL(req.url);
+      const host = req.headers.get("host") ?? url.host;
 
-    const cleaned = host.toLowerCase().split(":")[0];
-    const dot = cleaned.indexOf(".");
-    const slug = dot > 0 ? cleaned.slice(0, dot) : "";
+      const cleaned = host.toLowerCase().split(":")[0];
+      const dot = cleaned.indexOf(".");
+      const slug = dot > 0 ? cleaned.slice(0, dot) : "";
 
-    // Fleet-wide analytics loader. Every game injects
-    //   <script src="https://api.freegamestore.online/v1/analytics.js?app=<id>">
-    // and this Worker owns *.freegamestore.online/* (which preempts any more
-    // specific sibling route), so it must answer the loader here or it 404s on
-    // every game. Served before the reserved-subdomain + registry lookups.
-    if (slug === "api" && url.pathname === "/v1/analytics.js") {
-      return analyticsLoaderResponse(url, env, ctx);
+      // Fleet-wide analytics loader. Every game injects
+      //   <script src="https://api.freegamestore.online/v1/analytics.js?app=<id>">
+      // and this Worker owns *.freegamestore.online/* (which preempts any more
+      // specific sibling route), so it must answer the loader here or it 404s on
+      // every game. Served before the reserved-subdomain + registry lookups.
+      if (slug === "api" && url.pathname === "/v1/analytics.js") {
+        return analyticsLoaderResponse(url, env, ctx);
+      }
+
+      // hasOwnProperty, not `in`: `slug in obj` walks the prototype chain, so a
+      // game published at constructor./toString./__proto__.freegamestore.online
+      // would falsely match and never reach its real R2 route.
+      if (Object.prototype.hasOwnProperty.call(PLATFORM_SUBDOMAINS, slug)) {
+        return await dispatchPlatform(req, env, slug, host);
+      }
+
+      // Cached (slug,zone)→route lookup: routes only change on publish/delete,
+      // so a 60s in-isolate cache collapses a 50-asset page from 50 D1 reads to
+      // one, and a D1 hiccup can't 500 the whole fleet on every asset.
+      const route = await resolveRouteCached(env.DB, host);
+      if (route) return await serve(env.APPS, route, url, req, ctx);
+
+      return notFound(host);
+    } catch {
+      return serviceUnavailable();
     }
-
-    // hasOwnProperty, not `in`: `slug in obj` walks the prototype chain, so a
-    // game published at constructor./toString./__proto__.freegamestore.online
-    // would falsely match and never reach its real R2 route.
-    if (Object.prototype.hasOwnProperty.call(PLATFORM_SUBDOMAINS, slug)) {
-      return await dispatchPlatform(req, env, slug, host);
-    }
-
-    const route = await resolveRoute(env.DB, host);
-    if (route) return await serve(env.APPS, route, url, req, ctx);
-
-    return notFound(host);
   },
 };
+
+/** Clean 503 for a transient backend (D1/R2) failure. Kept human-readable and
+ *  with a short Retry-After so a client/CDN retries rather than caching a 500. */
+function serviceUnavailable(): Response {
+  return new Response("Service temporarily unavailable — please retry shortly.\n", {
+    status: 503,
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "retry-after": "5",
+      "cache-control": "no-store",
+    },
+  });
+}
 
 // A game id: lowercase slug, may start with a digit (e.g. "2048"), ≤58 chars.
 export const ANALYTICS_APP_ID_RE = /^[a-z0-9](?:[a-z0-9-]{0,56}[a-z0-9])?$/;

@@ -41,6 +41,46 @@ export async function resolveRoute(db: D1Database, host: string): Promise<Route 
 }
 
 /**
+ * In-isolate cache in front of resolveRoute. Routes only change on
+ * publish/delete, so a short TTL is safe and a 50-asset page then costs one
+ * D1 read instead of 50. Positive hits live 60s; negative hits (unknown slug)
+ * live only 10s so a freshly-published game appears quickly and a transient
+ * miss can't be pinned for a full minute.
+ *
+ * The Map is per-isolate (Workers spins up many), so this is a best-effort
+ * cache — no cross-isolate coherency needed; each isolate independently
+ * refreshes within one TTL window. Keyed by the cleaned host (lowercased,
+ * port stripped) exactly as resolveRoute keys its lookup.
+ */
+export const ROUTE_CACHE_TTL_MS = 60_000;
+export const ROUTE_CACHE_NEG_TTL_MS = 10_000;
+
+interface RouteCacheEntry {
+  route: Route | null;
+  expires: number;
+}
+const routeCache = new Map<string, RouteCacheEntry>();
+
+/** Test-only: drop all cached routes so TTL behavior is deterministic. */
+export function __clearRouteCache(): void {
+  routeCache.clear();
+}
+
+export async function resolveRouteCached(db: D1Database, host: string): Promise<Route | null> {
+  const key = host.toLowerCase().split(":")[0];
+  const now = Date.now();
+  const hit = routeCache.get(key);
+  if (hit && hit.expires > now) return hit.route;
+
+  const route = await resolveRoute(db, host);
+  routeCache.set(key, {
+    route,
+    expires: now + (route ? ROUTE_CACHE_TTL_MS : ROUTE_CACHE_NEG_TTL_MS),
+  });
+  return route;
+}
+
+/**
  * Compute the R2 key for a given route + URL pathname. Directory paths and
  * `/` default to `index.html`; the leading slash is stripped because R2
  * keys are flat strings, not paths.
@@ -106,8 +146,8 @@ export function securityHeaders(opts: { revalidate: boolean }): Headers {
   // carry a blanket `https:`, so a malicious game can't inject arbitrary
   // external JS or exfiltrate data to an attacker host. Platform calls go to
   // *.freegamestore.online (auth, leaderboard, rooms).
-  const analyticsScript = "https://static.cloudflareinsights.com https://api.freeappstore.online https://www.googletagmanager.com https://plausible.io";
-  const analyticsConnect = "https://cloudflareinsights.com https://api.freeappstore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io";
+  const analyticsScript = "https://static.cloudflareinsights.com https://api.freegamestore.online https://www.googletagmanager.com https://plausible.io";
+  const analyticsConnect = "https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io";
   const csp = [
     "default-src 'self' https: data: blob:",
     `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${analyticsScript}`,
