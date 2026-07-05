@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ArrowUp, Plus, Send, X } from "lucide-react";
+import { ArrowUp, ExternalLink, Plus, Send, X } from "lucide-react";
 import { Button, buttonClass } from "../components/ui";
 import { Nav } from "../components/Nav";
 import { ChatMessage } from "../components/ChatMessage";
@@ -310,12 +310,15 @@ export function Create() {
         {/* Preview */}
         <div className="hidden md:flex flex-col overflow-hidden">
           <div className="flex items-center gap-2 shrink-0" style={{ padding: "0.5rem 0.75rem", borderBottom: "1px solid var(--border)", background: "var(--surface)", fontSize: "0.85rem" }}>
-            <span className="font-bold" style={{ fontFamily: "Fraunces, serif" }}>Preview</span>
-            {previewUrl && (
+            {previewUrl ? (
               <>
-                <a href={previewUrl} target="_blank" rel="noopener" className="text-xs" style={{ color: "var(--accent)", fontFamily: "monospace" }}>{previewUrl.replace("https://", "")}</a>
-                <a href={previewUrl} target="_blank" rel="noopener" className="ml-auto text-xs font-semibold" style={{ color: "var(--accent)" }}>Open in new tab</a>
+                <a href={previewUrl} target="_blank" rel="noopener" className="text-xs truncate min-w-0" style={{ color: "var(--accent)", fontFamily: "monospace" }}>{previewUrl.replace("https://", "")}</a>
+                <a href={previewUrl} target="_blank" rel="noopener" aria-label="Open in new tab" title="Open in new tab" className="ml-auto shrink-0 inline-flex items-center justify-center" style={{ color: "var(--accent)", width: 28, height: 28 }}>
+                  <ExternalLink className="w-4 h-4" />
+                </a>
               </>
+            ) : (
+              <span className="text-xs" style={{ color: "var(--muted)" }}>Preview</span>
             )}
           </div>
           <div className="flex-1 flex items-center justify-center" style={{ background: "var(--bg)", minHeight: 0, overflow: "hidden" }}>
