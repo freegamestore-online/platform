@@ -3,7 +3,7 @@
 import { checkBuildSanity, formatSanityBlock } from "./build-sanity";
 import type { StoreConfig } from "./config";
 import type { DeployEnv, DeployStatus } from "./deploy";
-import { deployApp, pushUpdate, substituteAppName } from "./deploy";
+import { deployApp, pushUpdate, substituteAppName, waitForActionsDeploy } from "./deploy";
 import { checkDeployStatus, fetchUrl, getAuditResults, getBuildLogs, getCIResults, listDeployed } from "./infra";
 import type { ToolCall } from "./providers/types";
 
@@ -161,12 +161,32 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
 }
 
 async function executePushUpdate(tc: ToolCall, ctx: ExecContext): Promise<string> {
+  const id = tc.input.id as string;
   ctx.onDeployStatus({ phase: "pushing", progress: "Pushing update..." });
-  const result = await pushUpdate(tc.input.id as string, ctx.files, (tc.input.message as string) || "Update", ctx.env, ctx.config);
-  if (!result.startsWith("Error")) {
-    ctx.onDeployStatus({ phase: "building", deployUrl: `https://${tc.input.id as string}.${ctx.config.domain}` });
+  const result = await pushUpdate(id, ctx.files, (tc.input.message as string) || "Update", ctx.env, ctx.config);
+  if (result.startsWith("Error")) {
+    ctx.onDeployStatus({ phase: "error", error: result });
+    return result;
   }
-  return result;
+
+  // Wait for the Actions build to finish and resolve to live/error — exactly
+  // like the FIRST deploy does (deployPathB → waitForActionsDeploy). Without
+  // this, push_update set phase:"building" and returned immediately, so the
+  // studio sat on "Building/Deploying…" FOREVER even though CI completed — the
+  // "deploy gets stuck for everyone and never finishes" report. Every edit after
+  // the first deploy hit this. The poll persists live (or a real error with a
+  // logs link) so the user always sees the true outcome.
+  const appUrl = `https://${id}.${ctx.config.domain}`;
+  ctx.onDeployStatus({ phase: "building", deployUrl: appUrl });
+  let outcome: string | null = null;
+  await waitForActionsDeploy(id, ctx.env, ctx.config, (s) => {
+    ctx.onDeployStatus(s);
+    if (s.phase === "live") outcome = `Update deployed and LIVE at ${s.appUrl}.`;
+    else if (s.phase === "error") outcome = `Update pushed but the build FAILED: ${s.error}`;
+  }, appUrl).catch((err) => {
+    outcome = `Update pushed; couldn't confirm the build status: ${String(err)}. Use check_deploy_status.`;
+  });
+  return outcome || `${result} CI is still building — check_deploy_status for the final result.`;
 }
 
 async function executeFetchUrl(tc: ToolCall, config: StoreConfig): Promise<string> {

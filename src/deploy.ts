@@ -435,7 +435,7 @@ async function deployPathB(
 /** Path B: poll the repo's GitHub Actions runs until the deploy workflow (build
  *  → R2 sync) finishes. Success → live; failure → surface the failing job/step.
  *  Replaces CF Pages deployment polling. */
-async function waitForActionsDeploy(
+export async function waitForActionsDeploy(
   repoId: string,
   env: DeployEnv,
   config: StoreConfig,
