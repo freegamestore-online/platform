@@ -14,7 +14,7 @@ import { COMP_PROVIDERS, compKeyFor, grantComp, listComp, revokeComp } from "./k
 export async function handleAdminCompApi(request: Request, env: Env, cors: Record<string, string>): Promise<Response | null> {
   const url = new URL(request.url);
   const path = url.pathname;
-  if (path !== "/v1/admin/comp" && !path.startsWith("/v1/admin/comp/")) return null;
+  if (!path.startsWith("/v1/admin/")) return null;
 
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...cors } });
@@ -23,6 +23,31 @@ export async function handleAdminCompApi(request: Request, env: Env, cors: Recor
   const tok = request.headers.get("X-Internal-Token") || "";
   if (!env.INTERNAL_TOKEN || tok !== env.INTERNAL_TOKEN) return json({ error: "forbidden" }, 403);
   if (!env.DB) return json({ error: "database not configured" }, 500);
+
+  // GET /v1/admin/users — every REGISTERED user (from the auth users table in
+  // this same D1), each annotated with its complimentary grant if any. Lets the
+  // admin see + fund users who have never published a game (so they're absent
+  // from the registry-derived creator list).
+  if (path === "/v1/admin/users" && request.method === "GET") {
+    const grants = await listComp(env);
+    const gByUser = new Map(grants.map((g) => [g.userId, g]));
+    const { results } = await env.DB.prepare(
+      "SELECT id, name, avatar_url, created_at, last_seen FROM users ORDER BY created_at DESC LIMIT 1000",
+    ).all();
+    const users = (results as Record<string, unknown>[]).map((u) => {
+      const id = String(u.id);
+      const g = gByUser.get(id) || null;
+      return {
+        id,
+        name: String(u.name || ""),
+        avatarUrl: u.avatar_url ? String(u.avatar_url) : null,
+        createdAt: u.created_at ? String(u.created_at) : null,
+        lastSeen: u.last_seen ? String(u.last_seen) : null,
+        grant: g ? { provider: g.provider, model: g.model, expiresAt: g.expiresAt } : null,
+      };
+    });
+    return json({ users });
+  }
 
   if (path === "/v1/admin/comp" && request.method === "GET") {
     const grants = await listComp(env);
