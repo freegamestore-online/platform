@@ -62,6 +62,19 @@ export async function listErrors(db: D1Database | undefined, limit = 200): Promi
   }
 }
 
+/** Retention prune: drop error_log rows older than `days` (default 30). Called
+ *  from the hourly cron so the table can't grow unbounded. Best-effort — a prune
+ *  failure must never throw into the scheduled handler. */
+export async function pruneErrors(db: D1Database | undefined, days = 30): Promise<void> {
+  if (!db) return;
+  try {
+    await ensure(db);
+    await db.prepare(`DELETE FROM error_log WHERE ts < datetime('now', ?)`).bind(`-${days} days`).run();
+  } catch (e) {
+    console.error(`[error] failed to prune error_log: ${String(e)}`);
+  }
+}
+
 export interface ErrorStats {
   total: number;
   last24h: number;

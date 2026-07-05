@@ -105,6 +105,50 @@ describe("handleDeleteGame ownership", () => {
   });
 });
 
+describe("handlePublish reserved-id guard", () => {
+  it("rejects reserved infra ids before touching GitHub", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", async (input: unknown) => {
+      calls.push(typeof input === "string" ? input : (input as Request).url);
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+    const env = { GITHUB_TOKEN: "x", DB: undefined } as unknown as Parameters<typeof handlePublish>[1];
+    // Exact infra ids + any template-game-* variant must be rejected as reserved.
+    for (const id of ["submissions", "brand", "ops", "sdk", "template-game-canvas", "template-game-9000"]) {
+      const res = await handlePublish({ id, name: "X", category: "arcade" }, env);
+      expect(res.success).toBe(false);
+      expect(res.steps[0]!.detail).toMatch(/reserved/i);
+    }
+    // `freegamestore` is also refused (via the free-prefix rule) — never provisioned.
+    const fg = await handlePublish({ id: "freegamestore", name: "X", category: "arcade" }, env);
+    expect(fg.success).toBe(false);
+    // Not one of these reached GitHub.
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe("handlePublish repo-existence fail-safe", () => {
+  it("aborts (no generate) when the existence check is inconclusive (403 rate-limit)", async () => {
+    const calls: { url: string; method: string }[] = [];
+    vi.stubGlobal("fetch", async (input: unknown, init?: { method?: string }) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      const method = init?.method ?? "GET";
+      calls.push({ url, method });
+      // The existence check returns 403 (rate limit / token issue) — inconclusive.
+      if (method === "GET" && url.endsWith("/repos/freegamestore-online/chess")) {
+        return new Response(JSON.stringify({ message: "rate limited" }), { status: 403 });
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+    const env = { GITHUB_TOKEN: "x", DB: undefined } as unknown as Parameters<typeof handlePublish>[1];
+    const res = await handlePublish({ id: "chess", name: "Chess", category: "arcade" }, env);
+    expect(res.success).toBe(false);
+    expect(res.steps[0]!.detail).toMatch(/could not verify/i);
+    // Crucially: it did NOT proceed to generate a repo over the unknown state.
+    expect(calls.filter((c) => c.url.includes("/generate"))).toHaveLength(0);
+  });
+});
+
 describe("handlePublish owner validation", () => {
   it("aborts before any repo/registry write when creatorGithub is malformed", async () => {
     const calls: string[] = [];

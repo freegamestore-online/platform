@@ -1,5 +1,5 @@
-import { handleDeleteGame, handlePublish, handleUpdateGame, renderProvisionForm } from "./publish";
-import { errorStats, listErrors, recordError } from "./errlog";
+import { handleDeleteGame, handlePublish, handleUpdateGame, insertHostRoute, renderProvisionForm } from "./publish";
+import { errorStats, listErrors, pruneErrors, recordError } from "./errlog";
 import { verifySession, handleAuthExchange, handleAuthMe } from "./auth";
 
 interface Env {
@@ -170,11 +170,52 @@ const QUALITY_URL = "https://raw.githubusercontent.com/freegamestore-online/free
 const ORG = "freegamestore-online";
 const DOMAIN = "freegamestore.online";
 
-async function fetchRegistry(): Promise<GameConfig[]> {
-  const res = await fetch(REGISTRY_URL, { headers: { "User-Agent": "freegamestore-admin" } });
-  if (!res.ok) return [];
-  const data = await res.json() as any;
-  const items = data.games || [];
+/** Fetch raw registry items (source of truth for games).
+ *  Prefers the authenticated GitHub contents API — which is NOT CDN-cached, so a
+ *  game provisioned/edited seconds ago appears immediately (admin already holds
+ *  GITHUB_TOKEN) — and falls back to the raw.githubusercontent.com CDN URL
+ *  (cached ~5min) only when there is no token or the API call fails.
+ *
+ *  Returns `null` when EVERY attempt failed — which is NOT the same as an empty
+ *  registry. A fetch failure must not read as "zero games": in reconcile() that
+ *  turns every live route into false orphan drift (and, once reconcile heals,
+ *  would delete every route). `[]` means the registry loaded and is genuinely
+ *  empty; callers that just render tolerate `?? []`. */
+async function fetchRegistryItems(env: Env): Promise<any[] | null> {
+  if (env.GITHUB_TOKEN) {
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/${ORG}/freegamestore/contents/registry.json`,
+        {
+          headers: {
+            Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+            Accept: "application/vnd.github.raw+json",
+            "User-Agent": "freegamestore-admin",
+          },
+        },
+      );
+      if (res.ok) {
+        const data = (await res.json()) as any;
+        return data.games || [];
+      }
+    } catch {
+      /* fall through to the raw CDN URL */
+    }
+  }
+  try {
+    const res = await fetch(REGISTRY_URL, { headers: { "User-Agent": "freegamestore-admin" } });
+    if (res.ok) {
+      const data = (await res.json()) as any;
+      return data.games || [];
+    }
+  } catch {
+    /* both attempts failed */
+  }
+  return null;
+}
+
+async function fetchRegistry(env: Env): Promise<GameConfig[]> {
+  const items = (await fetchRegistryItems(env)) ?? [];
   return items.map((item: any) => ({
     id: item.id,
     name: item.name,
@@ -186,16 +227,11 @@ async function fetchRegistry(): Promise<GameConfig[]> {
 }
 
 /** Raw registry items (keeps fields fetchRegistry() drops, e.g. creatorGithub)
- *  — backs the Users tab + creator stats. */
-async function fetchRegistryRaw(): Promise<any[]> {
-  try {
-    const res = await fetch(REGISTRY_URL, { headers: { "User-Agent": "freegamestore-admin" } });
-    if (!res.ok) return [];
-    const data = await res.json() as any;
-    return data.games || [];
-  } catch {
-    return [];
-  }
+ *  — backs the Users tab + creator stats. A fetch failure renders as empty here
+ *  (best-effort read path); reconcile() uses fetchRegistryItems() directly so it
+ *  can distinguish failure from empty. */
+async function fetchRegistryRaw(env: Env): Promise<any[]> {
+  return (await fetchRegistryItems(env)) ?? [];
 }
 
 async function fetchQuality(): Promise<QualityData | null> {
@@ -277,7 +313,7 @@ async function fetchGameStatus(game: GameConfig, env: Env) {
 }
 
 async function fetchAllStatus(env: Env) {
-  const games = await fetchRegistry();
+  const games = await fetchRegistry(env);
   const results = await Promise.all(
     games.map(async (game) => {
       const status = await fetchGameStatus(game, env);
@@ -713,16 +749,27 @@ interface ReconcileReport {
   /** Has a D1 route but isn't in the registry → drift (provision half-done or unlisted). */
   orphanRoute: string[];
   drift: boolean;
+  /** True when the registry read FAILED (not merely empty). In this state the
+   *  comparison is untrustworthy, so no drift is claimed and no healing runs. */
+  registryError?: boolean;
+  /** Populated only on the scheduled (heal=true) path: what was actually fixed. */
+  healed?: { insertedRoutes: string[]; deletedRoutes: string[] };
 }
 
-/** Compare the storefront registry against the D1 `routes` table and surface
- *  provisioning drift. A registry entry with no route is the CF-1014 symptom
- *  (game listed but unservable); a route with no registry entry is a half-done
- *  provision. Report-only — logs a structured report for `wrangler tail`; it
- *  never mutates, so a bad read can't cascade into deleting live routes. */
-async function reconcile(env: Env): Promise<ReconcileReport> {
-  const games = await fetchRegistry();
-  const registryIds = new Set(games.map((g) => g.id).filter(Boolean));
+/** Compare the storefront registry against the D1 `routes` table and surface —
+ *  and, on the scheduled path, HEAL — provisioning drift. A registry entry with
+ *  no route is the CF-1014 symptom (game listed but unservable); a route with no
+ *  registry entry is a half-done provision.
+ *
+ *  `heal=false` (the GET /api/reconcile report): read-only, mutates nothing.
+ *  `heal=true` (the hourly cron): auto-fixes the two SAFE cases —
+ *    - missingRoute → re-insert the idempotent host route (registry is truth).
+ *    - orphanRoute  → delete the route (registry is truth; the game is delisted).
+ *  It never archives/deletes a repo. If the registry read failed it heals
+ *  NOTHING — a bad read must never delete a live route. */
+async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
+  const items = await fetchRegistryItems(env);
+  const ts = new Date().toISOString();
 
   const routeRows = env.DB
     ? await env.DB
@@ -732,11 +779,34 @@ async function reconcile(env: Env): Promise<ReconcileReport> {
     : { results: [] as { slug: string }[] };
   const routeSlugs = new Set((routeRows.results ?? []).map((r) => r.slug));
 
+  // Registry read failed → do NOT treat every route as orphan drift (that would
+  // delete the whole fleet's routes once healing runs). Report the error, act on
+  // nothing.
+  if (items === null) {
+    const report: ReconcileReport = {
+      ts,
+      registryCount: 0,
+      routeCount: routeSlugs.size,
+      missingRoute: [],
+      orphanRoute: [],
+      drift: false,
+      registryError: true,
+    };
+    console.error(`[reconcile] registry read FAILED — skipping (no drift claimed, no heal)`);
+    await recordError(env.DB, {
+      source: "admin/reconcile",
+      context: `heal=${heal}`,
+      message: "registry read failed — reconcile skipped to avoid false drift",
+    });
+    return report;
+  }
+
+  const registryIds = new Set(items.map((g) => g.id).filter(Boolean));
   const missingRoute = [...registryIds].filter((id) => !routeSlugs.has(id)).sort();
   const orphanRoute = [...routeSlugs].filter((slug) => !registryIds.has(slug)).sort();
 
   const report: ReconcileReport = {
-    ts: new Date().toISOString(),
+    ts,
     registryCount: registryIds.size,
     routeCount: routeSlugs.size,
     missingRoute,
@@ -744,8 +814,36 @@ async function reconcile(env: Env): Promise<ReconcileReport> {
     drift: missingRoute.length > 0 || orphanRoute.length > 0,
   };
 
+  if (heal && env.DB && report.drift) {
+    const insertedRoutes: string[] = [];
+    const deletedRoutes: string[] = [];
+    // Re-insert routes for listed-but-unrouted games (idempotent, same shape as
+    // provision). registry is the source of truth for what SHOULD be served.
+    for (const id of missingRoute) {
+      const step = await insertHostRoute(env as any, id);
+      if (step.status === "ok") insertedRoutes.push(id);
+    }
+    // Delete routes with no registry entry — the game is delisted, so the route
+    // should stop resolving. Repos are left untouched (archive is not automatic).
+    for (const slug of orphanRoute) {
+      try {
+        await env.DB.prepare("DELETE FROM routes WHERE slug = ? AND zone = ?").bind(slug, DOMAIN).run();
+        deletedRoutes.push(slug);
+      } catch {
+        /* best-effort; next run retries */
+      }
+    }
+    report.healed = { insertedRoutes, deletedRoutes };
+  }
+
   if (report.drift) {
     console.error(`[reconcile] DRIFT detected: ${JSON.stringify(report)}`);
+    await recordError(env.DB, {
+      source: "admin/reconcile",
+      context: `heal=${heal}`,
+      message: `drift: ${missingRoute.length} missingRoute, ${orphanRoute.length} orphanRoute`,
+      stack: JSON.stringify(report).slice(0, 1500),
+    });
   } else {
     console.log(`[reconcile] clean: ${report.registryCount} games, ${report.routeCount} routes`);
   }
@@ -754,7 +852,9 @@ async function reconcile(env: Env): Promise<ReconcileReport> {
 
 export default {
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(reconcile(env));
+    // Hourly: heal provisioning drift, then prune the error log's old rows.
+    ctx.waitUntil(reconcile(env, true));
+    ctx.waitUntil(pruneErrors(env.DB));
   },
 
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -818,7 +918,7 @@ export default {
         const data = await fetchAllStatus(env);
         return jsonResponse(data, 200, request);
       }
-      const games = await fetchRegistry();
+      const games = await fetchRegistry(env);
       return jsonResponse(games, 200, request);
     }
 
@@ -827,7 +927,7 @@ export default {
       if (!id) {
         return jsonResponse({ error: "id required" }, 400, request);
       }
-      const games = await fetchRegistry();
+      const games = await fetchRegistry(env);
       const game = games.find(g => g.id === id);
       if (!game) {
         return jsonResponse({ error: "not found" }, 404, request);
@@ -855,9 +955,9 @@ export default {
 
     // Aggregate stats + the errors-per-day series for the Overview graph.
     if (url.pathname === "/api/stats") {
-      const [games, errStats] = await Promise.all([fetchRegistry(), errorStats(env.DB)]);
+      const [games, errStats] = await Promise.all([fetchRegistry(env), errorStats(env.DB)]);
       const creators = new Set<string>();
-      for (const g of await fetchRegistryRaw()) if (g.creatorGithub) creators.add(String(g.creatorGithub).toLowerCase());
+      for (const g of await fetchRegistryRaw(env)) if (g.creatorGithub) creators.add(String(g.creatorGithub).toLowerCase());
       return jsonResponse(
         { games: games.length, creators: creators.size, errorsTotal: errStats.total, errors24h: errStats.last24h, errorSeries: errStats.series },
         200,
@@ -867,7 +967,7 @@ export default {
 
     // Creators derived from the registry (creatorGithub), with their game counts.
     if (url.pathname === "/api/users") {
-      const raw = await fetchRegistryRaw();
+      const raw = await fetchRegistryRaw(env);
       const byUser = new Map<string, { login: string; games: string[] }>();
       for (const g of raw) {
         const login = g.creatorGithub ? String(g.creatorGithub) : "(unknown)";
@@ -891,6 +991,7 @@ export default {
         const result = await handleUpdateGame(gameMatch[1]!, login, body, env as any);
         return jsonResponse(result, result.error ? 400 : 200, request);
       } catch (e) {
+        await recordError(env.DB, { source: "admin/games.patch", user: login, context: `id=${gameMatch[1]}`, message: (e as Error)?.message ?? String(e), stack: (e as Error)?.stack });
         return jsonResponse({ error: String(e) }, 500, request);
       }
     }
@@ -906,6 +1007,7 @@ export default {
         const result = await handleDeleteGame(gameMatch[1]!, login, env as any);
         return jsonResponse(result, result.error ? 400 : 200, request);
       } catch (e) {
+        await recordError(env.DB, { source: "admin/games.delete", user: login, context: `id=${gameMatch[1]}`, message: (e as Error)?.message ?? String(e), stack: (e as Error)?.stack });
         return jsonResponse({ error: String(e) }, 500, request);
       }
     }

@@ -97,6 +97,17 @@ async function ghApi(env: PublishEnv, path: string, method = "GET", body?: any) 
   return json;
 }
 
+// Reserved / infrastructure repos that must NEVER be targetable as a game id.
+// admin's /api/provision is the shared chokepoint — the agent + MCP + CLI all
+// funnel through it, some via the trusted internal token. Without this guard a
+// caller could provision `freegamestore`, `submissions`, `template-game-*`, etc.,
+// become its registry owner, and later delete/archive the real infra repo through
+// the ownership-checked delete path. Mirrors the publisher's create.ts list.
+const INFRA_REPOS = new Set([
+  "freegamestore", "submissions", "template-game-canvas", "template-game-3d",
+  "template-game-grid", "template-game-cards", "brand", "ops", "sdk",
+]);
+
 function validateId(id: string): string | null {
   if (!id) return "ID is required";
   if (id.length > 58) return "ID must be 58 characters or less";
@@ -104,6 +115,10 @@ function validateId(id: string): string | null {
     return "ID must be lowercase letters, numbers, and dashes only. Cannot start/end with a dash.";
   if (id.startsWith("free") || id.startsWith("pro"))
     return "ID must not start with 'free' or 'pro'";
+  // Reject any reserved infra id (exact match) plus every template-game-* variant
+  // so a new template can't be squatted before its constant is added here.
+  if (INFRA_REPOS.has(id) || id.startsWith("template-game-"))
+    return "ID is reserved";
   return null;
 }
 
@@ -116,7 +131,7 @@ const VALID_GH_LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
  *  Idempotent via ON CONFLICT DO UPDATE — re-publishing the same id is a
  *  no-op for routing. r2_prefix follows the convention `games/<id>` which
  *  matches what the template's deploy.yml uploads to in fgs-games. */
-async function insertHostRoute(env: PublishEnv, slug: string): Promise<Step> {
+export async function insertHostRoute(env: PublishEnv, slug: string): Promise<Step> {
   const r2Prefix = `${STORE_CONFIG.registryKey}/${slug}`;
   const now = Date.now();
   if (!env.DB) {
@@ -251,10 +266,24 @@ export async function handlePublish(
   const subdomain = `${id}.${config.domain}`;
   const nowIso = new Date().toISOString();
 
-  // Step 1: Create GitHub repo from template
+  // Step 1: Create GitHub repo from template.
+  // Fail SAFE on the existence check: only a 200 means "exists" and only a 404
+  // means "free". A 401 (token expiry), 403 (rate limit), or 5xx must NOT be
+  // read as "absent" — that would skip the duplicate guard and generate over an
+  // existing game's repo (or a concurrent provision). Abort with a clear error.
   const repoCheck = await ghApi(env, `/repos/${config.org}/${id}`);
-  const repoExisted = Boolean(repoCheck.id);
-  if (repoCheck.id) {
+  if (repoCheck.__status !== 200 && repoCheck.__status !== 404) {
+    return {
+      steps: [{
+        name: "GitHub repo",
+        status: "fail",
+        detail: `Could not verify repo id (GitHub returned ${repoCheck.__status}) — aborting to avoid provisioning over an existing game. Please retry.`,
+      }],
+      success: false,
+    };
+  }
+  const repoExisted = repoCheck.__status === 200;
+  if (repoExisted) {
     steps.push({
       name: "GitHub repo",
       status: "skip",
