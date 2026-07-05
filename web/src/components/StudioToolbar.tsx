@@ -5,6 +5,7 @@ import { Button, buttonClass } from "./ui";
 import type { useAgent, Project } from "../hooks/useAgent";
 import type { useKeys } from "../hooks/useKeys";
 import { StudioSettingsDialog } from "./StudioSettingsDialog";
+import { GameVersion } from "./GameVersion";
 
 interface StudioToolbarProps {
   agent: ReturnType<typeof useAgent>;
@@ -90,6 +91,18 @@ export function StudioToolbar({
               <Settings className="w-4 h-4" />
             </Link>
           </>
+        )}
+        {/* Deployed version + "deployed X ago" (hover for the exact timestamp),
+            read from the live game's version.json. Keyed on the deploy phase so a
+            fresh deploy re-fetches the new stamp instead of showing the old one.
+            Desktop-only to keep the mobile toolbar tight. */}
+        {currentProject?.appId && (
+          <span className="hidden md:inline-flex items-center text-[0.62rem] text-[var(--muted)] tabular-nums">
+            <GameVersion
+              key={agent.deployState?.phase === "live" ? "live" : currentProject.appId}
+              liveUrl={currentProject.appUrl || `https://${currentProject.appId}.freegamestore.online`}
+            />
+          </span>
         )}
         {/* Stacked + tiny so the token counts never grow the toolbar height. */}
         <span className="ml-auto hidden sm:flex flex-col items-end leading-none text-[0.62rem] text-[var(--muted)] tabular-nums">
