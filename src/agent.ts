@@ -196,7 +196,17 @@ export async function runAgentTurn(
         }
       }
     } catch (err) {
+      // The provider call THREW (network error, timeout, 5xx, malformed
+      // response). We `break` the outer loop below — but must first record the
+      // failure as an assistant message in `newMessages`, exactly like the
+      // `event.type === "error"` path above. Otherwise the turn returns with
+      // newMessages = [user] only: the session persists just the user's message,
+      // the live error (shown via the SSE above) is lost on reload, and the
+      // reopened chat shows only "my initial message" — the disappearing-reply
+      // bug. Persisting the error lets the user see what failed and retry.
+      const errText = assistantText ? `${assistantText}\n\nError: ${String(err)}` : `Error: ${String(err)}`;
       await send({ type: "error", data: String(err) });
+      newMessages.push({ role: "assistant", content: errText });
       break;
     }
 
