@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Card, Input, Select, Label } from "./ui";
 
 interface ProvisionStep {
@@ -44,6 +44,18 @@ function validateId(id: string): string | null {
   return null;
 }
 
+/** Derive a valid game id from a display name so creators don't have to invent a
+ *  slug — lowercase, non-alphanumerics collapsed to dashes, no leading/trailing
+ *  dash, capped at 58 chars. Matches the id rules validateId enforces. */
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+/, "")
+    .slice(0, 58)
+    .replace(/-+$/, "");
+}
+
 function StatusDot({ status }: { status: string }) {
   const color =
     status === "ok" ? "bg-emerald-500" :
@@ -68,9 +80,11 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
   const [icon, setIcon] = useState("\uD83C\uDFAE");
   const [iconBg, setIconBg] = useState("#1a2e26");
   const [description, setDescription] = useState("");
-  // Default stays "canvas" (unchanged from before engines were added) so the
-  // existing create flow is preserved — engines are additive, not a replacement.
-  const [template, setTemplate] = useState("canvas");
+  // Default to KAPLAY — the easiest 2D engine — so a new/kid creator gets the
+  // fastest path to a playable game. Every engine + starter stays selectable.
+  const [template, setTemplate] = useState("kaplay");
+  // The id is auto-derived from the name until the creator edits it by hand.
+  const [idTouched, setIdTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ steps: ProvisionStep[]; success: boolean } | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -84,27 +98,28 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
   const latestIdRef = useRef(gameId);
   latestIdRef.current = gameId;
 
-  // Check availability up front (repo existence) so the user isn't told "taken"
-  // only after hitting Create. Cleared whenever the id changes.
-  const checkId = async () => {
-    if (!gameId || idError) return;
+  // Auto-check availability (debounced) as the id changes, so the creator only
+  // has to think about the id if the auto-derived slug is taken — no button.
+  useEffect(() => {
+    setCheckResult(null);
+    if (!gameId || idError) { setChecking(false); return; }
     const checkedId = gameId;
     setChecking(true);
-    setCheckResult(null);
-    try {
-      const r = await fetch(`/api/check-id?id=${encodeURIComponent(checkedId)}`, { credentials: "include" });
-      const d = (await r.json().catch(() => ({}))) as { available?: boolean; reason?: string };
-      // Drop the result if the id changed while this request was in flight —
-      // otherwise a stale "taken" could block a now-different, valid id.
-      if (latestIdRef.current !== checkedId) return;
-      setCheckResult({ available: !!d.available, reason: d.reason });
-    } catch {
-      if (latestIdRef.current !== checkedId) return;
-      setCheckResult({ available: false, reason: "Couldn't check — try again" });
-    } finally {
-      setChecking(false);
-    }
-  };
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/check-id?id=${encodeURIComponent(checkedId)}`, { credentials: "include" });
+        const d = (await r.json().catch(() => ({}))) as { available?: boolean; reason?: string };
+        if (latestIdRef.current !== checkedId) return; // id changed mid-flight → stale
+        setCheckResult({ available: !!d.available, reason: d.reason });
+      } catch {
+        if (latestIdRef.current !== checkedId) return;
+        setCheckResult({ available: false, reason: "Couldn't check — try again" });
+      } finally {
+        if (latestIdRef.current === checkedId) setChecking(false);
+      }
+    }, 450);
+    return () => clearTimeout(t);
+  }, [gameId, idError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,30 +184,34 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
       <h3 className="text-lg font-semibold">Create a New Game</h3>
 
       <div>
-        <Label htmlFor="game-id">Game ID</Label>
-        <div className="flex gap-2">
-          <Input id="game-id" type="text" value={gameId}
-            onChange={(e) => { setGameId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "")); setCheckResult(null); }}
-            placeholder="my-game" required className="flex-1"
-            style={idError ? { borderColor: "var(--error)" } : undefined}
-          />
-          <Button type="button" variant="secondary" onClick={checkId} disabled={!gameId || !!idError || checking}>
-            {checking ? "Checking…" : "Check"}
-          </Button>
-        </div>
-        {idError && <p className="text-sm mt-1" style={{ color: "var(--error)" }}>{idError}</p>}
-        {!idError && checkResult && (
-          checkResult.available
-            ? <p className="text-sm mt-1" style={{ color: "var(--accent)" }}>✓ Available — {gameId}.freegamestore.online</p>
-            : <p className="text-sm mt-1" style={{ color: "var(--error)" }}>✗ {checkResult.reason || "Not available"}</p>
-        )}
-        {gameId && !idError && !checkResult && <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>{gameId}.freegamestore.online</p>}
+        <Label htmlFor="game-name">Game Name</Label>
+        <Input id="game-name" type="text" value={gameName}
+          onChange={(e) => {
+            const v = e.target.value;
+            setGameName(v);
+            if (!idTouched) setGameId(slugify(v)); // auto-derive the id until edited by hand
+          }}
+          placeholder="My Awesome Game" required />
       </div>
 
       <div>
-        <Label htmlFor="game-name">Display Name</Label>
-        <Input id="game-name" type="text" value={gameName} onChange={(e) => setGameName(e.target.value)}
-          placeholder="My Game" required />
+        <Label htmlFor="game-id">Game address</Label>
+        <Input id="game-id" type="text" value={gameId}
+          onChange={(e) => { setIdTouched(true); setGameId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "")); }}
+          placeholder="my-awesome-game" required
+          style={idError || (checkResult && !checkResult.available) ? { borderColor: "var(--error)" } : undefined}
+        />
+        {idError
+          ? <p className="text-sm mt-1" style={{ color: "var(--error)" }}>{idError}</p>
+          : checking
+            ? <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>Checking {gameId}.freegamestore.online…</p>
+            : checkResult
+              ? (checkResult.available
+                  ? <p className="text-sm mt-1" style={{ color: "var(--accent)" }}>✓ {gameId}.freegamestore.online is available</p>
+                  : <p className="text-sm mt-1" style={{ color: "var(--error)" }}>✗ {checkResult.reason || "That address is taken — edit it"}</p>)
+              : gameId
+                ? <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>{gameId}.freegamestore.online</p>
+                : <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>Auto-filled from the name — edit if you like</p>}
       </div>
 
       <div>
