@@ -41,6 +41,13 @@ database_id = "a122751e-11a2-466e-b403-4696f3f4a698"
 binding = "AUTH"
 service = "freegamestore-auth"
 
+# Direct invocation of the agent worker — proxies complimentary-grant admin
+# calls (/v1/admin/comp) to the vault DB the agent owns. Authenticated by the
+# shared INTERNAL_TOKEN secret.
+[[services]]
+binding = "AGENT"
+service = "freegamestore-agent"
+
 # Secrets (set via `wrangler secret put`):
 #   GITHUB_TOKEN          repo create + collaborator + registry write
 #   CF_API_TOKEN          (kept for future CF API calls; not used by publish)

@@ -9,10 +9,13 @@ interface Env {
   /** This admin's OWN HS256 signing key — it mints + verifies its own
    *  sessions via /v1/auth/exchange (not shared with FAS). */
   SESSION_SIGNING_KEY: string;
-  /** Shared `fas` D1 — fgs/host reads from this same table. */
+  /** FGS-owned `freegamestore` D1 — fgs/host reads from this same table. */
   DB: D1Database;
   /** Service binding to the auth worker (verify fgs_token via /me). */
   AUTH: Fetcher;
+  /** Service binding to the agent worker — used to proxy complimentary-grant
+   *  admin calls to the vault DB it owns (authenticated by INTERNAL_TOKEN). */
+  AGENT?: Fetcher;
   /** Shared secret for trusted worker-to-worker provision calls (the agent has
    *  no user fgs_token at deploy time). Presented as X-Internal-Token. */
   INTERNAL_TOKEN?: string;
@@ -442,6 +445,25 @@ function renderDashboardShell(): string {
     <h2>Creators</h2>
     <p class="meta">Derived from the store registry (creatorGithub), most games first.</p>
     <table><tr><th>GitHub</th><th>Games</th><th>Game IDs</th></tr><tbody id="userTable"><tr><td colspan="3" class="loading">--</td></tr></tbody></table>
+
+    <style>
+    .compform{display:flex;flex-wrap:wrap;gap:0.5rem;margin:0.75rem 0;align-items:center}
+    .compform input,.compform select{background:#1a1a1a;color:#e5e5e5;border:1px solid #2a2a2a;border-radius:0.35rem;padding:0.4rem 0.5rem;font-size:0.85rem}
+    .compform button,#compTable button{background:#1e3a5f;color:#93c5fd;border:1px solid #2a4a6f;border-radius:0.35rem;padding:0.4rem 0.75rem;cursor:pointer;font-size:0.85rem}
+    #compTable button{background:#3a1e1e;color:#fca5a5;border-color:#5a2a2a}
+    </style>
+    <h2 style="margin-top:2rem">Complimentary access</h2>
+    <p class="meta">Grant select users free builds on a platform-funded key. A grant only kicks in when the user has <em>no key of their own</em> (BYO always wins) and no game is charged to them. <span id="compFunded" class="gray"></span></p>
+    <div class="compform">
+      <input id="compLogin" placeholder="github-login" autocomplete="off" />
+      <select id="compProvider" onchange="compModels()"></select>
+      <select id="compModel"></select>
+      <input id="compNote" placeholder="note (optional)" autocomplete="off" />
+      <input id="compExpires" type="date" title="Expires (optional)" />
+      <button onclick="grantComp()">Grant</button>
+    </div>
+    <div id="compMsg" class="meta"></div>
+    <table><tr><th>User</th><th>Provider</th><th>Model</th><th>Note</th><th>By</th><th>Expires</th><th></th></tr><tbody id="compTable"><tr><td colspan="7" class="loading">--</td></tr></tbody></table>
   </div>
 
   <div id="tab-provision" class="tabpanel">
@@ -583,6 +605,60 @@ function renderDashboardShell(): string {
         var r=await fetch('/api/users',{credentials:'include'});var rows=await r.json();
         tb.innerHTML=rows.length?rows.map(function(u){return '<tr><td><a href="https://github.com/'+esc(u.login)+'" target="_blank">'+esc(u.login)+'</a></td><td><strong>'+u.games.length+'</strong></td><td class="gray" style="font-size:0.8rem">'+u.games.map(esc).join(', ')+'</td></tr>'}).join(''):'<tr><td colspan="3" class="gray">No creators yet.</td></tr>';
       }catch(e){tb.innerHTML='<tr><td colspan="3" class="red">Failed: '+esc(e)+'</td></tr>'}
+      loadComp();
+    }
+    // Complimentary access — mirrors the studio model catalog so grants use valid ids.
+    var COMP_MODELS={anthropic:[['claude-sonnet-4-6','Claude Sonnet 4.6'],['claude-opus-4-6','Claude Opus 4.6'],['claude-haiku-4-5-20251001','Claude Haiku 4.5']],openai:[['gpt-4o','GPT-4o'],['gpt-4o-mini','GPT-4o Mini'],['o3','o3'],['o4-mini','o4 Mini']],google:[['gemini-2.5-pro','Gemini 2.5 Pro'],['gemini-2.5-flash','Gemini 2.5 Flash']],github:[['openai/gpt-4.1','GPT-4.1'],['openai/gpt-4o','GPT-4o']]};
+    var COMP_PROVIDERS=['anthropic','openai','google','github'];
+    function compInitProviders(funded){
+      var sel=document.getElementById('compProvider');
+      sel.innerHTML=COMP_PROVIDERS.map(function(p){var ok=funded.indexOf(p)>=0;return '<option value="'+p+'"'+(ok?'':' disabled')+'>'+p+(ok?'':' (no key)')+'</option>'}).join('');
+      var first=COMP_PROVIDERS.filter(function(p){return funded.indexOf(p)>=0})[0]||COMP_PROVIDERS[0];
+      sel.value=first;compModels();
+    }
+    function compModels(){
+      var p=document.getElementById('compProvider').value;var m=document.getElementById('compModel');
+      var opts=COMP_MODELS[p]||[];m.innerHTML=opts.map(function(o){return '<option value="'+esc(o[0])+'">'+esc(o[1])+'</option>'}).join('');
+    }
+    async function grantComp(){
+      var login=document.getElementById('compLogin').value.trim();
+      var provider=document.getElementById('compProvider').value;
+      var model=document.getElementById('compModel').value;
+      var note=document.getElementById('compNote').value.trim();
+      var exp=document.getElementById('compExpires').value;
+      var msg=document.getElementById('compMsg');
+      if(!login){msg.innerHTML='<span class="red">Enter a GitHub login.</span>';return;}
+      if(!model){msg.innerHTML='<span class="red">Pick a funded provider + model first.</span>';return;}
+      msg.textContent='Granting...';
+      var body={login:login,provider:provider,model:model};
+      if(note)body.note=note;
+      if(exp)body.expiresAt=new Date(exp+'T23:59:59Z').toISOString();
+      try{
+        var r=await fetch('/api/comp',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        var d=await r.json().catch(function(){return{}});
+        if(!r.ok){msg.innerHTML='<span class="red">'+esc(d.error||('Failed ('+r.status+')'))+'</span>';return;}
+        msg.innerHTML='<span class="green">Granted '+esc(provider)+' / '+esc(model)+' to '+esc(login)+'.</span>';
+        document.getElementById('compLogin').value='';document.getElementById('compNote').value='';document.getElementById('compExpires').value='';
+        loadComp();
+      }catch(e){msg.innerHTML='<span class="red">'+esc(e)+'</span>'}
+    }
+    async function revokeComp(userId){
+      if(!confirm('Revoke complimentary access for '+userId+'?'))return;
+      try{
+        var r=await fetch('/api/comp/'+encodeURIComponent(userId),{method:'DELETE',credentials:'include'});
+        if(!r.ok){var d=await r.json().catch(function(){return{}});alert('Revoke failed: '+(d.error||r.status));return;}
+        loadComp();
+      }catch(e){alert('Revoke failed: '+e)}
+    }
+    async function loadComp(){
+      var tb=document.getElementById('compTable');
+      try{
+        var r=await fetch('/api/comp',{credentials:'include'});var d=await r.json();
+        var funded=d.funded||[];compInitProviders(funded);
+        document.getElementById('compFunded').textContent=funded.length?('Funded: '+funded.join(', ')+'.'):'No platform keys set yet — add a COMP_KEY_<PROVIDER> secret to fund one.';
+        var g=d.grants||[];
+        tb.innerHTML=g.length?g.map(function(x){return '<tr><td>'+esc(x.userId)+'</td><td>'+esc(x.provider)+'</td><td>'+esc(x.model)+'</td><td class="gray">'+esc(x.note||'')+'</td><td class="gray">'+esc(x.grantedBy||'')+'</td><td class="gray">'+esc(x.expiresAt||'never')+'</td><td><button onclick="revokeComp(\''+esc(x.userId)+'\')">Revoke</button></td></tr>'}).join(''):'<tr><td colspan="7" class="gray">No complimentary grants.</td></tr>';
+      }catch(e){tb.innerHTML='<tr><td colspan="7" class="red">Failed: '+esc(e)+'</td></tr>'}
     }
     setSize((function(){try{return localStorage.getItem('fgs_admin_textsize')}catch(e){return null}})()||'md');
     showTab('overview');
@@ -977,6 +1053,36 @@ export default {
       }
       const users = [...byUser.values()].sort((a, b) => b.games.length - a.games.length);
       return jsonResponse(users, 200, request);
+    }
+
+    // Complimentary access grants (admin-only). The agent worker owns the vault
+    // DB + platform keys; this proxies to its INTERNAL_TOKEN-gated endpoint.
+    // Authenticated here by the same Google-email allowlist as the console — the
+    // path-param DELETE isn't in ADMIN_PATHS, so this block authenticates itself.
+    //   GET    /api/comp            → list grants + which providers are funded
+    //   POST   /api/comp            → { login, provider, model, note?, expiresAt? }
+    //   DELETE /api/comp/:userId    → revoke (userId = github:<id>)
+    if (url.pathname === "/api/comp" || url.pathname.startsWith("/api/comp/")) {
+      const { email, isAdmin } = await authenticateAdmin(request, env);
+      if (!isAdmin) return jsonResponse({ error: "unauthorized" }, 401, request);
+      if (!env.AGENT || !env.INTERNAL_TOKEN) {
+        return jsonResponse({ error: "complimentary grants not wired (missing AGENT binding or INTERNAL_TOKEN)" }, 500, request);
+      }
+      const agentPath = url.pathname.replace(/^\/api\/comp/, "/v1/admin/comp");
+      const res = await env.AGENT.fetch("https://agent.freegamestore.online" + agentPath, {
+        method: request.method,
+        headers: {
+          "X-Internal-Token": env.INTERNAL_TOKEN,
+          "X-Admin-Actor": email || "admin",
+          ...(request.method === "POST" ? { "Content-Type": "application/json" } : {}),
+        },
+        body: request.method === "POST" ? await request.text() : undefined,
+      });
+      const text = await res.text();
+      return new Response(text, {
+        status: res.status,
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...corsHeaders(request) },
+      });
     }
 
     // PATCH /api/games/:id — update game metadata (name, description, category)
