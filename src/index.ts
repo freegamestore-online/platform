@@ -1,7 +1,7 @@
 import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { fetchTemplateFiles, listRepoFiles, pushFiles, readRegistryGames, readRepoFile, type RepoFile, textToB64 } from "./github.js";
+import { listRepoFiles, pushFiles, readRegistryGames, readRepoFile, type RepoFile, textToB64 } from "./github.js";
 import { OAuthProvider, type OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import { WorkerEntrypoint } from "cloudflare:workers";
 import authHandler from "./auth-handler.js";
@@ -19,12 +19,25 @@ interface Env {
   OAUTH_PROVIDER: OAuthHelpers;
 }
 
+// Wrap a fetch in an AbortController-backed timeout so a slow/edge-stalled
+// upstream (admin/agent/leaderboard/GitHub) can't hang the MCP request all the
+// way to the Worker wall-clock limit. fetchFn receives the abort signal.
+async function withTimeout<T>(fetchFn: (signal: AbortSignal) => Promise<T>, ms = 10_000): Promise<T> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetchFn(ctrl.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // GitHub Actions API (public repos, no auth needed)
 async function getDeployStatus(org: string, gameId: string) {
-  const res = await fetch(
+  const res = await withTimeout((signal) => fetch(
     `https://api.github.com/repos/${org}/${gameId}/actions/runs?per_page=5`,
-    { headers: { Accept: "application/vnd.github+json", "User-Agent": "freegamestore-mcp" } }
-  );
+    { headers: { Accept: "application/vnd.github+json", "User-Agent": "freegamestore-mcp" }, signal }
+  ));
   if (!res.ok) return { error: `GitHub API ${res.status}` };
   let data: { workflow_runs?: Array<{ name: string; conclusion: string | null; status: string; updated_at: string; html_url: string; head_sha: string }> };
   try {
@@ -45,7 +58,7 @@ async function getDeployStatus(org: string, gameId: string) {
 async function fgsApi(apiBase: string, path: string, token?: string) {
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`${apiBase}${path}`, { headers });
+  const res = await withTimeout((signal) => fetch(`${apiBase}${path}`, { headers, signal }));
   if (!res.ok) return { error: `API ${res.status}: ${await res.text()}` };
   // Handle 204 No Content (e.g. /api/quality when no audit data exists)
   if (res.status === 204) return null;
@@ -61,11 +74,12 @@ async function fgsApi(apiBase: string, path: string, token?: string) {
 // POST to the FGS admin
 async function fgsPost(apiBase: string, path: string, token: string, body: unknown) {
   // X-FGS-Token survives worker-to-worker (Cloudflare strips Authorization on those hops).
-  const res = await fetch(`${apiBase}${path}`, {
+  const res = await withTimeout((signal) => fetch(`${apiBase}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-FGS-Token": token, Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
-  });
+    signal,
+  }));
   const text = await res.text();
   let json: any = {};
   try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
@@ -77,10 +91,11 @@ async function fgsPost(apiBase: string, path: string, token: string, body: unkno
 // X-FGS-Token survives worker-to-worker hops (CF strips Authorization there),
 // Authorization covers the direct path. Ownership is enforced server-side.
 async function fgsDelete(base: string, path: string, token: string) {
-  const res = await fetch(`${base}${path}`, {
+  const res = await withTimeout((signal) => fetch(`${base}${path}`, {
     method: "DELETE",
     headers: { "X-FGS-Token": token, Authorization: `Bearer ${token}` },
-  });
+    signal,
+  }));
   const text = await res.text();
   let json: any = {};
   try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
@@ -122,7 +137,9 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
     const login = this.props.userId;
     if (!login) return false;
     const games = await readRegistryGames(this.env.GITHUB_ORG, this.env.STORE_REPO, this.env.GITHUB_TOKEN);
-    return games.some((g) => g.id === gameId && g.creatorGithub === login);
+    // GitHub logins are case-insensitive; the agent/publisher/admin all compare
+    // lowercased. Match that here so registry casing drift doesn't wrongly deny.
+    return games.some((g) => g.id === gameId && g.creatorGithub?.toLowerCase() === login.toLowerCase());
   }
 
   async init() {
@@ -176,7 +193,7 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
 
         let status: string;
         try {
-          const check = await fetch(liveUrl, { method: "HEAD" });
+          const check = await withTimeout((signal) => fetch(liveUrl, { method: "HEAD", signal }));
           status = check.ok ? "Live (200)" : `Down (${check.status})`;
         } catch {
           status = "Unreachable";
@@ -234,10 +251,10 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
       },
       async ({ game_id, limit }) => {
         const n = limit ?? 10;
-        const res = await fetch(
+        const res = await withTimeout((signal) => fetch(
           `${this.env.LEADERBOARD_BASE}/api/leaderboard/${game_id}?limit=${n}`,
-          { headers: { "User-Agent": "freegamestore-mcp" } }
-        );
+          { headers: { "User-Agent": "freegamestore-mcp" }, signal }
+        ));
         if (!res.ok) return txt(`Leaderboard API error: ${res.status}`);
         // The worker returns rows keyed `player_name` (not `name`); keep `name`
         // as a fallback so this doesn't render "**undefined**".
@@ -263,7 +280,7 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
       {},
       async () => {
         for (const path of ["/SKILLS.md", "/skills.md"]) {
-          const res = await fetch(`https://freegamestore.online${path}`);
+          const res = await withTimeout((signal) => fetch(`https://freegamestore.online${path}`, { signal }));
           if (res.ok) return txt(await res.text());
           await res.body?.cancel();
         }
@@ -375,16 +392,22 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
         name: z.string().describe("Display name (e.g. 'Chess', 'Space Invaders')"),
         category: z.string().describe("puzzle, arcade, strategy, card, board, trivia, racing, sports, action, simulation, or educational"),
         description: z.string().optional().describe("Short description"),
-        template: z.enum(["canvas", "3d", "grid", "cards", "phaser", "kaplay", "pixi", "babylon"]).optional().describe("Game template (default: canvas)"),
+        template: z.enum(["canvas", "grid", "cards", "3d"]).optional().describe("Game template (default: canvas)"),
       },
       async ({ game_id, name, category, description, template }) => {
         const token = this.props.token;
         if (!token) return txt("Not authenticated. Connect with a FGS session token to create games.");
         if (!this.env.GITHUB_TOKEN) return txt("Write tools are disabled (server missing GITHUB_TOKEN).");
 
-        const templateRepo = `template-game-${template ?? "canvas"}`;
+        const tmpl = template ?? "canvas";
 
-        // 1. Provision via admin API (pass creatorGithub so admin grants push access)
+        // Provision via the admin API — the SINGLE scaffold path (same one the
+        // VibeCode agent uses). Admin generates the repo from the chosen template
+        // (substituting APPNAME), writes the D1 host route, and adds the registry
+        // entry. Pass creatorGithub so admin grants push access + records
+        // ownership, and template so admin picks the right scaffold. The MCP must
+        // NOT re-scaffold afterward — a second force-push (replaceTree) would wipe
+        // admin's substituted tree.
         const prov = (await fgsPost(this.env.API_BASE, "/api/provision", token, {
           id: game_id,
           name,
@@ -392,32 +415,24 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
           description: description || name,
           oneliner: description || name,
           creatorGithub: this.props.userId,
+          template: tmpl,
         })) as { error?: string; detail?: string; success?: boolean; appUrl?: string; repoUrl?: string; steps?: Array<{ name: string; status: string }> };
         if (prov.error) return txt(`Provision failed: ${prov.error}${prov.detail ? ` — ${typeof prov.detail === "string" ? prov.detail : JSON.stringify(prov.detail)}` : ""}`);
 
-        // Never re-scaffold an existing game. Provision is idempotent and reports
-        // the repo step as "skip" when the repo already exists; scaffolding then
-        // pushes the bare template with replaceTree=true, which would WIPE every
-        // file the creator built via update_files. Bail before that.
+        // Provision is idempotent and reports the repo step as "skip" when the
+        // repo already exists. Don't imply we re-created it.
         const repoStep = prov.steps?.find((s) => s.name === "GitHub repo");
         if (repoStep?.status === "skip") {
-          return txt(`**${game_id}** already exists — use \`update_files\` to change it. \`create_game\` would overwrite the repo with the empty template.`);
+          return txt(`**${game_id}** already exists — use \`update_files\` to change it.`);
         }
 
-        // 2. Scaffold: fetch template, substitute, push -> triggers deploy
-        try {
-          const files = await fetchTemplateFiles(this.env.GITHUB_ORG, templateRepo, this.env.GITHUB_TOKEN, game_id);
-          await pushFiles(this.env.GITHUB_ORG, game_id, this.env.GITHUB_TOKEN, files, `Initial ${game_id} — scaffolded via MCP (${templateRepo})`, true);
-          return txt(
-            `Created **${name}** (${game_id}) using ${templateRepo}.\n` +
-            `Live in ~1-2 min: https://${game_id}.freegamestore.online\n` +
-            `Repo: https://github.com/${this.env.GITHUB_ORG}/${game_id}\n` +
-            `Listing: https://freegamestore.online/games/${game_id}\n\n` +
-            `Scaffolded ${files.size} files. Next: \`list_files\`/\`read_file\` to inspect, \`update_files\` to build it out, \`deploy_status\` to watch it deploy.`,
-          );
-        } catch (e) {
-          return txt(`Provisioned the repo + hosting, but the scaffold push failed: ${String(e)}\nThe game exists — retry by pushing files with update_files.`);
-        }
+        return txt(
+          `Created **${name}** (${game_id}) from the ${tmpl} template.\n` +
+          `Live in ~1-2 min: https://${game_id}.freegamestore.online\n` +
+          `Repo: https://github.com/${this.env.GITHUB_ORG}/${game_id}\n` +
+          `Listing: https://freegamestore.online/games/${game_id}\n\n` +
+          `Next: \`list_files\`/\`read_file\` to inspect, \`update_files\` to build it out, \`deploy_status\` to watch it deploy.`,
+        );
       },
     );
 
