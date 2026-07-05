@@ -62,11 +62,46 @@ export function sanitizeName(raw: unknown): string {
   return raw.trim().slice(0, MAX_NAME_LENGTH).replace(/[<>&"']/g, "") || "Anonymous";
 }
 
-function cors(request: Request): Record<string, string> {
+// First-party surfaces — the only origins trusted for CREDENTIALED requests
+// (score submission reads the player's fgs_token session cookie). Game
+// subdomains (<game>.freegamestore.online) serve untrusted, potentially XSS'd
+// user content, so they are deliberately excluded here: otherwise a malicious
+// game could POST /api/scores with the signed-in player's cookie auto-riding
+// and forge scores under their identity on OTHER games. Mirrors the auth
+// worker's isFirstParty / corsVault split.
+const FIRST_PARTY_ORIGINS = new Set([
+  "https://freegamestore.online",
+  "https://console.freegamestore.online",
+  "http://localhost:5173",
+]);
+
+export function isFirstParty(origin: string): boolean {
+  return FIRST_PARTY_ORIGINS.has(origin);
+}
+
+// Broad, credential-LESS CORS for public leaderboard READS (GET). Any game
+// subdomain may read the boards to display them; these responses expose only
+// public high-score data and carry no session cookie, so reflecting game
+// origins here is safe.
+function corsRead(request: Request): Record<string, string> {
   const origin = request.headers.get("Origin") ?? "";
   const allowed = isAllowedOrigin(origin);
   return {
     "Access-Control-Allow-Origin": allowed ? origin : "",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400",
+    Vary: "Origin",
+  };
+}
+
+// Strict, CREDENTIALED CORS for score SUBMISSION (POST /api/scores). Only
+// first-party origins are allowed; a game subdomain's preflight fails so the
+// browser never sends the cross-game submission.
+function corsSubmit(request: Request): Record<string, string> {
+  const origin = request.headers.get("Origin") ?? "";
+  return {
+    "Access-Control-Allow-Origin": isFirstParty(origin) ? origin : "",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Credentials": "true",
@@ -75,10 +110,15 @@ function cors(request: Request): Record<string, string> {
   };
 }
 
-function json(data: unknown, status: number, request: Request): Response {
+function json(
+  data: unknown,
+  status: number,
+  request: Request,
+  corsFn: (r: Request) => Record<string, string> = corsRead,
+): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json", ...cors(request) },
+    headers: { "Content-Type": "application/json", ...corsFn(request) },
   });
 }
 
@@ -149,20 +189,26 @@ async function verifyJWT(request: Request, secret: string): Promise<JWTPayload |
 
 // POST /api/scores { game, name, score }
 async function submitScore(request: Request, env: Env): Promise<Response> {
+  // Submission is credentialed (reads the fgs_token cookie), so every response
+  // here carries the strict first-party-only CORS — never the broad game-origin
+  // reflection used for public reads. This is what stops a malicious game
+  // subdomain from POSTing scores under the signed-in player's identity.
+  const j = (data: unknown, status: number) => json(data, status, request, corsSubmit);
+
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Invalid JSON" }, 400, request);
+    return j({ error: "Invalid JSON" }, 400);
   }
 
   const { game, score } = body as Record<string, unknown>;
 
   if (typeof game !== "string" || !VALID_GAMES.has(game)) {
-    return json({ error: "Invalid game" }, 400, request);
+    return j({ error: "Invalid game" }, 400);
   }
   if (!isValidScore(score)) {
-    return json({ error: "Invalid score" }, 400, request);
+    return j({ error: "Invalid score" }, 400);
   }
 
   // Authentication is required to submit. Anonymous posts were trivially
@@ -170,14 +216,14 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
   // accept signed-in users now.
   const jwtPayload = await verifyJWT(request, env.JWT_SECRET);
   if (!jwtPayload) {
-    return json({ error: "Sign in to submit a score" }, 401, request);
+    return j({ error: "Sign in to submit a score" }, 401);
   }
   const userId = jwtPayload.sub;
   const playerName = sanitizeName(jwtPayload.name);
 
   // Per-game sanity cap — reject implausibly high scores outright.
   if (!withinCap(game, score)) {
-    return json({ error: "Score exceeds the maximum for this game" }, 422, request);
+    return j({ error: "Score exceeds the maximum for this game" }, 422);
   }
 
   const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
@@ -195,7 +241,7 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
     .first<{ cnt: number }>();
 
   if (recent && recent.cnt > 0) {
-    return json({ error: "Too fast, wait a few seconds" }, 429, request);
+    return j({ error: "Too fast, wait a few seconds" }, 429);
   }
 
   await env.DB.prepare(
@@ -214,7 +260,7 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
     .bind(game, score, userId)
     .first<{ rank: number }>();
 
-  return json({ ok: true, rank: (rank?.rank ?? 0) + 1, authenticated: !!userId }, 201, request);
+  return j({ ok: true, rank: (rank?.rank ?? 0) + 1, authenticated: !!userId }, 201);
 }
 
 // GET /api/leaderboard/:game?limit=10
@@ -343,9 +389,12 @@ export default {
     // Both must keep working — see platform/docs/API-CONTRACT.md (additive-only).
     const path = url.pathname.startsWith("/v1/") ? url.pathname.slice(3) : url.pathname;
 
-    // CORS preflight
+    // CORS preflight. The score-submission preflight uses the strict first-party
+    // allowlist so a game subdomain's preflight fails and the browser never
+    // sends the credentialed POST; all other (read) preflights use broad CORS.
     if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: cors(request) });
+      const headers = path === "/api/scores" ? corsSubmit(request) : corsRead(request);
+      return new Response(null, { status: 204, headers });
     }
 
     // POST /api/scores

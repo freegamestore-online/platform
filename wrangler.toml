@@ -2,6 +2,9 @@ name = "freegamestore-leaderboard"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
 
+[observability]
+enabled = true
+
 # After creating the D1 database, fill in the database_id:
 #   wrangler d1 create leaderboard
 # Then paste the id below.
