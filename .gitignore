@@ -1,3 +1,6 @@
 node_modules
 .wrangler
 .dev.vars
+
+# VibeCode QA scanner output (local only)
+.vibe-check/
