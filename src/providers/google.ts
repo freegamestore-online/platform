@@ -122,6 +122,16 @@ async function* parseGoogleSSE(body: ReadableStream, onChunk?: () => void): Asyn
           };
         }
 
+        // Surface a length cutoff (mirrors the Anthropic adapter). finishReason
+        // "MAX_TOKENS" means the model ran out of output budget mid-response —
+        // often mid write_file, leaving a truncated file. Make it VISIBLE (it used
+        // to stall silently); the write_file guard separately rejects the partial
+        // write. Check before the parts guard — the final chunk may carry only the
+        // finishReason with no content parts.
+        if (chunk.candidates?.[0]?.finishReason === "MAX_TOKENS") {
+          yield { type: "text", data: "\n\n⚠️ My response was cut off at the length limit — the last file may be incomplete. Ask me to \"continue\" and I'll finish it." };
+        }
+
         const parts = chunk.candidates?.[0]?.content?.parts;
         if (!parts) continue;
 
