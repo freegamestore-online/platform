@@ -22,6 +22,32 @@ function totalBytes(files: Map<string, string>): number {
   return total;
 }
 
+// A tool-result-shaped status echo the model sometimes writes AS content instead
+// of the real source: "[3038 bytes written to x.ts]", "2.5 KB written to …", our
+// own "Wrote x.ts (3038 bytes)" ack, etc. Both are ANCHORED — they must be what
+// the whole content STARTS with (a status line), so a real file that merely
+// mentions "bytes written to" inside a string/comment is never matched.
+const STATUS_ECHO_RE = /^\s*\[?\s*[\d.,]+\s*(bytes|kb|mb)\b.*\b(written|truncated|omitted)\b/i;
+const WROTE_ACK_RE = /^\s*wrote\s+\S.*\(\s*[\d.,]+\s*(bytes|kb|mb)\s*\)\s*$/i;
+// Short elision stubs that stand in for real code and always break the build.
+const ELISION_RE =
+  /(rest|remainder)\s+of\s+(the\s+)?(code|file|component|implementation)|existing\s+code\s+(here|unchanged|remains|goes)|full\s+(source|code|file)\s+(here|below|goes)|content\s+omitted|omitted\s+for\s+brevity|paste\s+.*\s+here|your\s+code\s+here|<\s*insert\b/i;
+
+/**
+ * True when `content` is a placeholder/description rather than real file source —
+ * a status-message echo or a short elision stub. Kept conservative: the status
+ * regexes are anchored to the start and the elision check only fires on SHORT
+ * content, so real code that happens to contain such a phrase deeper in a comment
+ * or string isn't rejected. Exported for direct unit testing.
+ */
+export function looksLikePlaceholder(content: string): boolean {
+  const trimmed = content.trim();
+  if (!trimmed) return false;
+  if (STATUS_ECHO_RE.test(trimmed) || WROTE_ACK_RE.test(trimmed)) return true;
+  if (trimmed.length < 200 && ELISION_RE.test(trimmed)) return true;
+  return false;
+}
+
 /** File tools — identical across all stores */
 const FILE_TOOLS: ToolDef[] = [
   {
@@ -207,6 +233,26 @@ export function executeTool(toolCall: ToolCall, files: Map<string, string>, conf
       if (!path) return { id, content: "Error: path is required", isError: true };
       if (typeof content !== "string") return { id, content: "Error: content is required", isError: true };
 
+      // Placeholder / echoed-status guard. A confused model sometimes writes a
+      // DESCRIPTION of the file instead of the file — most often by echoing a
+      // tool-result-shaped status string ("[3038 bytes written to levels.ts]")
+      // into the content field, then looping on it (the angrry incident). It also
+      // happens with elision stubs ("// ...rest of the code...", "full code here").
+      // None are ever valid source; accepting them ships a broken build and wedges
+      // the session. Reject with a blunt instruction to write the REAL code.
+      if (looksLikePlaceholder(content)) {
+        const snippet = content.trim().replace(/\s+/g, " ").slice(0, 60);
+        return {
+          id,
+          content:
+            `Error: refusing to write ${path} — the content looks like a status message or placeholder ` +
+            `("${snippet}${content.trim().length > 60 ? "…" : ""}"), not real source code. Put the ACTUAL file ` +
+            `source (the real TypeScript/HTML/CSS) in the content field — do not describe the file, write it. ` +
+            `If the file would be large, split it into smaller focused modules and write each module's real code.`,
+          isError: true,
+        };
+      }
+
       // Enforce the storage budget before committing the write, so an oversized
       // file (or one that overflows the total) can never brick save(). Returned
       // as a tool error the agent can recover from — not a throw.
@@ -230,7 +276,8 @@ export function executeTool(toolCall: ToolCall, files: Map<string, string>, conf
             content:
               `Error: refusing to write ${path} — the new content is ${size} bytes but the current file is ${prevSize} bytes ` +
               `(a >90% shrink). This is almost always a truncated/incomplete write (e.g. an output cut off mid-file), which would ` +
-              `delete most of the code. Re-send the COMPLETE file contents in ONE write_file call. If you genuinely mean to ` +
+              `delete most of the code. Re-send the COMPLETE file contents in ONE write_file call. If the file is too large to ` +
+              `fit in one response, SPLIT it into smaller modules and write each one in full instead. If you genuinely mean to ` +
               `replace it with a much smaller file, first delete_file it, then write the new one.`,
             isError: true,
           };

@@ -5,6 +5,7 @@ import {
   executeTool,
   getToolDefinitions,
   INFRA_TOOLS,
+  looksLikePlaceholder,
   WRITE_FILE_MAX_BYTES,
   WRITE_FILE_MAX_FILES,
   WRITE_FILE_MAX_TOTAL_BYTES,
@@ -158,6 +159,58 @@ describe("executeTool — file tools", () => {
     const files = new Map([["a.txt", "hello world\nfoo bar"]]);
     const result = executeTool({ id: "1", name: "search_files", input: { pattern: "foo" } }, files, appsConfig);
     expect(result.content).toContain("a.txt:2:");
+  });
+});
+
+describe("looksLikePlaceholder (echoed-status / elision guard)", () => {
+  it("flags tool-result-shaped status echoes (the angrry loop)", () => {
+    // The exact content angrry looped on, plus close variants.
+    expect(looksLikePlaceholder("[3038 bytes written to web/src/lib/levels.ts]")).toBe(true);
+    expect(looksLikePlaceholder("3038 bytes written to levels.ts")).toBe(true);
+    expect(looksLikePlaceholder("2.5 KB written to App.tsx")).toBe(true);
+    expect(looksLikePlaceholder("Wrote web/src/App.tsx (3038 bytes)")).toBe(true);
+    expect(looksLikePlaceholder("[content omitted for brevity]")).toBe(true);
+  });
+
+  it("flags short elision stubs that stand in for real code", () => {
+    expect(looksLikePlaceholder("// ...rest of the code unchanged...")).toBe(true);
+    expect(looksLikePlaceholder("/* full source here */")).toBe(true);
+    expect(looksLikePlaceholder("// your code here")).toBe(true);
+  });
+
+  it("does NOT flag real source — even when it mentions bytes or has a long comment", () => {
+    expect(looksLikePlaceholder('export const LEVELS = [{ x: 3038, y: 12 }];')).toBe(false);
+    expect(looksLikePlaceholder("const label = `${n} bytes written to disk`; // a real UI string")).toBe(false);
+    // A long file that happens to contain an elision-ish phrase deep in a comment
+    // is real code, not a stub — the elision check only fires on SHORT content.
+    const realFile = "export function draw() {\n" + "  ctx.fillRect(0,0,1,1);\n".repeat(30) + "  // rest of the code follows the same pattern\n}";
+    expect(looksLikePlaceholder(realFile)).toBe(false);
+    expect(looksLikePlaceholder("")).toBe(false);
+  });
+
+  it("write_file rejects placeholder content without destroying an existing file", () => {
+    const files = new Map<string, string>();
+    files.set("web/src/lib/levels.ts", "export const LEVELS = [1, 2, 3];");
+    const result = executeTool(
+      { id: "1", name: "write_file", input: { path: "web/src/lib/levels.ts", content: "[3038 bytes written to web/src/lib/levels.ts]" } },
+      files,
+      gamesConfig,
+    );
+    expect(result.isError).toBe(true);
+    expect(result.content).toContain("status message or placeholder");
+    // The real file is untouched.
+    expect(files.get("web/src/lib/levels.ts")).toBe("export const LEVELS = [1, 2, 3];");
+  });
+
+  it("write_file rejects placeholder content on a brand-new file too (nothing gets created)", () => {
+    const files = new Map<string, string>();
+    const result = executeTool(
+      { id: "1", name: "write_file", input: { path: "web/src/lib/levels.ts", content: "[3038 bytes written to web/src/lib/levels.ts]" } },
+      files,
+      gamesConfig,
+    );
+    expect(result.isError).toBe(true);
+    expect(files.has("web/src/lib/levels.ts")).toBe(false);
   });
 });
 

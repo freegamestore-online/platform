@@ -9,6 +9,20 @@ import type { AIConfig, Message, ProviderAdapter, StreamEvent, TokenUsage, ToolC
 import { getSystemPrompt } from "./template";
 import { executeTool, getToolDefinitions, INFRA_TOOLS } from "./tools";
 
+/**
+ * Stable signature for a tool call (name + path + a cheap content hash), used by
+ * the loop circuit-breaker to detect an EXACT repeat. Hashing the input keeps the
+ * dedup map from retaining large file bodies. Exported for unit testing.
+ */
+export function toolSignature(tc: ToolCall): string {
+  const input = (tc.input ?? {}) as Record<string, unknown>;
+  const path = typeof input.path === "string" ? input.path : "";
+  const raw = JSON.stringify(input);
+  let h = 5381;
+  for (let i = 0; i < raw.length; i++) h = (((h << 5) + h) ^ raw.charCodeAt(i)) | 0;
+  return `${tc.name}:${path}:${h >>> 0}`;
+}
+
 function createAdapter(config: AIConfig): ProviderAdapter {
   const temp = config.temperature ?? 0.7;
   const maxTok = config.maxTokens ?? 16384;
@@ -164,6 +178,14 @@ export async function runAgentTurn(
   let retries = 0;
   const MAX_RETRIES = 3;
 
+  // Circuit-breaker state: count identical tool calls (tool + path + content) so a
+  // model stuck re-issuing the SAME call — e.g. writing a placeholder stub to one
+  // file, "apologizing", repeating (the angrry loop) — is stopped instead of
+  // burning the whole loop + token budget. Distinct calls (real iteration) don't
+  // accumulate, so legitimate repeated edits to a file are unaffected.
+  const toolCallCounts = new Map<string, number>();
+  const REPEAT_LIMIT = 3;
+
   for (let loop = 0; loop < MAX_LOOPS; loop++) {
     // Stagger API calls — wait between rounds to avoid rate limits
     if (loop > 0) {
@@ -232,6 +254,34 @@ export async function runAgentTurn(
       continue;
     }
     retries = 0; // reset on success
+
+    // Circuit-breaker: if any tool call in this round is an exact repeat past the
+    // limit, the model is looping without progress. Stop the turn with guidance
+    // BEFORE pushing this round's (repeated) assistant/tool_use message, so the
+    // transcript stays clean. Placed here so distinct calls still stream normally.
+    let stuck: ToolCall | null = null;
+    for (const tc of toolCalls) {
+      const sig = toolSignature(tc);
+      const n = (toolCallCounts.get(sig) ?? 0) + 1;
+      toolCallCounts.set(sig, n);
+      if (n > REPEAT_LIMIT) {
+        stuck = tc;
+        break;
+      }
+    }
+    if (stuck) {
+      const path = typeof (stuck.input as Record<string, unknown>)?.path === "string" ? (stuck.input as Record<string, string>).path : "";
+      const where = path ? ` on ${path}` : "";
+      const note =
+        `I got stuck repeating the same \`${stuck.name}\`${where} without making progress, so I stopped instead of ` +
+        `looping. This usually means a file's content wasn't coming through correctly. Ask me to rebuild that file ` +
+        `from scratch — in smaller pieces if it's large — or send a new message to retry.`;
+      await send({ type: "text", data: `\n\n⚠️ ${note}` });
+      const stopMsg: Message = { role: "assistant", content: (assistantText ? `${assistantText}\n\n` : "") + `⚠️ ${note}` };
+      newMessages.push(stopMsg);
+      onCheckpoint?.(newMessages);
+      break;
+    }
 
     const assistantMsg: Message = {
       role: "assistant",
