@@ -10,10 +10,10 @@ export interface PushSubscription {
  * predefined message when it receives the push event.
  * Returns true on success (HTTP 201), false on failure.
  */
-export async function sendWebPush(subscription: PushSubscription, vapidPublicKey: string, vapidPrivateKey: string): Promise<boolean> {
+export async function sendWebPush(subscription: PushSubscription, vapidPublicKey: string, vapidPrivateKey: string, contactDomain: string): Promise<boolean> {
   const url = new URL(subscription.endpoint);
   const audience = `${url.protocol}//${url.host}`;
-  const jwt = await createVapidJWT(audience, vapidPublicKey, vapidPrivateKey);
+  const jwt = await createVapidJWT(audience, vapidPublicKey, vapidPrivateKey, contactDomain);
 
   const res = await fetch(subscription.endpoint, {
     method: "POST",
@@ -29,14 +29,17 @@ export async function sendWebPush(subscription: PushSubscription, vapidPublicKey
 
 // ── VAPID JWT ──
 
-async function createVapidJWT(audience: string, publicKey: string, privateKey: string): Promise<string> {
+async function createVapidJWT(audience: string, publicKey: string, privateKey: string, contactDomain: string): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const jwtHeader = b64url(JSON.stringify({ typ: "JWT", alg: "ES256" }));
   const jwtPayload = b64url(
     JSON.stringify({
       aud: audience,
       exp: now + 86400,
-      sub: "mailto:noreply@freeappstore.online",
+      // Store-derived contact so an FGS worker self-identifies as FGS (not the
+      // vendored FAS default). Push services require a valid mailto/https `sub`
+      // but don't verify the domain — this is correct branding, not auth.
+      sub: `mailto:noreply@${contactDomain}`,
     }),
   );
   const unsigned = `${jwtHeader}.${jwtPayload}`;

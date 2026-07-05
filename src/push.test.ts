@@ -31,7 +31,7 @@ describe("sendWebPush — no payload", () => {
     globalThis.fetch = mockFetch as any;
 
     try {
-      const result = await sendWebPush(FAKE_SUB, VAPID_PUBLIC, VAPID_PRIVATE);
+      const result = await sendWebPush(FAKE_SUB, VAPID_PUBLIC, VAPID_PRIVATE, "freegamestore.online");
       expect(result).toBe(true);
       expect(mockFetch).toHaveBeenCalledOnce();
 
@@ -49,7 +49,7 @@ describe("sendWebPush — no payload", () => {
     globalThis.fetch = mockFetch as any;
 
     try {
-      await sendWebPush(FAKE_SUB, VAPID_PUBLIC, VAPID_PRIVATE);
+      await sendWebPush(FAKE_SUB, VAPID_PUBLIC, VAPID_PRIVATE, "freegamestore.online");
       const headers = mockFetch.mock.calls[0][1].headers;
 
       // Authorization: vapid t=<JWT>, k=<publicKey>
@@ -70,7 +70,7 @@ describe("sendWebPush — no payload", () => {
       // Decode payload — should have aud, exp, sub
       const jwtPayload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
       expect(jwtPayload.aud).toBe("https://fcm.googleapis.com");
-      expect(jwtPayload.sub).toBe("mailto:noreply@freeappstore.online");
+      expect(jwtPayload.sub).toBe("mailto:noreply@freegamestore.online");
       expect(jwtPayload.exp).toBeGreaterThan(Math.floor(Date.now() / 1000));
     } finally {
       globalThis.fetch = originalFetch;
@@ -83,7 +83,7 @@ describe("sendWebPush — no payload", () => {
     globalThis.fetch = mockFetch as any;
 
     try {
-      await sendWebPush(FAKE_SUB, VAPID_PUBLIC, VAPID_PRIVATE);
+      await sendWebPush(FAKE_SUB, VAPID_PUBLIC, VAPID_PRIVATE, "freegamestore.online");
       const headers = mockFetch.mock.calls[0][1].headers;
       expect(headers.TTL).toBe("86400");
       expect(headers["Content-Length"]).toBe("0");
@@ -98,7 +98,7 @@ describe("sendWebPush — no payload", () => {
     globalThis.fetch = mockFetch as any;
 
     try {
-      await sendWebPush(FAKE_SUB, VAPID_PUBLIC, VAPID_PRIVATE);
+      await sendWebPush(FAKE_SUB, VAPID_PUBLIC, VAPID_PRIVATE, "freegamestore.online");
       expect(mockFetch.mock.calls[0][1].body).toBeUndefined();
     } finally {
       globalThis.fetch = originalFetch;
@@ -111,7 +111,7 @@ describe("sendWebPush — no payload", () => {
     globalThis.fetch = mockFetch as any;
 
     try {
-      const result = await sendWebPush(FAKE_SUB, VAPID_PUBLIC, VAPID_PRIVATE);
+      const result = await sendWebPush(FAKE_SUB, VAPID_PUBLIC, VAPID_PRIVATE, "freegamestore.online");
       expect(result).toBe(false);
     } finally {
       globalThis.fetch = originalFetch;
@@ -128,7 +128,7 @@ describe("sendWebPush — no payload", () => {
       const mozSub: PushSubscription = {
         endpoint: "https://updates.push.services.mozilla.com/push/v1/test-123",
       };
-      await sendWebPush(mozSub, VAPID_PUBLIC, VAPID_PRIVATE);
+      await sendWebPush(mozSub, VAPID_PUBLIC, VAPID_PRIVATE, "freegamestore.online");
       const jwt = mockFetch.mock.calls[0][1].headers.Authorization.match(/t=([^,]+)/)?.[1];
       const payload = JSON.parse(atob(jwt!.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
       expect(payload.aud).toBe("https://updates.push.services.mozilla.com");
