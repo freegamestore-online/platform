@@ -14,7 +14,7 @@ import { resolveUserKey } from "./keys";
 import { compKeyFor, getActiveComp } from "./keygrants";
 import { allowDeploy, allowRequest } from "./ratelimit";
 import { enforceSessionBudget } from "./session-budget";
-import { upsertSessionIndex } from "./sessions";
+import { bumpSessionTokens, upsertSessionIndex } from "./sessions";
 import { armWatchdog } from "./watchdog";
 
 interface ErrorEntry {
@@ -479,6 +479,14 @@ export class AgentSession implements DurableObject {
         session.tokenUsage.input += result.tokenUsage.input;
         session.tokenUsage.output += result.tokenUsage.output;
         await this.save();
+        // Mirror the cumulative total onto the D1 index row so per-game and
+        // per-account token usage is readable via GET /sessions without waking
+        // the DO. Best-effort — a usage-write failure must never break the chat.
+        if (userId && sessionId) {
+          bumpSessionTokens(this.env.DB, userId, sessionId, session.tokenUsage.input, session.tokenUsage.output).catch(
+            (e) => this.logError("storage", `token usage persist: ${String(e)}`),
+          );
+        }
 
         // Execute infra tools server-side and feed results back to agent
         if (result.infraRequests.length > 0) {
