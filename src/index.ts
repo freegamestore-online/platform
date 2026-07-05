@@ -3,6 +3,7 @@
 import { getConfig } from "./config";
 import { handleSessionsApi, resolveUser } from "./sessions";
 import { handleKeysApi } from "./keys";
+import { handleAdminCompApi } from "./admin-comp";
 import { handleKidify } from "./kidify";
 
 export { AgentSession } from "./session";
@@ -22,6 +23,12 @@ export interface Env {
   VAPID_PRIVATE_KEY: string;
   /** Base64 32-byte master key wrapping per-user AI-key DEKs (see keys.ts). */
   AI_KEYS_KEK: string;
+  /** Platform-funded provider keys for complimentary grants (keygrants.ts).
+   *  Optional — a grant on a provider whose key is unset simply doesn't resolve. */
+  COMP_KEY_ANTHROPIC?: string;
+  COMP_KEY_OPENAI?: string;
+  COMP_KEY_GOOGLE?: string;
+  COMP_KEY_GITHUB?: string;
 }
 
 // Dev origins only — exact host match so e.g. `http://localhost.evil.com` (a
@@ -64,6 +71,11 @@ export default {
     // Per-user AI-key vault (D1, encrypted) — /v1/keys/status, /v1/keys/:provider
     const keysResp = await handleKeysApi(request, env, corsHeaders(request, config.domain));
     if (keysResp) return keysResp;
+
+    // Internal admin: complimentary grants — /v1/admin/comp (INTERNAL_TOKEN gated,
+    // called by the admin worker over its service binding).
+    const compResp = await handleAdminCompApi(request, env, corsHeaders(request, config.domain));
+    if (compResp) return compResp;
 
     // Kid-friendly message rewrite (free tier, platform token) — POST /kidify
     const kidResp = await handleKidify(request, env, corsHeaders(request, config.domain));

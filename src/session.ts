@@ -11,6 +11,7 @@ import { ownsGame } from "./ownership";
 import type { AIConfig, Message, TokenUsage } from "./providers/types";
 import { type PushSubscription, sendWebPush } from "./push";
 import { resolveUserKey } from "./keys";
+import { compKeyFor, getActiveComp } from "./keygrants";
 import { allowDeploy, allowRequest } from "./ratelimit";
 import { enforceSessionBudget } from "./session-budget";
 import { upsertSessionIndex } from "./sessions";
@@ -291,12 +292,34 @@ export class AgentSession implements DurableObject {
     let resolvedKey =
       body.aiConfig.apiKey?.trim() ||
       (userId ? await resolveUserKey(this.env, userId, body.aiConfig.provider) : null);
+
+    // Complimentary access: an admin can grant SELECT users free builds on a
+    // platform-funded provider key (see keygrants.ts). Checked AFTER the user's
+    // own key (BYO always wins) and BEFORE the free tier. A grant overrides the
+    // provider+model to the granted premium ones and resolves the platform
+    // `COMP_KEY_<PROVIDER>` secret — so the user just builds, no key of their
+    // own, on the platform's dime. Skipped when they already have a key above.
+    let usedComp = false;
+    if (!resolvedKey && userId) {
+      const grant = await getActiveComp(this.env, userId);
+      if (grant) {
+        const compKey = compKeyFor(this.env, grant.provider);
+        if (compKey) {
+          resolvedKey = compKey;
+          // grant.provider is validated against COMP_PROVIDERS (⊆ Provider) when
+          // the grant is created, so the cast is sound.
+          body.aiConfig = { ...body.aiConfig, provider: grant.provider as typeof body.aiConfig.provider, model: grant.model };
+          usedComp = true;
+        }
+      }
+    }
+
     // GitHub Models is the FREE tier — it still needs a GitHub token, but the
     // user shouldn't have to supply one. Fall back to the platform token so
     // "free" actually works keyless. (A user who saved their own GitHub token
     // still wins above — their per-user rate limit, not the shared one.)
     let usedFreeTier = false;
-    if (!resolvedKey && body.aiConfig.provider === "github") {
+    if (!resolvedKey && !usedComp && body.aiConfig.provider === "github") {
       resolvedKey = this.env.GITHUB_TOKEN || null;
       usedFreeTier = true;
     }
