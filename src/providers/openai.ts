@@ -1,3 +1,4 @@
+import { createStreamTimeout } from "./timeout";
 import type { Message, ProviderAdapter, StreamEvent, ToolCall, ToolDef } from "./types";
 
 export class OpenAIAdapter implements ProviderAdapter {
@@ -26,29 +27,40 @@ export class OpenAIAdapter implements ProviderAdapter {
       }));
     }
 
-    const res = await fetch(this.baseUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    const timeout = createStreamTimeout();
+    try {
+      const res = await fetch(this.baseUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: timeout.signal,
+      });
 
-    if (!res.ok) {
-      const err = await res.text();
-      if (res.status === 429) {
-        yield {
-          type: "error",
-          data: `Rate limited (429). You've hit the usage limit for this model. Wait a moment and try again, or switch to a different model/provider.\n\nDetails: ${err.slice(0, 300)}`,
-        };
-      } else {
-        yield { type: "error", data: `API error ${res.status}: ${err.slice(0, 500)}` };
+      if (!res.ok) {
+        const err = await res.text();
+        if (res.status === 429) {
+          yield {
+            type: "error",
+            data: `Rate limited (429). You've hit the usage limit for this model. Wait a moment and try again, or switch to a different model/provider.\n\nDetails: ${err.slice(0, 300)}`,
+          };
+        } else {
+          yield { type: "error", data: `API error ${res.status}: ${err.slice(0, 500)}` };
+        }
+        return;
       }
-      return;
-    }
 
-    yield* parseOpenAISSE(res.body!);
+      yield* parseOpenAISSE(res.body!, timeout.reset);
+    } catch (err) {
+      yield {
+        type: "error",
+        data: timeout.signal.aborted ? "Provider request timed out (no response)." : `Provider request failed: ${String(err)}`,
+      };
+    } finally {
+      timeout.clear();
+    }
   }
 }
 
@@ -77,7 +89,7 @@ function toOpenAIMessages(messages: Message[]): unknown[] {
   return out;
 }
 
-async function* parseOpenAISSE(body: ReadableStream): AsyncGenerator<StreamEvent> {
+async function* parseOpenAISSE(body: ReadableStream, onChunk?: () => void): AsyncGenerator<StreamEvent> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
@@ -87,6 +99,7 @@ async function* parseOpenAISSE(body: ReadableStream): AsyncGenerator<StreamEvent
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+      onChunk?.(); // reset the idle-timeout clock on each chunk
       buf += decoder.decode(value, { stream: true });
 
       const lines = buf.split("\n");

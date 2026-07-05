@@ -1,6 +1,7 @@
 /** Deploy: provision via CF/GitHub APIs, then push all files. */
 
 import type { StoreConfig } from "./config";
+import { makeGhApi, mapPool } from "./ghfetch";
 import { getTemplateFiles } from "./template";
 
 export interface DeployConfig {
@@ -42,22 +43,6 @@ async function cfApi(token: string, _accountId: string, path: string, method = "
     body: body ? JSON.stringify(body) : undefined,
   });
   return res.json() as Promise<any>;
-}
-
-function makeGhApi(token: string, agentName: string) {
-  return async (path: string, method = "GET", body?: unknown) => {
-    const res = await fetch(`https://api.github.com${path}`, {
-      method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "User-Agent": agentName,
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    return res.json() as Promise<any>;
-  };
 }
 
 /** Deploy = create repo + push code. No CF Pages, no DNS, no registry.
@@ -555,9 +540,16 @@ const IMPORT_SKIP_BASENAMES = new Set(["pnpm-lock.yaml", "package-lock.json", "y
 // Binary/asset extensions we don't import (they stay in the repo; a base_tree
 // push preserves them). SVG is text/XML, so it's intentionally NOT here.
 const IMPORT_BINARY_EXT = /\.(png|jpe?g|gif|webp|ico|bmp|woff2?|ttf|otf|eot|mp3|wav|ogg|m4a|mp4|webm|mov|pdf|zip|gz|tar|wasm|bin)$/i;
-const IMPORT_PER_FILE_MAX = 512 * 1024;
-const IMPORT_TOTAL_MAX = 2 * 1024 * 1024;
+const IMPORT_PER_FILE_MAX = 256 * 1024;
+// Kept comfortably UNDER the ~2 MB DO value cap: the imported files are stored
+// as `session.files` alongside the transcript + seed in the SAME persisted blob,
+// so an import that filled the whole 2 MB would leave no room for messages and
+// brick save(). 1.2 MB of source leaves headroom for the rest of the session.
+const IMPORT_TOTAL_MAX = 1.2 * 1024 * 1024;
 const IMPORT_MAX_FILES = 200;
+/** Bound the blob-read fan-out so a large repo import can't fire hundreds of
+ *  concurrent GETs and trip GitHub's secondary rate limit. */
+const IMPORT_BLOB_CONCURRENCY = 8;
 
 /** Read a repo's committed text files via the Git Data API (recursive tree +
  *  blobs). Skips build/dep dirs, lockfiles, and binaries, and enforces
@@ -607,17 +599,15 @@ export async function fetchRepoFiles(repoId: string, token: string, config: Stor
     eligible.push({ path, sha: entry.sha });
   }
 
-  const entries = await Promise.all(
-    eligible.map(async ({ path, sha }) => {
-      const blob = await ghApi(`/repos/${repo}/git/blobs/${sha}`);
-      if (blob.encoding !== "base64" || typeof blob.content !== "string") return null;
-      const bytes = Uint8Array.from(atob(blob.content.replace(/\n/g, "")), (c) => c.charCodeAt(0));
-      if (bytes.includes(0)) return null; // NUL byte → binary, skip
-      // Default TextDecoder is non-fatal (invalid bytes → U+FFFD), which is fine
-      // — we've already skipped NUL-containing blobs as binary above.
-      return [path, new TextDecoder("utf-8").decode(bytes)] as const;
-    }),
-  );
+  const entries = await mapPool(eligible, IMPORT_BLOB_CONCURRENCY, async ({ path, sha }) => {
+    const blob = await ghApi(`/repos/${repo}/git/blobs/${sha}`);
+    if (blob.encoding !== "base64" || typeof blob.content !== "string") return null;
+    const bytes = Uint8Array.from(atob(blob.content.replace(/\n/g, "")), (c) => c.charCodeAt(0));
+    if (bytes.includes(0)) return null; // NUL byte → binary, skip
+    // Default TextDecoder is non-fatal (invalid bytes → U+FFFD), which is fine
+    // — we've already skipped NUL-containing blobs as binary above.
+    return [path, new TextDecoder("utf-8").decode(bytes)] as const;
+  });
 
   const files = new Map<string, string>(entries.filter((e): e is readonly [string, string] => e !== null));
   if (files.size === 0) throw new Error(`no importable text files found in ${repo}`);

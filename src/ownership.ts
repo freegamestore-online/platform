@@ -7,6 +7,7 @@
  * copy, kept in sync by hand (workspace "vendor, don't depend" rule).
  */
 import type { StoreConfig } from "./config";
+import { resilientFetch } from "./ghfetch";
 
 export interface RegistryGame {
   id: string;
@@ -17,7 +18,10 @@ export interface RegistryGame {
 }
 
 function gh(path: string, token: string, agentName: string): Promise<Response> {
-  return fetch(`https://api.github.com${path}`, {
+  // resilientFetch adds a timeout + transient-failure retry but leaves the body
+  // untouched, so the caller's `.status` checks (204 = member/collaborator) work
+  // exactly as before.
+  return resilientFetch(`https://api.github.com${path}`, {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github+json",

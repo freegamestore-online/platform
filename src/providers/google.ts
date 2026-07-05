@@ -1,3 +1,4 @@
+import { createStreamTimeout } from "./timeout";
 import type { Message, ProviderAdapter, StreamEvent, ToolCall, ToolDef } from "./types";
 
 export class GoogleAdapter implements ProviderAdapter {
@@ -29,19 +30,30 @@ export class GoogleAdapter implements ProviderAdapter {
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:streamGenerateContent?key=${this.apiKey}&alt=sse`;
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    const timeout = createStreamTimeout();
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: timeout.signal,
+      });
 
-    if (!res.ok) {
-      const err = await res.text();
-      yield { type: "error", data: `Google AI API error ${res.status}: ${err}` };
-      return;
+      if (!res.ok) {
+        const err = await res.text();
+        yield { type: "error", data: `Google AI API error ${res.status}: ${err}` };
+        return;
+      }
+
+      yield* parseGoogleSSE(res.body!, timeout.reset);
+    } catch (err) {
+      yield {
+        type: "error",
+        data: timeout.signal.aborted ? "Google AI request timed out (no response)." : `Google AI request failed: ${String(err)}`,
+      };
+    } finally {
+      timeout.clear();
     }
-
-    yield* parseGoogleSSE(res.body!);
   }
 }
 
@@ -72,7 +84,7 @@ function toGoogleContents(messages: Message[]): unknown[] {
   return out;
 }
 
-async function* parseGoogleSSE(body: ReadableStream): AsyncGenerator<StreamEvent> {
+async function* parseGoogleSSE(body: ReadableStream, onChunk?: () => void): AsyncGenerator<StreamEvent> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
@@ -81,6 +93,7 @@ async function* parseGoogleSSE(body: ReadableStream): AsyncGenerator<StreamEvent
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+      onChunk?.(); // reset the idle-timeout clock on each chunk
       buf += decoder.decode(value, { stream: true });
 
       const lines = buf.split("\n");

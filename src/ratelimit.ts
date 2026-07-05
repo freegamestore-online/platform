@@ -64,3 +64,17 @@ export async function allowRequest(
     return true; // fail open
   }
 }
+
+// Per-user deploy/push budget. EVERY deploy or push_update spends the SHARED
+// platform GITHUB_TOKEN (repo create + blob/tree/commit pushes via admin), so a
+// scripted client on its OWN AI key — which bypasses the free-chat limiter —
+// could still loop deploys and spam the org / starve the shared PAT. This gate
+// is keyed per user and independent of the BYOK branch.
+export const DEPLOY_LIMIT = 30;
+export const DEPLOY_WINDOW_SEC = 3600;
+
+/** Count a deploy/push_update against `userId`'s hourly budget. Returns true if
+ *  within the limit (fails open on any DB error, like allowRequest). */
+export function allowDeploy(db: D1Database, userId: string, nowSec: number): Promise<boolean> {
+  return allowRequest(db, `deploy:${userId}`, DEPLOY_LIMIT, DEPLOY_WINDOW_SEC, nowSec);
+}

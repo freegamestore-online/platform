@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { getConfig } from "./config";
 import { getTemplateFiles } from "./template";
-import { executeTool, getToolDefinitions, INFRA_TOOLS } from "./tools";
+import {
+  executeTool,
+  getToolDefinitions,
+  INFRA_TOOLS,
+  WRITE_FILE_MAX_BYTES,
+  WRITE_FILE_MAX_FILES,
+  WRITE_FILE_MAX_TOTAL_BYTES,
+} from "./tools";
 
 const appsConfig = getConfig("apps");
 const gamesConfig = getConfig("games");
@@ -125,6 +132,58 @@ describe("executeTool — file tools", () => {
     const files = new Map([["a.txt", "hello world\nfoo bar"]]);
     const result = executeTool({ id: "1", name: "search_files", input: { pattern: "foo" } }, files, appsConfig);
     expect(result.content).toContain("a.txt:2:");
+  });
+});
+
+describe("executeTool — write_file storage caps (anti-brick)", () => {
+  it("rejects a single file over the per-file byte cap (as a tool error, not a throw)", () => {
+    const files = new Map<string, string>();
+    const big = "x".repeat(WRITE_FILE_MAX_BYTES + 1);
+    const result = executeTool({ id: "1", name: "write_file", input: { path: "big.txt", content: big } }, files, appsConfig);
+    expect(result.isError).toBe(true);
+    expect(result.content).toContain("per-file limit");
+    expect(files.has("big.txt")).toBe(false); // not committed
+  });
+
+  it("allows a file at exactly the per-file cap", () => {
+    const files = new Map<string, string>();
+    const atCap = "x".repeat(WRITE_FILE_MAX_BYTES);
+    const result = executeTool({ id: "1", name: "write_file", input: { path: "ok.txt", content: atCap } }, files, appsConfig);
+    expect(result.isError).toBeUndefined();
+    expect(files.get("ok.txt")).toBe(atCap);
+  });
+
+  it("rejects a new file once the file-count cap is reached", () => {
+    const files = new Map<string, string>();
+    for (let i = 0; i < WRITE_FILE_MAX_FILES; i++) files.set(`f${i}.txt`, "a");
+    const result = executeTool({ id: "1", name: "write_file", input: { path: "one-too-many.txt", content: "a" } }, files, appsConfig);
+    expect(result.isError).toBe(true);
+    expect(result.content).toContain("max");
+    // But OVERWRITING an existing file (not adding) is still allowed at the cap.
+    const overwrite = executeTool({ id: "2", name: "write_file", input: { path: "f0.txt", content: "b" } }, files, appsConfig);
+    expect(overwrite.isError).toBeUndefined();
+    expect(files.get("f0.txt")).toBe("b");
+  });
+
+  it("rejects a write that would push the project over the total-bytes cap", () => {
+    const files = new Map<string, string>();
+    // Fill close to the total with a few large-but-legal files.
+    const chunk = "y".repeat(WRITE_FILE_MAX_BYTES);
+    let i = 0;
+    while ((i + 1) * WRITE_FILE_MAX_BYTES <= WRITE_FILE_MAX_TOTAL_BYTES) {
+      files.set(`chunk${i}.txt`, chunk);
+      i++;
+    }
+    const result = executeTool({ id: "1", name: "write_file", input: { path: "overflow.txt", content: chunk } }, files, appsConfig);
+    expect(result.isError).toBe(true);
+    expect(result.content).toContain("total limit");
+  });
+
+  it("still writes normal-sized files", () => {
+    const files = new Map<string, string>();
+    const result = executeTool({ id: "1", name: "write_file", input: { path: "web/src/App.tsx", content: "export default () => null;" } }, files, appsConfig);
+    expect(result.content).toContain("Wrote web/src/App.tsx");
+    expect(files.has("web/src/App.tsx")).toBe(true);
   });
 });
 

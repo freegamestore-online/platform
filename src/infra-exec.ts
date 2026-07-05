@@ -21,8 +21,23 @@ interface ExecContext {
 }
 
 /** Execute a single infra tool. Returns the result string. */
+/** Infra tools that operate on a specific item and therefore REQUIRE a valid
+ *  string id. A tool call with a missing/blank id used to slip past validation
+ *  (`if (tc.input.id)` was falsy) and write the literal string "undefined" into
+ *  the repo path / package.json. Reject it up front. */
+const ID_REQUIRED = new Set(["deploy", "push_update", "check_deploy_status", "get_build_logs", "get_ci_results", "get_audit_results"]);
+
 export async function executeInfraTool(tc: ToolCall, ctx: ExecContext): Promise<string> {
   const { config } = ctx;
+
+  // Reject a missing/invalid id BEFORE any id-dependent logic, so no tool ever
+  // interpolates `undefined` into a repo name, path, or package.json.
+  if (ID_REQUIRED.has(tc.name)) {
+    const rawId = tc.input.id;
+    if (typeof rawId !== "string" || rawId.trim() === "") {
+      return `Error: ${tc.name} requires a valid ${config.noun} id.`;
+    }
+  }
 
   // Authorization: scope write tools to the session's own item
   const targetId = tc.input.id as string | undefined;
@@ -32,8 +47,8 @@ export async function executeInfraTool(tc: ToolCall, ctx: ExecContext): Promise<
       return `Error: you can only ${tc.name} on your own ${config.noun} "${ctx.appId}". No access to "${targetId}".`;
   }
 
-  // Validate deploy ID
-  if (tc.name === "deploy" && tc.input.id) {
+  // Validate deploy ID (id presence already enforced above for deploy).
+  if (tc.name === "deploy") {
     const id = tc.input.id as string;
     if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(id) || id.length > 58 || id.startsWith("free") || id.startsWith("pro")) {
       return `Error: invalid ${config.noun} ID "${id}". Must be lowercase, numbers, hyphens. No "free"/"pro" prefix. Max 58 chars.`;

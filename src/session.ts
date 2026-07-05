@@ -12,8 +12,10 @@ import type { AIConfig, Message, TokenUsage } from "./providers/types";
 import { type PushSubscription, sendWebPush } from "./push";
 import { getTemplateFiles } from "./template";
 import { resolveUserKey } from "./keys";
-import { allowRequest } from "./ratelimit";
+import { allowDeploy, allowRequest } from "./ratelimit";
+import { enforceSessionBudget } from "./session-budget";
 import { upsertSessionIndex } from "./sessions";
+import { armWatchdog } from "./watchdog";
 
 interface ErrorEntry {
   timestamp: string;
@@ -55,6 +57,23 @@ interface SessionState {
 const MAX_MESSAGES = 400;
 const MAX_ERRORS = 50;
 const MAX_DEPLOY_LOG = 200;
+
+// The whole session is persisted as ONE Durable Object value, and a
+// SQLite-backed DO caps a single key+value at ~2 MB. Guard the blob so save()
+// can never throw and freeze the session:
+//   - write_file tool-call bodies in the transcript are replaced with a short
+//     placeholder over this size (the live `files` map stays authoritative, so
+//     the transcript never needs to carry the file body).
+//   - if the estimated serialized size still exceeds the soft cap, the oldest
+//     messages are trimmed until it fits, rather than throwing.
+const TOOLCALL_CONTENT_MAX = 2 * 1024; // 2 KB — inline placeholder above this
+const SESSION_SOFT_MAX_BYTES = 1.8 * 1024 * 1024; // stay well under the ~2 MB DO cap
+
+// Hard ceiling for a single chat turn. A turn can legitimately run for minutes
+// (a deploy polls GitHub Actions for up to ~3 min), so this is generous — its
+// only job is to release the `chatInProgress` lock if the background turn hangs
+// past any reasonable duration, so the session isn't wedged until DO eviction.
+const TURN_DEADLINE_MS = 10 * 60_000; // 10 minutes
 
 /** One-line human summary of a deploy status snapshot for the timeline log. */
 function deployStatusDetail(status: DeployStatus): string {
@@ -146,8 +165,31 @@ export class AgentSession implements DurableObject {
   }
 
   private async save(): Promise<void> {
-    if (this.session) {
-      await this.state.storage.put("session", this.session);
+    await this.persistNow();
+  }
+
+  /** Persist the session, enforcing the storage budget first so a put() can
+   *  never throw and freeze the session. Used by save() and by the deploy
+   *  callbacks (which persist status updates outside the save() path). */
+  private persistNow(): Promise<void> {
+    if (!this.session) return Promise.resolve();
+    this.enforceStorageBudget();
+    return this.state.storage.put("session", this.session);
+  }
+
+  /** Keep the persisted blob under the DO value cap. First, strip large
+   *  write_file tool-call bodies from the transcript (the live `files` map is
+   *  authoritative — the transcript doesn't need the file body). Then, if the
+   *  estimated serialized size is still over the soft cap, drop the oldest
+   *  messages until it fits. Logs when it engages. Never throws. */
+  private enforceStorageBudget(): void {
+    if (!this.session) return;
+    const trimmed = enforceSessionBudget(this.session, {
+      softMaxBytes: SESSION_SOFT_MAX_BYTES,
+      toolCallMaxBytes: TOOLCALL_CONTENT_MAX,
+    });
+    if (trimmed > 0) {
+      this.logError("storage", `session over ${Math.round(SESSION_SOFT_MAX_BYTES / 1024)}KB — trimmed ${trimmed} oldest message(s) to fit`);
     }
   }
 
@@ -339,13 +381,25 @@ export class AgentSession implements DurableObject {
     if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
     await this.save();
 
+    const encoder = new TextEncoder();
+    const sendSSE = (evt: { type: string; data: string }) => {
+      writer.write(encoder.encode(`data: ${JSON.stringify(evt)}\n\n`)).catch(() => {});
+    };
+
+    // Hard turn deadline. If the background turn hangs (a provider/GitHub call
+    // that never resolves despite its own timeout), this releases the
+    // chatInProgress lock and closes the stream so the session isn't wedged
+    // until the DO is evicted. Cleared in the turn's finally on the normal path.
+    const watchdog = armWatchdog(TURN_DEADLINE_MS, () => {
+      this.logError("timeout", `turn exceeded ${TURN_DEADLINE_MS / 1000}s — releasing lock`);
+      this.chatInProgress = false;
+      sendSSE({ type: "error", data: "The build took too long and was stopped. Try again." });
+      sendSSE({ type: "done", data: "" });
+      writer.close().catch(() => {});
+    });
+
     // Run the agent in the background
     const turn = (async () => {
-      const encoder = new TextEncoder();
-      const sendSSE = (evt: { type: string; data: string }) => {
-        writer.write(encoder.encode(`data: ${JSON.stringify(evt)}\n\n`)).catch(() => {});
-      };
-
       try {
         const sessionCtx = {
           appId: session.appId,
@@ -394,6 +448,19 @@ export class AgentSession implements DurableObject {
             const tc = req.toolCall;
             let toolResult: string;
 
+            // Per-user deploy budget. deploy + push_update both spend the SHARED
+            // platform GITHUB_TOKEN, so gate them per user regardless of whether
+            // the chat itself ran on the free tier or a BYO key. A blocked call
+            // still emits a tool_result below so the tool_use stays paired.
+            const spendsSharedToken = tc.name === "deploy" || tc.name === "push_update";
+            if (spendsSharedToken && userId && !(await allowDeploy(this.env.DB, userId, Math.floor(Date.now() / 1000)))) {
+              toolResult = `Error: you've hit the deploy limit (30/hour). Wait a bit before deploying again.`;
+              this.logError("ratelimit", `deploy rate limit hit for ${userId}`);
+              sendSSE({ type: "tool_result", data: JSON.stringify({ id: tc.id, tool: tc.name, result: toolResult }) });
+              infraResults.push({ id: tc.id, content: toolResult });
+              continue;
+            }
+
             try {
               toolResult = await executeInfraTool(tc, {
                 appId: session.appId,
@@ -405,7 +472,7 @@ export class AgentSession implements DurableObject {
                 onDeployStatus: (status) => {
                   session.deployStatus = status;
                   this.logDeploy(status);
-                  this.state.storage.put("session", session).catch((e) => this.logError("deploy", `persist status: ${String(e)}`));
+                  this.persistNow().catch((e) => this.logError("deploy", `persist status: ${String(e)}`));
                   sendSSE({ type: "deploy_status", data: JSON.stringify(status) });
                   if (status.phase === "live") {
                     this.sendPush("Your build is live!");
@@ -420,14 +487,14 @@ export class AgentSession implements DurableObject {
                     // existing repo → "ID already taken", stranding the game with
                     // no in-session recovery. Retained, the next turn does
                     // push_update against the existing repo and re-runs CI.
-                    this.state.storage.put("session", session).catch((e) => this.logError("deploy", `persist error: ${String(e)}`));
+                    this.persistNow().catch((e) => this.logError("deploy", `persist error: ${String(e)}`));
                   }
                 },
                 onAppDeployed: (id, name) => {
                   session.appId = id;
                   session.appName = name;
                   session.deployStatus = { phase: "provisioning", steps: [] };
-                  this.state.storage.put("session", session).catch((e) => this.logError("deploy", `persist provision: ${String(e)}`));
+                  this.persistNow().catch((e) => this.logError("deploy", `persist provision: ${String(e)}`));
                 },
               });
             } catch (err) {
@@ -468,8 +535,13 @@ export class AgentSession implements DurableObject {
         sendSSE({ type: "error", data: message });
         await this.save().catch((e) => this.logError("storage", `save after error failed: ${String(e)}`));
       } finally {
-        this.chatInProgress = false;
-        writer.close().catch(() => {});
+        // If the watchdog already fired it released the lock and closed the
+        // stream; don't double-handle. Otherwise clear it and release here.
+        if (!watchdog.fired()) {
+          watchdog.clear();
+          this.chatInProgress = false;
+          writer.close().catch(() => {});
+        }
       }
     })();
 
@@ -664,6 +736,21 @@ export class AgentSession implements DurableObject {
       files = await fetchRepoFiles(id, this.env.GITHUB_TOKEN, this.config);
     } catch (err) {
       return json({ error: `import failed: ${String(err)}` }, 502, request, this.config.domain);
+    }
+
+    // Pre-check the decoded total before binding: the imported files share the
+    // single persisted DO blob with the transcript + seed, so an oversized
+    // import must be refused up front rather than bricking a later save().
+    // fetchRepoFiles already caps by tree size; this guards the decoded reality.
+    let importBytes = 0;
+    for (const [, content] of files) importBytes += new TextEncoder().encode(content).length;
+    if (importBytes > SESSION_SOFT_MAX_BYTES) {
+      return json(
+        { error: `"${id}" is too large to open in the studio (${Math.round(importBytes / 1024)}KB of source).` },
+        413,
+        request,
+        this.config.domain,
+      );
     }
 
     session.files = Object.fromEntries(files);

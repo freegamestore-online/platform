@@ -90,6 +90,49 @@ describe("executeInfraTool — ID validation", () => {
   });
 });
 
+describe("executeInfraTool — missing id validation (no 'undefined' writes)", () => {
+  it("rejects deploy with no id instead of substituting 'undefined'", async () => {
+    const ctx = makeCtx();
+    const result = await executeInfraTool(
+      { id: "1", name: "deploy", input: { name: "Test", category: "utilities", icon: "x", iconBg: "#fff", description: "test" } },
+      ctx,
+    );
+    expect(result).toContain("requires a valid app id");
+    // onAppDeployed must NOT have been called with an undefined id.
+    expect(ctx.onAppDeployed).not.toHaveBeenCalled();
+  });
+
+  it("rejects deploy with a blank/whitespace id", async () => {
+    const ctx = makeCtx();
+    const result = await executeInfraTool(
+      { id: "1", name: "deploy", input: { id: "   ", name: "Test", category: "utilities", icon: "x", iconBg: "#fff", description: "test" } },
+      ctx,
+    );
+    expect(result).toContain("requires a valid app id");
+  });
+
+  it("rejects push_update with no id", async () => {
+    const ctx = makeCtx({ appId: "my-app" });
+    const result = await executeInfraTool({ id: "1", name: "push_update", input: { message: "update" } }, ctx);
+    expect(result).toContain("requires a valid app id");
+  });
+
+  it("rejects get_build_logs with no id", async () => {
+    const ctx = makeCtx({ appId: "my-app" });
+    const result = await executeInfraTool({ id: "1", name: "get_build_logs", input: {} }, ctx);
+    expect(result).toContain("requires a valid app id");
+  });
+
+  it("uses the game noun for games config", async () => {
+    const gamesCtx = { ...makeCtx(), config: getConfig("games") };
+    const result = await executeInfraTool(
+      { id: "1", name: "deploy", input: { name: "Test", category: "arcade", icon: "x", iconBg: "#fff", description: "test" } },
+      gamesCtx,
+    );
+    expect(result).toContain("requires a valid game id");
+  });
+});
+
 describe("executeInfraTool — uniqueness check", () => {
   it("rejects deploy if repo already exists", async () => {
     // Mock fetch to simulate existing repo

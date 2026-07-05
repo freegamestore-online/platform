@@ -1,3 +1,4 @@
+import { createStreamTimeout } from "./timeout";
 import type { Message, ProviderAdapter, StreamEvent, ToolCall, ToolDef } from "./types";
 
 export class AnthropicAdapter implements ProviderAdapter {
@@ -23,23 +24,34 @@ export class AnthropicAdapter implements ProviderAdapter {
       stream: true,
     };
 
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": this.apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    const timeout = createStreamTimeout();
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": this.apiKey,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: timeout.signal,
+      });
 
-    if (!res.ok) {
-      const err = await res.text();
-      yield { type: "error", data: `Anthropic API error ${res.status}: ${err}` };
-      return;
+      if (!res.ok) {
+        const err = await res.text();
+        yield { type: "error", data: `Anthropic API error ${res.status}: ${err}` };
+        return;
+      }
+
+      yield* parseAnthropicSSE(res.body!, timeout.reset);
+    } catch (err) {
+      yield {
+        type: "error",
+        data: timeout.signal.aborted ? "Anthropic request timed out (no response)." : `Anthropic request failed: ${String(err)}`,
+      };
+    } finally {
+      timeout.clear();
     }
-
-    yield* parseAnthropicSSE(res.body!);
   }
 }
 
@@ -70,7 +82,7 @@ function toAnthropicMessages(messages: Message[]): unknown[] {
   return out;
 }
 
-async function* parseAnthropicSSE(body: ReadableStream): AsyncGenerator<StreamEvent> {
+async function* parseAnthropicSSE(body: ReadableStream, onChunk?: () => void): AsyncGenerator<StreamEvent> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
@@ -80,6 +92,7 @@ async function* parseAnthropicSSE(body: ReadableStream): AsyncGenerator<StreamEv
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+      onChunk?.(); // reset the idle-timeout clock on each chunk
       buf += decoder.decode(value, { stream: true });
 
       const lines = buf.split("\n");

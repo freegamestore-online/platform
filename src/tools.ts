@@ -1,6 +1,27 @@
 import type { StoreConfig } from "./config";
 import type { ToolCall, ToolDef, ToolResult } from "./providers/types";
 
+// ── write_file storage budget ──────────────────────────────────────────────
+// The whole session (files + transcript + seed) is persisted as ONE Durable
+// Object value, and a SQLite-backed DO caps a single key+value at ~2 MB. An
+// unbounded write_file could push the blob past that cap so save() throws and
+// the session freezes (only /reset escapes). Enforce conservative caps HERE and
+// return a normal TOOL error (never throw) so the agent can react and shrink the
+// file instead of bricking the turn. Byte-based (UTF-8), not char-based, because
+// storage is bytes.
+export const WRITE_FILE_MAX_BYTES = 256 * 1024; // 256 KB per file
+export const WRITE_FILE_MAX_FILES = 120; // total file count
+export const WRITE_FILE_MAX_TOTAL_BYTES = 1.4 * 1024 * 1024; // ~1.4 MB across all files
+
+const byteLen = (s: string): number => new TextEncoder().encode(s).length;
+
+/** Total UTF-8 byte size of every file currently in the map. */
+function totalBytes(files: Map<string, string>): number {
+  let total = 0;
+  for (const [, content] of files) total += byteLen(content);
+  return total;
+}
+
 /** File tools — identical across all stores */
 const FILE_TOOLS: ToolDef[] = [
   {
@@ -184,6 +205,42 @@ export function executeTool(toolCall: ToolCall, files: Map<string, string>, conf
       const path = input.path as string;
       const content = input.content as string;
       if (!path) return { id, content: "Error: path is required", isError: true };
+      if (typeof content !== "string") return { id, content: "Error: content is required", isError: true };
+
+      // Enforce the storage budget before committing the write, so an oversized
+      // file (or one that overflows the total) can never brick save(). Returned
+      // as a tool error the agent can recover from — not a throw.
+      const size = byteLen(content);
+      if (size > WRITE_FILE_MAX_BYTES) {
+        return {
+          id,
+          content: `Error: ${path} is ${Math.round(size / 1024)}KB — over the ${Math.round(
+            WRITE_FILE_MAX_BYTES / 1024,
+          )}KB per-file limit. Split it into smaller modules.`,
+          isError: true,
+        };
+      }
+      const isNew = !files.has(path);
+      if (isNew && files.size >= WRITE_FILE_MAX_FILES) {
+        return {
+          id,
+          content: `Error: project already has ${files.size} files (max ${WRITE_FILE_MAX_FILES}). Delete unused files before adding more.`,
+          isError: true,
+        };
+      }
+      const projectedTotal = totalBytes(files) - byteLen(files.get(path) ?? "") + size;
+      if (projectedTotal > WRITE_FILE_MAX_TOTAL_BYTES) {
+        return {
+          id,
+          content: `Error: writing ${path} would push the project to ${Math.round(
+            projectedTotal / 1024,
+          )}KB — over the ${Math.round(
+            WRITE_FILE_MAX_TOTAL_BYTES / 1024,
+          )}KB total limit. Remove or shrink other files first.`,
+          isError: true,
+        };
+      }
+
       files.set(path, content);
       return { id, content: `Wrote ${path} (${content.length} bytes)` };
     }

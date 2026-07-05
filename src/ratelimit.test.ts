@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allowRequest } from "./ratelimit";
+import { allowDeploy, allowRequest, DEPLOY_LIMIT } from "./ratelimit";
 
 /** In-memory D1 stub: models the INSERT … ON CONFLICT … RETURNING count upsert. */
 function mockDb() {
@@ -52,5 +52,25 @@ describe("allowRequest", () => {
   it("fails OPEN on a DB error (never takes down the guarded feature)", async () => {
     const db = { prepare() { throw new Error("boom"); } } as unknown as D1Database;
     expect(await allowRequest(db, "k", 1, 100, 0)).toBe(true);
+  });
+});
+
+describe("allowDeploy — per-user deploy budget", () => {
+  it("allows up to DEPLOY_LIMIT deploys per hour, then blocks", async () => {
+    const { db } = mockDb();
+    const now = 1_000_000;
+    for (let i = 0; i < DEPLOY_LIMIT; i++) {
+      expect(await allowDeploy(db, "user-1", now)).toBe(true);
+    }
+    // The (DEPLOY_LIMIT + 1)th deploy in the same window is blocked.
+    expect(await allowDeploy(db, "user-1", now)).toBe(false);
+  });
+
+  it("budgets each user independently (a BYOK looper can't starve others)", async () => {
+    const { db } = mockDb();
+    const now = 1_000_000;
+    for (let i = 0; i < DEPLOY_LIMIT; i++) await allowDeploy(db, "spammer", now);
+    expect(await allowDeploy(db, "spammer", now)).toBe(false); // exhausted
+    expect(await allowDeploy(db, "innocent", now)).toBe(true); // unaffected
   });
 });
