@@ -392,7 +392,12 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
         name: z.string().describe("Display name (e.g. 'Chess', 'Space Invaders')"),
         category: z.string().describe("puzzle, arcade, strategy, card, board, trivia, racing, sports, action, simulation, or educational"),
         description: z.string().optional().describe("Short description"),
-        template: z.enum(["canvas", "grid", "cards", "3d"]).optional().describe("Game template (default: canvas)"),
+        template: z
+          .enum(["kaplay", "phaser", "3d", "canvas", "grid", "cards"])
+          .optional()
+          .describe(
+            "Engine/template to build on (default: canvas). Engines: 'kaplay' = beginner-friendly 2D arcade engine; 'phaser' = production 2D engine (scenes, arcade physics); '3d' = Three.js + react-three-fiber. Starters: 'canvas' = raw HTML5 canvas 2D; 'grid' = CSS-grid puzzle/board; 'cards' = DOM card game.",
+          ),
       },
       async ({ game_id, name, category, description, template }) => {
         const token = this.props.token;
