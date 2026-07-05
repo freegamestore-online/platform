@@ -105,8 +105,14 @@ export function useAgent() {
 
   // Start a clean chat for an already-built game (keeps the game, resets the
   // conversation). The escape hatch when a session's history has gone bad.
+  // freshBusyRef de-dupes concurrent calls for the SAME game: two triggers (a
+  // double-click, or the settings deep-link racing the picker button) otherwise
+  // both snapshot "no fresh session yet" and each mint one → a spurious empty
+  // duplicate session. Guard until the first call resolves.
+  const freshBusyRef = useRef<string | null>(null);
   const startFreshChat = useCallback(async (gameId: string): Promise<string | null> => {
-    if (isStreamingRef.current) return null;
+    if (isStreamingRef.current || freshBusyRef.current === gameId) return null;
+    freshBusyRef.current = gameId;
     try {
       const id = await projectsMgr.startFreshChat(gameId);
       resetUI();
@@ -114,6 +120,8 @@ export function useAgent() {
     } catch (e) {
       setError((e as Error).message || `Couldn't start a fresh chat for ${gameId}.`);
       return null;
+    } finally {
+      freshBusyRef.current = null;
     }
   }, [projectsMgr, resetUI]);
 
