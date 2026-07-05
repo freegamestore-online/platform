@@ -22,13 +22,12 @@ zone_name = "freegamestore.online"
 binding = "APPS"
 bucket_name = "fgs-games"
 
-# Shares the `fas` D1 with the FAS host worker. The routes table has a
-# `zone` column for exactly this: one table, many zones, one query.
-# Admin already writes FGS rows here (`zone = 'freegamestore.online'`)
-# via insertHostRoute() in fas/admin/src/publish.ts. If FGS later gets
-# its own admin worker (per admin-worker-per-store), the routes table
-# moves with admin and this binding switches to fgs D1.
+# FGS-owned D1. The `routes` table is zone-scoped (`zone` column) and this
+# worker only ever queries `zone = 'freegamestore.online'`, so FGS serving no
+# longer depends on the FAS store's D1. Admin writes the same rows here via
+# insertHostRoute() in fgs/admin/src/publish.ts. (Split off the shared `fas`
+# D1 on 2026-07-05 — see fgs-architecture-review Tier-2 #1.)
 [[d1_databases]]
 binding = "DB"
-database_name = "fas"
-database_id = "a32701c0-5a56-4a12-810d-485166202e39"
+database_name = "freegamestore"
+database_id = "a122751e-11a2-466e-b403-4696f3f4a698"
