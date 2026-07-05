@@ -10,6 +10,7 @@
  */
 import type { Env } from "./index";
 import { COMP_PROVIDERS, compKeyFor, grantComp, listComp, revokeComp } from "./keygrants";
+import { deleteUserKey, isValidProvider, saveUserKey } from "./keys";
 
 export async function handleAdminCompApi(request: Request, env: Env, cors: Record<string, string>): Promise<Response | null> {
   const url = new URL(request.url);
@@ -31,6 +32,19 @@ export async function handleAdminCompApi(request: Request, env: Env, cors: Recor
   if (path === "/v1/admin/users" && request.method === "GET") {
     const grants = await listComp(env);
     const gByUser = new Map(grants.map((g) => [g.userId, g]));
+    // Which providers each user already has a vault key for (BYO or admin-added).
+    const keysByUser = new Map<string, string[]>();
+    try {
+      const kr = await env.DB.prepare("SELECT user_id, provider FROM user_api_keys").all();
+      for (const k of (kr.results as Record<string, unknown>[]) || []) {
+        const uid = String(k.user_id);
+        const arr = keysByUser.get(uid) || [];
+        arr.push(String(k.provider));
+        keysByUser.set(uid, arr);
+      }
+    } catch {
+      /* user_api_keys may not exist yet (no keys saved) — treat as none */
+    }
     const { results } = await env.DB.prepare(
       "SELECT id, name, avatar_url, created_at, last_seen FROM users ORDER BY created_at DESC LIMIT 1000",
     ).all();
@@ -43,10 +57,40 @@ export async function handleAdminCompApi(request: Request, env: Env, cors: Recor
         avatarUrl: u.avatar_url ? String(u.avatar_url) : null,
         createdAt: u.created_at ? String(u.created_at) : null,
         lastSeen: u.last_seen ? String(u.last_seen) : null,
+        keys: keysByUser.get(id) || [],
         grant: g ? { provider: g.provider, model: g.model, expiresAt: g.expiresAt } : null,
       };
     });
     return json({ users });
+  }
+
+  // POST /v1/admin/userkey { userId, provider, key } — admin pastes a provider
+  // API key straight into a user's vault (same encrypted store as their own BYO
+  // key). Their studio auto-selects a provider they have a key for, so the user
+  // can build immediately with no further action.
+  if (path === "/v1/admin/userkey" && request.method === "POST") {
+    if (!env.AI_KEYS_KEK) return json({ error: "key vault not configured (AI_KEYS_KEK unset)" }, 500);
+    const body = (await request.json().catch(() => ({}))) as { userId?: string; provider?: string; key?: string };
+    const userId = String(body.userId || "").trim();
+    const provider = String(body.provider || "").toLowerCase();
+    const key = String(body.key || "").trim();
+    if (!userId) return json({ error: "userId is required" }, 400);
+    if (!isValidProvider(provider)) return json({ error: `unknown provider "${provider}"` }, 400);
+    if (!key) return json({ error: "key is required" }, 400);
+    if (key.length > 512) return json({ error: "key too long" }, 400);
+    await saveUserKey(env, userId, provider, key);
+    return json({ ok: true, userId, provider });
+  }
+
+  // POST /v1/admin/userkey/delete { userId, provider } — remove a vault key.
+  // (POST, not DELETE-with-path, so the github:<id> userId needs no URL escaping.)
+  if (path === "/v1/admin/userkey/delete" && request.method === "POST") {
+    const body = (await request.json().catch(() => ({}))) as { userId?: string; provider?: string };
+    const userId = String(body.userId || "").trim();
+    const provider = String(body.provider || "").toLowerCase();
+    if (!userId || !provider) return json({ error: "userId and provider are required" }, 400);
+    await deleteUserKey(env, userId, provider);
+    return json({ ok: true });
   }
 
   if (path === "/v1/admin/comp" && request.method === "GET") {
