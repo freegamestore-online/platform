@@ -32,7 +32,7 @@ interface PublishRequest {
   oneliner?: string;
   type?: string;
   creatorGithub?: string;
-  /** Starter template key (canvas|grid|cards|3d). Defaults to canvas. */
+  /** Engine/starter key (kaplay|phaser|3d|canvas|grid|cards). Defaults to canvas. */
   template?: string;
 }
 
@@ -42,7 +42,10 @@ const TEMPLATE_REPOS: Record<string, string> = {
   canvas: "template-game-canvas",
   grid: "template-game-grid",
   cards: "template-game-cards",
-  "3d": "template-game-3d",
+  // The three headline engines the Dashboard offers ("build on"):
+  kaplay: "template-game-kaplay", // beginner-friendly 2D arcade engine
+  phaser: "template-game-phaser", // production-grade 2D engine
+  "3d": "template-game-3d", // Three.js + react-three-fiber (3D)
 };
 
 /** Lowercase a display name into a valid slug (matches validateId rules). */
@@ -129,7 +132,8 @@ async function ghApi(env: PublishEnv, path: string, method = "GET", body?: any) 
 // the ownership-checked delete path. Mirrors the publisher's create.ts list.
 const INFRA_REPOS = new Set([
   "freegamestore", "submissions", "template-game-canvas", "template-game-3d",
-  "template-game-grid", "template-game-cards", "brand", "ops", "sdk",
+  "template-game-grid", "template-game-cards", "template-game-kaplay",
+  "template-game-phaser", "brand", "ops", "sdk",
 ]);
 
 function validateId(id: string): string | null {
@@ -429,6 +433,10 @@ export async function handlePublish(
       type: req.type || "standalone",
       developer: req.creatorGithub || config.developer,
       ...(req.creatorGithub ? { creatorGithub: req.creatorGithub } : {}),
+      // Which engine/template this game was generated from (kaplay|phaser|3d|
+      // canvas|grid|cards). Lets the storefront + studio show the engine and
+      // lets the agent load engine-correct authoring context on import.
+      ...(req.template ? { engine: req.template } : {}),
       // Set once, on first add. `me.ts` reads this for the game's createdAt.
       firstPublished: nowIso,
     });
