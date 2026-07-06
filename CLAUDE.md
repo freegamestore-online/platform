@@ -27,7 +27,7 @@ improve games on FreeGameStore — straight from the editor.
 
 | Tool | Auth | Description |
 |------|------|-------------|
-| `agent_build` | FGS token + BYO `api_key` | Prompt `agent.freegamestore.online`; it writes the code AND deploys. FGS's agent is **bring-your-own-key** (no vault yet) — pass `api_key` for provider anthropic/openai/google/github. Returns a `session_id`. |
+| `agent_build` | FGS token (`api_key` optional) | Prompt `agent.freegamestore.online`; it writes the code AND deploys. By default it uses the **AI key saved for your account** (the platform's encrypted key vault, resolved server-side from your FGS token). Pass `api_key` only to override with a different key (provider anthropic/openai/google/github). Returns a `session_id`. |
 | `agent_status` | FGS token | Poll an `agent_build` session — game id, deploy phase, live URL. |
 
 **Info / inspect:**
@@ -47,8 +47,11 @@ improve games on FreeGameStore — straight from the editor.
   passing `creatorGithub` so the registry records ownership.
 - **Ownership gate** reads `registry.json` on `freegamestore-online/freegamestore`
   (`creatorGithub === <login>`) — FGS has no `/v1/apps/mine`.
-- **Agent** is public + bring-your-own-key (`aiConfig.apiKey` required; providers
-  anthropic/openai/google/github) — no key vault yet.
+- **Agent** resolves the caller's account key from the encrypted vault server-side
+  (the agent worker verifies the FGS token → sets `X-Auth-User` → the DO decrypts
+  the user's `user_api_keys` row). `aiConfig.apiKey` is OPTIONAL — pass it only to
+  override. Providers anthropic/openai/google/github. Admins can also grant SELECT
+  users a complimentary platform-funded key (see agent `keygrants.ts`).
 
 ## Secrets (Worker)
 
