@@ -83,6 +83,10 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
   // Default to KAPLAY — the easiest 2D engine — so a new/kid creator gets the
   // fastest path to a playable game. Every engine + starter stays selectable.
   const [template, setTemplate] = useState("kaplay");
+  // Remix: optionally start from an existing published game's code. When set, the
+  // new game inherits that game's engine (the template picker is ignored).
+  const [cloneFrom, setCloneFrom] = useState("");
+  const [catalog, setCatalog] = useState<{ id: string; name: string }[]>([]);
   // The id is auto-derived from the name until the creator edits it by hand.
   const [idTouched, setIdTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -121,6 +125,20 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
     return () => clearTimeout(t);
   }, [gameId, idError]);
 
+  // Load the public catalog once for the "Remix an existing game" picker.
+  useEffect(() => {
+    let live = true;
+    fetch("/api/catalog", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d: { games?: { id: string; name: string }[] }) => {
+        if (live && Array.isArray(d.games)) {
+          setCatalog(d.games.slice().sort((a, b) => a.name.localeCompare(b.name)));
+        }
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -131,7 +149,7 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
       const createRes = await fetch("/api/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: gameId, name: gameName, category, icon, iconBg, description, template }),
+        body: JSON.stringify({ id: gameId, name: gameName, category, icon, iconBg, description, template, ...(cloneFrom ? { cloneFrom } : {}) }),
       });
       const createData = await createRes.json().catch(() => ({} as { steps?: ProvisionStep[]; success?: boolean; error?: string }));
       if (!createRes.ok || createData.error) {
@@ -244,10 +262,23 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
           placeholder="A fun and addictive puzzle game" />
       </div>
 
-      <fieldset>
-        <legend className="block text-sm font-medium mb-1">Template</legend>
+      <div>
+        <Label htmlFor="remix-from">Start from an existing game (optional)</Label>
+        <Select id="remix-from" value={cloneFrom} onChange={(e) => setCloneFrom(e.target.value)}>
+          <option value="">— Start fresh (choose an engine below) —</option>
+          {catalog.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+        </Select>
+        {cloneFrom
+          ? <p className="text-xs mt-1" style={{ color: "var(--accent)" }}>
+              Remixing <strong>{catalog.find((g) => g.id === cloneFrom)?.name || cloneFrom}</strong> — your game starts from its code (all games are open-source / MIT) and keeps its engine. You'll tweak it in the studio.
+            </p>
+          : <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>Remix any published game as your starting point, or leave blank to start fresh.</p>}
+      </div>
+
+      <fieldset disabled={!!cloneFrom} style={cloneFrom ? { opacity: 0.5 } : undefined}>
+        <legend className="block text-sm font-medium mb-1">Engine{cloneFrom ? " — inherited from the remixed game" : ""}</legend>
         <p className="text-xs mb-2" style={{ color: "var(--muted)" }}>
-          Build on a game engine (the AI writes real engine code), or start from a simple no-engine template.
+          {cloneFrom ? "The game you're remixing keeps its own engine — no need to choose here." : "Build on a game engine (the AI writes real engine code), or start from a simple no-engine template."}
         </p>
 
         <p className="text-xs font-medium mb-1" style={{ color: "var(--muted)" }}>Game engines</p>

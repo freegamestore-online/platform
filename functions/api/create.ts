@@ -138,6 +138,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         iconBg: body.iconBg,
         description: body.description,
         template: body.template,
+        cloneFrom: body.cloneFrom,
         creatorGithub: user,
       }),
     }, 90000, "admin provision");
