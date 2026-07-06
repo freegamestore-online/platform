@@ -34,6 +34,10 @@ interface PublishRequest {
   creatorGithub?: string;
   /** Engine/starter key (kaplay|phaser|3d|canvas|grid|cards). Defaults to canvas. */
   template?: string;
+  /** Remix: id of an existing published game to seed this one from (all free
+   *  games are MIT). The new game inherits the source's engine and its web/src
+   *  code is copied over the fresh template infra. */
+  cloneFrom?: string;
 }
 
 // Starter templates the creator can pick from. Maps the short key the Dashboard
@@ -260,6 +264,93 @@ async function substituteTemplatePlaceholders(
   }
 }
 
+/** Decode a GitHub contents/blob base64 payload to a UTF-8 string. */
+function decodeGhContent(b64: string): string {
+  return new TextDecoder().decode(
+    Uint8Array.from(atob(b64.replace(/\n/g, "")), (c) => c.charCodeAt(0)),
+  );
+}
+
+/** Resolve the engine a source game was built on, from its web/package.json
+ *  dependencies (same rule as the agent's detectEngine). Returns a TEMPLATE_REPOS
+ *  key, or "" if the source is missing/unreadable. Grid/cards can't be told apart
+ *  from canvas by deps alone, so a no-engine source resolves to "canvas" (its
+ *  web/src overlays cleanly on the canvas template). */
+async function resolveSourceEngine(env: PublishEnv, org: string, sourceId: string): Promise<string> {
+  const f = await ghApi(env, `/repos/${org}/${sourceId}/contents/web/package.json`);
+  if (!f.content) return "";
+  try {
+    const pkg = JSON.parse(decodeGhContent(f.content)) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+    if (deps["phaser"]) return "phaser";
+    if (deps["kaplay"]) return "kaplay";
+    if (deps["@react-three/fiber"] || deps["three"]) return "3d";
+    return "canvas";
+  } catch {
+    return "";
+  }
+}
+
+/** Remix overlay: copy a source game's web/src (+ web/public) files onto a
+ *  freshly-generated repo, so the new game starts from the source's real code on
+ *  top of correctly-named infra. Non-fatal — a failure leaves the plain template.
+ *  Bounded to keep the GitHub API call count within the Worker subrequest budget. */
+async function overlayGameSource(env: PublishEnv, org: string, newId: string, sourceId: string): Promise<Step> {
+  const MAX_FILES = 40;
+  try {
+    const srcRef = await ghApi(env, `/repos/${org}/${sourceId}/git/ref/heads/main`);
+    const srcSha = srcRef.object?.sha;
+    if (!srcSha) return { name: "Remix", status: "fail", detail: `source ${sourceId} not ready` };
+    const srcCommit = await ghApi(env, `/repos/${org}/${sourceId}/git/commits/${srcSha}`);
+    const srcTreeSha = srcCommit.tree?.sha;
+    if (!srcTreeSha) return { name: "Remix", status: "fail", detail: "could not read source tree" };
+    const srcTree = await ghApi(env, `/repos/${org}/${sourceId}/git/trees/${srcTreeSha}?recursive=1`);
+    const blobs: Array<{ path: string; sha: string }> = (srcTree.tree || []).filter(
+      (t: any) => t.type === "blob" && (t.path.startsWith("web/src/") || t.path.startsWith("web/public/")),
+    );
+    if (blobs.length === 0) return { name: "Remix", status: "skip", detail: "no source files to copy" };
+    const picked = blobs.slice(0, MAX_FILES);
+
+    const tgtRef = await ghApi(env, `/repos/${org}/${newId}/git/ref/heads/main`);
+    const tgtSha = tgtRef.object?.sha;
+    if (!tgtSha) return { name: "Remix", status: "fail", detail: "target not ready" };
+    const tgtCommit = await ghApi(env, `/repos/${org}/${newId}/git/commits/${tgtSha}`);
+    const baseTree = tgtCommit.tree?.sha;
+    if (!baseTree) return { name: "Remix", status: "fail", detail: "could not read target tree" };
+
+    const treeItems: Array<{ path: string; mode: string; type: string; sha: string }> = [];
+    for (const b of picked) {
+      const blob = await ghApi(env, `/repos/${org}/${sourceId}/git/blobs/${b.sha}`);
+      if (!blob.content) continue;
+      const created = await ghApi(env, `/repos/${org}/${newId}/git/blobs`, "POST", {
+        content: blob.content,
+        encoding: blob.encoding || "base64",
+      });
+      if (created.sha) treeItems.push({ path: b.path, mode: "100644", type: "blob", sha: created.sha });
+    }
+    if (treeItems.length === 0) return { name: "Remix", status: "fail", detail: "no files copied" };
+
+    const tree = await ghApi(env, `/repos/${org}/${newId}/git/trees`, "POST", { base_tree: baseTree, tree: treeItems });
+    if (!tree.sha) return { name: "Remix", status: "fail", detail: "tree create failed" };
+    const commit = await ghApi(env, `/repos/${org}/${newId}/git/commits`, "POST", {
+      message: `Remix source from ${sourceId}`,
+      tree: tree.sha,
+      parents: [tgtSha],
+    });
+    if (!commit.sha) return { name: "Remix", status: "fail", detail: "commit failed" };
+    const upd = await ghApi(env, `/repos/${org}/${newId}/git/refs/heads/main`, "PATCH", { sha: commit.sha });
+    const more = blobs.length > picked.length ? ` (first ${picked.length} of ${blobs.length})` : "";
+    return upd.ref
+      ? { name: "Remix", status: "ok", detail: `copied ${treeItems.length} files from ${sourceId}${more}` }
+      : { name: "Remix", status: "fail", detail: "ref update failed" };
+  } catch (e: any) {
+    return { name: "Remix", status: "fail", detail: e?.message ?? "remix overlay error" };
+  }
+}
+
 export async function handlePublish(
   req: PublishRequest,
   env: PublishEnv,
@@ -285,7 +376,6 @@ export async function handlePublish(
   const category = normalizeCategory(req.category);
   const description = req.description || req.oneliner || req.name;
   const name = displayName(req.name, id);
-  const templateRepo = TEMPLATE_REPOS[req.template ?? ""] ?? STORE_CONFIG.templateRepo;
   const idError = validateId(id);
   if (idError) {
     return { steps: [{ name: "Validation", status: "fail", detail: idError }], success: false };
@@ -299,6 +389,17 @@ export async function handlePublish(
   const config = STORE_CONFIG;
   const subdomain = `${id}.${config.domain}`;
   const nowIso = new Date().toISOString();
+
+  // Remix: a new game seeded from an existing published game's code (all free
+  // games are MIT). Inherit the SOURCE's engine so the generated infra
+  // (workflows, deps, lockfile) matches the web/src we overlay after generate —
+  // the picker's `template` is ignored when cloning.
+  const cloneFrom = typeof req.cloneFrom === "string" ? req.cloneFrom.trim().toLowerCase() : "";
+  if (cloneFrom) {
+    const srcEngine = await resolveSourceEngine(env, config.org, cloneFrom);
+    if (srcEngine) req.template = srcEngine;
+  }
+  const templateRepo = TEMPLATE_REPOS[req.template ?? ""] ?? STORE_CONFIG.templateRepo;
 
   // Step 1: Create GitHub repo from template.
   // Fail SAFE on the existence check: only a 200 means "exists" and only a 404
@@ -355,6 +456,11 @@ export async function handlePublish(
       });
       // Rewrite APPNAME placeholders (only meaningful on a fresh generate).
       steps.push(await substituteTemplatePlaceholders(env, config.org, id, name));
+      // Remix: overlay the source game's web/src onto the fresh, correctly-named
+      // infra so the new game starts from the source's real code.
+      if (cloneFrom) {
+        steps.push(await overlayGameSource(env, config.org, id, cloneFrom));
+      }
     } else {
       steps.push({
         name: "GitHub repo",
@@ -518,8 +624,11 @@ export async function handlePublish(
   // must NOT fail the whole provision, or the caller sees success:false (→ HTTP
   // 400) even though the repo + host route + registry entry all succeeded,
   // leaving a listed-but-unserved game.
+  // Collaborator/Naming/Remix failures are non-fatal: the repo + route + registry
+  // still succeeded, so the game is live. A failed Remix just leaves the plain
+  // template (the caller sees the "Remix: fail" step and can retry).
   const success = steps.every(
-    (s) => s.status !== "fail" || s.name === "Collaborator" || s.name === "Naming",
+    (s) => s.status !== "fail" || s.name === "Collaborator" || s.name === "Naming" || s.name === "Remix",
   );
   return {
     steps,
