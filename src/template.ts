@@ -561,7 +561,7 @@ or garbled phrasing. If you're unsure what they meant, ask for clarification.
  *  grid/cards starters fall back to the canvas guide. Detected from the loaded
  *  project's web/package.json so the agent always gets engine-correct authoring
  *  guidance regardless of which template the game was generated from. */
-export type GameEngine = "canvas" | "kaplay" | "phaser" | "r3f";
+export type GameEngine = "canvas" | "kaplay" | "phaser" | "r3f" | "pixi" | "babylon";
 
 /** Infer the engine from the loaded project's web/package.json dependencies.
  *  Defaults to "canvas" when there's no engine dep (or the file is missing /
@@ -577,7 +577,10 @@ export function detectEngine(files: Map<string, string>): GameEngine {
     const deps = { ...pkg.dependencies, ...pkg.devDependencies };
     if (deps["phaser"]) return "phaser";
     if (deps["kaplay"]) return "kaplay";
-    if (deps["@react-three/fiber"] || deps["three"]) return "r3f";
+    if (deps["@react-three/fiber"]) return "r3f";
+    if (deps["pixi.js"]) return "pixi";
+    if (deps["@babylonjs/core"]) return "babylon";
+    if (deps["three"]) return "r3f";
   } catch {
     return "canvas";
   }
@@ -650,6 +653,20 @@ How to build:
 - Keep pure game logic (scoring, collision math you compute) in web/src/lib/ so it's unit-testable; keep rendering in components.
 - three + @react-three/fiber + drei are pre-installed and split into a vendor chunk. Do NOT hand-edit web/package.json to change 3D deps (breaks the frozen lockfile).
 Split large scenes into web/src/components/*.tsx.`,
+  pixi: `## Your engine: Pixi.js v8 (WebGL 2D)
+This game renders with Pixi.js v8 — a high-performance WebGL 2D scene graph. The template mounts a Pixi Application into a container div inside a local Shell component (web/src/components/Shell.tsx — NOT the SDK GameShell).
+Structure:
+- web/src/App.tsx — creates \`new Application()\`, \`await app.init({ resizeTo: container })\`, appends app.canvas, builds the stage, drives the game with \`app.ticker.add((t) => ...)\`. Clean up in the effect return (destroy the app; guard against init racing unmount — the template shows the pattern).
+- Draw with Graphics (\`new Graphics().rect(...).fill(color)\`, .circle, .poly), Text, Container. position/rotation/scale/alpha on any display object.
+- Input: \`obj.eventMode = "static"\`; obj.on("pointerdown", ...); or listen on app.stage globally.
+- pixi.js v8 API ONLY (init is async; Graphics chains shape().fill() — NOT beginFill, that's v7). Do not add npm deps (frozen lockfile).`,
+  babylon: `## Your engine: Babylon.js v7 (3D)
+This game renders with Babylon.js — a full 3D engine. The template creates an Engine + Scene on a canvas inside a local Shell component (web/src/components/Shell.tsx — NOT the SDK GameShell).
+Structure:
+- web/src/App.tsx — \`new BABYLON.Engine(canvas, true)\`, \`new BABYLON.Scene(engine)\`, camera (ArcRotateCamera or FreeCamera), HemisphericLight, meshes via \`BABYLON.MeshBuilder.Create*\`, \`engine.runRenderLoop(() => scene.render())\`, engine.resize on window resize, dispose in cleanup.
+- Materials: StandardMaterial with diffuseColor (Color3). Animate in \`scene.onBeforeRenderObservable.add(...)\` or registerBeforeRender.
+- Input: \`scene.onPointerObservable\` / ActionManager on meshes; keyboard via scene.onKeyboardObservable.
+- @babylonjs/core + gui + loaders are pre-installed. Import from "@babylonjs/core" (namespace or named). Do not add npm deps (frozen lockfile).`,
 };
 
 function buildGameSystemPrompt(engine: GameEngine): string {
