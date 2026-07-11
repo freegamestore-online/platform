@@ -114,7 +114,7 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
       return `Error: the ${ctx.config.noun} "${appId}" was DELETED (its repo is archived), so it can't be redeployed. Start a new ${ctx.config.noun} with a different ID instead.`;
     }
     if (!ctx.appId) {
-      return `Error: ${ctx.config.noun} ID "${appId}" is already taken. Choose a different ID.`;
+      return `Error: ${ctx.config.noun} ID "${appId}" is already taken, and this session is not opened on it — deploying would overwrite that ${ctx.config.noun} blind. If it's the user's own ${ctx.config.noun}, tell them to open it first (opening loads the real repo files into this session); do NOT retry deploy or push_update. Otherwise choose a different ID.`;
     }
   }
 
