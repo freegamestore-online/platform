@@ -561,7 +561,7 @@ or garbled phrasing. If you're unsure what they meant, ask for clarification.
  *  grid/cards starters fall back to the canvas guide. Detected from the loaded
  *  project's web/package.json so the agent always gets engine-correct authoring
  *  guidance regardless of which template the game was generated from. */
-export type GameEngine = "canvas" | "kaplay" | "phaser" | "r3f" | "pixi" | "babylon";
+export type GameEngine = "canvas" | "kaplay" | "phaser" | "r3f" | "pixi" | "babylon" | "grid" | "cards";
 
 /** Infer the engine from the loaded project's web/package.json dependencies.
  *  Defaults to "canvas" when there's no engine dep (or the file is missing /
@@ -584,6 +584,9 @@ export function detectEngine(files: Map<string, string>): GameEngine {
   } catch {
     return "canvas";
   }
+  // grid/cards have no engine dep — recognize them by their template kit files.
+  if (files.has("web/src/hooks/useGrid.ts")) return "grid";
+  if (files.has("web/src/lib/deck.ts") || files.has("web/src/components/CardGrid.tsx")) return "cards";
   return "canvas";
 }
 
@@ -667,6 +670,25 @@ Structure:
 - Materials: StandardMaterial with diffuseColor (Color3). Animate in \`scene.onBeforeRenderObservable.add(...)\` or registerBeforeRender.
 - Input: \`scene.onPointerObservable\` / ActionManager on meshes; keyboard via scene.onKeyboardObservable.
 - @babylonjs/core + gui + loaders are pre-installed. Import from "@babylonjs/core" (namespace or named). Do not add npm deps (frozen lockfile).`,
+  grid: `## Your engine: React + CSS Grid (DOM, no canvas)
+This is a GRID/BOARD game rendered entirely with React DOM + CSS Grid — no canvas, no game engine, no rAF loop. Best for turn-based play: match-3, 2048, minesweeper, sudoku, wordle, chess-likes.
+
+The template (already loaded — read it first with read_file / list_files):
+- web/src/App.tsx — GameShell + GameTopbar from "@freegamestore/games" wrapping the board. Build the game state here (or split into hooks).
+- web/src/hooks/useGrid.ts — useGrid<T>(rows, cols, init): 2D grid state with cell get/set helpers. USE THIS, don't reinvent grid state.
+- web/src/components/GameGrid.tsx — GameGrid<T>: renders the 2D array as a responsive CSS grid with tap/click per cell. Style cells via the render prop.
+- web/src/hooks/useHighScore.ts (localStorage), web/src/types.ts, web/src/index.css.
+How to build: model the board as the useGrid 2D array; a move = a pure state transition (write it as a testable function); animate with CSS transitions (200-300ms transform/opacity), NOT a render loop; touch targets ≥44px. No setInterval except turn timers.`,
+  cards: `## Your engine: React DOM card kit (no canvas)
+This is a CARD/TILE game rendered with React DOM + flexbox — no canvas, no game engine. Best for memory match, solitaire-likes, push-your-luck, deck battlers.
+
+The template (already loaded — read it first with read_file / list_files):
+- web/src/App.tsx — the whole demo game lives here: state, dealing, flip handling. Rework it into your game.
+- web/src/components/Card.tsx — a flippable card (CSS 3D flip animation, face up/down states).
+- web/src/components/CardGrid.tsx — responsive layout for a hand/board of cards.
+- web/src/lib/deck.ts — shuffleArray, createPairs + emoji sets. Extend this for your deck logic (keep it pure + testable).
+- web/src/hooks/useTimer.ts, web/src/hooks/useHighScore.ts, web/src/types.ts, web/src/index.css.
+How to build: deck/turn logic as pure functions in lib/, UI state in App (or a hook); flips/deals animate via the Card component's CSS — don't add an animation lib; touch targets ≥44px.`,
 };
 
 function buildGameSystemPrompt(engine: GameEngine): string {

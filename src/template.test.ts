@@ -163,6 +163,26 @@ describe("detectEngine", () => {
     expect(detectEngine(filesWith({ dependencies: { three: "^0.184" } }))).toBe("r3f");
   });
 
+  it("detects pixi from pixi.js", () => {
+    expect(detectEngine(filesWith({ dependencies: { "pixi.js": "^8" } }))).toBe("pixi");
+  });
+
+  it("detects babylon from @babylonjs/core", () => {
+    expect(detectEngine(filesWith({ dependencies: { "@babylonjs/core": "^7" } }))).toBe("babylon");
+  });
+
+  it("detects grid from the useGrid template kit file", () => {
+    const files = filesWith({ dependencies: { react: "^19" } });
+    files.set("web/src/hooks/useGrid.ts", "export function useGrid() {}");
+    expect(detectEngine(files)).toBe("grid");
+  });
+
+  it("detects cards from the deck template kit file", () => {
+    const files = filesWith({ dependencies: { react: "^19" } });
+    files.set("web/src/lib/deck.ts", "export function shuffleArray() {}");
+    expect(detectEngine(files)).toBe("cards");
+  });
+
   it("defaults to canvas when no engine dependency is present", () => {
     expect(detectEngine(filesWith({ dependencies: { react: "^19", "@freegamestore/games": "^0.14.0" } }))).toBe("canvas");
   });
