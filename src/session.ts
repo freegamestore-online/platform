@@ -772,15 +772,18 @@ export class AgentSession implements DurableObject {
                   this.logDeploy(status);
                   this.persistNow().catch((e) => this.logError("deploy", `persist status: ${String(e)}`));
                   sendSSE({ type: "deploy_status", data: JSON.stringify(status) });
+                  // Record the repo HEAD this push produced — the drift guard's
+                  // reference for the next push_update. On BOTH live and error:
+                  // a failed build still landed the session's own commit, and
+                  // leaving the old reference made the session's next self-fix
+                  // push read as foreign drift (orb-cascade, 2026-07-12).
+                  if ((status.phase === "live" || status.phase === "error") && session.appId) {
+                    fetchRepoHeadSha(session.appId, this.env.GITHUB_TOKEN, this.config)
+                      .then((sha) => { if (sha && this.session) { this.session.lastPushedSha = sha; this.persistNow().catch(() => {}); } })
+                      .catch(() => {});
+                  }
                   if (status.phase === "live") {
                     this.sendPush("Your build is live!");
-                    // Record the repo HEAD this push produced — the drift
-                    // guard's reference for the next push_update.
-                    if (session.appId) {
-                      fetchRepoHeadSha(session.appId, this.env.GITHUB_TOKEN, this.config)
-                        .then((sha) => { if (sha && this.session) { this.session.lastPushedSha = sha; this.persistNow().catch(() => {}); } })
-                        .catch(() => {});
-                    }
                   } else if (status.phase === "error") {
                     this.appendAssistantError("deploy", status.error);
                     this.sendPush("Build failed");
