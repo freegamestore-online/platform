@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-import { readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
 
 // ---------------------------------------------------------------------------
@@ -554,8 +554,20 @@ async function main(): Promise<void> {
   const outputPath = outputIdx !== -1 ? args[outputIdx + 1] : undefined;
 
   if (allMode) {
-    // Platform mode — read registry and test all games
-    const registryPath = resolve(__dirname, "../freegamestore/registry.json");
+    // Platform mode — read registry and test all games.
+    // import.meta.dirname (not __dirname — this runs as ESM under tsx, where
+    // __dirname doesn't exist; it crashed every weekly run since the cron
+    // shipped). The store repo is checked out INSIDE the workspace in CI
+    // (./freegamestore) but as a SIBLING locally (../freegamestore) — try both.
+    const here = import.meta.dirname;
+    const registryPath = [
+      resolve(here, "freegamestore/registry.json"),
+      resolve(here, "../freegamestore/registry.json"),
+    ].find(existsSync);
+    if (!registryPath) {
+      console.error("registry.json not found (looked in ./freegamestore and ../freegamestore)");
+      process.exit(1);
+    }
     const registry = JSON.parse(readFileSync(registryPath, "utf-8"));
     const games: { id: string; name: string; appUrl: string }[] = registry.games || [];
 

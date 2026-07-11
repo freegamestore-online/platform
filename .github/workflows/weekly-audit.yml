@@ -42,6 +42,23 @@ jobs:
           path: audit-results.json
           retention-days: 90
 
+      # Publish where the platform actually READS quality data: the store repo's
+      # data/quality-results.json backs admin /api/quality, the MCP game_quality
+      # tool, and the console badges. Without this the audit only produced an
+      # artifact nobody consumed (results were stale since 2026-05-09).
+      - name: Publish results to store repo
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "::warning::GH_ADMIN_TOKEN unset — skipping publish"; exit 0; fi
+          B64=$(base64 -w0 audit-results.json)
+          SHA=$(gh api repos/freegamestore-online/freegamestore/contents/data/quality-results.json --jq .sha 2>/dev/null || true)
+          gh api -X PUT repos/freegamestore-online/freegamestore/contents/data/quality-results.json \
+            -f message="data: weekly quality audit $(date -u +%F)" \
+            -f content="$B64" ${SHA:+-f sha="$SHA"} > /dev/null
+          echo "Published to freegamestore/data/quality-results.json"
+
       - name: Summary
         if: always()
         run: |
