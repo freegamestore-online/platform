@@ -500,12 +500,13 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       "Hand a natural-language prompt to the FreeGameStore VibeCode AGENT — the platform's own AI writes the code AND deploys it. By default it uses the AI key saved for your account (the platform's encrypted key vault); pass api_key only to override with a different key. Long-running; builds in the background. Returns session_id — poll agent_status for progress.",
       {
         prompt: z.string().describe("What to build, in plain English. Include a desired game id."),
+        game_id: z.string().optional().describe("Existing game to work on: imports its repo into the session (engine-correct guidance + push_update instead of a fresh deploy). Omit when building a brand-new game."),
         api_key: z.string().optional().describe("Override key. Optional — defaults to the key saved for your account in the vault. Provider must match the saved key (or pass provider)."),
         provider: z.enum(["anthropic", "openai", "google", "github"]).optional().describe("AI provider (default anthropic). Must match the saved/override key."),
         model: z.string().optional().describe("Model id"),
         session_id: z.string().optional().describe("Continue an existing build session"),
       },
-      async ({ prompt, api_key, provider, model, session_id }) => {
+      async ({ prompt, game_id, api_key, provider, model, session_id }) => {
         const token = this.props.token;
         if (!token) return txt("Not authenticated. Connect with a FGS session token.");
         const prov = provider ?? "anthropic";
@@ -521,6 +522,20 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
             ? session_id
             : prefix + session_id.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40)
           : prefix + crypto.randomUUID().slice(0, 12);
+        // Bind the session to an existing game BEFORE the first turn: /import
+        // loads the repo's committed files into the session, so the agent gets
+        // engine-correct guidance (detectEngine reads web/package.json) and
+        // push_update targets the real game instead of dead-ending on "ID taken".
+        if (game_id) {
+          const imp = await fetch(`${this.env.AGENT_BASE}/session/${sid}/import`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ id: game_id }),
+          });
+          if (!imp.ok) {
+            return txt(`Could not open "${game_id}" in the session (${imp.status}): ${(await imp.text()).slice(0, 300)}`);
+          }
+        }
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 110_000);
         let phases: string[] = [];
