@@ -106,6 +106,11 @@ interface PendingTurn {
 const PENDING_TURN_KEY = "pendingTurn";
 const TURN_HEARTBEAT_MS = 45_000;
 const MAX_TURN_RESUMES = 4;
+// A turn holding the lock with NO streamed event for this long is HUNG (a
+// provider call stalled past its own timeouts). The alarm then fences it off
+// (turn epoch) and resumes — before durable turns, eviction eventually freed
+// hung turns; the heartbeat now keeps the DO alive, so hangs must be detected.
+const HUNG_TURN_MS = 5 * 60_000;
 
 /** One-line human summary of a deploy status snapshot for the timeline log. */
 function deployStatusDetail(status: DeployStatus): string {
@@ -132,6 +137,12 @@ export class AgentSession implements DurableObject {
    *  background async tasks that mutate `session` across await points, so without
    *  this the second turn would interleave and clobber the first's writes. */
   private chatInProgress = false;
+  /** Monotonic turn fence. A turn captures the epoch at start; if the alarm
+   *  declares it hung and starts a replacement, the stale turn's lock/pending
+   *  cleanup becomes a no-op (epoch mismatch) so it can't clobber the new one. */
+  private turnEpoch = 0;
+  /** Last moment the active turn produced ANY event (SSE or checkpoint). */
+  private lastTurnEventAt = 0;
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -493,9 +504,17 @@ export class AgentSession implements DurableObject {
     if (!pending) return; // turn concluded normally — nothing to do
 
     if (this.chatInProgress) {
-      // Still executing in THIS instance — keep the heartbeat armed.
-      await this.state.storage.setAlarm(Date.now() + TURN_HEARTBEAT_MS);
-      return;
+      const quietFor = Date.now() - this.lastTurnEventAt;
+      if (quietFor < HUNG_TURN_MS) {
+        // Still executing and producing events — keep the heartbeat armed.
+        await this.state.storage.setAlarm(Date.now() + TURN_HEARTBEAT_MS);
+        return;
+      }
+      // Lock held but silent for too long: a provider/network call stalled past
+      // its own timeouts. Fence the stale turn off (epoch bump happens when the
+      // replacement starts below) and resume from the checkpointed transcript.
+      this.logError("hung", `turn silent for ${Math.round(quietFor / 1000)}s with the lock held — fencing and resuming`);
+      this.chatInProgress = false;
     }
 
     const expired = Date.now() - pending.startedAt > TURN_DEADLINE_MS;
@@ -567,6 +586,8 @@ export class AgentSession implements DurableObject {
   }): Promise<void> {
     const { aiConfig, initialMessage, history, session, files, userId, creatorLogin, sessionId, writer } = opts;
     const config = this.config;
+    const epoch = ++this.turnEpoch;
+    this.lastTurnEventAt = Date.now();
     // Build deploy env directly from DO's env bindings (no header passing)
     const deployEnv: DeployEnv | null =
       this.env.GITHUB_TOKEN && this.env.CF_API_TOKEN
@@ -582,6 +603,7 @@ export class AgentSession implements DurableObject {
 
     const encoder = new TextEncoder();
     const sendSSE = (evt: { type: string; data: string }) => {
+      this.lastTurnEventAt = Date.now();
       writer.write(encoder.encode(`data: ${JSON.stringify(evt)}\n\n`)).catch(() => {});
     };
 
@@ -641,6 +663,7 @@ export class AgentSession implements DurableObject {
         // in-flight token stream, never a finished reply. Fire-and-forget inside
         // persistNow so it never blocks the stream.
         const checkpoint = (msgs: typeof session.messages) => {
+          this.lastTurnEventAt = Date.now();
           session.messages = preTurn.concat(msgs);
           if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
           session.files = Object.fromEntries(files);
@@ -836,14 +859,19 @@ export class AgentSession implements DurableObject {
         await this.save().catch((e) => this.logError("storage", `save after error failed: ${String(e)}`));
       } finally {
         // If the watchdog already fired it released the lock and closed the
-        // stream; don't double-handle. Otherwise clear it and release here.
-        if (!watchdog.fired()) {
+        // stream; don't double-handle. A STALE turn (epoch mismatch — the alarm
+        // declared it hung and started a replacement) must not clear the lock
+        // or the replacement's pending record.
+        if (!watchdog.fired() && epoch === this.turnEpoch) {
           watchdog.clear();
           this.chatInProgress = false;
           writer.close().catch(() => {});
           // Turn concluded with a persisted outcome — stand down the alarm.
           await this.state.storage.delete(PENDING_TURN_KEY).catch(() => {});
           await this.state.storage.deleteAlarm().catch(() => {});
+        } else if (epoch !== this.turnEpoch) {
+          watchdog.clear();
+          writer.close().catch(() => {});
         }
       }
 
