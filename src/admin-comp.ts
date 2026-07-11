@@ -154,11 +154,25 @@ export async function handleAdminCompApi(request: Request, env: Env, cors: Recor
     const message = String(body.message || "").trim();
     if (!message) return json({ error: "message is required" }, 400);
 
-    const ownerRow = await env.DB.prepare("SELECT user_id FROM agent_sessions WHERE session_id = ? LIMIT 1")
+    const ownerRow = await env.DB.prepare("SELECT user_id, user_login FROM agent_sessions WHERE session_id = ? LIMIT 1")
       .bind(sid)
-      .first<{ user_id: string }>();
+      .first<{ user_id: string; user_login: string | null }>();
     if (!ownerRow?.user_id) return json({ error: "session not found in the index" }, 404);
     const owner = ownerRow.user_id;
+    // The owner's GitHub LOGIN must ride along as X-Auth-Login — deploy's
+    // internal provision requires creatorGithub, so an empty login made every
+    // on-behalf deploy fail ("creatorGithub required", escape 2026-07-11).
+    // Old index rows may predate the user_login column: resolve the numeric
+    // github:<id> back to a login via the GitHub API as a fallback.
+    let ownerLogin = ownerRow.user_login || "";
+    if (!ownerLogin && /^github:\d+$/.test(owner)) {
+      try {
+        const res = await fetch(`https://api.github.com/user/${owner.slice("github:".length)}`, {
+          headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: "application/vnd.github+json", "User-Agent": "fgs-agent" },
+        });
+        if (res.ok) ownerLogin = ((await res.json()) as { login?: string }).login || "";
+      } catch { /* best-effort — deploy will surface a clear error if still empty */ }
+    }
 
     let provider = body.provider ? String(body.provider).toLowerCase() : "";
     if (!provider) {
@@ -188,7 +202,7 @@ export async function handleAdminCompApi(request: Request, env: Env, cors: Recor
           "Content-Type": "application/json",
           "X-Auth-User": owner,
           "X-Session-Id": sid,
-          "X-Auth-Login": "",
+          "X-Auth-Login": ownerLogin,
         },
         body: JSON.stringify({ message, aiConfig: { provider, model, temperature: 0.7, maxTokens: 16384 } }),
       }),
