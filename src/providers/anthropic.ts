@@ -92,8 +92,15 @@ async function* parseAnthropicSSE(body: ReadableStream, onChunk?: () => void): A
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      onChunk?.(); // reset the idle-timeout clock on each chunk
-      buf += decoder.decode(value, { stream: true });
+      const text = decoder.decode(value, { stream: true });
+      // Reset the idle-timeout clock only on REAL progress. Anthropic keeps a
+      // queued/throttled request alive with periodic `ping` events — counting
+      // those as progress defeated the idle abort entirely, and a throttled
+      // request could sit "streaming" pings for 25+ minutes (the maze-racer
+      // hangs, 2026-07-11). Pings keep the CONNECTION alive; only content
+      // should keep the TURN alive.
+      if (!/^event: ping|"type"\s*:\s*"ping"/m.test(text)) onChunk?.();
+      buf += text;
 
       const lines = buf.split("\n");
       buf = lines.pop() || "";
