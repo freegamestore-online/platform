@@ -50,6 +50,8 @@ const TEMPLATE_REPOS: Record<string, string> = {
   kaplay: "template-game-kaplay", // beginner-friendly 2D arcade engine
   phaser: "template-game-phaser", // production-grade 2D engine
   "3d": "template-game-3d", // Three.js + react-three-fiber (3D)
+  pixi: "template-game-pixi", // Pixi.js v8 — WebGL 2D
+  babylon: "template-game-babylon", // Babylon.js v7 — advanced 3D
 };
 
 /** Lowercase a display name into a valid slug (matches validateId rules). */
