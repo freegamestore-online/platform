@@ -1,7 +1,7 @@
-import { handleDeleteGame, handlePublish, handleUpdateGame, insertHostRoute, renderProvisionForm } from "./publish";
+import { handleDeleteGame, handlePublish, handleUpdateGame, insertHostRoute } from "./publish";
 import { errorStats, listErrors, pruneErrors, recordError } from "./errlog";
 import { verifySession, handleAuthExchange, handleAuthMe } from "./auth";
-import { renderApiDocs, renderDashboardShell } from "./dashboard";
+import { renderApiDocs } from "./dashboard";
 
 interface Env {
   CF_ACCOUNT_ID: string;
@@ -17,6 +17,8 @@ interface Env {
   /** Service binding to the agent worker — used to proxy complimentary-grant
    *  admin calls to the vault DB it owns (authenticated by INTERNAL_TOKEN). */
   AGENT?: Fetcher;
+  /** Workers Static Assets — the built React admin app in public/. */
+  ASSETS?: Fetcher;
   /** Shared secret for trusted worker-to-worker provision calls (the agent has
    *  no user fgs_token at deploy time). Presented as X-Internal-Token. */
   INTERNAL_TOKEN?: string;
@@ -752,8 +754,13 @@ export default {
         headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
       });
     }
-    let html = renderDashboardShell();
-    html = html.replace("<!--PROVISION-->", renderProvisionForm());
-    return new Response(html, { headers: { "Content-Type": "text/html", "Cache-Control": "no-store" } });
+    // Serve the built React app (Workers Static Assets; hash routing, so any
+    // authed non-API path resolves to the asset or falls back to index.html).
+    if (env.ASSETS) {
+      const assetRes = await env.ASSETS.fetch(request);
+      if (assetRes.status !== 404) return assetRes;
+      return env.ASSETS.fetch(new Request(new URL("/", request.url).toString(), { headers: request.headers }));
+    }
+    return new Response("admin app assets missing (build web/)", { status: 500 });
   },
 };
