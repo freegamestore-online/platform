@@ -135,7 +135,7 @@ export function GameSettings() {
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm mt-2 mb-6" style={{ color: "var(--muted)" }}>
           <a href={game.liveUrl} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--accent)" }}>Play</a>
           <a href={game.repoUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">Code</a>
-          <Link to={`/create?game=${game.id}`} className="hover:underline" style={{ color: "var(--accent)" }}>Edit in VibeCode</Link>
+          <Link to={`/create/${game.id}`} className="hover:underline" style={{ color: "var(--accent)" }}>Edit in VibeCode</Link>
           {game.createdAt && <span>Created {formatDate(game.createdAt)}</span>}
           {game.lastEditedAt && <span>Last edited {formatRelative(game.lastEditedAt)}</span>}
         </div>
@@ -267,7 +267,7 @@ function DraftSettings({
           This game hasn't been published yet. Keep building it in VibeCode and deploy it
           to make it live in the store — artwork, category, and its play URL appear then.
           {" "}
-          <Link to={`/create?session=${draft.id}`} className="hover:underline" style={{ color: "var(--accent)" }}>Continue in VibeCode →</Link>
+          <Link to={`/create/${draft.id}`} className="hover:underline" style={{ color: "var(--accent)" }}>Continue in VibeCode →</Link>
         </p>
 
         {msg && (

@@ -13,10 +13,10 @@ export function NewGameModal({ open, onClose }: { open: boolean; onClose: () => 
       <button aria-label="Close" onClick={onClose} className="fixed inset-0 cursor-default" style={{ background: "transparent", border: "none" }} />
       <div className="relative w-full max-w-lg my-6">
         <CreateGameForm
-          // On success, open the new game in the studio — the ?game= effect
-          // imports its real (canvas / 3D / …) repo, so VibeCode edits the actual
-          // template rather than a fresh canvas scaffold.
-          onCreated={(id) => { onClose(); navigate(`/create?game=${id}`); }}
+          // On success, open the new game at its own URL — the /create/:id
+          // route imports its real (canvas / 3D / …) repo, so VibeCode edits
+          // the actual template rather than a fresh canvas scaffold.
+          onCreated={(id) => { onClose(); navigate(`/create/${id}`); }}
           onClose={onClose}
         />
       </div>

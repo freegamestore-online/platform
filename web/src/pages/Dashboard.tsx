@@ -89,7 +89,7 @@ export function Dashboard() {
               // then jump straight into the studio bound to it (imports its
               // files) — the single create→build flow.
               await reloadCreator();
-              navigate(`/create?game=${id}`);
+              navigate(`/create/${id}`);
             }}
             onClose={() => setShowForm(false)}
           />
@@ -119,7 +119,7 @@ function GameList({ games }: { games: GameRepo[] }) {
                 are separate sibling controls (not nested in this Link) so they keep
                 their own actions. */}
             <Link
-              to={`/create?game=${game.id}`}
+              to={`/create/${game.id}`}
               aria-label={`Edit ${game.name}`}
               className="flex items-center gap-3 flex-1 min-w-0 no-underline"
               style={{ color: "inherit" }}
@@ -198,7 +198,7 @@ function DraftList({ drafts, onDiscard }: { drafts: DraftSession[]; onDiscard: (
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <Link to={`/create?session=${draft.id}`} className={buttonClass("primary", "md")}>
+              <Link to={`/create/${draft.id}`} className={buttonClass("primary", "md")}>
                 Open
               </Link>
               <Button

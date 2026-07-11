@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowUp, ExternalLink, Plus, Send, X } from "lucide-react";
 import { Button, buttonClass } from "../components/ui";
 import { Nav } from "../components/Nav";
@@ -15,6 +15,8 @@ import { useKeys } from "../hooks/useKeys";
 import { resolveInitialProvider, PROVIDERS } from "../lib/ai-keys";
 import { resolveModel, firstModelFor } from "../lib/models";
 import { getKidMode } from "../lib/kidMode";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function Create() {
   const { user, loading, signIn } = useAuth();
@@ -39,6 +41,47 @@ export function Create() {
   const [kidMode] = useState(getKidMode);
   const openedGameRef = useRef<string | null>(null);
   const openedSessionRef = useRef<string | null>(null);
+  const { id: urlKey } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const resolvedKeyRef = useRef<string | null>(null);
+  const [resolvingUrl, setResolvingUrl] = useState(false);
+
+  // Path routing: /create/<key> opens that game or session — the key is the
+  // game id once deployed (/create/tetris), or the session id for a draft.
+  // Runs once per key; canonical URL writes below pre-mark their key resolved
+  // so switching games in the picker doesn't bounce back through here.
+  useEffect(() => {
+    if (!urlKey || loading || !user || agent.projectsLoading || resolvedKeyRef.current === urlKey) return;
+    resolvedKeyRef.current = urlKey;
+    const project = agent.projects.find((p) => p.appId === urlKey || p.id === urlKey);
+    if (project?.id === agent.currentProjectId) return; // already open
+    if (project && !project.appId) { agent.switchProject(project.id); return; } // draft
+    // A deployed game (known or not-yet-listed): openGame re-syncs its repo
+    // files and dedupes to its existing session. A UUID with no index row is a
+    // session whose transcript still lives in the DO — just switch to it.
+    const gameId = project?.appId ?? (UUID_RE.test(urlKey) ? null : urlKey);
+    if (!gameId) { agent.switchProject(urlKey); return; }
+    setResolvingUrl(true);
+    void agent.openGame(gameId).finally(() => setResolvingUrl(false));
+  }, [urlKey, loading, user, agent.projectsLoading, agent.projects, agent.currentProjectId, agent.switchProject, agent.openGame]);
+
+  // Canonical URL: keep the address bar on the open game's unique URL. Same
+  // project (bare /create on load, or a draft URL right after deploy) is a
+  // rewrite — replace. A different project (picker switch) is a navigation —
+  // push, so Back returns to the previous game.
+  useEffect(() => {
+    if (loading || !user || agent.projectsLoading || resolvingUrl) return;
+    if (searchParams.get("game") || searchParams.get("session")) return; // legacy deep-link still resolving
+    if (urlKey && resolvedKeyRef.current !== urlKey) return; // path still resolving
+    const current = agent.projects.find((p) => p.id === agent.currentProjectId);
+    const canonical = current?.appId || agent.currentProjectId;
+    if (canonical === (urlKey ?? null)) return;
+    if (!canonical) { navigate("/create", { replace: true }); return; }
+    const urlProject = urlKey ? agent.projects.find((p) => p.appId === urlKey || p.id === urlKey) : undefined;
+    const sameProject = !urlKey || urlProject?.id === agent.currentProjectId;
+    resolvedKeyRef.current = canonical; // our own write — nothing to re-open
+    navigate(`/create/${canonical}`, { replace: sameProject });
+  }, [urlKey, loading, user, agent.projectsLoading, resolvingUrl, agent.projects, agent.currentProjectId, searchParams, navigate]);
 
   // Deep-link: /create?game=<id> opens an existing game in the studio. Wait for
   // the session list to load first (so an already-open game switches instead of
