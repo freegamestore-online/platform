@@ -393,10 +393,10 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
         category: z.string().describe("puzzle, arcade, strategy, card, board, trivia, racing, sports, action, simulation, or educational"),
         description: z.string().optional().describe("Short description"),
         template: z
-          .enum(["kaplay", "phaser", "3d", "canvas", "grid", "cards"])
+          .enum(["kaplay", "phaser", "3d", "pixi", "babylon", "canvas", "grid", "cards"])
           .optional()
           .describe(
-            "Engine/template to build on (default: canvas). Engines: 'kaplay' = beginner-friendly 2D arcade engine; 'phaser' = production 2D engine (scenes, arcade physics); '3d' = Three.js + react-three-fiber. Starters: 'canvas' = raw HTML5 canvas 2D; 'grid' = CSS-grid puzzle/board; 'cards' = DOM card game.",
+            "Engine/template to build on (default: canvas). Engines: 'kaplay' = beginner-friendly 2D arcade engine; 'phaser' = production 2D engine (scenes, arcade physics); '3d' = Three.js + react-three-fiber; 'pixi' = Pixi.js v8 WebGL 2D (particles, sprites); 'babylon' = Babylon.js 3D engine. Starters: 'canvas' = raw HTML5 canvas 2D; 'grid' = CSS-grid puzzle/board; 'cards' = DOM card game.",
           ),
       },
       async ({ game_id, name, category, description, template }) => {
