@@ -6,7 +6,7 @@ import { GitHubModelsAdapter } from "./providers/github";
 import { GoogleAdapter } from "./providers/google";
 import { OpenAIAdapter } from "./providers/openai";
 import type { AIConfig, Message, ProviderAdapter, StreamEvent, TokenUsage, ToolCall, ToolResult } from "./providers/types";
-import { healPoisonedHistory } from "./session-budget";
+import { healPoisonedHistory, stripLargeToolCallBodies } from "./session-budget";
 import { getSystemPrompt, detectEngine } from "./template";
 import { clampToolResultForHistory, executeTool, getToolDefinitions, INFRA_TOOLS } from "./tools";
 
@@ -227,6 +227,13 @@ export async function runAgentTurn(
       const delay = config.provider === "github" ? 2000 : 500;
       await new Promise((r) => setTimeout(r, delay));
     }
+
+    // Free tier: a completed write_file this turn carries its FULL content in
+    // the live context and blows the 8K-token request cap on the very next
+    // round (the file is already saved in the project). Elide it with the
+    // clone-safe marker — newMessages keeps the originals for storage, and the
+    // placeholder guard rejects any imitation of the marker.
+    if (isSmallContext && loop > 0) stripLargeToolCallBodies(messages, 2000);
 
     let assistantText = "";
     const toolCalls: ToolCall[] = [];
