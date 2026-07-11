@@ -16,7 +16,7 @@
   "tools": [
     {
       "name": "create_game",
-      "description": "Provision repo+R2 hosting+listing, scaffold a template, push \u2192 live at <id>.freegamestore.online"
+      "description": "Provision repo+R2 hosting+listing, scaffold any of 8 engine templates (kaplay, phaser, 3d, pixi, babylon, canvas, grid, cards), push \u2192 live at <id>.freegamestore.online"
     },
     {
       "name": "update_files",
@@ -32,7 +32,7 @@
     },
     {
       "name": "agent_build",
-      "description": "Hand a prompt to the VibeCode agent \u2014 it writes the code AND deploys (bring-your-own AI key)"
+      "description": "Hand a prompt to the VibeCode agent \u2014 it writes the code AND deploys. Uses your saved vault key by default (api_key overrides); pass game_id to work on an existing game"
     },
     {
       "name": "agent_status",
