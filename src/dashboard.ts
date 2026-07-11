@@ -184,6 +184,11 @@ export function renderDashboardShell(): string {
           <button onclick="closeSessModal()" style="background:#2a2a2a;color:#ccc;border:1px solid #3a3a3a;border-radius:0.35rem;padding:0.3rem 0.7rem;cursor:pointer">Close</button>
         </div>
         <div id="sessModalBody" style="flex:1;overflow-y:auto;font-size:0.85rem;line-height:1.5"></div>
+        <div style="display:flex;gap:0.5rem;margin-top:0.75rem">
+          <input id="sessChatInput" placeholder="Send a prompt into this session (runs as the user, with their key)..." autocomplete="off" onkeydown="if(event.key==='Enter')sendSessChat()" style="flex:1;background:#0f0f0f;color:#e5e5e5;border:1px solid #2a2a2a;border-radius:0.5rem;padding:0.55rem 0.75rem;font-size:0.85rem" />
+          <button onclick="sendSessChat()" class="refresh">Send</button>
+        </div>
+        <div id="sessChatMsg" class="meta" style="margin-top:0.3rem"></div>
       </div>
     </div>
   </div>
@@ -365,6 +370,23 @@ export function renderDashboardShell(): string {
       else if(mode==='bottom'||nearBottom)body.scrollTop=body.scrollHeight;
     }
     function loadEarlierSess(){if(!sessCur)return;sessCur.win+=SESS_PAGE;renderSessBody('prepend')}
+    // Send a prompt INTO the open session on the user's behalf: the agent runs
+    // the turn in THEIR session with THEIR key, and the live poll below renders
+    // progress. The held-open response resolves when the turn finishes.
+    async function sendSessChat(){
+      if(!sessCur)return;
+      var inp=document.getElementById('sessChatInput');var st=document.getElementById('sessChatMsg');
+      var msg=inp.value.trim();if(!msg)return;
+      inp.value='';
+      st.innerHTML='<span class="yellow">Sent as '+esc(sessCur.user)+' — agent working; transcript updates live below.</span>';
+      try{
+        var r=await fetch('/api/sessionchat?id='+encodeURIComponent(sessCur.sid),{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});
+        if(!r.ok){var d=await r.json().catch(function(){return{}});st.innerHTML='<span class="red">'+esc(d.error||('Failed ('+r.status+')'))+'</span>';return}
+        var reader=r.body.getReader();
+        while(true){var c=await reader.read();if(c.done)break}
+        st.innerHTML='<span class="green">Turn finished.</span>';
+      }catch(e){st.innerHTML='<span class="red">'+esc(e)+'</span>'}
+    }
     // Server-side error log for the open session (tool failures, provider
     // errors, watchdog timeouts) — what the transcript alone doesn't show.
     async function toggleSessErrors(){

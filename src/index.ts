@@ -607,7 +607,7 @@ export default {
     //   GET    /api/comp            → list grants + which providers are funded
     //   POST   /api/comp            → { login, provider, model, note?, expiresAt? }
     //   DELETE /api/comp/:userId    → revoke (userId = github:<id>)
-    if (url.pathname === "/api/comp" || url.pathname.startsWith("/api/comp/") || url.pathname === "/api/allusers" || url.pathname.startsWith("/api/userkey") || url.pathname === "/api/sessions" || url.pathname === "/api/sessionhistory" || url.pathname === "/api/sessionerrors") {
+    if (url.pathname === "/api/comp" || url.pathname.startsWith("/api/comp/") || url.pathname === "/api/allusers" || url.pathname.startsWith("/api/userkey") || url.pathname === "/api/sessions" || url.pathname === "/api/sessionhistory" || url.pathname === "/api/sessionerrors" || url.pathname === "/api/sessionchat") {
       const { email, isAdmin } = await authenticateAdmin(request, env);
       if (!isAdmin) return jsonResponse({ error: "unauthorized" }, 401, request);
       if (!env.AGENT || !env.INTERNAL_TOKEN) {
@@ -624,6 +624,8 @@ export default {
         ? "/v1/admin/session-history" + url.search
         : url.pathname === "/api/sessionerrors"
         ? "/v1/admin/session-errors" + url.search
+        : url.pathname === "/api/sessionchat"
+        ? "/v1/admin/session-chat" + url.search
         : url.pathname.startsWith("/api/userkey")
         ? url.pathname.replace(/^\/api\/userkey/, "/v1/admin/userkey")
         : url.pathname.replace(/^\/api\/comp/, "/v1/admin/comp");
@@ -636,6 +638,14 @@ export default {
         },
         body: request.method === "POST" ? await request.text() : undefined,
       });
+      // session-chat streams SSE back from the DO turn — pass it through
+      // untouched so the browser can hold it open while the agent works.
+      if (url.pathname === "/api/sessionchat") {
+        return new Response(res.body, {
+          status: res.status,
+          headers: { "Content-Type": res.headers.get("Content-Type") || "text/event-stream", "Cache-Control": "no-store", ...corsHeaders(request) },
+        });
+      }
       const text = await res.text();
       return new Response(text, {
         status: res.status,
