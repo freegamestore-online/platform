@@ -79,6 +79,7 @@ export function renderDashboardShell(): string {
       <button class="tab" data-tab="games" onclick="showTab('games')">Games</button>
       <button class="tab" data-tab="errors" onclick="showTab('errors')">Errors <span id="errBadge"></span></button>
       <button class="tab" data-tab="users" onclick="showTab('users')">Users</button>
+      <button class="tab" data-tab="sessions" onclick="showTab('sessions')">Sessions</button>
       <button class="tab" data-tab="provision" onclick="showTab('provision')">Provision</button>
       <a class="tab" href="/docs" style="text-decoration:none;">API</a>
       <select class="sizesel" id="txtSize" onchange="setSize(this.value)" title="Text size" aria-label="Text size" style="margin-left:0.5rem;">
@@ -167,6 +168,22 @@ export function renderDashboardShell(): string {
     </div>
     <div id="compMsg" class="meta"></div>
     <table><tr><th>User</th><th>Provider</th><th>Model</th><th>Note</th><th>By</th><th>Expires</th><th></th></tr><tbody id="compTable"><tr><td colspan="7" class="loading">--</td></tr></tbody></table>
+  </div>
+
+  <div id="tab-sessions" class="tabpanel">
+    <h2>VibeCode sessions <span id="sessCount" class="gray"></span></h2>
+    <p class="meta">Every user's studio chats, newest first. Click a row to read the full transcript — what they asked, what the AI did, whether it deployed.</p>
+    <table><tr><th>User</th><th>Session</th><th>Game</th><th>State</th><th>Tokens</th><th>Updated</th></tr><tbody id="sessTable"><tr><td colspan="6" class="loading">--</td></tr></tbody></table>
+
+    <div id="sessModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100;align-items:center;justify-content:center" onclick="if(event.target===this)closeSessModal()">
+      <div style="background:#141414;border:1px solid #2a2a2a;border-radius:0.75rem;padding:1.25rem;max-width:760px;width:94%;max-height:84vh;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem">
+          <h3 id="sessModalTitle" style="flex:1;font-size:1rem"></h3>
+          <button onclick="closeSessModal()" style="background:#2a2a2a;color:#ccc;border:1px solid #3a3a3a;border-radius:0.35rem;padding:0.3rem 0.7rem;cursor:pointer">Close</button>
+        </div>
+        <div id="sessModalBody" style="overflow-y:auto;font-size:0.85rem;line-height:1.5"></div>
+      </div>
+    </div>
   </div>
 
   <div id="tab-provision" class="tabpanel">
@@ -283,9 +300,46 @@ export function renderDashboardShell(): string {
       if(name==='games'&&!loaded.games){loaded.games=true;loadAll();}
       if(name==='errors')loadErrors();
       if(name==='users'&&!loaded.users){loaded.users=true;loadUsers();}
+      if(name==='sessions')loadSessions();
       if(name==='overview')loadOverview();
     }
-    function refreshActive(){var a=document.querySelector('.tab.active');var n=a&&a.dataset?a.dataset.tab:'overview';if(n==='games')loadAll();else if(n==='errors')loadErrors();else if(n==='users')loadUsers();else loadOverview();}
+    function refreshActive(){var a=document.querySelector('.tab.active');var n=a&&a.dataset?a.dataset.tab:'overview';if(n==='games')loadAll();else if(n==='errors')loadErrors();else if(n==='users')loadUsers();else if(n==='sessions')loadSessions();else loadOverview();}
+    // ---- Sessions (all users' VibeCode chats) ----
+    async function loadSessions(){
+      var tb=document.getElementById('sessTable');tb.innerHTML='<tr><td colspan="6" class="loading">Loading...</td></tr>';
+      try{
+        var r=await fetch('/api/sessions',{credentials:'include'});
+        if(!r.ok){tb.innerHTML='<tr><td colspan="6" class="red">Failed ('+r.status+')</td></tr>';return}
+        var d=await r.json();var s=d.sessions||[];
+        document.getElementById('sessCount').textContent=s.length?('('+s.length+')'):'';
+        tb.innerHTML=s.length?s.map(function(x){
+          var tok=(x.tokens&&(x.tokens.input||x.tokens.output))?(Math.round((x.tokens.input+x.tokens.output)/1000)+'k'):'--';
+          var game=x.gameId?'<a href="'+esc(x.gameUrl||('https://'+x.gameId+'.freegamestore.online'))+'" target="_blank" onclick="event.stopPropagation()">'+esc(x.gameId)+'</a>':'<span class="gray">--</span>';
+          return '<tr class="sess-row" data-sid="'+esc(x.id)+'" data-title="'+esc(x.name)+'" data-user="'+esc(x.user)+'" style="cursor:pointer"><td>'+esc(x.user)+'</td><td><strong>'+esc(x.name)+'</strong><br><small class="gray">'+esc(x.id)+'</small></td><td>'+game+'</td><td>'+(x.deployed?'<span class="green">deployed</span>':'<span class="yellow">draft</span>')+'</td><td>'+tok+'</td><td style="white-space:nowrap">'+timeAgo(x.updatedAt||x.createdAt)+'</td></tr>';
+        }).join(''):'<tr><td colspan="6" class="gray">No sessions recorded yet.</td></tr>';
+      }catch(e){tb.innerHTML='<tr><td colspan="6" class="red">Failed: '+esc(e)+'</td></tr>'}
+    }
+    function closeSessModal(){document.getElementById('sessModal').style.display='none'}
+    async function openSession(sid,title,user){
+      var m=document.getElementById('sessModal');var body=document.getElementById('sessModalBody');
+      document.getElementById('sessModalTitle').textContent=title+' — '+user;
+      body.innerHTML='<span class="loading">Loading transcript...</span>';m.style.display='flex';
+      try{
+        var r=await fetch('/api/sessionhistory?id='+encodeURIComponent(sid),{credentials:'include'});
+        if(!r.ok){body.innerHTML='<span class="red">Failed to load transcript ('+r.status+')</span>';return}
+        var d=await r.json();var msgs=d.messages||[];
+        if(!msgs.length){body.innerHTML='<span class="gray">No messages in this session.</span>';return}
+        body.innerHTML=msgs.map(function(mm){
+          var c=esc((mm.content||'').slice(0,4000));
+          if(mm.role==='user')return '<div style="margin:0.5rem 0;padding:0.5rem 0.75rem;background:#1e3a5f;border-radius:0.5rem"><strong style="color:#93c5fd">'+esc(user)+':</strong><br>'+c+'</div>';
+          if(mm.role==='assistant'){
+            var tools=(mm.toolCalls||[]).map(function(t){return t.name}).join(', ');
+            return '<div style="margin:0.5rem 0;padding:0.5rem 0.75rem;background:#1a1a1a;border-radius:0.5rem"><strong class="green">AI:</strong><br>'+(c||'<span class="gray">(tool turn)</span>')+(tools?'<br><small class="gray">tools: '+esc(tools)+'</small>':'')+'</div>';
+          }
+          return '<div class="gray" style="margin:0.35rem 0;font-size:0.78rem">'+esc(mm.role)+': '+c.slice(0,500)+'</div>';
+        }).join('');
+      }catch(e){body.innerHTML='<span class="red">'+esc(e)+'</span>'}
+    }
     async function loadOverview(){
       try{
         var r=await fetch('/api/stats',{credentials:'include'});var s=await r.json();
@@ -432,6 +486,7 @@ export function renderDashboardShell(): string {
       var rk=t.closest('.rmkey-btn');if(rk){removeKey(rk.getAttribute('data-uid'),rk.getAttribute('data-prov'));return;}
       var rb=t.closest('.revoke-btn');if(rb){revokeComp(rb.getAttribute('data-uid'));return;}
       var gb=t.closest('.grant-btn');if(gb){grantUser(gb.getAttribute('data-uid'));return;}
+      var sr=t.closest('.sess-row');if(sr){openSession(sr.getAttribute('data-sid'),sr.getAttribute('data-title'),sr.getAttribute('data-user'));return;}
     });
     setSize((function(){try{return localStorage.getItem('fgs_admin_textsize')}catch(e){return null}})()||'md');
     showTab('overview');

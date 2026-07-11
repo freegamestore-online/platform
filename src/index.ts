@@ -607,16 +607,21 @@ export default {
     //   GET    /api/comp            → list grants + which providers are funded
     //   POST   /api/comp            → { login, provider, model, note?, expiresAt? }
     //   DELETE /api/comp/:userId    → revoke (userId = github:<id>)
-    if (url.pathname === "/api/comp" || url.pathname.startsWith("/api/comp/") || url.pathname === "/api/allusers" || url.pathname.startsWith("/api/userkey")) {
+    if (url.pathname === "/api/comp" || url.pathname.startsWith("/api/comp/") || url.pathname === "/api/allusers" || url.pathname.startsWith("/api/userkey") || url.pathname === "/api/sessions" || url.pathname === "/api/sessionhistory") {
       const { email, isAdmin } = await authenticateAdmin(request, env);
       if (!isAdmin) return jsonResponse({ error: "unauthorized" }, 401, request);
       if (!env.AGENT || !env.INTERNAL_TOKEN) {
         return jsonResponse({ error: "admin↔agent not wired (missing AGENT binding or INTERNAL_TOKEN)" }, 500, request);
       }
       // Map admin paths → agent paths: /api/allusers → users listing,
-      // /api/userkey* → vault key write, /api/comp* → complimentary grants.
+      // /api/userkey* → vault key write, /api/comp* → complimentary grants,
+      // /api/sessions + /api/sessionhistory → all-users VibeCode session views.
       const agentPath = url.pathname === "/api/allusers"
         ? "/v1/admin/users"
+        : url.pathname === "/api/sessions"
+        ? "/v1/admin/sessions"
+        : url.pathname === "/api/sessionhistory"
+        ? "/v1/admin/session-history" + url.search
         : url.pathname.startsWith("/api/userkey")
         ? url.pathname.replace(/^\/api\/userkey/, "/v1/admin/userkey")
         : url.pathname.replace(/^\/api\/comp/, "/v1/admin/comp");
