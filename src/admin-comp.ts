@@ -9,9 +9,10 @@
  *   DELETE /v1/admin/comp/:userId   → revoke (userId = github:<id>)
  */
 import type { Env } from "./index";
+import { getConfig } from "./config";
 import { COMP_PROVIDERS, compKeyFor, grantComp, listComp, revokeComp } from "./keygrants";
 import { deleteUserKey, isValidProvider, saveUserKey } from "./keys";
-import { listAllSessions } from "./sessions";
+import { isOrgAdmin, listAllSessions, resolveUser } from "./sessions";
 
 export async function handleAdminCompApi(request: Request, env: Env, cors: Record<string, string>): Promise<Response | null> {
   const url = new URL(request.url);
@@ -23,9 +24,26 @@ export async function handleAdminCompApi(request: Request, env: Env, cors: Recor
 
   // Token gate. Only the admin worker carries INTERNAL_TOKEN. Constant-time
   // compare (like admin's safeEqual) so this high-value worker-to-worker secret
-  // can't be recovered a byte at a time via response timing.
+  // can't be recovered a byte at a time via response timing. The SESSION
+  // visibility/chat endpoints additionally accept a signed-in ORG MEMBER's own
+  // token (same admin contract as /admin/sessions) so MCP/CLI admins can use
+  // them without holding the worker-to-worker secret. Key-vault and grant
+  // endpoints stay internal-only.
   const tok = request.headers.get("X-Internal-Token") || "";
-  if (!env.INTERNAL_TOKEN || !timingSafeEqual(tok, env.INTERNAL_TOKEN)) return json({ error: "forbidden" }, 403);
+  const internalOk = !!env.INTERNAL_TOKEN && timingSafeEqual(tok, env.INTERNAL_TOKEN);
+  if (!internalOk) {
+    const ORG_ADMIN_PATHS = new Set([
+      "/v1/admin/sessions",
+      "/v1/admin/session-history",
+      "/v1/admin/session-errors",
+      "/v1/admin/session-chat",
+    ]);
+    if (!ORG_ADMIN_PATHS.has(path)) return json({ error: "forbidden" }, 403);
+    const user = await resolveUser(request, env.AUTH);
+    if (!user?.login || !(await isOrgAdmin(getConfig(env.STORE), env.GITHUB_TOKEN, user.login))) {
+      return json({ error: "forbidden — org admins only" }, 403);
+    }
+  }
   if (!env.DB) return json({ error: "database not configured" }, 500);
 
   // GET /v1/admin/users — every REGISTERED user (from the auth users table in
