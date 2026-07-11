@@ -11,6 +11,9 @@ export interface DeployConfig {
   icon: string;
   iconBg: string;
   description: string;
+  /** Engine key the session was seeded from — admin generates the repo from the
+   *  matching template so the committed lockfile fits the session's code. */
+  template?: string;
 }
 
 export interface DeployEnv {
@@ -290,6 +293,7 @@ async function registerViaAdmin(
         iconBg: deployConfig.iconBg,
         description: deployConfig.description,
         ...(creatorLogin ? { creatorGithub: creatorLogin } : {}),
+        ...(deployConfig.template ? { template: deployConfig.template } : {}),
       }),
     });
     const data = (await res.json().catch(() => ({}))) as {
@@ -684,10 +688,10 @@ export async function fetchRepoFiles(repoId: string, token: string, config: Stor
  *  SDK-based scaffold admin's /generate produces. Returns null for non-Path-B
  *  stores or when the fetch fails, so the caller falls back to the bundled
  *  inline template. */
-export async function fetchTemplateSeed(config: StoreConfig, token: string): Promise<Record<string, string> | null> {
+export async function fetchTemplateSeed(config: StoreConfig, token: string, templateRepo?: string): Promise<Record<string, string> | null> {
   if (!config.pathB || !config.templateRepo) return null;
   try {
-    const files = await fetchRepoFiles(config.templateRepo, token, config);
+    const files = await fetchRepoFiles(templateRepo ?? config.templateRepo, token, config);
     return Object.fromEntries(files);
   } catch {
     return null;

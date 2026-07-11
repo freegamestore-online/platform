@@ -563,6 +563,20 @@ or garbled phrasing. If you're unsure what they meant, ask for clarification.
  *  guidance regardless of which template the game was generated from. */
 export type GameEngine = "canvas" | "kaplay" | "phaser" | "r3f" | "pixi" | "babylon" | "grid" | "cards";
 
+/** Public engine keys (as used by the publisher picker + MCP create_game) →
+ *  template repo a fresh session seeds from. "3d" is the public key for the
+ *  internal "r3f" engine. Vendored from admin's TEMPLATE_REPOS — keep in sync. */
+export const ENGINE_TEMPLATE_REPOS: Record<string, string> = {
+  canvas: "template-game-canvas",
+  grid: "template-game-grid",
+  cards: "template-game-cards",
+  kaplay: "template-game-kaplay",
+  phaser: "template-game-phaser",
+  "3d": "template-game-3d",
+  pixi: "template-game-pixi",
+  babylon: "template-game-babylon",
+};
+
 /** Infer the engine from the loaded project's web/package.json dependencies.
  *  Defaults to "canvas" when there's no engine dep (or the file is missing /
  *  unparseable). */

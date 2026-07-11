@@ -5,6 +5,7 @@ import { runAgentTurn } from "./agent";
 import type { StoreConfig } from "./config";
 import { getConfig } from "./config";
 import { fetchRepoFiles, fetchRepoHeadSha, fetchTemplateSeed, resolveSeedFiles, type DeployEnv, type DeployStatus } from "./deploy";
+import { ENGINE_TEMPLATE_REPOS } from "./template";
 import type { Env } from "./index";
 import { executeInfraTool } from "./infra-exec";
 import { clampToolResultForHistory } from "./tools";
@@ -33,6 +34,9 @@ interface DeployLogEntry {
 interface SessionState {
   messages: Message[];
   files: Record<string, string>;
+  /** Public engine key this session was seeded from ("pixi", "3d", …) — passed
+   *  through to admin at deploy time so the generated repo's template matches. */
+  engine?: string;
   /** The template snapshot the session was seeded from (template-game-canvas for
    *  FGS games), used as the delta baseline at deploy. Absent on legacy sessions
    *  and sessions seeded from the bundled inline template (fetch fallback). */
@@ -150,13 +154,13 @@ export class AgentSession implements DurableObject {
     this.config = getConfig(env.STORE);
   }
 
-  private async load(seedIfMissing = true): Promise<SessionState> {
+  private async load(seedIfMissing = true, seedEngine?: string): Promise<SessionState> {
     if (this.session) return this.session;
     const stored = await this.state.storage.get<SessionState>("session");
     if (stored) {
       this.session = stored;
     } else if (seedIfMissing) {
-      this.session = await this.freshSession();
+      this.session = await this.freshSession(seedEngine);
       await this.save();
     } else {
       // Read-only route on an unused session id: return a transient empty view
@@ -194,14 +198,16 @@ export class AgentSession implements DurableObject {
    *  bundled inline scaffold, which is NOT SDK-based and would leave the model
    *  importing @freegamestore/games that isn't present → a silent broken build.
    *  Non-Path-B stores keep the inline template as a valid fallback. */
-  private async freshSession(): Promise<SessionState> {
-    const seed = await fetchTemplateSeed(this.config, this.env.GITHUB_TOKEN);
+  private async freshSession(engine?: string): Promise<SessionState> {
+    const templateRepo = engine ? ENGINE_TEMPLATE_REPOS[engine] : undefined;
+    const seed = await fetchTemplateSeed(this.config, this.env.GITHUB_TOKEN, templateRepo);
     // Throws (Path B) when the template fetch failed — surfaced to the user by
     // the /chat|/reset handlers instead of seeding an unbuildable template.
     const files = resolveSeedFiles(this.config, seed);
     return {
       messages: [],
       files,
+      engine: templateRepo ? engine : undefined,
       seed: seed ?? undefined,
       tokenUsage: { input: 0, output: 0 },
       deployStatus: null,
@@ -354,7 +360,19 @@ export class AgentSession implements DurableObject {
     const body = await request.json<{
       message: string;
       aiConfig: AIConfig;
+      /** Engine key to seed a BRAND-NEW session from (ignored once seeded). */
+      engine?: string;
     }>();
+
+    if (body.engine && !ENGINE_TEMPLATE_REPOS[body.engine]) {
+      this.chatInProgress = false;
+      return json(
+        { error: `Unknown engine "${body.engine}". Choose: ${Object.keys(ENGINE_TEMPLATE_REPOS).join(", ")}.` },
+        400,
+        request,
+        this.config.domain,
+      );
+    }
 
     if (!body.message || !body.aiConfig?.provider || !body.aiConfig?.model) {
       this.chatInProgress = false;
@@ -399,7 +417,7 @@ export class AgentSession implements DurableObject {
       }
     }
 
-    const session = await this.load();
+    const session = await this.load(true, body.engine);
     const files = new Map(Object.entries(session.files));
 
     // Keep the D1 /sessions index authoritative from the SERVER so this session
@@ -767,6 +785,7 @@ export class AgentSession implements DurableObject {
                 config,
                 creatorLogin,
                 seed: session.seed,
+                engine: session.engine,
                 onDeployStatus: (status) => {
                   session.deployStatus = status;
                   this.logDeploy(status);

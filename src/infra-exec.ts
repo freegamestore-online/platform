@@ -17,6 +17,9 @@ interface ExecContext {
   /** The template snapshot the session was seeded from — the delta baseline for
    *  Path B deploys (only the files the agent changed vs. this are pushed). */
   seed?: Record<string, string>;
+  /** Public engine key the session was seeded from — forwarded to admin so the
+   *  generated repo's template (and its lockfile) match the session's code. */
+  engine?: string;
   onDeployStatus: (status: DeployStatus) => void;
   onAppDeployed: (id: string, name: string) => void;
 }
@@ -135,6 +138,7 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
       icon: tc.input.icon as string,
       iconBg: tc.input.iconBg as string,
       description: tc.input.description as string,
+      template: ctx.engine,
     },
     ctx.files,
     ctx.env,
