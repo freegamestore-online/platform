@@ -1,5 +1,7 @@
 name = "freegamestore-admin"
 main = "src/index.ts"
+compatibility_date = "2024-12-01"
+workers_dev = false
 
 # Built React admin app (web/ → public/). run_worker_first so the worker's
 # Google-allowlist auth gates the shell exactly like the old inline HTML did.
@@ -7,8 +9,6 @@ main = "src/index.ts"
 directory = "public"
 binding = "ASSETS"
 run_worker_first = true
-compatibility_date = "2024-12-01"
-workers_dev = false
 
 # Persistent Workers Logs so provisioning failures are debuggable after the fact.
 [observability]
