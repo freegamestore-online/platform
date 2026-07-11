@@ -218,6 +218,8 @@ async function substituteTemplatePlaceholders(
     // interpreted as replacement patterns (which would corrupt the file).
     { path: "web/index.html", rewrite: (s) => s.replace(/app=APPNAME/g, `app=${id}`).replace(/APPNAME/g, () => name) },
     { path: "web/src/App.tsx", rewrite: (s) => s.replace(/APPNAME/g, () => name) },
+    // pixi/babylon templates render the title from a local Shell component.
+    { path: "web/src/components/Shell.tsx", rewrite: (s) => s.replace(/APPNAME/g, () => name) },
     { path: "web/vite.config.ts", rewrite: (s) => s.replace(/APPNAME/g, () => name) },
     { path: "CLAUDE.md", rewrite: (s) => s.replace(/APPNAME/g, () => name) },
   ];
