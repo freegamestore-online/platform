@@ -176,12 +176,13 @@ export function renderDashboardShell(): string {
     <table><tr><th>User</th><th>Session</th><th>Game</th><th>State</th><th>Tokens</th><th>Updated</th></tr><tbody id="sessTable"><tr><td colspan="6" class="loading">--</td></tr></tbody></table>
 
     <div id="sessModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100;align-items:center;justify-content:center" onclick="if(event.target===this)closeSessModal()">
-      <div style="background:#141414;border:1px solid #2a2a2a;border-radius:0.75rem;padding:1.25rem;max-width:760px;width:94%;max-height:84vh;display:flex;flex-direction:column">
+      <div style="background:#141414;border:1px solid #2a2a2a;border-radius:0.75rem;padding:1.25rem;max-width:760px;width:94%;height:84vh;display:flex;flex-direction:column">
         <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem">
           <h3 id="sessModalTitle" style="flex:1;font-size:1rem"></h3>
+          <span id="sessLive" class="gray" style="font-size:0.72rem"></span>
           <button onclick="closeSessModal()" style="background:#2a2a2a;color:#ccc;border:1px solid #3a3a3a;border-radius:0.35rem;padding:0.3rem 0.7rem;cursor:pointer">Close</button>
         </div>
-        <div id="sessModalBody" style="overflow-y:auto;font-size:0.85rem;line-height:1.5"></div>
+        <div id="sessModalBody" style="flex:1;overflow-y:auto;font-size:0.85rem;line-height:1.5"></div>
       </div>
     </div>
   </div>
@@ -319,26 +320,87 @@ export function renderDashboardShell(): string {
         }).join(''):'<tr><td colspan="6" class="gray">No sessions recorded yet.</td></tr>';
       }catch(e){tb.innerHTML='<tr><td colspan="6" class="red">Failed: '+esc(e)+'</td></tr>'}
     }
-    function closeSessModal(){document.getElementById('sessModal').style.display='none'}
+    // ---- transcript modal: windowed render + live poll + timestamps ----
+    var SESS_PAGE=30;
+    var sessCur=null;
+    function sessTime(ts){
+      if(!ts)return '';
+      var d=new Date(ts);var now=new Date();
+      var hm=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
+      var sameDay=d.toDateString()===now.toDateString();
+      return sameDay?hm:d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' '+hm;
+    }
+    function renderMsg(mm,user){
+      var t=mm.ts?'<span style="float:right;color:#666;font-size:0.7rem;margin-left:0.5rem" title="'+esc(new Date(mm.ts).toISOString())+'">'+esc(sessTime(mm.ts))+'</span>':'';
+      var c=esc((mm.content||'').slice(0,4000));
+      if(mm.role==='user')return '<div style="margin:0.5rem 0;padding:0.5rem 0.75rem;background:#1e3a5f;border-radius:0.5rem">'+t+'<strong style="color:#93c5fd">'+esc(user)+'</strong><br>'+c+'</div>';
+      if(mm.role==='assistant'){
+        var tools=(mm.toolCalls||[]).map(function(tc){
+          var i=tc.input||{};var arg=i.path||i.id||i.name||'';
+          return '<span class="src-tag">'+esc(tc.name)+(arg?' '+esc(arg):'')+'</span>';
+        }).join(' ');
+        return '<div style="margin:0.5rem 0;padding:0.5rem 0.75rem;background:#1a1a1a;border-radius:0.5rem">'+t+'<strong class="green">AI</strong><br>'+(c||'<span class="gray">(tool call)</span>')+(tools?'<div style="margin-top:0.35rem;display:flex;flex-wrap:wrap;gap:0.25rem">'+tools+'</div>':'')+'</div>';
+      }
+      if(mm.role==='tool_result'){
+        var rs=(mm.toolResults||[]).map(function(tr){return (tr.content||'').trim()}).filter(Boolean);
+        if(!rs.length)return '';
+        return '<details style="margin:0.35rem 0 0.35rem 1rem">'+
+          '<summary style="cursor:pointer;color:#888;font-size:0.75rem">'+t+'tool result'+(rs.length>1?'s ('+rs.length+')':'')+'</summary>'+
+          '<pre style="white-space:pre-wrap;font-size:0.72rem;color:#9ca3af;background:#0f0f0f;border:1px solid #2a2a2a;padding:0.5rem;border-radius:0.35rem;margin-top:0.25rem;max-height:14rem;overflow:auto">'+rs.map(esc).join('\\n\\u2500\\u2500\\u2500\\n')+'</pre></details>';
+      }
+      return '<div class="gray" style="margin:0.35rem 0;font-size:0.78rem">'+esc(mm.role)+': '+c.slice(0,500)+'</div>';
+    }
+    // mode: 'bottom' = jump to newest; 'prepend' = keep view anchored after
+    // loading older; default = stick to bottom only if already near it.
+    function renderSessBody(mode){
+      if(!sessCur)return;
+      var body=document.getElementById('sessModalBody');
+      var msgs=sessCur.msgs;var start=Math.max(0,msgs.length-sessCur.win);
+      var earlier=start>0?'<button onclick="loadEarlierSess()" style="display:block;margin:0 auto 0.6rem;background:#1a1a1a;border:1px solid #2a2a2a;color:#888;padding:0.35rem 0.9rem;border-radius:1rem;cursor:pointer;font-size:0.78rem">&#8593; Load earlier ('+start+' older)</button>':'';
+      var prevH=body.scrollHeight,prevTop=body.scrollTop;
+      var nearBottom=body.scrollHeight-prevTop-body.clientHeight<160;
+      body.innerHTML=earlier+msgs.slice(start).map(function(m){return renderMsg(m,sessCur.user)}).join('');
+      if(mode==='prepend')body.scrollTop=body.scrollHeight-prevH+prevTop;
+      else if(mode==='bottom'||nearBottom)body.scrollTop=body.scrollHeight;
+    }
+    function loadEarlierSess(){if(!sessCur)return;sessCur.win+=SESS_PAGE;renderSessBody('prepend')}
+    async function fetchSess(sid){
+      var r=await fetch('/api/sessionhistory?id='+encodeURIComponent(sid),{credentials:'include'});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      return r.json();
+    }
+    function closeSessModal(){
+      if(sessCur&&sessCur.poll)clearInterval(sessCur.poll);
+      sessCur=null;
+      document.getElementById('sessModal').style.display='none';
+    }
     async function openSession(sid,title,user){
+      closeSessModal();
+      sessCur={sid:sid,user:user,msgs:[],win:SESS_PAGE,poll:null};
       var m=document.getElementById('sessModal');var body=document.getElementById('sessModalBody');
-      document.getElementById('sessModalTitle').textContent=title+' — '+user;
+      document.getElementById('sessModalTitle').textContent=title+' \\u2014 '+user;
+      document.getElementById('sessLive').textContent='';
       body.innerHTML='<span class="loading">Loading transcript...</span>';m.style.display='flex';
-      try{
-        var r=await fetch('/api/sessionhistory?id='+encodeURIComponent(sid),{credentials:'include'});
-        if(!r.ok){body.innerHTML='<span class="red">Failed to load transcript ('+r.status+')</span>';return}
-        var d=await r.json();var msgs=d.messages||[];
-        if(!msgs.length){body.innerHTML='<span class="gray">No messages in this session.</span>';return}
-        body.innerHTML=msgs.map(function(mm){
-          var c=esc((mm.content||'').slice(0,4000));
-          if(mm.role==='user')return '<div style="margin:0.5rem 0;padding:0.5rem 0.75rem;background:#1e3a5f;border-radius:0.5rem"><strong style="color:#93c5fd">'+esc(user)+':</strong><br>'+c+'</div>';
-          if(mm.role==='assistant'){
-            var tools=(mm.toolCalls||[]).map(function(t){return t.name}).join(', ');
-            return '<div style="margin:0.5rem 0;padding:0.5rem 0.75rem;background:#1a1a1a;border-radius:0.5rem"><strong class="green">AI:</strong><br>'+(c||'<span class="gray">(tool turn)</span>')+(tools?'<br><small class="gray">tools: '+esc(tools)+'</small>':'')+'</div>';
+      try{var d=await fetchSess(sid);sessCur.msgs=d.messages||[];}
+      catch(e){body.innerHTML='<span class="red">Failed to load transcript ('+esc(e.message||e)+')</span>';return}
+      if(!sessCur.msgs.length){body.innerHTML='<span class="gray">No messages in this session.</span>'}
+      else renderSessBody('bottom');
+      // Live view: re-fetch every 5s while open; new messages append and, if the
+      // reader is at the bottom, the view follows them (like the studio chat).
+      var liveEl=document.getElementById('sessLive');
+      liveEl.innerHTML='<span class="green">&#9679; live</span>';
+      sessCur.poll=setInterval(async function(){
+        if(!sessCur||sessCur.sid!==sid)return;
+        try{
+          var d2=await fetchSess(sid);
+          var msgs2=d2.messages||[];
+          if(msgs2.length!==sessCur.msgs.length){
+            sessCur.msgs=msgs2;
+            renderSessBody();
+            liveEl.innerHTML='<span class="green">&#9679; live</span> <span class="gray">updated '+esc(sessTime(Date.now()))+'</span>';
           }
-          return '<div class="gray" style="margin:0.35rem 0;font-size:0.78rem">'+esc(mm.role)+': '+c.slice(0,500)+'</div>';
-        }).join('');
-      }catch(e){body.innerHTML='<span class="red">'+esc(e)+'</span>'}
+        }catch(e){liveEl.innerHTML='<span class="yellow">&#9679; retrying</span>'}
+      },5000);
     }
     async function loadOverview(){
       try{
