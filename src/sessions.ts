@@ -11,6 +11,8 @@
  * is only the index of "which sessions belong to whom".
  */
 import type { Env } from "./index";
+import type { StoreConfig } from "./config";
+import { resilientFetch } from "./ghfetch";
 
 const SCHEMA = `CREATE TABLE IF NOT EXISTS agent_sessions (
   user_id TEXT NOT NULL,
@@ -32,6 +34,9 @@ const SCHEMA = `CREATE TABLE IF NOT EXISTS agent_sessions (
 const MIGRATIONS = [
   "ALTER TABLE agent_sessions ADD COLUMN input_tokens INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE agent_sessions ADD COLUMN output_tokens INTEGER NOT NULL DEFAULT 0",
+  // GitHub login of the session owner, for the admin all-sessions view (the
+  // user_id is an opaque auth sub). Backfilled lazily on each chat turn.
+  "ALTER TABLE agent_sessions ADD COLUMN user_login TEXT",
 ];
 
 let schemaReady = false;
@@ -82,22 +87,101 @@ export async function upsertSessionIndex(
   db: D1Database,
   userId: string,
   sessionId: string,
-  fields: { title?: string | null; gameId?: string | null; gameUrl?: string | null },
+  fields: { title?: string | null; gameId?: string | null; gameUrl?: string | null; login?: string | null },
 ): Promise<void> {
   if (!userId || !sessionId) return;
   await ensureSchema(db);
   await db
     .prepare(
-      `INSERT INTO agent_sessions (user_id, session_id, title, game_id, game_url, deployed, updated_at)
-       VALUES (?, ?, ?, ?, ?, 0, datetime('now'))
+      `INSERT INTO agent_sessions (user_id, session_id, title, game_id, game_url, user_login, deployed, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, datetime('now'))
        ON CONFLICT(user_id, session_id) DO UPDATE SET
          title = COALESCE(excluded.title, agent_sessions.title),
          game_id = COALESCE(excluded.game_id, agent_sessions.game_id),
          game_url = COALESCE(excluded.game_url, agent_sessions.game_url),
+         user_login = COALESCE(excluded.user_login, agent_sessions.user_login),
          updated_at = datetime('now')`,
     )
-    .bind(userId, sessionId, fields.title ?? null, fields.gameId ?? null, fields.gameUrl ?? null)
+    .bind(userId, sessionId, fields.title ?? null, fields.gameId ?? null, fields.gameUrl ?? null, fields.login ?? null)
     .run();
+}
+
+/**
+ * Is `login` a member of the store's GitHub org? Org members are platform
+ * admins (same contract as ownership.ts's admin-all view). Cached per-isolate
+ * for 5 minutes so the admin session list / transcript reads don't hit the
+ * GitHub API on every call.
+ */
+const adminCache = new Map<string, { ok: boolean; exp: number }>();
+export async function isOrgAdmin(config: StoreConfig, ghToken: string, login: string): Promise<boolean> {
+  if (!login) return false;
+  const key = login.toLowerCase();
+  const hit = adminCache.get(key);
+  if (hit && hit.exp > Date.now()) return hit.ok;
+  let ok = false;
+  try {
+    const res = await resilientFetch(`https://api.github.com/orgs/${config.org}/members/${login}`, {
+      headers: {
+        Authorization: `Bearer ${ghToken}`,
+        Accept: "application/vnd.github+json",
+        "User-Agent": config.agentName,
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    });
+    ok = res.status === 204;
+  } catch {
+    ok = false;
+  }
+  adminCache.set(key, { ok, exp: Date.now() + 5 * 60_000 });
+  return ok;
+}
+
+/**
+ * GET /admin/sessions — EVERY user's session index rows, newest first. Org
+ * members only (platform admins); everyone else gets 403. Read-only: this is
+ * the "parent view" for seeing what any creator's VibeCode chats are up to —
+ * pair with /session/:id/history?admin=1 to read a transcript.
+ */
+export async function handleAdminSessionsApi(
+  request: Request,
+  env: Env,
+  config: StoreConfig,
+  cors: Record<string, string>,
+): Promise<Response | null> {
+  const path = new URL(request.url).pathname;
+  if (path !== "/admin/sessions") return null;
+
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...cors } });
+
+  if (request.method !== "GET") return json({ error: "method not allowed" }, 405);
+  if (!env.DB) return json({ error: "database not configured" }, 500);
+
+  const user = await resolveUser(request, env.AUTH);
+  if (!user) return json({ error: "unauthorized" }, 401);
+  if (!user.login || !(await isOrgAdmin(config, env.GITHUB_TOKEN, user.login))) {
+    return json({ error: "forbidden — org admins only" }, 403);
+  }
+
+  await ensureSchema(env.DB);
+  const { results } = await env.DB.prepare(
+    `SELECT user_id, user_login, session_id, title, game_id, game_url, deployed,
+            input_tokens, output_tokens, created_at, updated_at
+     FROM agent_sessions ORDER BY updated_at DESC LIMIT 500`,
+  ).all();
+  const sessions = (results as Record<string, unknown>[]).map((r) => ({
+    id: r.session_id,
+    user: (r.user_login as string) || (r.user_id as string),
+    userId: r.user_id,
+    name: (r.title as string) || "Untitled",
+    gameId: (r.game_id as string) || undefined,
+    gameUrl: (r.game_url as string) || undefined,
+    deployed: !!r.deployed,
+    tokens: { input: Number(r.input_tokens) || 0, output: Number(r.output_tokens) || 0 },
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }));
+  return json({ sessions });
 }
 
 export async function resolveUser(

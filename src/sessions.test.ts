@@ -41,13 +41,14 @@ describe("upsertSessionIndex", () => {
       "Beat Star",
       "beat-star",
       "https://beat-star.freegamestore.online",
+      null,
     ]);
   });
 
   it("binds nulls for missing optional fields (COALESCE preserves existing)", async () => {
     const { db, calls } = mockDb();
     await upsertSessionIndex(db, "u", "s", {});
-    expect(insertOf(calls)!.args).toEqual(["u", "s", null, null, null]);
+    expect(insertOf(calls)!.args).toEqual(["u", "s", null, null, null, null]);
   });
 });
 

@@ -1,7 +1,7 @@
 /** Worker entry — routes requests to the correct Durable Object session. */
 
 import { getConfig } from "./config";
-import { handleSessionsApi, resolveUser } from "./sessions";
+import { handleAdminSessionsApi, handleSessionsApi, isOrgAdmin, resolveUser } from "./sessions";
 import { handleKeysApi } from "./keys";
 import { handleAdminCompApi } from "./admin-comp";
 import { handleKidify } from "./kidify";
@@ -68,6 +68,10 @@ export default {
     const sessionsResp = await handleSessionsApi(request, env, config.domain, corsHeaders(request, config.domain));
     if (sessionsResp) return sessionsResp;
 
+    // Admin all-users session list (org members only) — GET /admin/sessions
+    const adminSessionsResp = await handleAdminSessionsApi(request, env, config, corsHeaders(request, config.domain));
+    if (adminSessionsResp) return adminSessionsResp;
+
     // Per-user AI-key vault (D1, encrypted) — /v1/keys/status, /v1/keys/:provider
     const keysResp = await handleKeysApi(request, env, corsHeaders(request, config.domain));
     if (keysResp) return keysResp;
@@ -127,6 +131,20 @@ export default {
     // client-supplied X-Auth-User, so a caller can't spoof session ownership.
     const fwdHeaders = new Headers(request.headers);
     fwdHeaders.set("X-Auth-User", user.id);
+    // Admin read-through (?admin=1 on GET history/status): org members may read
+    // any session's transcript/status — the "parent view". Verified HERE (the
+    // client header is always stripped first, so it can't be spoofed) and only
+    // for read routes; admins can't chat/reset as someone else.
+    fwdHeaders.delete("X-Auth-Admin");
+    if (
+      url.searchParams.get("admin") === "1" &&
+      request.method === "GET" &&
+      (route === "history" || route === "status") &&
+      user.login &&
+      (await isOrgAdmin(config, env.GITHUB_TOKEN, user.login))
+    ) {
+      fwdHeaders.set("X-Auth-Admin", "1");
+    }
     // The GitHub login (username) — used at deploy time to add the creator as a
     // collaborator on the repo the platform bot creates for them. set() so a
     // client can't spoof it. Blank when the session predates login capture.

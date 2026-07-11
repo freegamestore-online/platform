@@ -217,11 +217,21 @@ export class AgentSession implements DurableObject {
       // (/reset), or drive the agent.
       const caller = request.headers.get("X-Auth-User");
       if (!caller) return json({ error: "unauthorized" }, 401, request, this.config.domain);
-      const owner = await this.state.storage.get<string>("owner");
-      if (!owner) {
-        await this.state.storage.put("owner", caller);
-      } else if (owner !== caller) {
-        return json({ error: "forbidden" }, 403, request, this.config.domain);
+      // X-Auth-Admin is set (and the client's copy stripped) by the worker after
+      // an org-membership check — read-only admin access to any session's
+      // transcript/status. Must NOT bind ownership: an admin peeking at an
+      // unclaimed session id would otherwise become its owner.
+      const adminRead =
+        request.headers.get("X-Auth-Admin") === "1" &&
+        request.method === "GET" &&
+        (path === "/history" || path === "/status");
+      if (!adminRead) {
+        const owner = await this.state.storage.get<string>("owner");
+        if (!owner) {
+          await this.state.storage.put("owner", caller);
+        } else if (owner !== caller) {
+          return json({ error: "forbidden" }, 403, request, this.config.domain);
+        }
       }
 
       if (path === "/chat" && request.method === "POST") {
@@ -366,6 +376,7 @@ export class AgentSession implements DurableObject {
           title: session.appName,
           gameId: session.appId,
           gameUrl,
+          login: request.headers.get("X-Auth-Login") || null,
         });
       } catch {
         /* index is best-effort — discovery convenience, not the transcript */
