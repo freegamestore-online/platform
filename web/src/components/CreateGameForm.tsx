@@ -24,6 +24,8 @@ const ENGINES = [
   { value: "kaplay", label: "KAPLAY", tag: "Easiest · 2D", desc: "Beginner-friendly 2D arcade engine. Sprites, input, gravity and collisions as one-line verbs — the fastest path to a playable game." },
   { value: "phaser", label: "Phaser", tag: "Powerful · 2D", desc: "The industry-standard 2D engine. Scenes, arcade physics, tilemaps and tweens — for platformers, shooters and bigger games." },
   { value: "3d", label: "Three.js", tag: "3D", desc: "react-three-fiber + Three.js for 3D worlds, racing and flying games." },
+  { value: "pixi", label: "Pixi.js", tag: "WebGL · 2D", desc: "High-performance WebGL 2D renderer — particles, filters and buttery sprite scenes." },
+  { value: "babylon", label: "Babylon.js", tag: "3D", desc: "Full 3D engine with cameras, lights, materials and physics-ready meshes." },
 ];
 
 // No-engine starters for creators who want full control or a DOM-based board.
