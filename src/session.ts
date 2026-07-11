@@ -50,6 +50,9 @@ interface SessionState {
    *  repo hasn't changed, and forces a re-sync when it HAS (e.g. someone edited
    *  the repo directly via update_files/git between VibeCode sessions). */
   importedSha?: string;
+  /** Repo HEAD after this session's last successful push — with importedSha,
+   *  the drift guard's notion of "the repo as this session last saw it". */
+  lastPushedSha?: string;
   errors: ErrorEntry[];
 }
 
@@ -552,6 +555,27 @@ export class AgentSession implements DurableObject {
             // platform GITHUB_TOKEN, so gate them per user regardless of whether
             // the chat itself ran on the free tier or a BYO key. A blocked call
             // still emits a tool_result below so the tool_use stays paired.
+            // Drift guard: if the repo moved OUTSIDE this session since it last
+            // synced (a direct fix, another session, git), pushing session
+            // files would silently overwrite that work — it clobbered a
+            // hand-restored game within minutes (cat-clicker, 2026-07-11).
+            // Refuse with guidance instead. Skipped when we have no reference
+            // SHA (legacy sessions) — better a rare overwrite than blocking
+            // every legacy push.
+            if (tc.name === "push_update" && session.appId) {
+              const known = session.lastPushedSha || session.importedSha;
+              if (known) {
+                const head = await fetchRepoHeadSha(session.appId, this.env.GITHUB_TOKEN, this.config).catch(() => null);
+                if (head && head !== known) {
+                  toolResult = `Error: the ${this.config.noun}'s code was changed OUTSIDE this chat since it last synced (a direct edit or another session). Pushing now would overwrite those changes. Tell the user to RE-OPEN this ${this.config.noun} from My Games (which re-syncs the files) and then re-apply the change.`;
+                  this.logError("drift", `push_update blocked: repo HEAD ${head?.slice(0, 7)} != session ${known.slice(0, 7)} for ${session.appId}`);
+                  sendSSE({ type: "tool_result", data: JSON.stringify({ id: tc.id, tool: tc.name, result: toolResult }) });
+                  infraResults.push({ id: tc.id, content: toolResult });
+                  continue;
+                }
+              }
+            }
+
             const spendsSharedToken = tc.name === "deploy" || tc.name === "push_update";
             if (spendsSharedToken && userId && !(await allowDeploy(this.env.DB, userId, Math.floor(Date.now() / 1000)))) {
               toolResult = `Error: you've hit the deploy limit (30/hour). Wait a bit before deploying again.`;
@@ -576,6 +600,13 @@ export class AgentSession implements DurableObject {
                   sendSSE({ type: "deploy_status", data: JSON.stringify(status) });
                   if (status.phase === "live") {
                     this.sendPush("Your build is live!");
+                    // Record the repo HEAD this push produced — the drift
+                    // guard's reference for the next push_update.
+                    if (session.appId) {
+                      fetchRepoHeadSha(session.appId, this.env.GITHUB_TOKEN, this.config)
+                        .then((sha) => { if (sha && this.session) { this.session.lastPushedSha = sha; this.persistNow().catch(() => {}); } })
+                        .catch(() => {});
+                    }
                   } else if (status.phase === "error") {
                     this.appendAssistantError("deploy", status.error);
                     this.sendPush("Build failed");
