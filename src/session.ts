@@ -86,6 +86,27 @@ const SESSION_SOFT_MAX_BYTES = 1.6 * 1024 * 1024;
 // the watchdog exists to catch HANGS, not to cap honest work.
 const TURN_DEADLINE_MS = 30 * 60_000; // 30 minutes
 
+// ── Durable turns ─────────────────────────────────────────────────────────────
+// A turn used to live and die with its DO instance: client disconnect, worker
+// deploy, or plain eviction silently killed in-flight builds (proven ~10 times
+// on 2026-07-11 — the keepalive-ping era). Now every turn persists a small
+// PendingTurn record and arms a heartbeat ALARM. Alarms survive eviction AND
+// deploys; when one fires and finds a pending turn with no in-memory execution
+// (chatInProgress false in a fresh instance), it RESUMES the turn from the
+// checkpointed transcript (initialMessage=null continuation). The record never
+// holds the API key — it re-resolves from the vault on resume.
+interface PendingTurn {
+  aiConfig: Omit<AIConfig, "apiKey">;
+  userId: string;
+  login: string | null;
+  sessionId: string;
+  startedAt: number;
+  attempts: number;
+}
+const PENDING_TURN_KEY = "pendingTurn";
+const TURN_HEARTBEAT_MS = 45_000;
+const MAX_TURN_RESUMES = 4;
+
 /** One-line human summary of a deploy status snapshot for the timeline log. */
 function deployStatusDetail(status: DeployStatus): string {
   switch (status.phase) {
@@ -273,6 +294,38 @@ export class AgentSession implements DurableObject {
   }
 
   /** POST /chat — stream an agent turn via SSE */
+  /** Resolve the effective AIConfig for a turn: explicit key (MCP BYO) →
+   *  vault key → complimentary grant (overrides provider+model) → free tier
+   *  (github, platform token). Null when nothing usable. */
+  private async resolveTurnConfig(userId: string, aiConfig: AIConfig): Promise<{ aiConfig: AIConfig; usedFreeTier: boolean } | null> {
+    let resolvedKey =
+      aiConfig.apiKey?.trim() ||
+      (userId ? await resolveUserKey(this.env, userId, aiConfig.provider) : null);
+
+    let usedComp = false;
+    if (!resolvedKey && userId) {
+      const grant = await getActiveComp(this.env, userId);
+      if (grant) {
+        const compKey = compKeyFor(this.env, grant.provider);
+        if (compKey) {
+          resolvedKey = compKey;
+          // grant.provider is validated against COMP_PROVIDERS (⊆ Provider) when
+          // the grant is created, so the cast is sound.
+          aiConfig = { ...aiConfig, provider: grant.provider as AIConfig["provider"], model: grant.model };
+          usedComp = true;
+        }
+      }
+    }
+
+    let usedFreeTier = false;
+    if (!resolvedKey && !usedComp && aiConfig.provider === "github") {
+      resolvedKey = this.env.GITHUB_TOKEN || null;
+      usedFreeTier = true;
+    }
+    if (!resolvedKey) return null;
+    return { aiConfig: { ...aiConfig, apiKey: resolvedKey }, usedFreeTier };
+  }
+
   private async handleChat(request: Request): Promise<Response> {
     if (this.chatInProgress) {
       return json({ error: "A build is already in progress for this game — wait for it to finish." }, 429, request, this.config.domain);
@@ -302,46 +355,11 @@ export class AgentSession implements DurableObject {
       );
     }
 
-    // Resolve the AI key server-side. An explicit key in the request (MCP
-    // bring-your-own) wins; otherwise decrypt the signed-in user's key from the
-    // encrypted vault (keyed by the worker-verified X-Auth-User). The browser no
-    // longer sends the key at all — it never has to hold plaintext.
+    // Resolve the AI key server-side (extracted so the alarm-resume path can
+    // re-resolve — the pending-turn record never persists the key).
     const userId = request.headers.get("X-Auth-User") || "";
-    let resolvedKey =
-      body.aiConfig.apiKey?.trim() ||
-      (userId ? await resolveUserKey(this.env, userId, body.aiConfig.provider) : null);
-
-    // Complimentary access: an admin can grant SELECT users free builds on a
-    // platform-funded provider key (see keygrants.ts). Checked AFTER the user's
-    // own key (BYO always wins) and BEFORE the free tier. A grant overrides the
-    // provider+model to the granted premium ones and resolves the platform
-    // `COMP_KEY_<PROVIDER>` secret — so the user just builds, no key of their
-    // own, on the platform's dime. Skipped when they already have a key above.
-    let usedComp = false;
-    if (!resolvedKey && userId) {
-      const grant = await getActiveComp(this.env, userId);
-      if (grant) {
-        const compKey = compKeyFor(this.env, grant.provider);
-        if (compKey) {
-          resolvedKey = compKey;
-          // grant.provider is validated against COMP_PROVIDERS (⊆ Provider) when
-          // the grant is created, so the cast is sound.
-          body.aiConfig = { ...body.aiConfig, provider: grant.provider as typeof body.aiConfig.provider, model: grant.model };
-          usedComp = true;
-        }
-      }
-    }
-
-    // GitHub Models is the FREE tier — it still needs a GitHub token, but the
-    // user shouldn't have to supply one. Fall back to the platform token so
-    // "free" actually works keyless. (A user who saved their own GitHub token
-    // still wins above — their per-user rate limit, not the shared one.)
-    let usedFreeTier = false;
-    if (!resolvedKey && !usedComp && body.aiConfig.provider === "github") {
-      resolvedKey = this.env.GITHUB_TOKEN || null;
-      usedFreeTier = true;
-    }
-    if (!resolvedKey) {
+    const resolved = await this.resolveTurnConfig(userId, body.aiConfig);
+    if (!resolved) {
       this.chatInProgress = false;
       return json(
         { error: "No API key saved for this provider — add one in AI settings.", code: "no_key" },
@@ -350,7 +368,8 @@ export class AgentSession implements DurableObject {
         this.config.domain,
       );
     }
-    body.aiConfig = { ...body.aiConfig, apiKey: resolvedKey };
+    body.aiConfig = resolved.aiConfig;
+    const usedFreeTier = resolved.usedFreeTier;
 
     // Rate-limit the FREE tier (shared platform token) per user so one scripted
     // loop can't exhaust the shared GitHub Models quota — or crowd out the
@@ -398,21 +417,6 @@ export class AgentSession implements DurableObject {
     const { readable, writable } = new TransformStream<Uint8Array>();
     const writer = writable.getWriter();
 
-    // Build deploy env directly from DO's env bindings (no header passing)
-    const deployEnv: DeployEnv | null =
-      this.env.GITHUB_TOKEN && this.env.CF_API_TOKEN
-        ? {
-            GITHUB_TOKEN: this.env.GITHUB_TOKEN,
-            CF_API_TOKEN: this.env.CF_API_TOKEN,
-            CF_ACCOUNT_ID: this.env.CF_ACCOUNT_ID,
-            // Path B (games): register host route + registry via admin.
-            ADMIN: this.env.ADMIN,
-            INTERNAL_TOKEN: this.env.INTERNAL_TOKEN,
-          }
-        : null;
-
-    const config = this.config;
-
     // The turn was already claimed synchronously above (before any await), so a
     // racing /chat can't slip in. From here the background task owns the flag and
     // releases it in its finally.
@@ -429,6 +433,152 @@ export class AgentSession implements DurableObject {
     session.messages.push({ role: "user", content: body.message, ts: Date.now() });
     if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
     await this.save();
+
+    // Persist the pending-turn record + arm the resurrection heartbeat BEFORE
+    // launching: if this instance dies mid-turn (eviction, a worker deploy, a
+    // client disconnect outliving the grace window), the alarm fires in a fresh
+    // instance and RESUMES the turn from the checkpointed transcript.
+    const pending: PendingTurn = {
+      aiConfig: (({ apiKey: _key, ...rest }) => rest)(body.aiConfig),
+      userId,
+      login: creatorLogin ?? null,
+      sessionId,
+      startedAt: Date.now(),
+      attempts: 0,
+    };
+    await this.state.storage.put(PENDING_TURN_KEY, pending);
+    await this.state.storage.setAlarm(Date.now() + TURN_HEARTBEAT_MS);
+
+    // Keep the DO alive until the turn finishes even if the client disconnects
+    // (a refresh mid-build); the alarm covers the cases waitUntil can't.
+    this.state.waitUntil(
+      this.executeTurn({
+        aiConfig: body.aiConfig,
+        initialMessage: body.message,
+        history,
+        session,
+        files,
+        userId,
+        creatorLogin,
+        sessionId,
+        writer,
+      }),
+    );
+
+    return new Response(readable, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        ...corsHeaders(request, this.config.domain),
+      },
+    });
+    } catch (err) {
+      // Setup threw before the background turn launched (bad JSON, key decrypt,
+      // load). Release the claim so the session isn't stuck "in progress"
+      // forever, then surface the error.
+      this.chatInProgress = false;
+      return json({ error: String(err) }, 500, request, this.config.domain);
+    }
+  }
+
+  /** Resurrection heartbeat. Fires TURN_HEARTBEAT_MS after a turn starts and
+   *  keeps re-arming while it runs. Alarms survive DO eviction AND worker
+   *  deploys — so when this fires in a fresh instance (chatInProgress false)
+   *  with a PendingTurn still on disk, the executing instance died mid-turn:
+   *  resume it from the checkpointed transcript. Bounded by MAX_TURN_RESUMES
+   *  and the overall TURN_DEADLINE_MS window. */
+  async alarm(): Promise<void> {
+    const pending = await this.state.storage.get<PendingTurn>(PENDING_TURN_KEY);
+    if (!pending) return; // turn concluded normally — nothing to do
+
+    if (this.chatInProgress) {
+      // Still executing in THIS instance — keep the heartbeat armed.
+      await this.state.storage.setAlarm(Date.now() + TURN_HEARTBEAT_MS);
+      return;
+    }
+
+    const expired = Date.now() - pending.startedAt > TURN_DEADLINE_MS;
+    if (expired || pending.attempts >= MAX_TURN_RESUMES) {
+      await this.load();
+      this.appendAssistantError(
+        "resume",
+        expired
+          ? `The build ran past the ${TURN_DEADLINE_MS / 60_000}-minute limit and was stopped. Say "continue" to pick up where it left off.`
+          : `The build was interrupted ${pending.attempts} times and was stopped. Say "continue" to pick up where it left off.`,
+      );
+      await this.persistNow().catch(() => {});
+      await this.state.storage.delete(PENDING_TURN_KEY);
+      return;
+    }
+
+    pending.attempts += 1;
+    await this.state.storage.put(PENDING_TURN_KEY, pending);
+    this.logError("resume", `resuming interrupted turn (attempt ${pending.attempts}/${MAX_TURN_RESUMES}) for ${pending.sessionId}`);
+
+    // Re-resolve the key (never persisted in the pending record).
+    const resolved = await this.resolveTurnConfig(pending.userId, { ...pending.aiConfig } as AIConfig);
+    if (!resolved) {
+      await this.load();
+      this.appendAssistantError("resume", "The build was interrupted and its API key is no longer available — say \"continue\" to retry.");
+      await this.persistNow().catch(() => {});
+      await this.state.storage.delete(PENDING_TURN_KEY);
+      return;
+    }
+
+    const session = await this.load();
+    const files = new Map(Object.entries(session.files));
+    // No live client — drain the stream so writes never block.
+    const { readable, writable } = new TransformStream<Uint8Array>();
+    void readable.pipeTo(new WritableStream()).catch(() => {});
+    const writer = writable.getWriter();
+
+    this.chatInProgress = true;
+    // Re-arm BEFORE the long await so another death mid-resume is also caught.
+    await this.state.storage.setAlarm(Date.now() + TURN_HEARTBEAT_MS);
+    await this.executeTurn({
+      aiConfig: resolved.aiConfig,
+      initialMessage: null, // continuation — the transcript already has the user message + checkpointed progress
+      history: [],
+      session,
+      files,
+      userId: pending.userId,
+      creatorLogin: pending.login ?? undefined,
+      sessionId: pending.sessionId,
+      writer,
+    });
+  }
+
+  /** Execute one chat turn (the agent loop + server-side infra tools). Called
+   *  from handleChat (live SSE writer) AND from alarm() when resuming an
+   *  interrupted turn (throwaway writer, initialMessage=null continuation). */
+  private async executeTurn(opts: {
+    aiConfig: AIConfig;
+    /** the user's message, or null when resuming an interrupted turn */
+    initialMessage: string | null;
+    /** pre-turn transcript snapshot (only used when initialMessage != null) */
+    history: Message[];
+    session: SessionState;
+    files: Map<string, string>;
+    userId: string;
+    creatorLogin?: string;
+    sessionId: string;
+    writer: WritableStreamDefaultWriter<Uint8Array>;
+  }): Promise<void> {
+    const { aiConfig, initialMessage, history, session, files, userId, creatorLogin, sessionId, writer } = opts;
+    const config = this.config;
+    // Build deploy env directly from DO's env bindings (no header passing)
+    const deployEnv: DeployEnv | null =
+      this.env.GITHUB_TOKEN && this.env.CF_API_TOKEN
+        ? {
+            GITHUB_TOKEN: this.env.GITHUB_TOKEN,
+            CF_API_TOKEN: this.env.CF_API_TOKEN,
+            CF_ACCOUNT_ID: this.env.CF_ACCOUNT_ID,
+            // Path B (games): register host route + registry via admin.
+            ADMIN: this.env.ADMIN,
+            INTERNAL_TOKEN: this.env.INTERNAL_TOKEN,
+          }
+        : null;
 
     const encoder = new TextEncoder();
     const sendSSE = (evt: { type: string; data: string }) => {
@@ -450,10 +600,11 @@ export class AgentSession implements DurableObject {
       sendSSE({ type: "error", data: "The build took too long and was stopped. Say \"continue\" to pick up where it left off." });
       sendSSE({ type: "done", data: "" });
       writer.close().catch(() => {});
+      // Deliberate stop — don't let the alarm resurrect it.
+      this.state.storage.delete(PENDING_TURN_KEY).catch(() => {});
+      this.state.storage.deleteAlarm().catch(() => {});
     });
 
-    // Run the agent in the background
-    const turn = (async () => {
       try {
         // A turn spans SEVERAL provider rounds when the model calls server-side
         // infra tools (fetch_url, CI/status reads): each round's results are
@@ -464,7 +615,7 @@ export class AgentSession implements DurableObject {
         // push_update remain terminal (their status streams separately);
         // MAX_INFRA_ROUNDS bounds a pathological fetch loop.
         const MAX_INFRA_ROUNDS = 6;
-        let resumeMsg: string | null = body.message;
+        let resumeMsg: string | null = initialMessage;
         let infraRounds = 0;
         while (true) {
         // First round rebuilds from the pre-turn snapshot (`history`) since the
@@ -495,7 +646,7 @@ export class AgentSession implements DurableObject {
           session.files = Object.fromEntries(files);
           this.persistNow().catch((e) => this.logError("storage", `checkpoint persist: ${String(e)}`));
         };
-        const result = await runAgentTurn(body.aiConfig, preTurn, resumeMsg, files, writer, config, sessionCtx, checkpoint).catch(async (err) => {
+        const result = await runAgentTurn(aiConfig, preTurn, resumeMsg, files, writer, config, sessionCtx, checkpoint).catch(async (err) => {
           this.logError("agent", String(err));
           // The user message is already pre-saved above; rebuild from the
           // pre-turn snapshot (so it's never doubled) and record the failure so
@@ -690,30 +841,12 @@ export class AgentSession implements DurableObject {
           watchdog.clear();
           this.chatInProgress = false;
           writer.close().catch(() => {});
+          // Turn concluded with a persisted outcome — stand down the alarm.
+          await this.state.storage.delete(PENDING_TURN_KEY).catch(() => {});
+          await this.state.storage.deleteAlarm().catch(() => {});
         }
       }
-    })();
 
-    // Keep the DO alive until the turn finishes even if the client disconnects
-    // (a refresh mid-build). Without this the runtime can evict the object once
-    // the streamed Response is cancelled, killing the turn before it saves.
-    this.state.waitUntil(turn);
-
-    return new Response(readable, {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-        ...corsHeaders(request, this.config.domain),
-      },
-    });
-    } catch (err) {
-      // Setup threw before the background turn launched (bad JSON, key decrypt,
-      // load). Release the claim so the session isn't stuck "in progress"
-      // forever, then surface the error.
-      this.chatInProgress = false;
-      return json({ error: String(err) }, 500, request, this.config.domain);
-    }
   }
 
   /** GET /status — current session state */
