@@ -37,6 +37,60 @@ export const DEFAULT_TOOL_HISTORY_CAP = 2_000;
  * exported so the cap is unit-tested (it's load-bearing: too small starves the
  * agent, too large blows the context budget).
  */
+
+/** Resolve a relative import specifier against the project files map. */
+function resolveImport(fromPath: string, spec: string, files: Map<string, string>): string | null {
+  const dir = fromPath.split("/").slice(0, -1);
+  const parts = spec.split("/");
+  const stack = [...dir];
+  for (const part of parts) {
+    if (part === "." || part === "") continue;
+    else if (part === "..") stack.pop();
+    else stack.push(part);
+  }
+  const base = stack.join("/");
+  for (const cand of [base, `${base}.ts`, `${base}.tsx`, `${base}.js`, `${base}.jsx`, `${base}/index.ts`, `${base}/index.tsx`]) {
+    if (files.has(cand)) return cand;
+  }
+  return null;
+}
+
+/** Static import checks for a just-written source file. Returns "" or a
+ *  warning block appended to the write_file result. Heuristic by design —
+ *  warnings, never rejections. */
+export function validateImports(path: string, content: string, files: Map<string, string>): string {
+  if (!/\.(ts|tsx|js|jsx)$/.test(path)) return "";
+  const warnings: string[] = [];
+  const importRe = /import\s+(?:([\w$]+)\s*,?\s*)?(?:\{([^}]*)\})?\s*from\s*["']([^"']+)["']/g;
+  let m: RegExpExecArray | null;
+  while ((m = importRe.exec(content))) {
+    const [, defaultName, namedList, spec] = m;
+    if (!spec || (!spec.startsWith("./") && !spec.startsWith("../"))) continue; // packages: can't check
+    const target = resolveImport(path, spec, files);
+    if (!target) {
+      warnings.push(`import "${spec}" does not resolve to any project file — the build WILL fail. Fix the path or write that file.`);
+      continue;
+    }
+    const targetSrc = files.get(target)!;
+    if (defaultName && !/export\s+default\b/.test(targetSrc)) {
+      warnings.push(`"${spec}" has no default export, but this file default-imports it (${defaultName}) — use a named import.`);
+    }
+    if (namedList) {
+      for (const raw of namedList.split(",")) {
+        const name = raw.trim().split(/\s+as\s+/)[0]?.replace(/^type\s+/, "").trim();
+        if (!name) continue;
+        const exported =
+          new RegExp(`export\\s+(?:declare\\s+)?(?:async\\s+)?(?:const|let|var|function|class|interface|type|enum)\\s+${name}\\b`).test(targetSrc) ||
+          new RegExp(`export\\s*\\{[^}]*\\b${name}\\b`).test(targetSrc);
+        if (!exported) {
+          warnings.push(`"${spec}" does not export "${name}" — the build WILL fail. Export it there or fix this import.`);
+        }
+      }
+    }
+  }
+  return warnings.length ? `\n⚠️ PRE-BUILD CHECK:\n- ${warnings.join("\n- ")}` : "";
+}
+
 export function clampToolResultForHistory(toolName: string, content: string): string {
   // fetch_url gets the read_file budget: the model uses it to pull whole source
   // files from the repo — clamped to 2KB it can never see the file, so it
@@ -339,7 +393,12 @@ export function executeTool(toolCall: ToolCall, files: Map<string, string>, conf
       }
 
       files.set(path, content);
-      return { id, content: `Wrote ${path} (${content.length} bytes)${shrinkWarning}` };
+      // Pre-build validation: cheap static checks that catch the failure class
+      // that otherwise only surfaces in CI ~60s after push (bad relative
+      // imports, missing named exports — every 2026-07-11 build failure).
+      // Warnings, not rejections: the write is committed, the model fixes next.
+      const importWarnings = validateImports(path, content, files);
+      return { id, content: `Wrote ${path} (${content.length} bytes)${shrinkWarning}${importWarnings}` };
     }
 
     case "read_file": {

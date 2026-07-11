@@ -2,7 +2,7 @@
 
 import type { StoreConfig } from "./config";
 import type { DeployEnv } from "./deploy";
-import { makeGhApi } from "./ghfetch";
+import { makeGhApi, resilientFetch } from "./ghfetch";
 
 async function cfApi(token: string, _accountId: string, path: string) {
   const res = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
@@ -76,7 +76,39 @@ export async function getBuildLogs(appId: string, env: DeployEnv, config: StoreC
         lines.push(`  ${st === "success" ? "PASS" : st === "failure" ? "FAIL" : String(st || "").toUpperCase()}: ${s.name}`);
       }
     }
-    return `Deploy run ${String(run.id).slice(0, 8)} — ${run.status === "completed" ? run.conclusion : run.status}\n${lines.join("\n")}\n\nFull logs: ${run.html_url}`;
+
+    // The step list alone is useless for FIXING a failure — pull the failing
+    // job's raw log and extract the error lines, so the model can act on
+    // "Could not resolve X from Y" instead of being told to visit a URL it
+    // can't open (which is where the self-fix loop died, 2026-07-11).
+    const failing = (jobs.jobs || []).find((j: any) => j.conclusion === "failure");
+    if (failing) {
+      try {
+        const logRes = await resilientFetch(`https://api.github.com/repos/${config.org}/${appId}/actions/jobs/${failing.id}/logs`, {
+          headers: {
+            Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+            Accept: "application/vnd.github+json",
+            "User-Agent": config.agentName,
+            "X-GitHub-Api-Version": "2022-11-28",
+          },
+        });
+        if (logRes.ok) {
+          const text = await logRes.text();
+          const interesting = text
+            .split("\n")
+            .filter((l: string) => /error TS\d|[Ee]rror:|Could not resolve|is not exported|Build failed|ELIFECYCLE|✗/.test(l))
+            .map((l: string) => l.replace(/^[0-9T:.Z-]+\s*/, "").replace(/\u001b\[[0-9;]*m/g, ""))
+            .slice(-25);
+          const tail = interesting.length
+            ? interesting
+            : text.split("\n").slice(-30).map((l: string) => l.replace(/^[0-9T:.Z-]+\s*/, ""));
+          lines.push("", "── error lines from the failing job ──", ...tail);
+        }
+      } catch {
+        /* log download is best-effort — the step list above still stands */
+      }
+    }
+    return `Deploy run ${String(run.id).slice(0, 8)} — ${run.status === "completed" ? run.conclusion : run.status}\n${lines.join("\n").slice(0, 6000)}`;
   }
   const cfProject = config.cfProjectName(appId);
   const deps = await cfApi(

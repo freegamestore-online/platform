@@ -625,12 +625,19 @@ export class AgentSession implements DurableObject {
           session.files = Object.fromEntries(files);
           await this.save();
 
-          // deploy/push_update are terminal for the turn (their progress streams
-          // via deploy_status); read-type tools resume the model with results.
-          const terminal = result.infraRequests.some(
+          // A SUCCESSFUL deploy/push_update is terminal (its progress streams
+          // via deploy_status). A FAILED one resumes the model instead — it
+          // sees the error tool_result, reads get_build_logs (which now carries
+          // the actual failing lines) and fixes + re-pushes in the SAME turn.
+          // Read-type tools always resume. MAX_INFRA_ROUNDS bounds the loop.
+          const hadDeploy = result.infraRequests.some(
             (r) => r.toolCall.name === "deploy" || r.toolCall.name === "push_update",
           );
-          if (terminal || ++infraRounds >= MAX_INFRA_ROUNDS) break;
+          const deployFailed =
+            hadDeploy &&
+            (session.deployStatus?.phase === "error" || infraResults.some((r) => r.content.startsWith("Error")));
+          if (hadDeploy && !deployFailed) break;
+          if (++infraRounds >= MAX_INFRA_ROUNDS) break;
           resumeMsg = null;
         }
         } // while (resume loop)
