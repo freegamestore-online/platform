@@ -98,16 +98,22 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
   const appId = tc.input.id as string;
   const appName = tc.input.name as string;
 
-  // Uniqueness check: reject if repo already exists and this session didn't create it
-  if (!ctx.appId) {
-    const res = await fetch(`https://api.github.com/repos/${ctx.config.org}/${appId}`, {
-      headers: {
-        Authorization: `Bearer ${ctx.env.GITHUB_TOKEN}`,
-        Accept: "application/vnd.github+json",
-        "User-Agent": ctx.config.agentName,
-      },
-    });
-    if (res.status === 200) {
+  // Uniqueness / deleted-game check. A repo that exists but is ARCHIVED was
+  // deleted via delete_game — writes to it 404 ("failed to create blob"),
+  // which read as a mystery infra failure (escape, 2026-07-11). Name it.
+  const repoRes = await fetch(`https://api.github.com/repos/${ctx.config.org}/${appId}`, {
+    headers: {
+      Authorization: `Bearer ${ctx.env.GITHUB_TOKEN}`,
+      Accept: "application/vnd.github+json",
+      "User-Agent": ctx.config.agentName,
+    },
+  });
+  if (repoRes.status === 200) {
+    const repo = (await repoRes.json()) as { archived?: boolean };
+    if (repo.archived) {
+      return `Error: the ${ctx.config.noun} "${appId}" was DELETED (its repo is archived), so it can't be redeployed. Start a new ${ctx.config.noun} with a different ID instead.`;
+    }
+    if (!ctx.appId) {
       return `Error: ${ctx.config.noun} ID "${appId}" is already taken. Choose a different ID.`;
     }
   }
