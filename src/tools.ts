@@ -61,7 +61,9 @@ function resolveImport(fromPath: string, spec: string, files: Map<string, string
 export function validateImports(path: string, content: string, files: Map<string, string>): string {
   if (!/\.(ts|tsx|js|jsx)$/.test(path)) return "";
   const warnings: string[] = [];
-  const importRe = /import\s+(?:([\w$]+)\s*,?\s*)?(?:\{([^}]*)\})?\s*from\s*["']([^"']+)["']/g;
+  // `import type { X }` / `export type { X }`: the type keyword must not be
+  // captured as a default-import name (false "no default export" warnings).
+  const importRe = /import\s+(?:type\s+)?(?:([\w$]+)\s*,?\s*)?(?:\{([^}]*)\})?\s*from\s*["']([^"']+)["']/g;
   let m: RegExpExecArray | null;
   while ((m = importRe.exec(content))) {
     const [, defaultName, namedList, spec] = m;
@@ -81,6 +83,7 @@ export function validateImports(path: string, content: string, files: Map<string
         if (!name) continue;
         const exported =
           new RegExp(`export\\s+(?:declare\\s+)?(?:async\\s+)?(?:const|let|var|function|class|interface|type|enum)\\s+${name}\\b`).test(targetSrc) ||
+          new RegExp(`export\\s+(?:type\\s+)?\\{[^}]*\\b${name}\\b`).test(targetSrc) ||
           new RegExp(`export\\s*\\{[^}]*\\b${name}\\b`).test(targetSrc);
         if (!exported) {
           warnings.push(`"${spec}" does not export "${name}" — the build WILL fail. Export it there or fix this import.`);

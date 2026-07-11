@@ -8,6 +8,7 @@ import {
   getToolDefinitions,
   INFRA_TOOLS,
   looksLikePlaceholder,
+  validateImports,
   READ_FILE_HISTORY_CAP,
   WRITE_FILE_MAX_BYTES,
   WRITE_FILE_MAX_FILES,
@@ -455,5 +456,32 @@ describe("executeTool — search_files (alternation + robustness)", () => {
     const def = getToolDefinitions(gamesConfig).find((t) => t.name === "search_files")!;
     expect(def.description.toLowerCase()).toContain("alternation");
     expect(def.description).toContain("|");
+  });
+});
+
+describe("validateImports — type-only syntax", () => {
+  const project = new Map<string, string>([
+    ["web/src/types.ts", `export interface GameState { score: number }\nexport type Tile = { id: number }\ninterface Hidden {}\nexport type { Hidden }\n`],
+    ["web/src/game.ts", `export function tick() {}\n`],
+  ]);
+
+  it("does not treat the `type` keyword as a default import", () => {
+    const w = validateImports("web/src/App.tsx", `import type { GameState, Tile } from "./types";\n`, project);
+    expect(w).toBe("");
+  });
+
+  it("accepts names re-exported via `export type { ... }`", () => {
+    const w = validateImports("web/src/App.tsx", `import { Hidden } from "./types";\n`, project);
+    expect(w).toBe("");
+  });
+
+  it("still flags a genuinely missing named export", () => {
+    const w = validateImports("web/src/App.tsx", `import { missingThing } from "./game";\n`, project);
+    expect(w).toContain('does not export "missingThing"');
+  });
+
+  it("still flags a default import of a module with no default export", () => {
+    const w = validateImports("web/src/App.tsx", `import game from "./game";\n`, project);
+    expect(w).toContain("no default export");
   });
 });
