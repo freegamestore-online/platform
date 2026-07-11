@@ -26,7 +26,9 @@ export function toolSignature(tc: ToolCall): string {
 
 function createAdapter(config: AIConfig): ProviderAdapter {
   const temp = config.temperature ?? 0.7;
-  const maxTok = config.maxTokens ?? 16384;
+  // GitHub Models free tier also caps OUTPUT (~4K tokens for gpt-4o) — a 16K
+  // maxTokens request is rejected or truncated mid-file. Clamp it.
+  const maxTok = config.provider === "github" ? Math.min(config.maxTokens ?? 4000, 4000) : (config.maxTokens ?? 16384);
   switch (config.provider) {
     case "anthropic":
       return new AnthropicAdapter(config.apiKey, config.model, temp, maxTok);
@@ -113,13 +115,25 @@ export async function runAgentTurn(
     }
     systemPrompt += parts.join("\n");
   }
+  if (config.provider === "github") {
+    systemPrompt +=
+      "\n\n## FREE-TIER MODEL LIMITS (important)\n" +
+      "You are running on a small free model with tight request/response caps. " +
+      "Write VERY small files — under 100 lines each, split into many modules. " +
+      "Read only the specific file you need next. Keep prose replies to one short sentence.";
+  }
 
   // Trim conversation history to fit model context limits.
   // GitHub Models free tier limits vary by model:
   //   gpt-4.1: 8K tokens, gpt-4o/4o-mini: 16K+, others: varies
   // System prompt + 14 tools ≈ 2600 tokens.
-  const isSmallContext = config.provider === "github" && config.model.includes("gpt-4.1");
-  const MAX_HISTORY_CHARS = isSmallContext ? 6000 : config.provider === "github" ? 30000 : 80000;
+  // GitHub Models free tier caps the WHOLE request at 8K tokens for gpt-4o
+  // (not just gpt-4.1) — system prompt (~2.6K tok) + tools (~1K) + 30K chars of
+  // history (~7.5K tok) 413'd every real build ("Request body too large",
+  // 2026-07-11). Budget history so the request always fits: ~10K chars ≈ 2.5K
+  // tokens leaves headroom under the cap.
+  const isSmallContext = config.provider === "github";
+  const MAX_HISTORY_CHARS = isSmallContext ? 10000 : 80000;
 
   function msgSize(m: Message): number {
     let size = m.content?.length || 0;
@@ -342,7 +356,10 @@ export async function runAgentTurn(
       // context — read_file gets a large budget so the agent can actually see a
       // whole game file (see clampToolResultForHistory). The live SSE preview to
       // the client stays short (400 chars) — it's a status line, not the record.
-      results.push({ ...result, content: clampToolResultForHistory(tc.name, result.content) });
+      // Free tier: a 24K read_file result alone blows the 8K-token request cap —
+      // clamp every tool result much harder so the next round still fits.
+      const clamped = clampToolResultForHistory(tc.name, result.content);
+      results.push({ ...result, content: isSmallContext && clamped.length > 5000 ? `${clamped.slice(0, 5000)}\n… [trimmed for the free-tier context — read a specific section]` : clamped });
       await send({ type: "tool_result", data: JSON.stringify({ id: tc.id, tool: tc.name, result: result.content.slice(0, 400) }) });
     }
 
