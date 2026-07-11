@@ -185,6 +185,14 @@ export async function runAgentTurn(
 
   const messages: Message[] =
     userMessage === null ? [...sanitized] : [...sanitized, { role: "user", content: userMessage, ts: Date.now() }];
+  // A RESUME context can end with an ASSISTANT message (the trailing write-pair
+  // was elided by the storage budget and healed to a text breadcrumb) — Claude
+  // rejects assistant-tail conversations ("does not support assistant message
+  // prefill", maze-racer resume 2026-07-11). Append a synthetic user nudge for
+  // the provider only; it is NOT persisted to the transcript (not in newMessages).
+  if (userMessage === null && (messages.length === 0 || messages[messages.length - 1]!.role === "assistant")) {
+    messages.push({ role: "user", content: "(continue from where you left off — the files you already wrote are saved)" });
+  }
   const newMessages: Message[] = userMessage === null ? [] : [{ role: "user", content: userMessage, ts: Date.now() }];
   const infraRequests: InfraRequest[] = [];
   // Accumulate token usage across every provider round of this turn. Adapters
