@@ -38,7 +38,10 @@ export const DEFAULT_TOOL_HISTORY_CAP = 2_000;
  * agent, too large blows the context budget).
  */
 export function clampToolResultForHistory(toolName: string, content: string): string {
-  const cap = toolName === "read_file" ? READ_FILE_HISTORY_CAP : DEFAULT_TOOL_HISTORY_CAP;
+  // fetch_url gets the read_file budget: the model uses it to pull whole source
+  // files from the repo — clamped to 2KB it can never see the file, so it
+  // re-fetches forever.
+  const cap = toolName === "read_file" || toolName === "fetch_url" ? READ_FILE_HISTORY_CAP : DEFAULT_TOOL_HISTORY_CAP;
   if (content.length <= cap) return content;
   return `${content.slice(0, cap)}\n… [truncated ${content.length - cap} more chars — read a specific section, or split this file into smaller modules]`;
 }

@@ -7,6 +7,7 @@ import { getConfig } from "./config";
 import { fetchRepoFiles, fetchRepoHeadSha, fetchTemplateSeed, resolveSeedFiles, type DeployEnv, type DeployStatus } from "./deploy";
 import type { Env } from "./index";
 import { executeInfraTool } from "./infra-exec";
+import { clampToolResultForHistory } from "./tools";
 import { ownsGame } from "./ownership";
 import type { AIConfig, Message, TokenUsage } from "./providers/types";
 import { type PushSubscription, sendWebPush } from "./push";
@@ -224,7 +225,7 @@ export class AgentSession implements DurableObject {
       const adminRead =
         request.headers.get("X-Auth-Admin") === "1" &&
         request.method === "GET" &&
-        (path === "/history" || path === "/status");
+        (path === "/history" || path === "/status" || path === "/errors");
       if (!adminRead) {
         const owner = await this.state.storage.get<string>("owner");
         if (!owner) {
@@ -442,6 +443,22 @@ export class AgentSession implements DurableObject {
     // Run the agent in the background
     const turn = (async () => {
       try {
+        // A turn spans SEVERAL provider rounds when the model calls server-side
+        // infra tools (fetch_url, CI/status reads): each round's results are
+        // appended to the transcript and the model is re-invoked so it can USE
+        // them. Previously the turn ended after executing the tools — the model
+        // never saw what it fetched, so every "let me get the files" request
+        // died in silence and the user's change was never made. deploy /
+        // push_update remain terminal (their status streams separately);
+        // MAX_INFRA_ROUNDS bounds a pathological fetch loop.
+        const MAX_INFRA_ROUNDS = 6;
+        let resumeMsg: string | null = body.message;
+        let infraRounds = 0;
+        while (true) {
+        // First round rebuilds from the pre-turn snapshot (`history`) since the
+        // user message was provisionally saved above; resume rounds continue
+        // from the transcript as-is (it now ends with the infra tool_result).
+        const preTurn = resumeMsg === null ? session.messages.slice() : history;
         const sessionCtx = {
           appId: session.appId,
           appName: session.appName,
@@ -461,20 +478,24 @@ export class AgentSession implements DurableObject {
         // in-flight token stream, never a finished reply. Fire-and-forget inside
         // persistNow so it never blocks the stream.
         const checkpoint = (msgs: typeof session.messages) => {
-          session.messages = history.concat(msgs);
+          session.messages = preTurn.concat(msgs);
           if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
           session.files = Object.fromEntries(files);
           this.persistNow().catch((e) => this.logError("storage", `checkpoint persist: ${String(e)}`));
         };
-        const result = await runAgentTurn(body.aiConfig, history, body.message, files, writer, config, sessionCtx, checkpoint).catch(async (err) => {
+        const result = await runAgentTurn(body.aiConfig, preTurn, resumeMsg, files, writer, config, sessionCtx, checkpoint).catch(async (err) => {
           this.logError("agent", String(err));
           // The user message is already pre-saved above; rebuild from the
           // pre-turn snapshot (so it's never doubled) and record the failure so
           // the turn survives a reload.
-          session.messages = history.concat([
-            { role: "user", content: body.message },
-            { role: "assistant", content: `Error: ${String(err)}` },
-          ]);
+          session.messages = preTurn.concat(
+            resumeMsg === null
+              ? [{ role: "assistant", content: `Error: ${String(err)}` }]
+              : [
+                  { role: "user", content: resumeMsg },
+                  { role: "assistant", content: `Error: ${String(err)}` },
+                ],
+          );
           await this.save();
           throw err;
         });
@@ -482,7 +503,7 @@ export class AgentSession implements DurableObject {
         // Rebuild from the pre-turn snapshot: newMessages already begins with
         // the user message we pre-saved, so this supersedes the provisional save
         // without duplicating the user turn.
-        session.messages = history.concat(result.newMessages);
+        session.messages = preTurn.concat(result.newMessages);
         if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
         session.files = Object.fromEntries(files);
         // Accumulate this turn's token usage into the persisted running total
@@ -499,8 +520,11 @@ export class AgentSession implements DurableObject {
           );
         }
 
-        // Execute infra tools server-side and feed results back to agent
-        if (result.infraRequests.length > 0) {
+        // No infra tools → the model finished its reply; the turn is complete.
+        if (result.infraRequests.length === 0) break;
+
+        // Execute infra tools server-side, then loop to feed results back.
+        {
           if (!deployEnv) {
             const msg = "Server configuration error: deploy environment not available.";
             this.appendAssistantError("deploy", msg);
@@ -570,7 +594,9 @@ export class AgentSession implements DurableObject {
             }
 
             sendSSE({ type: "tool_result", data: JSON.stringify({ id: tc.id, tool: tc.name, result: toolResult.slice(0, 500) }) });
-            infraResults.push({ id: tc.id, content: toolResult.slice(0, 3000) });
+            // Same per-tool history budget as file tools: fetch_url carries whole
+            // source files — the old flat 3000-char cap starved the model.
+            infraResults.push({ id: tc.id, content: clampToolResultForHistory(tc.name, toolResult) });
           }
 
           // Merge infra results into the tool_result message the agent already
@@ -589,7 +615,16 @@ export class AgentSession implements DurableObject {
           // Persist state after all infra tools complete
           session.files = Object.fromEntries(files);
           await this.save();
+
+          // deploy/push_update are terminal for the turn (their progress streams
+          // via deploy_status); read-type tools resume the model with results.
+          const terminal = result.infraRequests.some(
+            (r) => r.toolCall.name === "deploy" || r.toolCall.name === "push_update",
+          );
+          if (terminal || ++infraRounds >= MAX_INFRA_ROUNDS) break;
+          resumeMsg = null;
         }
+        } // while (resume loop)
 
         sendSSE({ type: "done", data: "" });
       } catch (err) {

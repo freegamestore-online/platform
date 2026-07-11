@@ -104,13 +104,16 @@ export async function handleAdminCompApi(request: Request, env: Env, cors: Recor
 
   // GET /v1/admin/session-history?id=<sid> — any session's transcript, read from
   // its DO with the admin read flag (bypasses the ownership gate WITHOUT binding
-  // an owner to an unclaimed session).
-  if (path === "/v1/admin/session-history" && request.method === "GET") {
+  // an owner to an unclaimed session). /v1/admin/session-errors?id=<sid> is the
+  // same for the session's server-side error log (tool failures, provider
+  // errors, watchdog timeouts) — what the transcript alone doesn't show.
+  const doRead = path === "/v1/admin/session-history" ? "/history" : path === "/v1/admin/session-errors" ? "/errors" : null;
+  if (doRead && request.method === "GET") {
     const sid = url.searchParams.get("id") || "";
     if (!/^[a-zA-Z0-9_-]{1,64}$/.test(sid)) return json({ error: "bad session id" }, 400);
     const stub = env.SESSION.get(env.SESSION.idFromName(sid));
     const res = await stub.fetch(
-      new Request("https://do/history", {
+      new Request(`https://do${doRead}`, {
         headers: { "X-Auth-User": "internal:admin", "X-Auth-Admin": "1" },
       }),
     );

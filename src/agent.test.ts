@@ -34,7 +34,7 @@ describe("runAgentTurn — provider throw", () => {
     const result = await runAgentTurn(config, [], "Angry birds game", new Map(), drainedWriter(), getConfig("games"));
 
     // The user message is always first…
-    expect(result.newMessages[0]).toEqual({ role: "user", content: "Angry birds game" });
+    expect(result.newMessages[0]).toMatchObject({ role: "user", content: "Angry birds game" });
     // …and CRUCIALLY the thrown error is recorded as an assistant message, not
     // dropped. Before the fix, newMessages was [user] only → the session
     // persisted just the user's message and the reload showed an empty-looking

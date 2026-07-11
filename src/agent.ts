@@ -72,7 +72,9 @@ export interface SessionContext {
 export async function runAgentTurn(
   config: AIConfig,
   conversationHistory: Message[],
-  userMessage: string,
+  /** The user's message, or null to RESUME after server-side infra tools ran —
+   *  history then ends with their tool_result and the model continues from it. */
+  userMessage: string | null,
   files: Map<string, string>,
   writer: WritableStreamDefaultWriter<Uint8Array>,
   storeConfig: StoreConfig,
@@ -167,8 +169,9 @@ export async function runAgentTurn(
   // it going). Replaced with a text breadcrumb; the real file stays in the project.
   const sanitized = healPoisonedHistory(cleaned);
 
-  const messages: Message[] = [...sanitized, { role: "user", content: userMessage }];
-  const newMessages: Message[] = [{ role: "user", content: userMessage }];
+  const messages: Message[] =
+    userMessage === null ? [...sanitized] : [...sanitized, { role: "user", content: userMessage, ts: Date.now() }];
+  const newMessages: Message[] = userMessage === null ? [] : [{ role: "user", content: userMessage, ts: Date.now() }];
   const infraRequests: InfraRequest[] = [];
   // Accumulate token usage across every provider round of this turn. Adapters
   // emit "usage" StreamEvents (input on message_start, output on message_delta,
