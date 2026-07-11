@@ -265,10 +265,21 @@ export async function runAgentTurn(
     if (rateLimited) {
       retries++;
       if (retries > MAX_RETRIES) {
-        await send({ type: "error", data: "Rate limited after 3 retries. Wait a minute or switch to a BYOK provider (gear icon)." });
+        const note =
+          "Error: the AI provider rate-limited this key repeatedly, so the build stopped here. " +
+          "Progress so far is saved. Wait a minute or two and say \"continue\" — or switch provider in settings.";
+        await send({ type: "error", data: note });
+        // PERSIST the failure — this used to go only to the live stream, so a
+        // rate-limited turn died with NO transcript entry and no error log:
+        // watching admins/users saw "no activity and no errors" (2026-07-11).
+        newMessages.push({ role: "assistant", content: note, ts: Date.now() });
+        onCheckpoint?.(newMessages);
         break;
       }
-      const retryDelay = 5000 * retries; // 5s, 10s, 15s
+      // Anthropic/OpenAI rate windows are per-minute; 5/10/15s barely outlasted
+      // them while each retry re-sent the FULL context (burning the budget
+      // faster). Back off in window-sized steps instead.
+      const retryDelay = 20_000 * retries; // 20s, 40s, 60s
       await send({ type: "text", data: `\n_Rate limited — retrying in ${retryDelay / 1000}s (attempt ${retries}/${MAX_RETRIES})..._\n` });
       await new Promise((r) => setTimeout(r, retryDelay));
       loop--; // retry same iteration
