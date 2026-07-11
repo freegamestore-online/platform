@@ -305,6 +305,7 @@ export async function runAgentTurn(
       role: "assistant",
       content: assistantText,
       toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+      ts: Date.now(),
     };
     messages.push(assistantMsg);
     newMessages.push(assistantMsg);
@@ -346,6 +347,7 @@ export async function runAgentTurn(
           role: "tool_result",
           content: "",
           toolResults: results,
+          ts: Date.now(),
         };
         messages.push(fileResultMsg);
         newMessages.push(fileResultMsg);
@@ -365,6 +367,7 @@ export async function runAgentTurn(
       role: "tool_result",
       content: "",
       toolResults: results,
+      ts: Date.now(),
     };
     messages.push(toolResultMsg);
     newMessages.push(toolResultMsg);

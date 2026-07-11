@@ -418,7 +418,7 @@ export class AgentSession implements DurableObject {
     // rebuild `history.concat(newMessages)` so the provisional save is
     // superseded without duplicating the user turn.
     const history = session.messages.slice();
-    session.messages.push({ role: "user", content: body.message });
+    session.messages.push({ role: "user", content: body.message, ts: Date.now() });
     if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
     await this.save();
 
@@ -583,7 +583,7 @@ export class AgentSession implements DurableObject {
           if (lastMsg?.role === "tool_result" && lastMsg.toolResults) {
             lastMsg.toolResults.push(...infraResults);
           } else {
-            session.messages.push({ role: "tool_result", content: "", toolResults: infraResults });
+            session.messages.push({ role: "tool_result", content: "", toolResults: infraResults, ts: Date.now() });
           }
 
           // Persist state after all infra tools complete
@@ -684,6 +684,7 @@ export class AgentSession implements DurableObject {
   /** Push a message onto the transcript, keeping only the last MAX_MESSAGES. */
   private appendMessage(message: Message) {
     if (!this.session) return;
+    if (!message.ts) message.ts = Date.now();
     this.session.messages.push(message);
     if (this.session.messages.length > MAX_MESSAGES) this.session.messages = this.session.messages.slice(-MAX_MESSAGES);
   }
@@ -710,9 +711,10 @@ export class AgentSession implements DurableObject {
     const history = session.messages.map((m) => ({
       role: m.role,
       content: m.content,
+      ts: m.ts,
       toolCalls: m.toolCalls?.map((tc) => ({
         name: tc.name,
-        input: { path: tc.input.path, id: tc.input.id },
+        input: { path: tc.input.path, id: tc.input.id, name: tc.input.name },
       })),
       toolResults: m.toolResults?.map((tr) => ({
         id: tr.id,

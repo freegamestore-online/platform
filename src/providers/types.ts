@@ -52,4 +52,8 @@ export interface Message {
   toolResults?: ToolResult[];
   /** Only for assistant messages that include tool calls */
   toolCalls?: ToolCall[];
+  /** Epoch ms when the message was appended. Absent on messages stored before
+   *  timestamps shipped. Adapters rebuild provider payloads field-by-field, so
+   *  this never reaches a provider API. */
+  ts?: number;
 }
