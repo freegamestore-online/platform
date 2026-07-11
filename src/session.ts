@@ -77,7 +77,11 @@ const SESSION_SOFT_MAX_BYTES = 1.6 * 1024 * 1024;
 // (a deploy polls GitHub Actions for up to ~3 min), so this is generous — its
 // only job is to release the `chatInProgress` lock if the background turn hangs
 // past any reasonable duration, so the session isn't wedged until DO eviction.
-const TURN_DEADLINE_MS = 10 * 60_000; // 10 minutes
+// A full build turn = reads + several LARGE file writes (a big write alone can
+// stream for 4-6 min at 16K output tokens) + compliance + deploy. 10 minutes
+// killed real multi-file builds mid-write ("I got interrupted" turns, Jul 11);
+// the watchdog exists to catch HANGS, not to cap honest work.
+const TURN_DEADLINE_MS = 30 * 60_000; // 30 minutes
 
 /** One-line human summary of a deploy status snapshot for the timeline log. */
 function deployStatusDetail(status: DeployStatus): string {
@@ -435,7 +439,12 @@ export class AgentSession implements DurableObject {
     const watchdog = armWatchdog(TURN_DEADLINE_MS, () => {
       this.logError("timeout", `turn exceeded ${TURN_DEADLINE_MS / 1000}s — releasing lock`);
       this.chatInProgress = false;
-      sendSSE({ type: "error", data: "The build took too long and was stopped. Try again." });
+      // Record the kill IN THE TRANSCRIPT, not just the live stream — otherwise
+      // a watchdog death looks like silent abandonment on reload ("I got
+      // interrupted") and nobody can tell why the build stopped.
+      this.appendAssistantError("timeout", `The build ran past the ${TURN_DEADLINE_MS / 60_000}-minute limit and was stopped. Say "continue" to pick up where it left off.`);
+      this.persistNow().catch(() => {});
+      sendSSE({ type: "error", data: "The build took too long and was stopped. Say \"continue\" to pick up where it left off." });
       sendSSE({ type: "done", data: "" });
       writer.close().catch(() => {});
     });

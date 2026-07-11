@@ -91,17 +91,31 @@ export function healPoisonedHistory(messages: Message[]): Message[] {
   return out;
 }
 
-/** Replace oversized write_file tool-call `content` with a placeholder in place. */
+/** Replace oversized write_file tool-call `content` with a placeholder.
+ *
+ * CLONES the affected message (and its toolCalls) instead of mutating in
+ * place. The message objects in `session.messages` are SHARED with the live
+ * turn's in-flight context (the per-message checkpoint persists the same
+ * references) — the old in-place swap leaked this storage-only marker into
+ * the model's OWN working context mid-turn, right after a successful big
+ * write. The model then imitated the marker as the next file's content and
+ * every subsequent write was rejected by the placeholder guard (the
+ * flappyslaybird 2026-07-11 loop). Only the array slot is replaced; the
+ * turn's separate message arrays keep the original full-content objects. */
 export function stripLargeToolCallBodies(messages: Message[], toolCallMaxBytes: number): void {
-  for (const m of messages) {
-    if (m.role !== "assistant" || !m.toolCalls) continue;
-    for (const tc of m.toolCalls) {
-      const content = tc.input?.content;
-      if (tc.name === "write_file" && typeof content === "string" && content.length > toolCallMaxBytes) {
-        const path = typeof tc.input.path === "string" ? tc.input.path : "file";
-        tc.input = { ...tc.input, content: elidedBodyMarker(path) };
-      }
-    }
+  const oversized = (tc: Message["toolCalls"] extends (infer T)[] | undefined ? T : never): boolean =>
+    tc.name === "write_file" && typeof tc.input?.content === "string" && tc.input.content.length > toolCallMaxBytes;
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i]!;
+    if (m.role !== "assistant" || !m.toolCalls || !m.toolCalls.some(oversized)) continue;
+    messages[i] = {
+      ...m,
+      toolCalls: m.toolCalls.map((tc) =>
+        oversized(tc)
+          ? { ...tc, input: { ...tc.input, content: elidedBodyMarker(typeof tc.input.path === "string" ? tc.input.path : "file") } }
+          : tc,
+      ),
+    };
   }
 }
 

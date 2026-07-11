@@ -31,6 +31,26 @@ describe("stripLargeToolCallBodies", () => {
     expect(messages[0].toolCalls![0].input.content).toBe("tiny");
   });
 
+  it("never mutates the original message objects (shared with the live turn)", () => {
+    // The session's message array holds the SAME objects as the in-flight
+    // turn's context (checkpoint persists shared references). Eliding must
+    // clone — an in-place swap leaked the marker into the model's live context
+    // mid-turn, and it imitated the marker as its next file's content (the
+    // flappyslaybird 2026-07-11 rejected-write loop).
+    const body = "z".repeat(50_000);
+    const original: Message = {
+      role: "assistant",
+      content: "",
+      toolCalls: [{ id: "t1", name: "write_file", input: { path: "web/src/lib/draw.ts", content: body } }],
+    };
+    const messages: Message[] = [original];
+    stripLargeToolCallBodies(messages, 2048);
+    // The array slot got a cloned, elided message...
+    expect(messages[0].toolCalls![0].input.content).toBe(elidedBodyMarker("web/src/lib/draw.ts"));
+    // ...but the ORIGINAL object (still referenced by the live turn) is intact.
+    expect(original.toolCalls![0].input.content).toBe(body);
+  });
+
   it("does not touch non-write_file tool calls", () => {
     const big = "y".repeat(50_000);
     const messages: Message[] = [
