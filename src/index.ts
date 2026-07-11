@@ -501,12 +501,13 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       {
         prompt: z.string().describe("What to build, in plain English. Include a desired game id."),
         game_id: z.string().optional().describe("Existing game to work on: imports its repo into the session (engine-correct guidance + push_update instead of a fresh deploy). Omit when building a brand-new game."),
+        template: z.enum(["kaplay", "phaser", "3d", "pixi", "babylon", "canvas", "grid", "cards"]).optional().describe("Engine template a BRAND-NEW game session seeds from (default canvas). Ignored when game_id is set or the session already exists."),
         api_key: z.string().optional().describe("Override key. Optional — defaults to the key saved for your account in the vault. Provider must match the saved key (or pass provider)."),
         provider: z.enum(["anthropic", "openai", "google", "github"]).optional().describe("AI provider (default anthropic). Must match the saved/override key."),
         model: z.string().optional().describe("Model id"),
         session_id: z.string().optional().describe("Continue an existing build session"),
       },
-      async ({ prompt, game_id, api_key, provider, model, session_id }) => {
+      async ({ prompt, game_id, template, api_key, provider, model, session_id }) => {
         const token = this.props.token;
         if (!token) return txt("Not authenticated. Connect with a FGS session token.");
         const prov = provider ?? "anthropic";
@@ -547,7 +548,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             // Omit apiKey when not overridden so the agent resolves the account's
             // vault key server-side (session.ts: aiConfig.apiKey || resolveUserKey).
-            body: JSON.stringify({ message: prompt, aiConfig: { provider: prov, model: model ?? defaultModel[prov] ?? "claude-sonnet-4-6", ...(api_key ? { apiKey: api_key } : {}) } }),
+            body: JSON.stringify({ message: prompt, aiConfig: { provider: prov, model: model ?? defaultModel[prov] ?? "claude-sonnet-4-6", ...(api_key ? { apiKey: api_key } : {}) }, ...(template && !game_id ? { engine: template } : {}) }),
             signal: ctrl.signal,
           });
           if (!res.ok || !res.body) {
