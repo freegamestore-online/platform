@@ -12,7 +12,8 @@
 export const INFRA_REPOS = new Set([
   "freegamestore", "submissions", "template-game-canvas", "template-game-3d",
   "template-game-grid", "template-game-cards", "template-game-kaplay",
-  "template-game-phaser", "brand", "ops", "sdk",
+  "template-game-phaser", "template-game-pixi", "template-game-babylon",
+  "brand", "ops", "sdk",
 ]);
 
 /** Returns an error string if `id` is not a provisionable game id, else null. */
