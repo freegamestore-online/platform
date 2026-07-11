@@ -791,6 +791,64 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       },
     );
 
+    // -- admin_list_sessions (org admins: every user's sessions) --
+    this.server.tool(
+      "admin_list_sessions",
+      "PLATFORM ADMINS (org members) ONLY: list EVERY user's VibeCode sessions across the platform — who built what, token spend, last activity. Pair with admin_session_history to read any transcript. Non-admins get 403.",
+      {},
+      async () => {
+        const token = this.props.token;
+        if (!token) return txt("Not authenticated. Connect with a FGS session token.");
+        const res = await withTimeout((signal) => fetch(`${this.env.AGENT_BASE}/admin/sessions`, {
+          headers: { "X-FGS-Token": token, Authorization: `Bearer ${token}` }, signal,
+        }));
+        if (res.status === 403) return txt("Forbidden — this tool is for platform admins (GitHub org members) only.");
+        if (!res.ok) return txt(`Could not list sessions (${res.status}).`);
+        let data: { sessions?: Array<{ id: string; user: string; name: string; gameId?: string; deployed?: boolean; tokens?: { input: number; output: number }; updatedAt?: string }> };
+        try { data = (await res.json()) as typeof data; } catch { return txt("Admin sessions returned invalid JSON."); }
+        const sessions = data.sessions ?? [];
+        if (!sessions.length) return txt("No sessions recorded on the platform yet.");
+        const lines = sessions.map((s, i) =>
+          `${i + 1}. **${s.name || "Untitled"}** by \`${s.user}\` — \`${s.id}\`${s.gameId ? ` · game: ${s.gameId}` : ""}${s.deployed ? " · deployed" : " · draft"}${s.updatedAt ? ` · ${s.updatedAt}` : ""}`,
+        );
+        return txt(`${sessions.length} session(s) platform-wide, newest first:\n\n${lines.join("\n")}\n\nUse admin_session_history with a session id to read any chat.`);
+      },
+    );
+
+    // -- admin_session_history (org admins: read anyone's transcript) --
+    this.server.tool(
+      "admin_session_history",
+      "PLATFORM ADMINS (org members) ONLY: read the full chat transcript of ANY user's VibeCode session by id (from admin_list_sessions). Read-only. Non-admins get 403.",
+      { session_id: z.string().describe("VibeCode session id (any user's)") },
+      async ({ session_id }) => {
+        const token = this.props.token;
+        if (!token) return txt("Not authenticated. Connect with a FGS session token.");
+        // ?admin=1 asks the agent worker to verify org membership and pass the
+        // read-only admin flag to the session DO (bypasses the ownership gate
+        // for GET history/status only).
+        const res = await withTimeout((signal) => fetch(`${this.env.AGENT_BASE}/session/${encodeURIComponent(session_id)}/history?admin=1`, {
+          headers: { "X-FGS-Token": token, Authorization: `Bearer ${token}` }, signal,
+        }));
+        if (res.status === 403) return txt("Forbidden — you don't own this session and aren't a platform admin (org member).");
+        if (!res.ok) return txt(`Could not fetch history (${res.status}).`);
+        let data: { messages?: Array<{ role: string; content?: string; toolCalls?: Array<{ name: string }> }>; appId?: string | null; appName?: string | null };
+        try { data = (await res.json()) as typeof data; } catch { return txt("History returned invalid JSON."); }
+        const msgs = data.messages ?? [];
+        if (!msgs.length) return txt(`Session \`${session_id}\` has no messages (empty or unknown session id).`);
+        const out = msgs.map((m) => {
+          const c = (m.content || "").slice(0, 2000);
+          if (m.role === "user") return `**User:** ${c}`;
+          if (m.role === "assistant") {
+            const tools = (m.toolCalls ?? []).map((t) => `\`${t.name}\``).join(", ");
+            return `**AI:** ${c}${tools ? `\n  _(tools: ${tools})_` : ""}`;
+          }
+          return `_${m.role}:_ ${(m.content || "").slice(0, 500)}`;
+        });
+        const header = data.appName || data.appId ? `Game: **${data.appName || data.appId}**\n\n` : "";
+        return txt(`Transcript of \`${session_id}\` (${msgs.length} messages):\n\n${header}${out.join("\n\n")}`);
+      },
+    );
+
     // -- delete_game (delete a live game you own) --
     this.server.tool(
       "delete_game",
