@@ -91,6 +91,53 @@ export function healPoisonedHistory(messages: Message[]): Message[] {
   return out;
 }
 
+
+/** Fit the LIVE turn context under a total char budget (free-tier request
+ *  caps). Clone-safe like stripLargeToolCallBodies: array slots are replaced,
+ *  the original message objects (shared with newMessages/storage) are never
+ *  mutated. Order: elide big write bodies → clamp big tool results → drop
+ *  oldest messages (keeping tool_use/tool_result pairs intact). */
+export function fitLiveContext(messages: Message[], maxChars: number): void {
+  stripLargeToolCallBodies(messages, 2000);
+
+  const size = (m: Message): number =>
+    (m.content?.length || 0) +
+    (m.toolCalls ? JSON.stringify(m.toolCalls).length : 0) +
+    (m.toolResults ? JSON.stringify(m.toolResults).length : 0);
+
+  let total = messages.reduce((n, m) => n + size(m), 0);
+  if (total <= maxChars) return;
+
+  // Clamp oversized tool results (cloned).
+  for (let i = 0; i < messages.length && total > maxChars; i++) {
+    const m = messages[i]!;
+    if (m.role !== "tool_result" || !m.toolResults) continue;
+    if (!m.toolResults.some((tr) => tr.content.length > 2000)) continue;
+    const before = size(m);
+    messages[i] = {
+      ...m,
+      toolResults: m.toolResults.map((tr) =>
+        tr.content.length > 2000 ? { ...tr, content: `${tr.content.slice(0, 2000)}\n… [trimmed to fit the free-tier context]` } : tr,
+      ),
+    };
+    total += size(messages[i]!) - before;
+  }
+
+  // Drop oldest messages, never splitting a tool_use/tool_result pair and
+  // never dropping the final (current) user message.
+  while (total > maxChars && messages.length > 2) {
+    const first = messages[0]!;
+    const dropPair = first.role === "assistant" && first.toolCalls?.length && messages[1]?.role === "tool_result";
+    const dropped = dropPair ? messages.splice(0, 2) : messages.splice(0, 1);
+    total -= dropped.reduce((n, m) => n + size(m), 0);
+  }
+  // A leading orphaned tool_result 400s the provider — drop it.
+  while (messages.length > 1 && messages[0]!.role === "tool_result") {
+    total -= size(messages[0]!);
+    messages.shift();
+  }
+}
+
 /** Replace oversized write_file tool-call `content` with a placeholder.
  *
  * CLONES the affected message (and its toolCalls) instead of mutating in

@@ -6,7 +6,7 @@ import { GitHubModelsAdapter } from "./providers/github";
 import { GoogleAdapter } from "./providers/google";
 import { OpenAIAdapter } from "./providers/openai";
 import type { AIConfig, Message, ProviderAdapter, StreamEvent, TokenUsage, ToolCall, ToolResult } from "./providers/types";
-import { healPoisonedHistory, stripLargeToolCallBodies } from "./session-budget";
+import { fitLiveContext, healPoisonedHistory } from "./session-budget";
 import { getSystemPrompt, detectEngine } from "./template";
 import { clampToolResultForHistory, executeTool, getToolDefinitions, INFRA_TOOLS } from "./tools";
 
@@ -228,12 +228,11 @@ export async function runAgentTurn(
       await new Promise((r) => setTimeout(r, delay));
     }
 
-    // Free tier: a completed write_file this turn carries its FULL content in
-    // the live context and blows the 8K-token request cap on the very next
-    // round (the file is already saved in the project). Elide it with the
-    // clone-safe marker — newMessages keeps the originals for storage, and the
-    // placeholder guard rejects any imitation of the marker.
-    if (isSmallContext && loop > 0) stripLargeToolCallBodies(messages, 2000);
+    // Free tier: fit the whole live context under the 8K-token request cap —
+    // completed write bodies elided, big read results clamped, oldest rounds
+    // dropped (all clone-safe; storage keeps the originals). Several 5K read
+    // results in one round still 413'd with per-item clamps alone.
+    if (isSmallContext && loop > 0) fitLiveContext(messages, 14000);
 
     let assistantText = "";
     const toolCalls: ToolCall[] = [];
