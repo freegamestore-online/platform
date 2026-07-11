@@ -11,6 +11,7 @@
 import type { Env } from "./index";
 import { COMP_PROVIDERS, compKeyFor, grantComp, listComp, revokeComp } from "./keygrants";
 import { deleteUserKey, isValidProvider, saveUserKey } from "./keys";
+import { listAllSessions } from "./sessions";
 
 export async function handleAdminCompApi(request: Request, env: Env, cors: Record<string, string>): Promise<Response | null> {
   const url = new URL(request.url);
@@ -93,6 +94,30 @@ export async function handleAdminCompApi(request: Request, env: Env, cors: Recor
     if (!userId || !provider) return json({ error: "userId and provider are required" }, 400);
     await deleteUserKey(env, userId, provider);
     return json({ ok: true });
+  }
+
+  // GET /v1/admin/sessions — every user's VibeCode sessions (the admin console's
+  // Sessions tab). Same data as the org-member-gated /admin/sessions.
+  if (path === "/v1/admin/sessions" && request.method === "GET") {
+    return json({ sessions: await listAllSessions(env.DB) });
+  }
+
+  // GET /v1/admin/session-history?id=<sid> — any session's transcript, read from
+  // its DO with the admin read flag (bypasses the ownership gate WITHOUT binding
+  // an owner to an unclaimed session).
+  if (path === "/v1/admin/session-history" && request.method === "GET") {
+    const sid = url.searchParams.get("id") || "";
+    if (!/^[a-zA-Z0-9_-]{1,64}$/.test(sid)) return json({ error: "bad session id" }, 400);
+    const stub = env.SESSION.get(env.SESSION.idFromName(sid));
+    const res = await stub.fetch(
+      new Request("https://do/history", {
+        headers: { "X-Auth-User": "internal:admin", "X-Auth-Admin": "1" },
+      }),
+    );
+    return new Response(await res.text(), {
+      status: res.status,
+      headers: { "Content-Type": "application/json", ...cors },
+    });
   }
 
   if (path === "/v1/admin/comp" && request.method === "GET") {

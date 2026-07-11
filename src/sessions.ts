@@ -163,13 +163,18 @@ export async function handleAdminSessionsApi(
     return json({ error: "forbidden — org admins only" }, 403);
   }
 
-  await ensureSchema(env.DB);
-  const { results } = await env.DB.prepare(
+  return json({ sessions: await listAllSessions(env.DB) });
+}
+
+/** Every user's session index rows, newest first — the admin view. */
+export async function listAllSessions(db: D1Database): Promise<Record<string, unknown>[]> {
+  await ensureSchema(db);
+  const { results } = await db.prepare(
     `SELECT user_id, user_login, session_id, title, game_id, game_url, deployed,
             input_tokens, output_tokens, created_at, updated_at
      FROM agent_sessions ORDER BY updated_at DESC LIMIT 500`,
   ).all();
-  const sessions = (results as Record<string, unknown>[]).map((r) => ({
+  return (results as Record<string, unknown>[]).map((r) => ({
     id: r.session_id,
     user: (r.user_login as string) || (r.user_id as string),
     userId: r.user_id,
@@ -181,7 +186,6 @@ export async function handleAdminSessionsApi(
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }));
-  return json({ sessions });
 }
 
 export async function resolveUser(
