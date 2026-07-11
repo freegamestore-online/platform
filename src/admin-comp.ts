@@ -14,7 +14,7 @@ import { COMP_PROVIDERS, compKeyFor, grantComp, listComp, revokeComp } from "./k
 import { deleteUserKey, isValidProvider, saveUserKey } from "./keys";
 import { isOrgAdmin, listAllSessions, resolveUser } from "./sessions";
 
-export async function handleAdminCompApi(request: Request, env: Env, cors: Record<string, string>): Promise<Response | null> {
+export async function handleAdminCompApi(request: Request, env: Env, cors: Record<string, string>, ctx?: ExecutionContext): Promise<Response | null> {
   const url = new URL(request.url);
   const path = url.pathname;
   if (!path.startsWith("/v1/admin/")) return null;
@@ -207,9 +207,29 @@ export async function handleAdminCompApi(request: Request, env: Env, cors: Recor
         body: JSON.stringify({ message, aiConfig: { provider, model, temperature: 0.7, maxTokens: 16384 } }),
       }),
     );
-    // Pass the SSE stream through untouched — the caller may hold it open to
-    // completion or drop it (the DO's waitUntil keeps the turn alive either way).
-    return new Response(res.body, { status: res.status, headers: { "Content-Type": res.headers.get("Content-Type") || "text/event-stream", ...cors } });
+    // KEEP THE TURN ALIVE INDEPENDENT OF THE CALLER. In practice a turn dies a
+    // few minutes after its client disconnects (the DO gets evicted along with
+    // its in-memory watchdog — a silent zombie; flappybird/sliceit 2026-07-11).
+    // tee() the stream: the caller gets its live trace and may abort whenever;
+    // the worker drains the second branch via waitUntil until the turn truly
+    // finishes, keeping the DO's response stream connected the whole way.
+    const sseHeaders = { "Content-Type": res.headers.get("Content-Type") || "text/event-stream", ...cors };
+    if (ctx && res.body) {
+      const [toCaller, toDrain] = res.body.tee();
+      ctx.waitUntil(
+        (async () => {
+          const reader = toDrain.getReader();
+          try {
+            for (;;) {
+              const { done } = await reader.read();
+              if (done) break;
+            }
+          } catch { /* stream errored — the turn's own error handling owns it */ }
+        })(),
+      );
+      return new Response(toCaller, { status: res.status, headers: sseHeaders });
+    }
+    return new Response(res.body, { status: res.status, headers: sseHeaders });
   }
 
   if (path === "/v1/admin/comp" && request.method === "GET") {

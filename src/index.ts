@@ -54,7 +54,7 @@ function corsHeaders(request: Request, domain: string): Record<string, string> {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const config = getConfig(env.STORE);
 
     if (request.method === "OPTIONS") {
@@ -78,7 +78,7 @@ export default {
 
     // Internal admin: complimentary grants — /v1/admin/comp (INTERNAL_TOKEN gated,
     // called by the admin worker over its service binding).
-    const compResp = await handleAdminCompApi(request, env, corsHeaders(request, config.domain));
+    const compResp = await handleAdminCompApi(request, env, corsHeaders(request, config.domain), ctx);
     if (compResp) return compResp;
 
     // Kid-friendly message rewrite (free tier, platform token) — POST /kidify
