@@ -180,6 +180,7 @@ export function renderDashboardShell(): string {
         <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem">
           <h3 id="sessModalTitle" style="flex:1;font-size:1rem"></h3>
           <span id="sessLive" class="gray" style="font-size:0.72rem"></span>
+          <button onclick="toggleSessErrors()" id="sessErrBtn" style="background:#3a1e1e;color:#fca5a5;border:1px solid #5a2a2a;border-radius:0.35rem;padding:0.3rem 0.7rem;cursor:pointer;font-size:0.78rem">Errors</button>
           <button onclick="closeSessModal()" style="background:#2a2a2a;color:#ccc;border:1px solid #3a3a3a;border-radius:0.35rem;padding:0.3rem 0.7rem;cursor:pointer">Close</button>
         </div>
         <div id="sessModalBody" style="flex:1;overflow-y:auto;font-size:0.85rem;line-height:1.5"></div>
@@ -364,6 +365,23 @@ export function renderDashboardShell(): string {
       else if(mode==='bottom'||nearBottom)body.scrollTop=body.scrollHeight;
     }
     function loadEarlierSess(){if(!sessCur)return;sessCur.win+=SESS_PAGE;renderSessBody('prepend')}
+    // Server-side error log for the open session (tool failures, provider
+    // errors, watchdog timeouts) — what the transcript alone doesn't show.
+    async function toggleSessErrors(){
+      if(!sessCur)return;
+      var body=document.getElementById('sessModalBody');
+      if(sessCur.showErrors){sessCur.showErrors=false;renderSessBody('bottom');return}
+      sessCur.showErrors=true;
+      body.innerHTML='<span class="loading">Loading error log...</span>';
+      try{
+        var r=await fetch('/api/sessionerrors?id='+encodeURIComponent(sessCur.sid),{credentials:'include'});
+        if(!r.ok){body.innerHTML='<span class="red">Failed ('+r.status+')</span>';return}
+        var d=await r.json();var errs=d.errors||[];
+        body.innerHTML=(errs.length?errs.map(function(e){
+          return '<div style="margin:0.5rem 0;padding:0.5rem 0.75rem;background:#140f0f;border:1px solid #3a1e1e;border-radius:0.5rem"><span class="src-tag">'+esc(e.source||'?')+'</span> <span class="gray" style="font-size:0.72rem">'+esc(e.timestamp||e.ts||'')+'</span><pre style="white-space:pre-wrap;font-size:0.75rem;color:#fca5a5;margin-top:0.3rem">'+esc((e.message||'').slice(0,2000))+'</pre></div>';
+        }).join(''):'<span class="green">No server-side errors for this session.</span>')+'<p class="meta" style="margin-top:0.75rem">Click Errors again to return to the transcript.</p>';
+      }catch(e){body.innerHTML='<span class="red">'+esc(e)+'</span>'}
+    }
     async function fetchSess(sid){
       var r=await fetch('/api/sessionhistory?id='+encodeURIComponent(sid),{credentials:'include'});
       if(!r.ok)throw new Error('HTTP '+r.status);

@@ -607,7 +607,7 @@ export default {
     //   GET    /api/comp            → list grants + which providers are funded
     //   POST   /api/comp            → { login, provider, model, note?, expiresAt? }
     //   DELETE /api/comp/:userId    → revoke (userId = github:<id>)
-    if (url.pathname === "/api/comp" || url.pathname.startsWith("/api/comp/") || url.pathname === "/api/allusers" || url.pathname.startsWith("/api/userkey") || url.pathname === "/api/sessions" || url.pathname === "/api/sessionhistory") {
+    if (url.pathname === "/api/comp" || url.pathname.startsWith("/api/comp/") || url.pathname === "/api/allusers" || url.pathname.startsWith("/api/userkey") || url.pathname === "/api/sessions" || url.pathname === "/api/sessionhistory" || url.pathname === "/api/sessionerrors") {
       const { email, isAdmin } = await authenticateAdmin(request, env);
       if (!isAdmin) return jsonResponse({ error: "unauthorized" }, 401, request);
       if (!env.AGENT || !env.INTERNAL_TOKEN) {
@@ -622,6 +622,8 @@ export default {
         ? "/v1/admin/sessions"
         : url.pathname === "/api/sessionhistory"
         ? "/v1/admin/session-history" + url.search
+        : url.pathname === "/api/sessionerrors"
+        ? "/v1/admin/session-errors" + url.search
         : url.pathname.startsWith("/api/userkey")
         ? url.pathname.replace(/^\/api\/userkey/, "/v1/admin/userkey")
         : url.pathname.replace(/^\/api\/comp/, "/v1/admin/comp");
