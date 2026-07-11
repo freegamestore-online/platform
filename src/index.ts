@@ -849,6 +849,74 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       },
     );
 
+    // -- admin_send_prompt (org admins: chat into any user's session as them) --
+    this.server.tool(
+      "admin_send_prompt",
+      "PLATFORM ADMINS (org members) ONLY: send a prompt INTO any user's VibeCode session ON THEIR BEHALF — the platform agent runs the turn in their session with their key (auto-picked server-side), and the message lands in their transcript as if they typed it. Streams up to ~110s of progress, then the turn continues server-side; follow with admin_session_history. Non-admins get 403.",
+      {
+        session_id: z.string().describe("VibeCode session id (any user's, from admin_list_sessions)"),
+        prompt: z.string().describe("What to ask the agent to do, in plain English"),
+        provider: z.enum(["anthropic", "openai", "google", "github"]).optional().describe("Override provider — default: whatever the session owner can use (vault key → grant → free tier)"),
+      },
+      async ({ session_id, prompt, provider }) => {
+        const token = this.props.token;
+        if (!token) return txt("Not authenticated. Connect with a FGS session token.");
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 110_000);
+        const trace: string[] = [];
+        let timedOut = false;
+        try {
+          const res = await fetch(`${this.env.AGENT_BASE}/v1/admin/session-chat?id=${encodeURIComponent(session_id)}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-FGS-Token": token, Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ message: prompt, ...(provider ? { provider } : {}) }),
+            signal: ctrl.signal,
+          });
+          if (res.status === 403) { clearTimeout(timer); return txt("Forbidden — this tool is for platform admins (GitHub org members) only."); }
+          if (!res.ok || !res.body) { clearTimeout(timer); return txt(`Admin chat failed (${res.status}): ${(await res.text().catch(() => "")).slice(0, 300)}`); }
+          const reader = res.body.getReader();
+          const dec = new TextDecoder();
+          let buf = "";
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += dec.decode(value, { stream: true });
+            const parts = buf.split("\n\n");
+            buf = parts.pop() ?? "";
+            for (const p of parts) {
+              const line = p.split("\n").find((l) => l.startsWith("data: "));
+              if (!line) continue;
+              try {
+                const ev = JSON.parse(line.slice(6));
+                if (ev.type === "tool_call") {
+                  const tc = JSON.parse(ev.data);
+                  trace.push(`tool: ${tc.name}${tc.input?.path ? " " + tc.input.path : tc.input?.id ? " " + tc.input.id : ""}`);
+                } else if (ev.type === "deploy_status") {
+                  const d = typeof ev.data === "string" ? JSON.parse(ev.data) : ev.data;
+                  if (d.phase) trace.push(`deploy: ${d.phase}`);
+                } else if (ev.type === "error") {
+                  trace.push(`ERROR: ${String(ev.data).slice(0, 300)}`);
+                }
+              } catch { /* skip malformed event */ }
+            }
+          }
+        } catch (e) {
+          if ((e as Error).name === "AbortError") timedOut = true;
+          else { clearTimeout(timer); return txt(`Admin chat error: ${String(e).slice(0, 300)}`); }
+        } finally {
+          clearTimeout(timer);
+        }
+        const traceTxt = trace.length ? `\n\nTurn trace:\n${trace.map((t) => `- ${t}`).join("\n")}` : "";
+        return txt(
+          (timedOut
+            ? `Prompt sent into \`${session_id}\` — the turn is STILL RUNNING server-side (streamed 110s of progress).`
+            : `Prompt sent into \`${session_id}\` — turn finished.`) +
+            traceTxt +
+            `\n\nRead the full transcript with admin_session_history.`,
+        );
+      },
+    );
+
     // -- delete_game (delete a live game you own) --
     this.server.tool(
       "delete_game",

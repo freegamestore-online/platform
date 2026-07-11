@@ -69,6 +69,10 @@
     {
       "name": "admin_session_history",
       "description": "Platform admins (org members) only: read any user's VibeCode chat transcript"
+    },
+    {
+      "name": "admin_send_prompt",
+      "description": "Platform admins (org members) only: send a prompt into any user's session on their behalf"
     }
   ]
 }
