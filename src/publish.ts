@@ -32,7 +32,7 @@ interface PublishRequest {
   oneliner?: string;
   type?: string;
   creatorGithub?: string;
-  /** Engine/starter key (kaplay|phaser|3d|canvas|grid|cards). Defaults to canvas. */
+  /** Engine/starter key (kaplay|phaser|3d|pixi|babylon|canvas|grid|cards). Defaults to canvas. */
   template?: string;
   /** Remix: id of an existing published game to seed this one from (all free
    *  games are MIT). The new game inherits the source's engine and its web/src
@@ -139,7 +139,8 @@ async function ghApi(env: PublishEnv, path: string, method = "GET", body?: any) 
 const INFRA_REPOS = new Set([
   "freegamestore", "submissions", "template-game-canvas", "template-game-3d",
   "template-game-grid", "template-game-cards", "template-game-kaplay",
-  "template-game-phaser", "brand", "ops", "sdk",
+  "template-game-phaser", "template-game-pixi", "template-game-babylon",
+  "brand", "ops", "sdk",
 ]);
 
 function validateId(id: string): string | null {
@@ -289,7 +290,10 @@ async function resolveSourceEngine(env: PublishEnv, org: string, sourceId: strin
     const deps = { ...pkg.dependencies, ...pkg.devDependencies };
     if (deps["phaser"]) return "phaser";
     if (deps["kaplay"]) return "kaplay";
-    if (deps["@react-three/fiber"] || deps["three"]) return "3d";
+    if (deps["@react-three/fiber"]) return "3d";
+    if (deps["pixi.js"]) return "pixi";
+    if (deps["@babylonjs/core"]) return "babylon";
+    if (deps["three"]) return "3d";
     return "canvas";
   } catch {
     return "";
