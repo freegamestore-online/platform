@@ -123,6 +123,63 @@ export async function handleAdminCompApi(request: Request, env: Env, cors: Recor
     });
   }
 
+  // POST /v1/admin/session-chat?id=<sid> { message, provider?, model? } — send a
+  // prompt INTO a user's session ON THEIR BEHALF: the DO runs the turn with the
+  // owner's identity, so their vault key / grant / free tier is used and the
+  // message lands in their transcript exactly as if they typed it. The admin
+  // watches the turn via the live transcript view. Provider defaults to
+  // whatever the owner can actually use (vault key → comp grant → free tier).
+  if (path === "/v1/admin/session-chat" && request.method === "POST") {
+    const sid = url.searchParams.get("id") || "";
+    if (!/^[a-zA-Z0-9_-]{1,64}$/.test(sid)) return json({ error: "bad session id" }, 400);
+    const body = (await request.json().catch(() => ({}))) as { message?: string; provider?: string; model?: string };
+    const message = String(body.message || "").trim();
+    if (!message) return json({ error: "message is required" }, 400);
+
+    const ownerRow = await env.DB.prepare("SELECT user_id FROM agent_sessions WHERE session_id = ? LIMIT 1")
+      .bind(sid)
+      .first<{ user_id: string }>();
+    if (!ownerRow?.user_id) return json({ error: "session not found in the index" }, 404);
+    const owner = ownerRow.user_id;
+
+    let provider = body.provider ? String(body.provider).toLowerCase() : "";
+    if (!provider) {
+      const keyRow = await env.DB.prepare("SELECT provider FROM user_api_keys WHERE user_id = ? LIMIT 1")
+        .bind(owner)
+        .first<{ provider: string }>()
+        .catch(() => null);
+      if (keyRow?.provider) provider = keyRow.provider;
+      else {
+        const grant = (await listComp(env)).find((g) => g.userId === owner);
+        provider = grant?.provider || "github";
+      }
+    }
+    const DEFAULT_MODELS: Record<string, string> = {
+      anthropic: "claude-sonnet-4-6",
+      openai: "gpt-4o",
+      google: "gemini-2.5-flash",
+      github: "openai/gpt-4o",
+    };
+    const model = body.model ? String(body.model) : DEFAULT_MODELS[provider] || DEFAULT_MODELS.github!;
+
+    const stub = env.SESSION.get(env.SESSION.idFromName(sid));
+    const res = await stub.fetch(
+      new Request("https://do/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Auth-User": owner,
+          "X-Session-Id": sid,
+          "X-Auth-Login": "",
+        },
+        body: JSON.stringify({ message, aiConfig: { provider, model, temperature: 0.7, maxTokens: 16384 } }),
+      }),
+    );
+    // Pass the SSE stream through untouched — the caller may hold it open to
+    // completion or drop it (the DO's waitUntil keeps the turn alive either way).
+    return new Response(res.body, { status: res.status, headers: { "Content-Type": res.headers.get("Content-Type") || "text/event-stream", ...cors } });
+  }
+
   if (path === "/v1/admin/comp" && request.method === "GET") {
     const grants = await listComp(env);
     const funded = [...COMP_PROVIDERS].filter((p) => !!compKeyFor(env, p));
