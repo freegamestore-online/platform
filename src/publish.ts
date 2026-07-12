@@ -32,7 +32,7 @@ interface PublishRequest {
   oneliner?: string;
   type?: string;
   creatorGithub?: string;
-  /** Engine/starter key (kaplay|phaser|3d|pixi|babylon|canvas|grid|cards). Defaults to canvas. */
+  /** Engine/starter key (kaplay|phaser|3d|pixi|babylon|excalibur|littlejs|canvas|grid|cards). Defaults to canvas. */
   template?: string;
   /** Remix: id of an existing published game to seed this one from (all free
    *  games are MIT). The new game inherits the source's engine and its web/src
@@ -51,7 +51,9 @@ const TEMPLATE_REPOS: Record<string, string> = {
   phaser: "template-game-phaser", // production-grade 2D engine
   "3d": "template-game-3d", // Three.js + react-three-fiber (3D)
   pixi: "template-game-pixi", // Pixi.js v8 — WebGL 2D
-  babylon: "template-game-babylon", // Babylon.js v7 — advanced 3D
+  babylon: "template-game-babylon", // Babylon.js v9 — advanced 3D
+  excalibur: "template-game-excalibur", // Excalibur — TS-native actor-based 2D
+  littlejs: "template-game-littlejs", // LittleJS — tiny all-in-one arcade (particles+sfx built in)
 };
 
 /** Lowercase a display name into a valid slug (matches validateId rules). */
@@ -140,6 +142,7 @@ const INFRA_REPOS = new Set([
   "freegamestore", "submissions", "template-game-canvas", "template-game-3d",
   "template-game-grid", "template-game-cards", "template-game-kaplay",
   "template-game-phaser", "template-game-pixi", "template-game-babylon",
+  "template-game-excalibur", "template-game-littlejs",
   "brand", "ops", "sdk",
 ]);
 
@@ -295,6 +298,8 @@ async function resolveSourceEngine(env: PublishEnv, org: string, sourceId: strin
     if (deps["@react-three/fiber"]) return "3d";
     if (deps["pixi.js"]) return "pixi";
     if (deps["@babylonjs/core"]) return "babylon";
+    if (deps["excalibur"]) return "excalibur";
+    if (deps["littlejsengine"]) return "littlejs";
     if (deps["three"]) return "3d";
     return "canvas";
   } catch {
