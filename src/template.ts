@@ -695,8 +695,10 @@ Structure:
 - web/src/App.tsx — \`new Engine({ canvasElement, displayMode: DisplayMode.FillContainer })\`, add actors/scenes, \`game.start()\`, \`game.dispose()\` in cleanup.
 - Game objects: \`class Player extends Actor { onInitialize(engine) {...} onPreUpdate(engine, delta) {...} }\` — pos/vel/rotation/graphics/collision are built-in typed properties (\`vec(x, y)\`, \`Color.fromHex(...)\`).
 - Collisions: set \`actor.body.collisionType = CollisionType.Active/Fixed/Passive\`; react with \`actor.on("collisionstart", (evt) => ...)\`.
-- Input: \`engine.input.pointers.primary.on("move"/"down", ...)\`; \`engine.input.keyboard.isHeld(Keys.Left)\`.
+- Input: \`engine.input.pointers.primary.on("move"/"down", ...)\`; \`engine.input.keyboard.isHeld(Keys.Left)\`, \`.wasPressed(Keys.Space)\`. There is NO top-level \`Input\` export — do NOT \`import { Input }\`; input is only reached through \`engine.input\`. Import \`Keys\` for key constants.
+- Text/labels: use the \`Label\` game object — \`new Label({ text: "Score: 0", pos: vec(x, y), color: Color.White, font: new Font({ size: 24, family: "Manrope", textAlign: TextAlign.Center }) })\`, then \`scene.add(label)\` and update \`label.text\`. There is NO \`graphics.useText()\` — for a graphic use \`actor.graphics.use(new Text({ text, font }))\`. \`TextAlign\` is an ENUM (\`TextAlign.Center\`), never the string "center".
 - Scenes: \`game.addScene("play", scene)\` + \`game.goToScene("play")\` for menus/levels. Timers: \`new Timer({ interval, repeats: true, fcn })\` added to the scene.
+- Import every name you use from "excalibur" and use it (the template builds with noUnusedLocals — an unused import fails the build).
 Prefer small Actor subclasses in web/src/actors/*.ts over one giant file. Excalibur is pre-installed in its own vendor chunk — do not add npm deps (frozen lockfile).`,
   littlejs: `## Your engine: LittleJS (tiny all-in-one 2D)
 This game runs on LittleJS — a tiny arcade engine with the renderer, physics, PARTICLES and procedural ZzFX SOUND all built in. Everything is generated in code: a juicy game with zero asset files. The template boots the engine into a container inside a local Shell component (web/src/components/Shell.tsx — NOT the SDK GameShell).
