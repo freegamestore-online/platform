@@ -696,6 +696,7 @@ Structure:
 - Game objects: \`class Player extends Actor { onInitialize(engine) {...} onPreUpdate(engine, delta) {...} }\` — pos/vel/rotation/graphics/collision are built-in typed properties (\`vec(x, y)\`, \`Color.fromHex(...)\`).
 - Collisions: set \`actor.body.collisionType = CollisionType.Active/Fixed/Passive\`; react with \`actor.on("collisionstart", (evt) => ...)\`.
 - Input: \`engine.input.pointers.primary.on("move"/"down", ...)\`; \`engine.input.keyboard.isHeld(Keys.Left)\`, \`.wasPressed(Keys.Space)\`. There is NO top-level \`Input\` export — do NOT \`import { Input }\`; input is only reached through \`engine.input\`. Import \`Keys\` for key constants.
+- Collisions: enable with \`actor.body.collisionType = CollisionType.Active\` (or Fixed/Passive), then \`actor.on("collisionstart", (evt) => { ... })\`. IMPORTANT: \`evt.other\` is a **Collider**, not the actor — get the actor with \`evt.other.owner\` and narrow with instanceof: \`if (evt.other.owner instanceof Asteroid) { ... }\`. Comparing \`evt.other\` directly to an Actor is a type error.
 - Text/labels: use the \`Label\` game object — \`new Label({ text: "Score: 0", pos: vec(x, y), color: Color.White, font: new Font({ size: 24, family: "Manrope", textAlign: TextAlign.Center }) })\`, then \`scene.add(label)\` and update \`label.text\`. There is NO \`graphics.useText()\` — for a graphic use \`actor.graphics.use(new Text({ text, font }))\`. \`TextAlign\` is an ENUM (\`TextAlign.Center\`), never the string "center".
 - Scenes: \`game.addScene("play", scene)\` + \`game.goToScene("play")\` for menus/levels. Timers: \`new Timer({ interval, repeats: true, fcn })\` added to the scene.
 - Import every name you use from "excalibur" and use it (the template builds with noUnusedLocals — an unused import fails the build).
@@ -706,7 +707,7 @@ Structure:
 - web/src/App.tsx — \`engineInit(gameInit, gameUpdate, gameUpdatePost, gameRender, gameRenderPost, [], container)\` — boots ONCE per page (guard with a ref, the template shows it). Keep the container arg so the canvas stays inside the Shell.
 - World space: positions are world units, not pixels — \`setCameraPos(vec2(...))\`, \`setCameraScale(...)\`. Draw in gameRender with \`drawRect(pos, size, color, angle)\`, \`drawText(text, pos, size)\`.
 - Game objects: \`class Thing extends EngineObject { update() {...} render() {...} }\` — velocity, gravityScale and collision built in (\`setCollision()\`, \`collideWithObject\`).
-- Input: \`keyIsDown("ArrowLeft")\`, \`mousePos\` (already world space), \`mouseWasPressed(0)\`.
+- Input: \`keyIsDown("ArrowLeft")\`, \`mousePos\` (already world space), \`mouseWasPressed(0)\`. keyIsDown returns a BOOLEAN — for the classic movement idiom wrap each in Number() so the math typechecks: \`const dx = Number(keyIsDown("ArrowRight")) - Number(keyIsDown("ArrowLeft"));\` (bare \`boolean - boolean\` is a TS error under strict mode).
 - JUICE for free: \`new Sound([,,220,,.1,.3,...])\` = procedural sfx, NO files; \`new ParticleEmitter(...)\` for explosions/trails. Use both generously — that's this engine's superpower.
 LittleJS is pre-installed (import * as LJS from "littlejsengine"). Do not add npm deps (frozen lockfile).`,
   grid: `## Your engine: React + CSS Grid (DOM, no canvas)
