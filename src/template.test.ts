@@ -270,7 +270,7 @@ describe("engine guides", () => {
   const guideMarkers: Record<string, string> = {
     canvas: "raw HTML5 Canvas",
     kaplay: "KAPLAY",
-    phaser: "Phaser 3",
+    phaser: "Phaser 4",
     r3f: "react-three-fiber",
     pixi: "Pixi.js v8",
     babylon: "Babylon.js",

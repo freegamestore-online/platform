@@ -641,8 +641,8 @@ How to build in game.ts (the context is \`k\`, created with global:false — cal
 - Report the score to React via the onScore callback passed into startGame.
 Do NOT use useGameLoop or lib/canvas — KAPLAY replaces them; don't hand-roll a rAF loop or physics. Split large games into web/src/scenes/*.ts and web/src/entities/*.ts and import them into game.ts.`,
 
-  phaser: `## Your engine: Phaser 3 (2D)
-This game runs on Phaser 3 — the most widely-used HTML5 game engine. It OWNS the loop through the Scene lifecycle and gives you arcade physics, groups, tweens, input and a responsive scaler. Build with scenes, never a hand-rolled loop.
+  phaser: `## Your engine: Phaser 4 (2D)
+This game runs on Phaser 4 — the most widely-used HTML5 game engine. It OWNS the loop through the Scene lifecycle and gives you arcade physics, groups, tweens, input and a responsive scaler. Build with scenes, never a hand-rolled loop.
 
 The template (already loaded — read it first with read_file / list_files):
 - web/src/game.ts — THE GAME. It exports startGame(parent, onScore) => teardown and creates a Phaser.Game with a PlayScene. This is where you build.
@@ -655,6 +655,7 @@ How to build in game.ts:
 - Input: this.input.on("pointermove"/"pointerdown", …); this.input.keyboard?.createCursorKeys().
 - Timing: this.time.addEvent({ delay, loop, callback }); tweens via this.tweens.add({...}).
 - Design against the fixed virtual VW×VH (Scale.FIT letterboxes to the device). Report the score via the onScore callback.
+Phaser 4 API notes (differs from the v3 you may know): setTintFill() is gone — use setTint(color).setTintMode(Phaser.TintModes.FILL); FX/preFX/postFX and BitmapMask are replaced by the unified filters system (obj.filters.internal.addMask(...) / Phaser.Actions.AddEffectBloom()); Geom.Point is gone — use Math.Vector2; Mesh/Plane game objects are removed. Standard sprites/shapes/text/arcade physics are unchanged.
 Phaser is pre-installed and split into its own vendor chunk — do NOT add other heavy libs and do NOT use useGameLoop. Split large games into web/src/scenes/*.ts and import them.`,
 
   r3f: `## Your engine: Three.js + react-three-fiber (3D)
@@ -677,7 +678,7 @@ Structure:
 - Draw with Graphics (\`new Graphics().rect(...).fill(color)\`, .circle, .poly), Text, Container. position/rotation/scale/alpha on any display object.
 - Input: \`obj.eventMode = "static"\`; obj.on("pointerdown", ...); or listen on app.stage globally.
 - pixi.js v8 API ONLY (init is async; Graphics chains shape().fill() — NOT beginFill, that's v7). Do not add npm deps (frozen lockfile).`,
-  babylon: `## Your engine: Babylon.js v7 (3D)
+  babylon: `## Your engine: Babylon.js v9 (3D)
 This game renders with Babylon.js — a full 3D engine. The template creates an Engine + Scene on a canvas inside a local Shell component (web/src/components/Shell.tsx — NOT the SDK GameShell).
 Structure:
 - web/src/App.tsx — \`new BABYLON.Engine(canvas, true)\`, \`new BABYLON.Scene(engine)\`, camera (ArcRotateCamera or FreeCamera), HemisphericLight, meshes via \`BABYLON.MeshBuilder.Create*\`, \`engine.runRenderLoop(() => scene.render())\`, engine.resize on window resize, dispose in cleanup.
