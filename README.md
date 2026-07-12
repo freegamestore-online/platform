@@ -1,7 +1,14 @@
-# freegamestore-publisher
+# freegamestore-console
 
 The creator console for [FreeGameStore](https://freegamestore.online) — where you
 build, publish, and manage your web games.
+
+> **History:** this repo was named `publisher` until 2026-07 (it began as the
+> self-service publish worker and grew into the full console). Renamed to
+> `console` to match its role and the FAS `console/` repo; an abandoned parallel
+> `console` rebuild was archived as `console-deprecated` at the same time. The CF
+> Pages project is still `freegamestore-publisher` (internal; it owns the
+> `console.freegamestore.online` domain — don't rename it without rebinding).
 
 - **Live:** https://console.freegamestore.online (also `publish.freegamestore.online`)
 - **Stack:** React 19 + Vite + Tailwind v4, Cloudflare Pages (SPA) + Pages Functions,
