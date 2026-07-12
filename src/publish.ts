@@ -437,21 +437,30 @@ export async function handlePublish(
       status: "skip",
       detail: `${config.org}/${id} already exists`,
     });
-    // Heal an interrupted provision: if a prior provision generated the repo but
-    // was cut off before the naming commit (e.g. the caller timed out after
-    // /generate), the game is stuck titled "APPNAME" and a plain re-provision
-    // used to skip substitution forever. Re-run it — but ONLY when root
-    // package.json's NAME is still literally "APPNAME", which proves the repo is
-    // an unsubstituted fresh generate. Matching the `"name": "APPNAME"` field
-    // (not a bare "APPNAME" substring) guarantees we never rewrite an established
-    // game whose own source happens to contain the word APPNAME.
+    // Heal an interrupted or partial provision: if a prior provision left the
+    // repo titled "APPNAME" (cut off before the naming commit, or provisioned
+    // before a template file — like the analytics-wired index.html — started
+    // carrying APPNAME), a plain re-provision used to skip substitution forever.
+    // Re-run it when EITHER signal proves an unsubstituted leftover:
+    //   • root package.json NAME is still literally "APPNAME" (fresh generate), OR
+    //   • web/index.html still has the `app=APPNAME` analytics slug — an
+    //     unambiguous template leftover (a real game has app=<its-id>). This
+    //     catches games whose package.json got substituted but index.html didn't
+    //     (monster-attack, 2026-07-12). Both signals are template-specific, so we
+    //     never rewrite an established game whose own source contains "APPNAME".
     const rootPkg = await ghApi(env, `/repos/${config.org}/${id}/contents/package.json`);
     const pkgRaw = rootPkg.content
       ? new TextDecoder().decode(
           Uint8Array.from(atob(rootPkg.content.replace(/\n/g, "")), (c) => c.charCodeAt(0)),
         )
       : "";
-    if (/"name"\s*:\s*"APPNAME"/.test(pkgRaw)) {
+    const indexHtml = await ghApi(env, `/repos/${config.org}/${id}/contents/web/index.html`);
+    const htmlRaw = indexHtml.content
+      ? new TextDecoder().decode(
+          Uint8Array.from(atob(indexHtml.content.replace(/\n/g, "")), (c) => c.charCodeAt(0)),
+        )
+      : "";
+    if (/"name"\s*:\s*"APPNAME"/.test(pkgRaw) || /app=APPNAME/.test(htmlRaw)) {
       steps.push(await substituteTemplatePlaceholders(env, config.org, id, name));
     }
   } else {
