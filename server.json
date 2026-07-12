@@ -16,7 +16,7 @@
   "tools": [
     {
       "name": "create_game",
-      "description": "Provision repo+R2 hosting+listing, scaffold any of 8 engine templates (kaplay, phaser, 3d, pixi, babylon, canvas, grid, cards), push \u2192 live at <id>.freegamestore.online"
+      "description": "Provision repo+R2 hosting+listing, scaffold any of 10 engine templates (kaplay, phaser, 3d, pixi, babylon, excalibur, littlejs, canvas, grid, cards), push \u2192 live at <id>.freegamestore.online"
     },
     {
       "name": "update_files",

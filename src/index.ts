@@ -393,10 +393,10 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
         category: z.string().describe("puzzle, arcade, strategy, card, board, trivia, racing, sports, action, simulation, or educational"),
         description: z.string().optional().describe("Short description"),
         template: z
-          .enum(["kaplay", "phaser", "3d", "pixi", "babylon", "canvas", "grid", "cards"])
+          .enum(["kaplay", "phaser", "3d", "pixi", "babylon", "excalibur", "littlejs", "canvas", "grid", "cards"])
           .optional()
           .describe(
-            "Engine/template to build on (default: canvas). Engines: 'kaplay' = beginner-friendly 2D arcade engine; 'phaser' = production 2D engine (scenes, arcade physics); '3d' = Three.js + react-three-fiber; 'pixi' = Pixi.js v8 WebGL 2D (particles, sprites); 'babylon' = Babylon.js 3D engine. Starters: 'canvas' = raw HTML5 canvas 2D; 'grid' = CSS-grid puzzle/board; 'cards' = DOM card game.",
+            "Engine/template to build on (default: canvas). Engines: 'kaplay' = beginner-friendly 2D arcade engine; 'phaser' = production 2D engine (scenes, arcade physics); '3d' = Three.js + react-three-fiber; 'pixi' = Pixi.js v8 WebGL 2D (particles, sprites); 'babylon' = Babylon.js 3D engine; 'excalibur' = TypeScript-native actor-based 2D; 'littlejs' = tiny all-in-one arcade (particles + procedural sound built in). Starters: 'canvas' = raw HTML5 canvas 2D; 'grid' = CSS-grid puzzle/board; 'cards' = DOM card game.",
           ),
       },
       async ({ game_id, name, category, description, template }) => {
@@ -501,7 +501,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       {
         prompt: z.string().describe("What to build, in plain English. Include a desired game id."),
         game_id: z.string().optional().describe("Existing game to work on: imports its repo into the session (engine-correct guidance + push_update instead of a fresh deploy). Omit when building a brand-new game."),
-        template: z.enum(["kaplay", "phaser", "3d", "pixi", "babylon", "canvas", "grid", "cards"]).optional().describe("Engine template a BRAND-NEW game session seeds from (default canvas). Ignored when game_id is set or the session already exists."),
+        template: z.enum(["kaplay", "phaser", "3d", "pixi", "babylon", "excalibur", "littlejs", "canvas", "grid", "cards"]).optional().describe("Engine template a BRAND-NEW game session seeds from (default canvas). Ignored when game_id is set or the session already exists."),
         api_key: z.string().optional().describe("Override key. Optional — defaults to the key saved for your account in the vault. Provider must match the saved key (or pass provider)."),
         provider: z.enum(["anthropic", "openai", "google", "github"]).optional().describe("AI provider (default anthropic). Must match the saved/override key."),
         model: z.string().optional().describe("Model id"),
