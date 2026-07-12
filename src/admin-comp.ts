@@ -120,6 +120,21 @@ export async function handleAdminCompApi(request: Request, env: Env, cors: Recor
     return json({ sessions: await listAllSessions(env.DB) });
   }
 
+  // POST /v1/admin/purge-game-sessions { gameId } — drop the session-index rows
+  // for a deleted game so it stops appearing in "My Games" and the admin
+  // Sessions tab with a dead link. Called by admin's handleDeleteGame over the
+  // service binding (the agent owns the agent_sessions D1, admin doesn't).
+  // Internal-token only — not in ORG_ADMIN_PATHS, so a plain org member can't
+  // wipe session rows. Idempotent.
+  if (path === "/v1/admin/purge-game-sessions" && request.method === "POST") {
+    if (!internalOk) return json({ error: "forbidden" }, 403);
+    const body = (await request.json().catch(() => ({}))) as { gameId?: string };
+    const gameId = typeof body.gameId === "string" ? body.gameId.trim() : "";
+    if (!gameId) return json({ error: "gameId required" }, 400);
+    const res = await env.DB.prepare("DELETE FROM agent_sessions WHERE game_id = ?").bind(gameId).run();
+    return json({ ok: true, purged: res.meta?.changes ?? 0 });
+  }
+
   // GET /v1/admin/session-history?id=<sid> — any session's transcript, read from
   // its DO with the admin read flag (bypasses the ownership gate WITHOUT binding
   // an owner to an unclaimed session). /v1/admin/session-errors?id=<sid> is the
