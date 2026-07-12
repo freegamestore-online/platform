@@ -304,11 +304,12 @@ describe("run_compliance_check", () => {
     expect(result.content).toContain("PASS: FreeAppStore link");
     expect(result.content).toContain("PASS: pnpm workspace");
     expect(result.content).toContain("PASS: PWA manifest");
-    // Fraunces is in index.html + component inline styles, not index.css — known gap
-    expect(result.content).toContain("FAIL: Brand fonts");
+    // Fraunces is loaded via the Google Fonts <link> in index.html — the check
+    // scans html + css (matching canonical @freegamestore/compliance), so it passes.
+    expect(result.content).toContain("PASS: Brand fonts (Manrope + Fraunces)");
     // APPNAME placeholders are platform-substituted at deploy → a NOTE, not a FAIL
     expect(result.content).toContain("NOTE: APPNAME placeholders");
-    expect(result.content).toContain("10 pass, 1 fail");
+    expect(result.content).toContain("11 pass, 0 fail");
   });
 
   it("games template passes games compliance (except APPNAME + Fraunces)", () => {
@@ -320,9 +321,9 @@ describe("run_compliance_check", () => {
     expect(result.content).toContain("PASS: FreeGameStore link");
     expect(result.content).toContain("PASS: pnpm workspace");
     expect(result.content).toContain("PASS: PWA manifest");
-    expect(result.content).toContain("FAIL: Brand fonts");
+    expect(result.content).toContain("PASS: Brand fonts (Manrope + Fraunces)");
     expect(result.content).toContain("NOTE: APPNAME placeholders");
-    expect(result.content).toContain("10 pass, 1 fail");
+    expect(result.content).toContain("11 pass, 0 fail");
   });
 
   it("treats a missing/platform-managed manifest as a NOTE, not a FAIL", () => {

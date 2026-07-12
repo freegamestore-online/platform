@@ -501,10 +501,17 @@ function runComplianceCheck(files: Map<string, string>, config: StoreConfig): st
   if (!hasTracking) pass("No tracking SDKs");
   else fail("No tracking SDKs", "Found forbidden tracking SDK reference");
 
-  // Brand fonts
+  // Brand fonts. Match the canonical @freegamestore/compliance checkBrandFonts,
+  // which scans BOTH css AND html — the fonts are loaded via the Google Fonts
+  // <link> in web/index.html, and several engine templates (pixi/babylon/
+  // excalibur/littlejs) reference them there but not in index.css. Checking
+  // only index.css produced a false "Missing Fraunces" that disagreed with CI
+  // and made agents rabbit-hole re-adding a font that was already loaded.
   const css = files.get("web/src/index.css") || "";
-  const hasManrope = /manrope/i.test(css);
-  const hasFraunces = /fraunces/i.test(css);
+  const fontHtml = files.get("web/index.html") || "";
+  const fontHaystack = css + "\n" + fontHtml;
+  const hasManrope = /manrope/i.test(fontHaystack);
+  const hasFraunces = /fraunces/i.test(fontHaystack);
   if (hasManrope && hasFraunces) pass("Brand fonts (Manrope + Fraunces)");
   else fail("Brand fonts", `Missing: ${!hasManrope ? "Manrope" : ""} ${!hasFraunces ? "Fraunces" : ""}`.trim());
 
