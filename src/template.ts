@@ -486,7 +486,7 @@ const APP_SYSTEM_PROMPT = `You are the FreeAppStore AI agent. You build free, hi
 Users describe an app idea and you build it. You write TypeScript + React code, following the FreeAppStore brand and conventions exactly.
 
 ## Tech Stack (mandatory)
-- TypeScript, React 19, Vite 6, Tailwind CSS 4.1
+- TypeScript, React 19, Vite 8, Tailwind CSS 4.1
 - All data in localStorage (no backend, no server, no database)
 - Must work offline after first load (PWA)
 
@@ -561,7 +561,7 @@ or garbled phrasing. If you're unsure what they meant, ask for clarification.
  *  grid/cards starters fall back to the canvas guide. Detected from the loaded
  *  project's web/package.json so the agent always gets engine-correct authoring
  *  guidance regardless of which template the game was generated from. */
-export type GameEngine = "canvas" | "kaplay" | "phaser" | "r3f" | "pixi" | "babylon" | "grid" | "cards";
+export type GameEngine = "canvas" | "kaplay" | "phaser" | "r3f" | "pixi" | "babylon" | "excalibur" | "littlejs" | "grid" | "cards";
 
 /** Public engine keys (as used by the publisher picker + MCP create_game) →
  *  template repo a fresh session seeds from. "3d" is the public key for the
@@ -575,6 +575,8 @@ export const ENGINE_TEMPLATE_REPOS: Record<string, string> = {
   "3d": "template-game-3d",
   pixi: "template-game-pixi",
   babylon: "template-game-babylon",
+  excalibur: "template-game-excalibur",
+  littlejs: "template-game-littlejs",
 };
 
 /** Infer the engine from the loaded project's web/package.json dependencies.
@@ -594,6 +596,8 @@ export function detectEngine(files: Map<string, string>): GameEngine {
     if (deps["@react-three/fiber"]) return "r3f";
     if (deps["pixi.js"]) return "pixi";
     if (deps["@babylonjs/core"]) return "babylon";
+    if (deps["excalibur"]) return "excalibur";
+    if (deps["littlejsengine"]) return "littlejs";
     if (deps["three"]) return "r3f";
   } catch {
     return "canvas";
@@ -685,6 +689,24 @@ Structure:
 - Materials: StandardMaterial with diffuseColor (Color3). Animate in \`scene.onBeforeRenderObservable.add(...)\` or registerBeforeRender.
 - Input: \`scene.onPointerObservable\` / ActionManager on meshes; keyboard via scene.onKeyboardObservable.
 - @babylonjs/core + gui + loaders are pre-installed. Import from "@babylonjs/core" (namespace or named). Do not add npm deps (frozen lockfile).`,
+  excalibur: `## Your engine: Excalibur.js (TypeScript-native 2D)
+This game runs on Excalibur — an actor-based 2D engine where game objects are typed OOP classes. The engine owns the loop, physics and input; you subclass Actor instead of writing a render loop. The template mounts the Engine on a canvas inside a local Shell component (web/src/components/Shell.tsx — NOT the SDK GameShell).
+Structure:
+- web/src/App.tsx — \`new Engine({ canvasElement, displayMode: DisplayMode.FillContainer })\`, add actors/scenes, \`game.start()\`, \`game.dispose()\` in cleanup.
+- Game objects: \`class Player extends Actor { onInitialize(engine) {...} onPreUpdate(engine, delta) {...} }\` — pos/vel/rotation/graphics/collision are built-in typed properties (\`vec(x, y)\`, \`Color.fromHex(...)\`).
+- Collisions: set \`actor.body.collisionType = CollisionType.Active/Fixed/Passive\`; react with \`actor.on("collisionstart", (evt) => ...)\`.
+- Input: \`engine.input.pointers.primary.on("move"/"down", ...)\`; \`engine.input.keyboard.isHeld(Keys.Left)\`.
+- Scenes: \`game.addScene("play", scene)\` + \`game.goToScene("play")\` for menus/levels. Timers: \`new Timer({ interval, repeats: true, fcn })\` added to the scene.
+Prefer small Actor subclasses in web/src/actors/*.ts over one giant file. Excalibur is pre-installed in its own vendor chunk — do not add npm deps (frozen lockfile).`,
+  littlejs: `## Your engine: LittleJS (tiny all-in-one 2D)
+This game runs on LittleJS — a tiny arcade engine with the renderer, physics, PARTICLES and procedural ZzFX SOUND all built in. Everything is generated in code: a juicy game with zero asset files. The template boots the engine into a container inside a local Shell component (web/src/components/Shell.tsx — NOT the SDK GameShell).
+Structure:
+- web/src/App.tsx — \`engineInit(gameInit, gameUpdate, gameUpdatePost, gameRender, gameRenderPost, [], container)\` — boots ONCE per page (guard with a ref, the template shows it). Keep the container arg so the canvas stays inside the Shell.
+- World space: positions are world units, not pixels — \`setCameraPos(vec2(...))\`, \`setCameraScale(...)\`. Draw in gameRender with \`drawRect(pos, size, color, angle)\`, \`drawText(text, pos, size)\`.
+- Game objects: \`class Thing extends EngineObject { update() {...} render() {...} }\` — velocity, gravityScale and collision built in (\`setCollision()\`, \`collideWithObject\`).
+- Input: \`keyIsDown("ArrowLeft")\`, \`mousePos\` (already world space), \`mouseWasPressed(0)\`.
+- JUICE for free: \`new Sound([,,220,,.1,.3,...])\` = procedural sfx, NO files; \`new ParticleEmitter(...)\` for explosions/trails. Use both generously — that's this engine's superpower.
+LittleJS is pre-installed (import * as LJS from "littlejsengine"). Do not add npm deps (frozen lockfile).`,
   grid: `## Your engine: React + CSS Grid (DOM, no canvas)
 This is a GRID/BOARD game rendered entirely with React DOM + CSS Grid — no canvas, no game engine, no rAF loop. Best for turn-based play: match-3, 2048, minesweeper, sudoku, wordle, chess-likes.
 
@@ -713,7 +735,7 @@ function buildGameSystemPrompt(engine: GameEngine): string {
 Users describe a game idea and you build it. You write TypeScript + React code on top of the FreeGameStore game template, following its conventions exactly.
 
 ## Tech Stack (mandatory)
-- TypeScript (strict), React 19, Vite 6, Tailwind CSS 4.1
+- TypeScript (strict), React 19, Vite 8, Tailwind CSS 4.1
 - The @freegamestore/games SDK (already a dependency) for the game shell + platform integration
 - All game state in memory (no backend, no server, no database)
 - High scores / progress in localStorage

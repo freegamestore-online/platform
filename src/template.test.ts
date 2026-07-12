@@ -183,6 +183,14 @@ describe("detectEngine", () => {
     expect(detectEngine(files)).toBe("cards");
   });
 
+  it("detects excalibur from dependencies", () => {
+    expect(detectEngine(filesWith({ dependencies: { excalibur: "^0.32.0" } }))).toBe("excalibur");
+  });
+
+  it("detects littlejs from littlejsengine", () => {
+    expect(detectEngine(filesWith({ dependencies: { littlejsengine: "^1.18.21" } }))).toBe("littlejs");
+  });
+
   it("defaults to canvas when no engine dependency is present", () => {
     expect(detectEngine(filesWith({ dependencies: { react: "^19", "@freegamestore/games": "^0.14.0" } }))).toBe("canvas");
   });
@@ -253,9 +261,9 @@ describe("getSystemPrompt — per engine", () => {
 });
 
 describe("ENGINE_TEMPLATE_REPOS (session seeding map)", () => {
-  it("covers exactly the 8 public engine keys", () => {
+  it("covers exactly the 10 public engine keys", () => {
     expect(Object.keys(ENGINE_TEMPLATE_REPOS).sort()).toEqual(
-      ["3d", "babylon", "canvas", "cards", "grid", "kaplay", "phaser", "pixi"],
+      ["3d", "babylon", "canvas", "cards", "excalibur", "grid", "kaplay", "littlejs", "phaser", "pixi"],
     );
   });
 
@@ -274,6 +282,8 @@ describe("engine guides", () => {
     r3f: "react-three-fiber",
     pixi: "Pixi.js v8",
     babylon: "Babylon.js",
+    excalibur: "Excalibur",
+    littlejs: "LittleJS",
     grid: "CSS Grid",
     cards: "card kit",
   };
