@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getConfig } from "./config";
-import { getSystemPrompt, getTemplateFiles, detectEngine } from "./template";
+import { getSystemPrompt, getTemplateFiles, detectEngine, ENGINE_TEMPLATE_REPOS } from "./template";
 
 const appsConfig = getConfig("apps");
 const gamesConfig = getConfig("games");
@@ -249,5 +249,54 @@ describe("getSystemPrompt — per engine", () => {
       expect(prompt).toContain("push_update");
       expect(prompt).toContain("frozen-lockfile");
     }
+  });
+});
+
+describe("ENGINE_TEMPLATE_REPOS (session seeding map)", () => {
+  it("covers exactly the 8 public engine keys", () => {
+    expect(Object.keys(ENGINE_TEMPLATE_REPOS).sort()).toEqual(
+      ["3d", "babylon", "canvas", "cards", "grid", "kaplay", "phaser", "pixi"],
+    );
+  });
+
+  it("maps every key to a template-game-* repo", () => {
+    for (const repo of Object.values(ENGINE_TEMPLATE_REPOS)) {
+      expect(repo).toMatch(/^template-game-[a-z0-9]+$/);
+    }
+  });
+});
+
+describe("engine guides", () => {
+  const guideMarkers: Record<string, string> = {
+    canvas: "raw HTML5 Canvas",
+    kaplay: "KAPLAY",
+    phaser: "Phaser 3",
+    r3f: "react-three-fiber",
+    pixi: "Pixi.js v8",
+    babylon: "Babylon.js",
+    grid: "CSS Grid",
+    cards: "card kit",
+  };
+
+  for (const [engine, marker] of Object.entries(guideMarkers)) {
+    it(`games system prompt for "${engine}" teaches ${marker}`, () => {
+      const prompt = getSystemPrompt(gamesConfig, engine as never);
+      expect(prompt).toContain("## Your engine");
+      expect(prompt).toContain(marker);
+    });
+  }
+
+  it("grid guide points at the template's kit, not canvas helpers", () => {
+    const prompt = getSystemPrompt(gamesConfig, "grid" as never);
+    expect(prompt).toContain("useGrid");
+    expect(prompt).toContain("GameGrid");
+    expect(prompt).not.toContain("lib/canvas.ts");
+  });
+
+  it("cards guide points at the deck kit, not canvas helpers", () => {
+    const prompt = getSystemPrompt(gamesConfig, "cards" as never);
+    expect(prompt).toContain("deck.ts");
+    expect(prompt).toContain("Card.tsx");
+    expect(prompt).not.toContain("lib/canvas.ts");
   });
 });
