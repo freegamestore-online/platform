@@ -26,6 +26,8 @@ const ENGINES = [
   { value: "3d", label: "Three.js", tag: "3D", desc: "react-three-fiber + Three.js for 3D worlds, racing and flying games." },
   { value: "pixi", label: "Pixi.js", tag: "WebGL · 2D", desc: "High-performance WebGL 2D renderer — particles, filters and buttery sprite scenes." },
   { value: "babylon", label: "Babylon.js", tag: "3D", desc: "Full 3D engine with cameras, lights, materials and physics-ready meshes." },
+  { value: "excalibur", label: "Excalibur", tag: "TS · 2D", desc: "TypeScript-native actor engine — game objects are typed classes with physics built in." },
+  { value: "littlejs", label: "LittleJS", tag: "tiny · 2D", desc: "All-in-one arcade engine: particles and procedural sound built in, zero asset files." },
 ];
 
 // No-engine starters for creators who want full control or a DOM-based board.

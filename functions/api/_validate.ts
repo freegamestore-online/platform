@@ -13,6 +13,7 @@ export const INFRA_REPOS = new Set([
   "freegamestore", "submissions", "template-game-canvas", "template-game-3d",
   "template-game-grid", "template-game-cards", "template-game-kaplay",
   "template-game-phaser", "template-game-pixi", "template-game-babylon",
+  "template-game-excalibur", "template-game-littlejs",
   "brand", "ops", "sdk",
 ]);
 
