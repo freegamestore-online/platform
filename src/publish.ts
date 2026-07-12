@@ -17,6 +17,11 @@ interface PublishEnv {
   CF_API_TOKEN: string;
   GITHUB_TOKEN: string;
   DB: D1Database;
+  /** Service binding to the agent worker + shared secret — used on delete to
+   *  purge the agent-owned session index (agent_sessions lives in the agent's
+   *  D1, not this worker's). Optional so provisioning works without them. */
+  AGENT?: Fetcher;
+  INTERNAL_TOKEN?: string;
 }
 
 interface PublishRequest {
@@ -788,6 +793,21 @@ export async function handleDeleteGame(
     await ghApi(env, `/repos/${config.org}/${gameId}`, "PATCH", { archived: true });
   } catch {
     /* archive is best-effort */
+  }
+
+  // 4. Purge the agent's session-index rows so the deleted game stops showing
+  //    in "My Games" / the admin Sessions tab with a dead link. The agent owns
+  //    that D1 (agent_sessions), so ask it over the service binding. Non-fatal.
+  if (env.AGENT && env.INTERNAL_TOKEN) {
+    try {
+      await env.AGENT.fetch(`https://agent.${config.domain}/v1/admin/purge-game-sessions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Internal-Token": env.INTERNAL_TOKEN },
+        body: JSON.stringify({ gameId }),
+      });
+    } catch {
+      /* session-index cleanup is best-effort */
+    }
   }
 
   return { ok: true };
