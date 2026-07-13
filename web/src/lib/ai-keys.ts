@@ -11,7 +11,6 @@ export interface ProviderConfig {
   /** Free by default (shared platform tier) but ALSO accepts an optional user
    *  key to run on the user's own — higher — quota. Only GitHub Models today. */
   optionalKey?: boolean;
-  models: { id: string; name: string }[];
   docsUrl: string;
 }
 
@@ -25,14 +24,6 @@ export const PROVIDERS: ProviderConfig[] = [
     keyPrefix: "",
     free: true,
     optionalKey: true,
-    models: [
-      { id: "openai/gpt-4.1", name: "GPT-4.1" },
-      { id: "openai/gpt-4.1-mini", name: "GPT-4.1 Mini" },
-      { id: "openai/gpt-4o", name: "GPT-4o" },
-      { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" },
-      { id: "deepseek/deepseek-v3-0324", name: "DeepSeek V3" },
-      { id: "meta/llama-4-scout-17b-16e-instruct", name: "Llama 4 Scout" },
-    ],
     docsUrl: "https://github.com/marketplace/models",
   },
   {
@@ -42,16 +33,6 @@ export const PROVIDERS: ProviderConfig[] = [
     keyPlaceholder: "sk-or-v1-...",
     keyPrefix: "sk-or-",
     free: false,
-    models: [
-      { id: "anthropic/claude-sonnet-4", name: "Claude Sonnet 4" },
-      { id: "anthropic/claude-opus-4", name: "Claude Opus 4" },
-      { id: "openai/gpt-4.1", name: "GPT-4.1" },
-      { id: "openai/gpt-4o", name: "GPT-4o" },
-      { id: "google/gemini-2.5-pro", name: "Gemini 2.5 Pro" },
-      { id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash" },
-      { id: "deepseek/deepseek-chat-v3-0324", name: "DeepSeek V3" },
-      { id: "x-ai/grok-3-mini", name: "Grok 3 Mini" },
-    ],
     docsUrl: "https://openrouter.ai/keys",
   },
   {
@@ -61,11 +42,6 @@ export const PROVIDERS: ProviderConfig[] = [
     keyPlaceholder: "sk-ant-api03-...",
     keyPrefix: "sk-ant-",
     free: false,
-    models: [
-      { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6" },
-      { id: "claude-opus-4-8", name: "Claude Opus 4.8" },
-      { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5" },
-    ],
     docsUrl: "https://console.anthropic.com/settings/keys",
   },
   {
@@ -75,12 +51,6 @@ export const PROVIDERS: ProviderConfig[] = [
     keyPlaceholder: "sk-proj-...",
     keyPrefix: "sk-",
     free: false,
-    models: [
-      { id: "gpt-4o", name: "GPT-4o" },
-      { id: "gpt-4o-mini", name: "GPT-4o Mini" },
-      { id: "o3", name: "o3" },
-      { id: "o4-mini", name: "o4 Mini" },
-    ],
     docsUrl: "https://platform.openai.com/api-keys",
   },
   {
@@ -90,10 +60,6 @@ export const PROVIDERS: ProviderConfig[] = [
     keyPlaceholder: "AIza...",
     keyPrefix: "AIza",
     free: false,
-    models: [
-      { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
-      { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
-    ],
     docsUrl: "https://aistudio.google.com/apikey",
   },
 ];
@@ -134,6 +100,3 @@ export function resolveInitialProvider(): string {
   return "github";
 }
 
-export function getDefaultModel(): string {
-  return localStorage.getItem("fgs_model") || "claude-sonnet-4-6";
-}

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PROVIDERS, type ProviderConfig } from "../lib/ai-keys";
+import { MODEL_OPTIONS } from "../lib/models";
 import { useKeys } from "../hooks/useKeys";
 import { Button, Badge, Input } from "./ui";
 
@@ -86,12 +87,12 @@ function ProviderRow({
           </div>
           <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{p.description}</p>
           <div className="flex flex-wrap gap-1 mt-2">
-            {p.models.slice(0, 4).map((m) => (
-              <span key={m.id} className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--paper)", border: "1px solid var(--line)", color: "var(--muted)" }}>
-                {m.name}
+            {(MODEL_OPTIONS[p.type] ?? []).slice(0, 4).map((m) => (
+              <span key={m.value} className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--paper)", border: "1px solid var(--line)", color: "var(--muted)" }}>
+                {m.label}
               </span>
             ))}
-            {p.models.length > 4 && <span className="text-xs py-0.5" style={{ color: "var(--muted)" }}>+{p.models.length - 4} more</span>}
+            {(MODEL_OPTIONS[p.type] ?? []).length > 4 && <span className="text-xs py-0.5" style={{ color: "var(--muted)" }}>+{(MODEL_OPTIONS[p.type] ?? []).length - 4} more</span>}
           </div>
         </div>
 

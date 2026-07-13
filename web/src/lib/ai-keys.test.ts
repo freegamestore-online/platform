@@ -6,6 +6,7 @@ import {
   readLegacyLocalKeys,
   clearLegacyLocalKeys,
 } from "./ai-keys";
+import { MODEL_OPTIONS } from "./models";
 
 describe("PROVIDERS", () => {
   it("has at least one provider", () => {
@@ -16,8 +17,13 @@ describe("PROVIDERS", () => {
     for (const p of PROVIDERS) {
       expect(typeof p.type).toBe("string");
       expect(typeof p.name).toBe("string");
-      expect(Array.isArray(p.models)).toBe(true);
-      expect(p.models.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("each provider has models in MODEL_OPTIONS (single source of truth)", () => {
+    for (const p of PROVIDERS) {
+      expect(Array.isArray(MODEL_OPTIONS[p.type])).toBe(true);
+      expect(MODEL_OPTIONS[p.type]!.length).toBeGreaterThan(0);
     }
   });
 
@@ -40,8 +46,8 @@ describe("isFreeProvider", () => {
 describe("resolveInitialProvider", () => {
   beforeEach(() => localStorage.clear());
 
-  it("defaults to Claude (anthropic) when nothing stored", () => {
-    expect(resolveInitialProvider()).toBe("anthropic");
+  it("defaults to the free GitHub Models tier when nothing stored", () => {
+    expect(resolveInitialProvider()).toBe("github");
   });
 
   it("honors a valid stored preference", () => {
@@ -51,7 +57,7 @@ describe("resolveInitialProvider", () => {
 
   it("ignores an unknown stored preference", () => {
     localStorage.setItem("fgs_provider", "not-a-provider");
-    expect(resolveInitialProvider()).toBe("anthropic");
+    expect(resolveInitialProvider()).toBe("github");
   });
 });
 
