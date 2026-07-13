@@ -23,7 +23,7 @@ export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
   ],
   anthropic: [
     { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
-    { value: "claude-opus-4-6", label: "Claude Opus 4.6" },
+    { value: "claude-opus-4-8", label: "Claude Opus 4.8" },
   ],
   openai: [
     { value: "gpt-4o", label: "GPT-4o" },

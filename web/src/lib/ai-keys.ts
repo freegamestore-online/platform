@@ -128,7 +128,10 @@ export function isFreeProvider(provider: string): boolean {
 export function resolveInitialProvider(): string {
   const stored = localStorage.getItem("fgs_provider");
   if (stored && PROVIDERS.some((p) => p.type === stored)) return stored;
-  return "anthropic";
+  // New users (no saved preference) start on the FREE GitHub Models tier so they
+  // can vibecode immediately without adding a key. The auto-pick effect in
+  // Create.tsx moves them to a keyed provider once keys load, if they have one.
+  return "github";
 }
 
 export function getDefaultModel(): string {
