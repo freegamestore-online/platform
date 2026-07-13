@@ -514,7 +514,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
         const defaultModel: Record<string, string> = {
           anthropic: "claude-sonnet-4-6",
           openai: "gpt-4o",
-          google: "gemini-2.0-flash",
+          google: "gemini-2.5-flash",
           github: "openai/gpt-4o",
         };
         const prefix = sessionPrefix(this.props.userId);
@@ -650,7 +650,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
 
         // 3) Run one agent turn (same streaming contract as agent_build).
         const prov = provider ?? "anthropic";
-        const defaultModel: Record<string, string> = { anthropic: "claude-sonnet-4-6", openai: "gpt-4o", google: "gemini-2.0-flash", github: "openai/gpt-4o" };
+        const defaultModel: Record<string, string> = { anthropic: "claude-sonnet-4-6", openai: "gpt-4o", google: "gemini-2.5-flash", github: "openai/gpt-4o" };
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 110_000);
         const phases: string[] = [];
