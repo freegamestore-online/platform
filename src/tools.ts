@@ -579,11 +579,23 @@ function runComplianceCheck(files: Map<string, string>, config: StoreConfig): st
 
   // Store-specific checks
   if (config.store === "games") {
-    // Overflow hidden (required for games)
+    // Overflow / no-scroll lock. Scan ALL web/ source, not just index.css: the
+    // pixi/babylon/excalibur/littlejs templates lock the layout in their Shell
+    // component (`overflow-hidden` + `h-screen`), NOT index.css — checking only
+    // index.css false-failed those engines and the agent rabbit-holed re-adding a
+    // rule that already existed elsewhere. (Same class as the brand-fonts bug.)
+    // <GameShell> also provides the lock in its built output. Canonical
+    // checkNoScroll passes these games; the local check must agree.
     let hasOverflowHidden = false;
-    if (/overflow:\s*hidden/i.test(css) || /overflow-hidden/.test(css)) hasOverflowHidden = true;
+    for (const [path, content] of files) {
+      if (!path.startsWith("web/")) continue;
+      if (/overflow:\s*hidden/i.test(content) || /overflow-hidden/.test(content) || /GameShell/.test(content)) {
+        hasOverflowHidden = true;
+        break;
+      }
+    }
     if (hasOverflowHidden) pass("Overflow hidden");
-    else fail("Overflow hidden", "Body or #root must have overflow: hidden for games");
+    else fail("Overflow hidden", "Games must lock the layout so they don't scroll — use <GameShell> from @freegamestore/games, or set overflow: hidden on the root.");
   } else {
     // Dark mode support (required for apps)
     let hasDarkMode = false;

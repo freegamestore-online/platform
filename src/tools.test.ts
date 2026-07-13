@@ -326,6 +326,23 @@ describe("run_compliance_check", () => {
     expect(result.content).toContain("11 pass, 0 fail");
   });
 
+  it("passes Overflow when the lock is in a Shell component, not index.css (pixi/babylon/excalibur/littlejs)", () => {
+    // These templates lock the layout via components/Shell.tsx (overflow-hidden +
+    // h-screen), NOT index.css. The check must scan all web/ files, else it
+    // false-fails and the agent rabbit-holes. index.css here has NO overflow rule.
+    const files = new Map<string, string>([
+      ["web/index.html", "<html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, user-scalable=no\" /><title>G</title><link href=\"...Manrope...Fraunces...\" /></head></html>"],
+      ["web/src/index.css", ":root { --bg:#000; --ink:#fff; --accent:#0f0; } @media (prefers-color-scheme: dark) {}"],
+      ["web/src/components/Shell.tsx", "export function Shell({children}){ return <div className=\"h-screen\"><main className=\"flex-1 overflow-hidden\">{children}</main></div>; }"],
+      ["web/public/manifest.json", JSON.stringify({ name: "g", display: "standalone", start_url: "/" })],
+      ["LICENSE", "MIT License"],
+      ["web/package.json", JSON.stringify({ name: "@g/web" })],
+    ]);
+    const result = executeTool({ id: "1", name: "run_compliance_check", input: {} }, files, gamesConfig);
+    expect(result.content).toContain("PASS: Overflow hidden");
+    expect(result.content).not.toContain("FAIL: Overflow hidden");
+  });
+
   it("treats a missing/platform-managed manifest as a NOTE, not a FAIL", () => {
     // Repro of the beat-star case: the agent's editable file set doesn't include
     // web/public/manifest.json (it's a platform-scaffolded file). It must not be
