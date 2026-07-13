@@ -81,6 +81,7 @@ function ProviderRow({
           <div className="flex items-center gap-2">
             <strong className="text-sm">{p.name}</strong>
             {p.free && <Badge tone="success">Free</Badge>}
+            {hasKey && p.optionalKey && <Badge tone="accent">Your quota</Badge>}
             {hasKey && !p.free && <Badge tone="accent">Connected</Badge>}
           </div>
           <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{p.description}</p>
@@ -94,7 +95,7 @@ function ProviderRow({
           </div>
         </div>
 
-        {!p.free && (
+        {(!p.free || p.optionalKey) && (
           <div className="shrink-0">
             {hasKey && !isEditing ? (
               <div className="flex items-center gap-2">
@@ -103,7 +104,9 @@ function ProviderRow({
                 <Button variant="danger-outline" size="sm" onClick={onRemove} disabled={busy}>{busy ? "…" : "Remove"}</Button>
               </div>
             ) : !isEditing ? (
-              <Button variant="primary" size="sm" onClick={onStartEdit} disabled={busy}>Add Key</Button>
+              <Button variant={p.optionalKey ? "secondary" : "primary"} size="sm" onClick={onStartEdit} disabled={busy}>
+                {p.optionalKey ? "Use your token" : "Add Key"}
+              </Button>
             ) : null}
           </div>
         )}

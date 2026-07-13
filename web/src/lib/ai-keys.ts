@@ -8,6 +8,9 @@ export interface ProviderConfig {
   keyPlaceholder: string;
   keyPrefix: string;
   free: boolean;
+  /** Free by default (shared platform tier) but ALSO accepts an optional user
+   *  key to run on the user's own — higher — quota. Only GitHub Models today. */
+  optionalKey?: boolean;
   models: { id: string; name: string }[];
   docsUrl: string;
 }
@@ -16,10 +19,12 @@ export const PROVIDERS: ProviderConfig[] = [
   {
     type: "github",
     name: "GitHub Models",
-    description: "Free AI models via your GitHub account. No API key needed.",
-    keyPlaceholder: "",
+    description:
+      "Free — no key needed (shared platform quota). Add a GitHub fine-grained PAT with Models access to build on your own account's much-higher free quota instead.",
+    keyPlaceholder: "github_pat_… (fine-grained, Models: read)",
     keyPrefix: "",
     free: true,
+    optionalKey: true,
     models: [
       { id: "openai/gpt-4.1", name: "GPT-4.1" },
       { id: "openai/gpt-4.1-mini", name: "GPT-4.1 Mini" },
