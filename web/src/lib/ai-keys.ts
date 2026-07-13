@@ -30,7 +30,7 @@ export const PROVIDERS: ProviderConfig[] = [
       { id: "openai/gpt-4.1-mini", name: "GPT-4.1 Mini" },
       { id: "openai/gpt-4o", name: "GPT-4o" },
       { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" },
-      { id: "DeepSeek-V3-0324", name: "DeepSeek V3" },
+      { id: "deepseek/deepseek-v3-0324", name: "DeepSeek V3" },
       { id: "meta/llama-4-scout-17b-16e-instruct", name: "Llama 4 Scout" },
     ],
     docsUrl: "https://github.com/marketplace/models",
@@ -63,7 +63,7 @@ export const PROVIDERS: ProviderConfig[] = [
     free: false,
     models: [
       { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6" },
-      { id: "claude-opus-4-6", name: "Claude Opus 4.6" },
+      { id: "claude-opus-4-8", name: "Claude Opus 4.8" },
       { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5" },
     ],
     docsUrl: "https://console.anthropic.com/settings/keys",
