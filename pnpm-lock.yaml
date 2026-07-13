@@ -14,6 +14,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^4.20250415.0
         version: 4.20260508.1
+      '@freegamestore/compliance':
+        specifier: ^0.9.0
+        version: 0.9.0
       typescript:
         specifier: ^5.7
         version: 5.9.3
@@ -297,6 +300,10 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@freegamestore/compliance@0.9.0':
+    resolution: {integrity: sha512-jRfwQWN0/FJJJjvZ0albUJvNVHB8w38l+xHCVKAJO2p35EGJgW4JCaIRVaaXKO8tGlwjCPBJmjrvsTPRrFCxEg==}
+    engines: {node: '>=22'}
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -1135,6 +1142,8 @@ snapshots:
 
   '@esbuild/win32-x64@0.27.3':
     optional: true
+
+  '@freegamestore/compliance@0.9.0': {}
 
   '@img/colour@1.1.0': {}
 

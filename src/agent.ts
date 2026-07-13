@@ -365,7 +365,7 @@ export async function runAgentTurn(
     // Execute file tools
     const results: ToolResult[] = [];
     for (const tc of fileToolCalls) {
-      const result = executeTool(tc, files, storeConfig);
+      const result = await executeTool(tc, files, storeConfig);
       // Cap tool results kept in the conversation so one call can't dominate the
       // context — read_file gets a large budget so the agent can actually see a
       // whole game file (see clampToolResultForHistory). The live SSE preview to

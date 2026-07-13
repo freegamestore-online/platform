@@ -1,3 +1,19 @@
+import {
+  type CheckResult,
+  checkBrandFonts,
+  checkBrandTokens,
+  checkDarkMode,
+  checkHtmlMeta,
+  checkLicenseMit,
+  checkManifest,
+  checkNoEnvProduction,
+  checkNoPlaceholders,
+  checkNoScroll,
+  checkNoTracking,
+  checkPwaMeta,
+  checkStoreLink,
+  mapFileSource,
+} from "@freegamestore/compliance/worker";
 import type { StoreConfig } from "./config";
 import type { ToolCall, ToolDef, ToolResult } from "./providers/types";
 
@@ -79,10 +95,16 @@ export function validateImports(path: string, content: string, files: Map<string
     }
     if (namedList) {
       for (const raw of namedList.split(",")) {
-        const name = raw.trim().split(/\s+as\s+/)[0]?.replace(/^type\s+/, "").trim();
+        const name = raw
+          .trim()
+          .split(/\s+as\s+/)[0]
+          ?.replace(/^type\s+/, "")
+          .trim();
         if (!name) continue;
         const exported =
-          new RegExp(`export\\s+(?:declare\\s+)?(?:async\\s+)?(?:const|let|var|function|class|interface|type|enum)\\s+${name}\\b`).test(targetSrc) ||
+          new RegExp(`export\\s+(?:declare\\s+)?(?:async\\s+)?(?:const|let|var|function|class|interface|type|enum)\\s+${name}\\b`).test(
+            targetSrc,
+          ) ||
           new RegExp(`export\\s+(?:type\\s+)?\\{[^}]*\\b${name}\\b`).test(targetSrc) ||
           new RegExp(`export\\s*\\{[^}]*\\b${name}\\b`).test(targetSrc);
         if (!exported) {
@@ -181,7 +203,10 @@ const FILE_TOOLS: ToolDef[] = [
     parameters: {
       type: "object",
       properties: {
-        pattern: { type: "string", description: "Text to search for (case-insensitive substring). Use `term1|term2` to match any of several terms in one search." },
+        pattern: {
+          type: "string",
+          description: "Text to search for (case-insensitive substring). Use `term1|term2` to match any of several terms in one search.",
+        },
       },
       required: ["pattern"],
     },
@@ -308,7 +333,7 @@ export const INFRA_TOOLS = new Set([
   "get_audit_results",
 ]);
 
-export function executeTool(toolCall: ToolCall, files: Map<string, string>, config: StoreConfig): ToolResult {
+export async function executeTool(toolCall: ToolCall, files: Map<string, string>, config: StoreConfig): Promise<ToolResult> {
   const { name, input, id } = toolCall;
 
   switch (name) {
@@ -386,9 +411,7 @@ export function executeTool(toolCall: ToolCall, files: Map<string, string>, conf
       if (projectedTotal > WRITE_FILE_MAX_TOTAL_BYTES) {
         return {
           id,
-          content: `Error: writing ${path} would push the project to ${Math.round(
-            projectedTotal / 1024,
-          )}KB — over the ${Math.round(
+          content: `Error: writing ${path} would push the project to ${Math.round(projectedTotal / 1024)}KB — over the ${Math.round(
             WRITE_FILE_MAX_TOTAL_BYTES / 1024,
           )}KB total limit. Remove or shrink other files first.`,
           isError: true,
@@ -455,7 +478,7 @@ export function executeTool(toolCall: ToolCall, files: Map<string, string>, conf
     }
 
     case "run_compliance_check": {
-      return { id, content: runComplianceCheck(files, config) };
+      return { id, content: await runComplianceCheck(files, config) };
     }
 
     default:
@@ -464,171 +487,78 @@ export function executeTool(toolCall: ToolCall, files: Map<string, string>, conf
   }
 }
 
-/** Run compliance checks locally on the virtual filesystem */
-function runComplianceCheck(files: Map<string, string>, config: StoreConfig): string {
-  const results: string[] = [];
-  const pass = (name: string) => results.push(`PASS: ${name}`);
-  const fail = (name: string, detail: string) => results.push(`FAIL: ${name} — ${detail}`);
-  // Platform-handled: surfaced for visibility but NOT a failure. These are
-  // resolved by the deploy pipeline (APPNAME substitution) or verified by the
-  // real CI on the built output (the SDK-provided store link), which the local
-  // source-only check can't see. Reporting them as FAIL made agents rabbit-hole
-  // editing infra/placeholders instead of deploying.
-  const note = (name: string, detail: string) => results.push(`NOTE: ${name} — ${detail}`);
+/**
+ * Pre-flight compliance for the agent's virtual filesystem.
+ *
+ * Runs the CANONICAL @freegamestore/compliance checks — the same code the
+ * deploy-time CI and the auditor run — via the Worker-safe entry, instead of
+ * re-implementing them here. The hand-rolled copy drifted from canonical three
+ * times (brand fonts, brand tokens, no-scroll), each a false FAIL that sent the
+ * agent rabbit-holing on a rule that already passed. Depending on the single
+ * source of truth retires that bug class.
+ *
+ * The agent runs a CURATED SUBSET, not the full battery. The full set includes
+ * checks that legitimately don't apply to every engine template — e.g.
+ * checkUsesGameSdk fails the pixi/babylon/excalibur/littlejs engines, which lock
+ * layout with a local Shell instead of <GameShell> — and platform-scaffold
+ * checks the agent must not act on. Three results are always surfaced as NOTEs:
+ * they're resolved by the deploy pipeline (APPNAME substitution) or verified by
+ * CI on the built output (store link via the SDK, scaffolded manifest), which a
+ * source-only pre-flight can't see. Reporting them as FAIL made agents edit
+ * infra/placeholders instead of deploying.
+ */
+async function runComplianceCheck(files: Map<string, string>, config: StoreConfig): Promise<string> {
+  const source = mapFileSource(files);
 
-  // MIT License
-  const license = files.get("LICENSE");
-  if (license && /mit/i.test(license)) pass("MIT License");
-  else fail("MIT License", "Missing LICENSE file or not MIT");
+  // Fail-gates — real code the agent authors. Store-specific layout rule: games
+  // must not scroll; apps must support dark mode.
+  const gateChecks = [
+    checkLicenseMit,
+    checkNoEnvProduction,
+    checkNoTracking,
+    checkBrandFonts,
+    checkBrandTokens,
+    checkHtmlMeta,
+    checkPwaMeta,
+    config.store === "games" ? checkNoScroll : checkDarkMode,
+  ];
+  // Platform-handled — surfaced for visibility, never a gate.
+  const noteChecks = [checkNoPlaceholders, checkStoreLink, checkManifest];
 
-  // No .env.production
-  if (!files.has(".env.production") && !files.has("web/.env.production")) pass("No .env.production");
-  else fail("No .env.production", ".env.production found in project");
+  const [gate, notes] = await Promise.all([Promise.all(gateChecks.map((c) => c(source))), Promise.all(noteChecks.map((c) => c(source)))]);
 
-  // No tracking SDKs. Match real SDK signatures, not bare English/code words:
-  // "segment" (line segments), "amplitude" (waves/audio) are legitimate in game
-  // code, so pin those to their product domains/APIs.
-  const forbidden = /google-analytics|googletagmanager|gtag\s*\(|mixpanel|segment\.(com|io)|segmentio|hotjar|plausible\.io|posthog|amplitude\.(com|getInstance|init)/i;
-  let hasTracking = false;
-  for (const [path, content] of files) {
-    if (path.startsWith("web/src/") && forbidden.test(content)) {
-      hasTracking = true;
-      break;
+  const fmt = (r: CheckResult) => (r.suggestions?.length ? `${r.detail} — ${r.suggestions.slice(0, 3).join("; ")}` : r.detail);
+
+  const lines: string[] = [];
+  let passes = 0;
+  let fails = 0;
+  let noteCount = 0;
+
+  for (const r of gate) {
+    if (r.status === "pass") {
+      lines.push(`PASS: ${r.name}`);
+      passes++;
+    } else if (r.status === "fail") {
+      lines.push(`FAIL: ${r.name} — ${fmt(r)}`);
+      fails++;
+    } else {
+      // warn is informational, not a deploy gate — surface as a NOTE.
+      lines.push(`NOTE: ${r.name} — ${fmt(r)}`);
+      noteCount++;
     }
   }
-  const webPkg = files.get("web/package.json") || "";
-  if (forbidden.test(webPkg)) hasTracking = true;
-  if (!hasTracking) pass("No tracking SDKs");
-  else fail("No tracking SDKs", "Found forbidden tracking SDK reference");
-
-  // Brand fonts. Match the canonical @freegamestore/compliance checkBrandFonts,
-  // which scans BOTH css AND html — the fonts are loaded via the Google Fonts
-  // <link> in web/index.html, and several engine templates (pixi/babylon/
-  // excalibur/littlejs) reference them there but not in index.css. Checking
-  // only index.css produced a false "Missing Fraunces" that disagreed with CI
-  // and made agents rabbit-hole re-adding a font that was already loaded.
-  const css = files.get("web/src/index.css") || "";
-  const fontHtml = files.get("web/index.html") || "";
-  const fontHaystack = css + "\n" + fontHtml;
-  const hasManrope = /manrope/i.test(fontHaystack);
-  const hasFraunces = /fraunces/i.test(fontHaystack);
-  if (hasManrope && hasFraunces) pass("Brand fonts (Manrope + Fraunces)");
-  else fail("Brand fonts", `Missing: ${!hasManrope ? "Manrope" : ""} ${!hasFraunces ? "Fraunces" : ""}`.trim());
-
-  // CSS variables (store-specific)
-  if (config.store === "games") {
-    const hasVars = /--bg/.test(css) && /--ink/.test(css) && /--accent/.test(css);
-    if (hasVars) pass("CSS variables (--bg, --ink, --accent)");
-    else fail("CSS variables", "Missing --bg, --ink, or --accent in index.css");
-  } else {
-    const hasVars = /--paper/.test(css) && /--ink/.test(css) && /--accent/.test(css);
-    if (hasVars) pass("CSS variables (--paper, --ink, --accent)");
-    else fail("CSS variables", "Missing --paper, --ink, or --accent in index.css");
-  }
-
-  // HTML meta tags. Mirror @freegamestore/compliance checkHtmlMeta: the
-  // viewport must not just exist, it must disable pinch/double-tap zoom
-  // (user-scalable=no or maximum-scale=1) so taps during gameplay don't
-  // accidentally zoom the board.
-  const html = files.get("web/index.html") || "";
-  const hasLang = /lang=/.test(html);
-  const viewportTag = html.match(/<meta[^>]*name=["']viewport["'][^>]*>/i)?.[0] || "";
-  const hasViewport = viewportTag !== "";
-  const viewportNoZoom =
-    /user-scalable\s*=\s*(no|0)/i.test(viewportTag) || /maximum-scale\s*=\s*1(\.0+)?\b/i.test(viewportTag);
-  const hasTitle = /<title>/.test(html);
-  if (hasLang && hasViewport && viewportNoZoom && hasTitle) pass("HTML meta tags (lang, viewport, title)");
-  else
-    fail(
-      "HTML meta tags",
-      `Missing: ${[
-        !hasLang && "lang",
-        !hasViewport && "viewport",
-        hasViewport && !viewportNoZoom && "viewport must disable zoom (user-scalable=no)",
-        !hasTitle && "title",
-      ]
-        .filter(Boolean)
-        .join(", ")}`,
-    );
-
-  // PWA manifest — platform-scaffolded, NOT game code the agent authors. The
-  // template ships a complete manifest.json and the platform substitutes APPNAME
-  // + runs the REAL manifest check on the built output at deploy. When the
-  // manifest isn't in the agent's editable file set (a public/ scaffold file),
-  // this must be a NOTE, not a hard FAIL the agent has to hand-wave every build.
-  const manifest = files.get("web/public/manifest.json") || "";
-  const hasManifest = /name/.test(manifest) && /display/.test(manifest) && /start_url/.test(manifest);
-  if (hasManifest) pass("PWA manifest");
-  else note("PWA manifest", "Platform-managed — the template ships a complete manifest and the real check runs on the built output at deploy. Don't hand-add or edit it.");
-
-  // PWA meta tags
-  const hasPWAMeta = /apple-mobile-web-app-capable|mobile-web-app-capable/i.test(html);
-  if (hasPWAMeta) pass("PWA meta tags");
-  else fail("PWA meta tags", "Missing apple-mobile-web-app-capable or mobile-web-app-capable");
-
-  // Store link
-  let hasStoreLink = false;
-  for (const [path, content] of files) {
-    if (path.startsWith("web/src/") && content.includes(config.domain)) {
-      hasStoreLink = true;
-      break;
+  for (const r of notes) {
+    if (r.status === "pass") {
+      lines.push(`PASS: ${r.name}`);
+      passes++;
+    } else {
+      lines.push(
+        `NOTE: ${r.name} — platform-handled (${fmt(r)}). Leave it as-is: APPNAME is substituted at deploy, and the store link + manifest are verified by CI on the built output. Don't hand-edit to 'fix' it.`,
+      );
+      noteCount++;
     }
   }
-  if (hasStoreLink) pass(`${config.storeName} link in source`);
-  else note(`${config.storeName} link`, `Not in web/src/ — that's fine: the SDK's GameShell renders it into the built output, where the real CI verifies it. Don't hand-add a link.`);
 
-  // Store-specific checks
-  if (config.store === "games") {
-    // Overflow / no-scroll lock. Scan ALL web/ source, not just index.css: the
-    // pixi/babylon/excalibur/littlejs templates lock the layout in their Shell
-    // component (`overflow-hidden` + `h-screen`), NOT index.css — checking only
-    // index.css false-failed those engines and the agent rabbit-holed re-adding a
-    // rule that already existed elsewhere. (Same class as the brand-fonts bug.)
-    // <GameShell> also provides the lock in its built output. Canonical
-    // checkNoScroll passes these games; the local check must agree.
-    let hasOverflowHidden = false;
-    for (const [path, content] of files) {
-      if (!path.startsWith("web/")) continue;
-      if (/overflow:\s*hidden/i.test(content) || /overflow-hidden/.test(content) || /GameShell/.test(content)) {
-        hasOverflowHidden = true;
-        break;
-      }
-    }
-    if (hasOverflowHidden) pass("Overflow hidden");
-    else fail("Overflow hidden", "Games must lock the layout so they don't scroll — use <GameShell> from @freegamestore/games, or set overflow: hidden on the root.");
-  } else {
-    // Dark mode support (required for apps)
-    let hasDarkMode = false;
-    for (const [path, content] of files) {
-      if (path.startsWith("web/src/") && /prefers-color-scheme|data-theme|color-scheme/.test(content)) {
-        hasDarkMode = true;
-        break;
-      }
-    }
-    if (hasDarkMode) pass("Dark mode support");
-    else fail("Dark mode", "No prefers-color-scheme, data-theme, or color-scheme in web/src/");
-  }
-
-  // pnpm workspace
-  const rootPkg = files.get("package.json") || "";
-  const hasWS = files.has("pnpm-workspace.yaml") && /pnpm/.test(rootPkg);
-  if (hasWS) pass("pnpm workspace");
-  else fail("pnpm workspace", "Missing pnpm-workspace.yaml or pnpm reference in package.json");
-
-  // No APPNAME placeholders
-  let hasPlaceholder = false;
-  for (const [, content] of files) {
-    if (/APPNAME/.test(content)) {
-      hasPlaceholder = true;
-      break;
-    }
-  }
-  if (!hasPlaceholder) pass("No APPNAME placeholders");
-  else note("APPNAME placeholders", "Present — the platform substitutes these with your game's real id/name at deploy. Leave them as-is; do NOT edit package.json/manifest/titles to 'fix' them.");
-
-  const passes = results.filter((r) => r.startsWith("PASS")).length;
-  const fails = results.filter((r) => r.startsWith("FAIL")).length;
-  const notes = results.filter((r) => r.startsWith("NOTE")).length;
   const verdict = fails === 0 ? "OK to deploy" : "fix the FAILs, then deploy";
-  return `Compliance: ${passes} pass, ${fails} fail, ${notes} note — ${verdict}\n(NOTEs are platform-handled — do not act on them.)\n\n${results.join("\n")}`;
+  return `Compliance: ${passes} pass, ${fails} fail, ${noteCount} note — ${verdict}\n(NOTEs are platform-handled — do not act on them.)\n\n${lines.join("\n")}`;
 }
