@@ -8,3 +8,4 @@ web/dist/
 *.tsbuildinfo
 # Orphaned pre-CI deploy staging dir (unreferenced).
 .deploy/
+.vibe-check/
