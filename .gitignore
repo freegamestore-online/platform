@@ -4,3 +4,4 @@ node_modules
 
 # VibeCode QA scanner output (local only)
 .vibe-check/
+.DS_Store
