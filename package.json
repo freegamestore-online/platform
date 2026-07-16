@@ -1,7 +1,7 @@
 {
   "name": "publisher",
   "private": true,
-  "packageManager": "pnpm@10.11.0",
+  "packageManager": "pnpm@10.30.3",
   "repository": {
     "type": "git",
     "url": "https://github.com/freegamestore-online/publisher"
