@@ -160,9 +160,13 @@ export function Create() {
   const handleSend = useCallback(async () => {
     const msg = inputValue.trim();
     if (!msg || agent.isStreaming) return;
+    if (!keys.providerUsable(provider)) {
+      await sendPrompt(msg);
+      return;
+    }
     setInputValue("");
     await sendPrompt(msg);
-  }, [inputValue, agent.isStreaming, sendPrompt]);
+  }, [inputValue, agent.isStreaming, keys.providerUsable, provider, sendPrompt]);
 
   useEffect(() => {
     const gameId = currentProject?.appId;
@@ -252,15 +256,19 @@ export function Create() {
   // persisted project URL; during a live deploy fall back to the deploy status's
   // appUrl so the preview appears before markDeployed persists.
   const previewUrl = currentProject?.appUrl || agent.deployState?.appUrl || null;
-  const initialBuildActive = !!initialBuild && agent.deployState?.phase !== "live" && agent.deployState?.phase !== "error";
-  const showPreview = !!previewUrl && (agent.deployState?.phase === "live" || (!agent.deployState && currentProject?.deployed && !initialBuildActive));
-  const previewStatusState = agent.deployState ?? (initialBuildActive ? {
+  const initialBuildTerminal = agent.deployState?.phase === "live" || agent.deployState?.phase === "error";
+  const initialBuildQueued = !!initialBuild && !initialBuildTerminal;
+  const initialBuildPromptSent = initialBuildQueued && agent.messages.some((m) => m.role === "user");
+  const initialBuildInProgress = initialBuildQueued && (!!agent.deployState || agent.isStreaming || !initialBuildPromptSent);
+  const showPreview = !!previewUrl && (agent.deployState?.phase === "live" || (!agent.deployState && currentProject?.deployed && !initialBuildQueued));
+  const previewStatusState = agent.deployState ?? (initialBuildInProgress ? {
     phase: agent.isStreaming ? "pushing" : "provisioning",
     appUrl: previewUrl ?? undefined,
     hint: agent.isStreaming
       ? "The AI is building the first playable version. The preview appears after it deploys."
       : "Opening the new game and starting the first build. The preview appears after deploy.",
   } : null);
+  const firstBuildNeedsDeploy = initialBuildQueued && !initialBuildInProgress && initialBuildPromptSent;
   // Only offer "Deploy now" once the AI has actually built something (wrote files
   // via a tool call). A bare user message + an error (e.g. no key) must NOT show
   // a deploy prompt — there's nothing to deploy yet.
@@ -425,7 +433,7 @@ export function Create() {
             {showPreview ? <iframe src={previewUrl} title="Preview" className="w-full h-full border-0" style={{ background: "var(--bg)" }} /> :
              previewStatusState ? <DeployLog state={previewStatusState} /> :
              <div className="text-center p-8 flex flex-col items-center gap-3 max-w-sm" style={{ color: "var(--muted)" }}>
-               {hasBuilt ? (
+               {hasBuilt || firstBuildNeedsDeploy ? (
                  <>
                    <p className="text-sm">This game <strong>hasn't been deployed yet</strong> — that's why there's no preview. The AI builds in-session; it only goes live once it deploys.</p>
                    <Button variant="primary" onClick={() => sendPrompt("Deploy the game now so I can see the live preview.")} disabled={agent.isStreaming}>

@@ -137,9 +137,15 @@ export function useAgent() {
       // Bail if the user switched projects while this was in flight, so the old
       // session's history can't overwrite the newly-selected one.
       if (sessionIdRef.current !== sessionId) return;
+      // A newly-opened game can auto-send its first build prompt while this
+      // request is still in flight. Once streaming starts, the live transcript is
+      // authoritative; applying the stale history response would erase the user
+      // bubble/status until the next reload.
+      if (isStreamingRef.current) return;
       if (historyRes.ok) {
         const historyData = await historyRes.json();
         if (sessionIdRef.current !== sessionId) return;
+        if (isStreamingRef.current) return;
         const restored = restoreMessages(historyData.messages || []);
         if (restored.length > 0) {
           setMessages(restored);
