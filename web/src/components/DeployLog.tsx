@@ -26,6 +26,11 @@ export function DeployLog({ state }: { state: DeployState }) {
   return (
     <div className="w-full p-6" style={{ fontSize: "0.85rem" }}>
       <h3 className="font-bold mb-4" style={{ fontFamily: "Fraunces, serif" }}>Deploying your game</h3>
+      {state.hint && (
+        <p className="text-sm mb-4" style={{ color: "var(--muted)", maxWidth: 320 }}>
+          {state.hint}
+        </p>
+      )}
       <div className="flex flex-col gap-1">
         {DEPLOY_PIPELINE.map((step) => {
           const provStep = state.steps?.find((s) => s.name === step.label);

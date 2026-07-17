@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowUp, ExternalLink, Plus, Send, X } from "lucide-react";
 import { Button, buttonClass } from "../components/ui";
@@ -15,6 +15,7 @@ import { useKeys } from "../hooks/useKeys";
 import { resolveInitialProvider, PROVIDERS } from "../lib/ai-keys";
 import { resolveModel, firstModelFor } from "../lib/models";
 import { getKidMode } from "../lib/kidMode";
+import { clearInitialBuild, readInitialBuild, type InitialBuild } from "../lib/initialBuild";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -41,10 +42,13 @@ export function Create() {
   const [kidMode] = useState(getKidMode);
   const openedGameRef = useRef<string | null>(null);
   const openedSessionRef = useRef<string | null>(null);
+  const autoInitialPromptRef = useRef<string | null>(null);
+  const [initialBuild, setInitialBuild] = useState<InitialBuild | null>(null);
   const { id: urlKey } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const resolvedKeyRef = useRef<string | null>(null);
   const [resolvingUrl, setResolvingUrl] = useState(false);
+  const currentProject = agent.projects.find((p) => p.id === agent.currentProjectId);
 
   // Path routing: /create/<key> opens that game or session — the key is the
   // game id once deployed (/create/tetris), or the session id for a draft.
@@ -136,6 +140,72 @@ export function Create() {
   useEffect(() => { localStorage.setItem("fgs_provider", provider); }, [provider]);
   useEffect(() => { localStorage.setItem("fgs_model", model); }, [model]);
 
+  useEffect(() => {
+    setInitialBuild(readInitialBuild(currentProject?.appId));
+  }, [currentProject?.appId]);
+
+  const sendPrompt = useCallback(async (msg: string) => {
+    if (!msg || agent.isStreaming) return;
+    if (!keys.providerUsable(provider)) {
+      // No key saved for this (non-free) provider. Open the settings dialog to
+      // add one rather than firing a dismissable alert — the banner explains why.
+      setSettingsOpen(true);
+      return;
+    }
+    // The API key is NOT sent from the browser — the agent resolves it from the
+    // encrypted vault server-side using the signed-in identity.
+    await agent.sendMessage(msg, { provider, model, temperature, maxTokens: 16384 } as AIConfig);
+  }, [agent.isStreaming, agent.sendMessage, keys.providerUsable, provider, model, temperature]);
+
+  const handleSend = useCallback(async () => {
+    const msg = inputValue.trim();
+    if (!msg || agent.isStreaming) return;
+    setInputValue("");
+    await sendPrompt(msg);
+  }, [inputValue, agent.isStreaming, sendPrompt]);
+
+  useEffect(() => {
+    const gameId = currentProject?.appId;
+    if (!gameId || !initialBuild) return;
+
+    if (agent.deployState?.phase === "live" || agent.deployState?.phase === "error") {
+      clearInitialBuild(gameId);
+      setInitialBuild(null);
+      return;
+    }
+
+    const key = `${gameId}:${initialBuild.createdAt}`;
+    if (autoInitialPromptRef.current === key || agent.isStreaming || loading || !user || agent.projectsLoading) return;
+    if (agent.messages.some((m) => m.role === "user")) {
+      clearInitialBuild(gameId);
+      setInitialBuild(null);
+      return;
+    }
+    if (keys.loading) return;
+    if (!keys.providerUsable(provider)) {
+      setInputValue(initialBuild.prompt);
+      setSettingsOpen(true);
+      return;
+    }
+
+    autoInitialPromptRef.current = key;
+    setInputValue("");
+    void sendPrompt(initialBuild.prompt);
+  }, [
+    currentProject?.appId,
+    initialBuild,
+    agent.deployState?.phase,
+    agent.isStreaming,
+    agent.messages,
+    agent.projectsLoading,
+    loading,
+    user,
+    keys.loading,
+    keys.providerUsable,
+    provider,
+    sendPrompt,
+  ]);
+
   // The studio is a fixed, full-height app shell where ONLY the chat scrolls.
   // Lock the page itself while it's mounted so mobile Safari can't scroll the
   // whole layout (both bars included) when the transcript overflows — html/body
@@ -177,33 +247,20 @@ export function Create() {
     );
   }
 
-  const sendPrompt = async (msg: string) => {
-    if (!msg || agent.isStreaming) return;
-    if (!keys.providerUsable(provider)) {
-      // No key saved for this (non-free) provider. Open the settings dialog to
-      // add one rather than firing a dismissable alert — the banner explains why.
-      setSettingsOpen(true);
-      return;
-    }
-    // The API key is NOT sent from the browser — the agent resolves it from the
-    // encrypted vault server-side using the signed-in identity.
-    await agent.sendMessage(msg, { provider, model, temperature, maxTokens: 16384 } as AIConfig);
-  };
-
-  const handleSend = async () => {
-    const msg = inputValue.trim();
-    if (!msg || agent.isStreaming) return;
-    setInputValue("");
-    await sendPrompt(msg);
-  };
-
   // Preview URL: the deployed game's own URL. FGS games are Path B — they serve
   // from R2 at https://<id>.freegamestore.online (NOT pages.dev). Prefer the
   // persisted project URL; during a live deploy fall back to the deploy status's
   // appUrl so the preview appears before markDeployed persists.
-  const currentProject = agent.projects.find((p) => p.id === agent.currentProjectId);
   const previewUrl = currentProject?.appUrl || agent.deployState?.appUrl || null;
-  const showPreview = previewUrl && (agent.deployState?.phase === "live" || agent.deployState?.phase === "building" || currentProject?.deployed);
+  const initialBuildActive = !!initialBuild && agent.deployState?.phase !== "live" && agent.deployState?.phase !== "error";
+  const showPreview = !!previewUrl && (agent.deployState?.phase === "live" || (!agent.deployState && currentProject?.deployed && !initialBuildActive));
+  const previewStatusState = agent.deployState ?? (initialBuildActive ? {
+    phase: agent.isStreaming ? "pushing" : "provisioning",
+    appUrl: previewUrl ?? undefined,
+    hint: agent.isStreaming
+      ? "The AI is building the first playable version. The preview appears after it deploys."
+      : "Opening the new game and starting the first build. The preview appears after deploy.",
+  } : null);
   // Only offer "Deploy now" once the AI has actually built something (wrote files
   // via a tool call). A bare user message + an error (e.g. no key) must NOT show
   // a deploy prompt — there's nothing to deploy yet.
@@ -366,7 +423,7 @@ export function Create() {
           </div>
           <div className="flex-1 flex items-center justify-center" style={{ background: "var(--bg)", minHeight: 0, overflow: "hidden" }}>
             {showPreview ? <iframe src={previewUrl} title="Preview" className="w-full h-full border-0" style={{ background: "var(--bg)" }} /> :
-             agent.deployState ? <DeployLog state={agent.deployState} /> :
+             previewStatusState ? <DeployLog state={previewStatusState} /> :
              <div className="text-center p-8 flex flex-col items-center gap-3 max-w-sm" style={{ color: "var(--muted)" }}>
                {hasBuilt ? (
                  <>

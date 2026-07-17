@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Card, Input, Select, Label } from "./ui";
+import { buildInitialPrompt, queueInitialBuild } from "../lib/initialBuild";
 
 interface ProvisionStep {
   name: string;
@@ -71,7 +72,7 @@ function StatusDot({ status }: { status: string }) {
 interface CreateGameFormProps {
   /** Called on a successful create with the new game id — the Dashboard reloads
    *  its game list so the new game appears (no more full-page reload needed). */
-  onCreated: (id: string) => void | Promise<void>;
+  onCreated: (id: string, prompt: string) => void | Promise<void>;
   /** Close the form and return to the game list. */
   onClose: () => void;
 }
@@ -84,6 +85,7 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
   const [icon, setIcon] = useState("\uD83C\uDFAE");
   const [iconBg, setIconBg] = useState("#1a2e26");
   const [description, setDescription] = useState("");
+  const [buildPrompt, setBuildPrompt] = useState("");
   // Default to KAPLAY — the easiest 2D engine — so a new/kid creator gets the
   // fastest path to a playable game. Every engine + starter stays selectable.
   const [template, setTemplate] = useState("kaplay");
@@ -160,7 +162,11 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
         setSubmitError(createData.error || `Create failed (${createRes.status})`);
       } else if (createData.steps) {
         setResult({ steps: createData.steps, success: createData.success ?? false });
-        if (createData.success) await onCreated(gameId);
+        if (createData.success) {
+          const prompt = buildInitialPrompt({ gameName, gameId, category, description, template, cloneFrom, buildPrompt });
+          queueInitialBuild(gameId, prompt);
+          await onCreated(gameId, prompt);
+        }
       } else {
         setSubmitError("Unexpected response from the server");
       }
@@ -264,6 +270,22 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
         <Label htmlFor="game-desc">One-line Description</Label>
         <Input id="game-desc" type="text" value={description} onChange={(e) => setDescription(e.target.value)}
           placeholder="A fun and addictive puzzle game" />
+      </div>
+
+      <div>
+        <Label htmlFor="build-prompt">First AI Prompt</Label>
+        <textarea
+          id="build-prompt"
+          value={buildPrompt}
+          onChange={(e) => setBuildPrompt(e.target.value)}
+          placeholder="Build the first playable version: controls, levels, scoring, win/lose state, and deploy it."
+          className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] text-sm px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:border-[var(--accent)]"
+          rows={3}
+          style={{ fontFamily: "Manrope, system-ui, sans-serif", minHeight: 92 }}
+        />
+        <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+          This is sent automatically when the studio opens, so the AI starts building without waiting.
+        </p>
       </div>
 
       <div>
