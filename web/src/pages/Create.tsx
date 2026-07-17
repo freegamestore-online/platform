@@ -49,6 +49,8 @@ export function Create() {
   const resolvedKeyRef = useRef<string | null>(null);
   const [resolvingUrl, setResolvingUrl] = useState(false);
   const currentProject = agent.projects.find((p) => p.id === agent.currentProjectId);
+  const legacyGameParam = searchParams.get("game");
+  const legacySessionParam = searchParams.get("session");
 
   // Path routing: /create/<key> opens that game or session — the key is the
   // game id once deployed (/create/tetris), or the session id for a draft.
@@ -78,6 +80,10 @@ export function Create() {
     if (searchParams.get("game") || searchParams.get("session")) return; // legacy deep-link still resolving
     if (urlKey && resolvedKeyRef.current !== urlKey) return; // path still resolving
     const current = agent.projects.find((p) => p.id === agent.currentProjectId);
+    if (urlKey) {
+      const routeMatchesCurrent = current?.appId === urlKey || current?.id === urlKey || (UUID_RE.test(urlKey) && agent.currentProjectId === urlKey);
+      if (!routeMatchesCurrent) return;
+    }
     const canonical = current?.appId || agent.currentProjectId;
     if (canonical === (urlKey ?? null)) return;
     if (!canonical) { navigate("/create", { replace: true }); return; }
@@ -121,7 +127,26 @@ export function Create() {
     setSearchParams({}, { replace: true });
   }, [searchParams, loading, user, agent.projectsLoading, agent.switchProject, setSearchParams]);
 
-  useEffect(() => { agent.loadHistory(); }, [agent.currentProjectId]);
+  useEffect(() => {
+    if (!agent.currentProjectId || agent.projectsLoading || resolvingUrl) return;
+    if (legacyGameParam || legacySessionParam) return;
+    if (urlKey) {
+      const routedSessionOpen = UUID_RE.test(urlKey) && agent.currentProjectId === urlKey;
+      const routedGameOpen = currentProject?.appId === urlKey || currentProject?.id === urlKey;
+      if (!routedSessionOpen && !routedGameOpen) return;
+    }
+    void agent.loadHistory();
+  }, [
+    agent.currentProjectId,
+    agent.projectsLoading,
+    agent.loadHistory,
+    resolvingUrl,
+    legacyGameParam,
+    legacySessionParam,
+    urlKey,
+    currentProject?.appId,
+    currentProject?.id,
+  ]);
   useEffect(() => {
     // While a build is streaming, only stick to the bottom when the user is
     // already near it — don't yank them back down after they've scrolled up to
