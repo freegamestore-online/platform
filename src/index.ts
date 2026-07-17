@@ -18,6 +18,13 @@ const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
 const GITHUB_USER_URL = "https://api.github.com/user";
 const CALLBACK_PATH = "/callback"; // Google OAuth callback route (see fetch router)
 
+interface GitHubUser {
+  id: number;
+  login: string;
+  avatar_url: string;
+  name?: string | null;
+}
+
 // --- JWT utilities (HMAC-SHA256, no dependencies) ---
 
 export function base64url(data: Uint8Array): string {
@@ -391,9 +398,21 @@ async function handleGitHubCallback(request: Request, env: Env): Promise<Respons
     return new Response("Failed to fetch user info", { status: 502 });
   }
 
-  const ghUser = (await userRes.json()) as { id: number; login: string; avatar_url: string; name?: string };
+  const ghUser = (await userRes.json()) as GitHubUser;
 
-  // Upsert user — use github:<id> as the user ID to avoid collisions with Google users
+  const { token } = await mintGitHubUserToken(ghUser, env);
+
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: redirect,
+      "Set-Cookie": setTokenCookie(token),
+    },
+  });
+}
+
+async function mintGitHubUserToken(ghUser: GitHubUser, env: Env): Promise<{ token: string; expiresAt: number }> {
+  // Upsert user — use github:<id> as the user ID to avoid collisions with Google users.
   const userId = `github:${ghUser.id}`;
   const displayName = ghUser.name ?? ghUser.login;
   await env.DB.prepare(
@@ -403,8 +422,8 @@ async function handleGitHubCallback(request: Request, env: Env): Promise<Respons
     .bind(userId, displayName, ghUser.avatar_url)
     .run();
 
-  // Create JWT
   const now = Math.floor(Date.now() / 1000);
+  const expiresAt = now + COOKIE_MAX_AGE;
   const token = await jwtSign(
     {
       sub: userId,
@@ -412,18 +431,47 @@ async function handleGitHubCallback(request: Request, env: Env): Promise<Respons
       login: ghUser.login,
       avatar: ghUser.avatar_url,
       iat: now,
-      exp: now + COOKIE_MAX_AGE,
+      exp: expiresAt,
     },
     env.JWT_SECRET,
   );
+  return { token, expiresAt };
+}
 
-  return new Response(null, {
-    status: 302,
+async function verifyGitHubBearer(token: string): Promise<GitHubUser | null> {
+  const res = await fetch(GITHUB_USER_URL, {
     headers: {
-      Location: redirect,
-      "Set-Cookie": setTokenCookie(token),
+      Authorization: `Bearer ${token}`,
+      "User-Agent": "freegamestore-auth",
+      Accept: "application/vnd.github+json",
     },
   });
+  if (!res.ok) return null;
+  return (await res.json()) as GitHubUser;
+}
+
+/** CI/programmatic exchange: turn a valid GitHub token into the same FGS JWT
+ * GitHub OAuth would mint. This removes the need for brittle 30-day copied
+ * browser cookies in production canaries. It returns JSON only and does not set
+ * a browser cookie. */
+export async function handleGitHubTokenExchange(request: Request, env: Env): Promise<Response> {
+  const authz = request.headers.get("Authorization") ?? "";
+  let githubToken = authz.startsWith("Bearer ") ? authz.slice("Bearer ".length).trim() : "";
+  if (!githubToken) {
+    try {
+      const body = (await request.json()) as { githubToken?: string };
+      githubToken = body.githubToken?.trim() ?? "";
+    } catch {
+      return json({ error: "missing GitHub token" }, 400, request);
+    }
+  }
+  if (!githubToken) return json({ error: "missing GitHub token" }, 400, request);
+
+  const ghUser = await verifyGitHubBearer(githubToken);
+  if (!ghUser) return json({ error: "invalid GitHub token" }, 401, request);
+
+  const { token, expiresAt } = await mintGitHubUserToken(ghUser, env);
+  return json({ token, login: ghUser.login, expiresAt }, 200, request);
 }
 
 // --- Main ---
@@ -448,6 +496,9 @@ export default {
     }
     if (request.method === "GET" && path === "/callback/github") {
       return handleGitHubCallback(request, env);
+    }
+    if (request.method === "POST" && path === "/token/github") {
+      return handleGitHubTokenExchange(request, env);
     }
 
     // Google OAuth (legacy — used by games for player auth)

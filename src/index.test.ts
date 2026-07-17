@@ -18,6 +18,7 @@ import worker, {
   jwtVerify,
   handleMe,
   handleCallback,
+  handleGitHubTokenExchange,
 } from "./index";
 
 // --- base64url (real helpers, imported) ---
@@ -249,6 +250,83 @@ test("handleCallback carries a null email claim when Google reports email_verifi
     assert.ok(payload);
     assert.equal(payload.email, null); // unverified email must NOT be trusted
     assert.equal(payload.sub, "9");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+// --- handleGitHubTokenExchange: CI can mint a fresh fgs_token from a GitHub token ---
+
+test("handleGitHubTokenExchange verifies a GitHub token and returns an FGS JWT", async () => {
+  const env = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<typeof handleGitHubTokenExchange>[1];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const u = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    assert.equal(u, "https://api.github.com/user");
+    assert.equal((init?.headers as Record<string, string>).Authorization, "Bearer gh-test");
+    return new Response(JSON.stringify({ id: 42, login: "canary", avatar_url: "https://x/avatar.png", name: "Canary" }), {
+      status: 200,
+    });
+  }) as typeof fetch;
+
+  try {
+    const res = await handleGitHubTokenExchange(
+      new Request("https://auth.freegamestore.online/v1/token/github", {
+        method: "POST",
+        headers: { Authorization: "Bearer gh-test" },
+      }),
+      env,
+    );
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as { token: string; login: string; expiresAt: number };
+    assert.equal(body.login, "canary");
+    assert.equal(typeof body.expiresAt, "number");
+    const payload = await jwtVerify(body.token, SECRET);
+    assert.ok(payload);
+    assert.equal(payload.sub, "github:42");
+    assert.equal(payload.login, "canary");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("handleGitHubTokenExchange rejects an invalid GitHub token", async () => {
+  const env = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<typeof handleGitHubTokenExchange>[1];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify({ message: "bad credentials" }), { status: 401 })) as typeof fetch;
+
+  try {
+    const res = await handleGitHubTokenExchange(
+      new Request("https://auth.freegamestore.online/v1/token/github", {
+        method: "POST",
+        headers: { Authorization: "Bearer bad" },
+      }),
+      env,
+    );
+    assert.equal(res.status, 401);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("worker routes POST /v1/token/github", async () => {
+  const env = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<typeof worker.fetch>[1];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify({ id: 43, login: "route-canary", avatar_url: "https://x/avatar.png" }), { status: 200 })) as typeof fetch;
+
+  try {
+    const res = await worker.fetch(
+      new Request("https://auth.freegamestore.online/v1/token/github", {
+        method: "POST",
+        headers: { Authorization: "Bearer gh-test" },
+      }),
+      env,
+    );
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as { token: string; login: string };
+    assert.equal(body.login, "route-canary");
+    assert.ok(await jwtVerify(body.token, SECRET));
   } finally {
     globalThis.fetch = realFetch;
   }
