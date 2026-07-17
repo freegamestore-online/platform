@@ -36,6 +36,15 @@ const gh = (token: string) => ({
   Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "User-Agent": "freegamestore-publisher",
 });
 
+function isProductionCreateCanary(user: string, id: string): boolean {
+  // The production create canary uses the platform owner token, which already
+  // owns more than the normal creator quota. Keep the bypass extremely narrow:
+  // hidden fixture IDs only, owner only. The store build excludes *-test IDs
+  // from the public catalog, and the canary deletes the game immediately after
+  // verifying the host.
+  return user.toLowerCase() === "serge-ivo" && /^e2e-create-[a-z0-9-]+-test$/.test(id);
+}
+
 /**
  * POST /api/create — provision a new game via the canonical admin path (Path B).
  * Creates the repo from the chosen template, writes the R2 host route + store
@@ -116,7 +125,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
     if (!repoExisted) {
       const max = parseInt(context.env.MAX_APPS_PER_USER || "10", 10);
-      if (owned.length >= max) {
+      if (owned.length >= max && !isProductionCreateCanary(user, body.id)) {
         return json({ error: `Game limit reached (${max} per creator)` }, 403);
       }
     }

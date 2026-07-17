@@ -91,6 +91,31 @@ describe("create onRequestPost authorization", () => {
     expect(res.status).toBe(403);
   });
 
+  it("lets the production create canary bypass the owner quota for hidden -test fixtures only", async () => {
+    mResolveCreator.mockResolvedValue("serge-ivo");
+    const owned = Array.from({ length: 64 }, (_, i) => ({ id: `g${i}` }));
+    mListUserGames.mockResolvedValue({ owned, isOrgMember: true, adminAll: [] } as never);
+    let provisionBody: Record<string, unknown> | undefined;
+    wireFetch({
+      repoStatus: 404,
+      provisionStatus: 200,
+      provisionBody: { success: true },
+      onProvision: (b) => { provisionBody = b; },
+    });
+
+    const ok = await onRequestPost(
+      makeCtx({ id: "e2e-create-abc123-test", name: "Create Canary" }, { MAX_APPS_PER_USER: "10" }),
+    );
+    expect(ok.status).toBe(200);
+    expect(provisionBody?.creatorGithub).toBe("serge-ivo");
+
+    wireFetch({ repoStatus: 404 });
+    const notFixture = await onRequestPost(
+      makeCtx({ id: "not-a-canary", name: "Not Canary" }, { MAX_APPS_PER_USER: "10" }),
+    );
+    expect(notFixture.status).toBe(403);
+  });
+
   it("FAIL-SAFE: a non-200/404 GitHub status returns 502 (not treated as 'free')", async () => {
     mResolveCreator.mockResolvedValue("alice");
     mListUserGames.mockResolvedValue({ owned: [], isOrgMember: false, adminAll: [] });
