@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bumpSessionTokens, upsertSessionIndex } from "./sessions";
+import { activityFromDeployStatus, bumpSessionTokens, updateSessionActivity, upsertSessionIndex } from "./sessions";
 
 /** Minimal D1 stub that records prepare/bind/run calls. */
 function mockDb() {
@@ -67,5 +67,31 @@ describe("bumpSessionTokens", () => {
     const { db, calls } = mockDb();
     await bumpSessionTokens(db, "user-1", "sess-1", 1234.6, -5);
     expect(updateOf(calls)!.args).toEqual([1235, 0, "user-1", "sess-1"]);
+  });
+});
+
+const activityUpdateOf = (calls: { sql: string; args: unknown[] }[]) =>
+  calls.find((c) => c.sql.includes("activity_phase = excluded.activity_phase"));
+
+describe("updateSessionActivity", () => {
+  it("no-ops when userId or sessionId is missing", async () => {
+    const { db, calls } = mockDb();
+    await updateSessionActivity(db, "", "s", { phase: "writing", detail: "Writing" });
+    await updateSessionActivity(db, "u", "", { phase: "writing", detail: "Writing" });
+    expect(activityUpdateOf(calls)).toBeUndefined();
+  });
+
+  it("writes the latest activity for a session", async () => {
+    const { db, calls } = mockDb();
+    await updateSessionActivity(db, "user-1", "sess-1", { phase: "building", detail: "Building and deploying" });
+    expect(activityUpdateOf(calls)!.args).toEqual(["user-1", "sess-1", "building", "Building and deploying"]);
+  });
+});
+
+describe("activityFromDeployStatus", () => {
+  it("maps deploy phases to list activity", () => {
+    expect(activityFromDeployStatus({ phase: "pushing", progress: "x" })).toEqual({ phase: "pushing", detail: "Pushing code" });
+    expect(activityFromDeployStatus({ phase: "live", appUrl: "https://x" })).toEqual({ phase: "live", detail: "Live" });
+    expect(activityFromDeployStatus({ phase: "error", error: "boom" })).toEqual({ phase: "error", detail: "boom" });
   });
 });

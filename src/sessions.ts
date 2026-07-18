@@ -12,7 +12,15 @@
  */
 import type { Env } from "./index";
 import type { StoreConfig } from "./config";
+import type { DeployStatus } from "./deploy";
 import { resilientFetch } from "./ghfetch";
+
+export type SessionActivityPhase = "idle" | "writing" | "provisioning" | "pushing" | "building" | "live" | "error";
+
+export interface SessionActivity {
+  phase: SessionActivityPhase;
+  detail?: string | null;
+}
 
 const SCHEMA = `CREATE TABLE IF NOT EXISTS agent_sessions (
   user_id TEXT NOT NULL,
@@ -23,6 +31,9 @@ const SCHEMA = `CREATE TABLE IF NOT EXISTS agent_sessions (
   deployed INTEGER NOT NULL DEFAULT 0,
   input_tokens INTEGER NOT NULL DEFAULT 0,
   output_tokens INTEGER NOT NULL DEFAULT 0,
+  activity_phase TEXT NOT NULL DEFAULT 'idle',
+  activity_detail TEXT,
+  activity_updated_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (user_id, session_id)
@@ -37,6 +48,9 @@ const MIGRATIONS = [
   // GitHub login of the session owner, for the admin all-sessions view (the
   // user_id is an opaque auth sub). Backfilled lazily on each chat turn.
   "ALTER TABLE agent_sessions ADD COLUMN user_login TEXT",
+  "ALTER TABLE agent_sessions ADD COLUMN activity_phase TEXT NOT NULL DEFAULT 'idle'",
+  "ALTER TABLE agent_sessions ADD COLUMN activity_detail TEXT",
+  "ALTER TABLE agent_sessions ADD COLUMN activity_updated_at TEXT",
 ];
 
 let schemaReady = false;
@@ -47,6 +61,40 @@ async function ensureSchema(db: D1Database): Promise<void> {
     await db.prepare(sql).run().catch(() => {/* column already exists */});
   }
   schemaReady = true;
+}
+
+function deployActivity(status: DeployStatus): SessionActivity {
+  switch (status.phase) {
+    case "provisioning":
+      return { phase: "provisioning", detail: "Provisioning" };
+    case "pushing":
+      return { phase: "pushing", detail: "Pushing code" };
+    case "building":
+      return { phase: "building", detail: "Building and deploying" };
+    case "live":
+      return { phase: "live", detail: "Live" };
+    case "error":
+      return { phase: "error", detail: status.error || "Failed" };
+  }
+}
+
+export function activityFromDeployStatus(status: DeployStatus): SessionActivity {
+  return deployActivity(status);
+}
+
+function rowActivity(row: Record<string, unknown>): SessionActivity & { updatedAt?: unknown } {
+  const raw = row.activity_phase as string | undefined;
+  const phases = new Set<SessionActivityPhase>(["idle", "writing", "provisioning", "pushing", "building", "live", "error"]);
+  const phase = phases.has(raw as SessionActivityPhase)
+    ? (raw as SessionActivityPhase)
+    : row.deployed
+      ? "live"
+      : "idle";
+  return {
+    phase,
+    detail: (row.activity_detail as string) || undefined,
+    updatedAt: row.activity_updated_at || row.updated_at || row.created_at,
+  };
 }
 
 /**
@@ -74,6 +122,28 @@ export async function bumpSessionTokens(
     .run();
 }
 
+export async function updateSessionActivity(
+  db: D1Database,
+  userId: string,
+  sessionId: string,
+  activity: SessionActivity,
+): Promise<void> {
+  if (!userId || !sessionId) return;
+  await ensureSchema(db);
+  await db
+    .prepare(
+      `INSERT INTO agent_sessions (user_id, session_id, activity_phase, activity_detail, activity_updated_at, updated_at)
+       VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+       ON CONFLICT(user_id, session_id) DO UPDATE SET
+         activity_phase = excluded.activity_phase,
+         activity_detail = excluded.activity_detail,
+         activity_updated_at = datetime('now'),
+         updated_at = datetime('now')`,
+    )
+    .bind(userId, sessionId, activity.phase, activity.detail ?? null)
+    .run();
+}
+
 /**
  * Server-authoritative upsert of a session's index row, so an active session is
  * discoverable via GET /sessions from ANY browser. Previously the index was
@@ -93,8 +163,8 @@ export async function upsertSessionIndex(
   await ensureSchema(db);
   await db
     .prepare(
-      `INSERT INTO agent_sessions (user_id, session_id, title, game_id, game_url, user_login, deployed, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 0, datetime('now'))
+      `INSERT INTO agent_sessions (user_id, session_id, title, game_id, game_url, user_login, deployed, activity_phase, activity_detail, activity_updated_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 'idle', NULL, NULL, datetime('now'))
        ON CONFLICT(user_id, session_id) DO UPDATE SET
          title = COALESCE(excluded.title, agent_sessions.title),
          game_id = COALESCE(excluded.game_id, agent_sessions.game_id),
@@ -171,7 +241,7 @@ export async function listAllSessions(db: D1Database): Promise<Record<string, un
   await ensureSchema(db);
   const { results } = await db.prepare(
     `SELECT user_id, user_login, session_id, title, game_id, game_url, deployed,
-            input_tokens, output_tokens, created_at, updated_at
+            input_tokens, output_tokens, activity_phase, activity_detail, activity_updated_at, created_at, updated_at
      FROM agent_sessions ORDER BY updated_at DESC LIMIT 500`,
   ).all();
   return (results as Record<string, unknown>[]).map((r) => ({
@@ -182,6 +252,7 @@ export async function listAllSessions(db: D1Database): Promise<Record<string, un
     gameId: (r.game_id as string) || undefined,
     gameUrl: (r.game_url as string) || undefined,
     deployed: !!r.deployed,
+    activity: rowActivity(r),
     tokens: { input: Number(r.input_tokens) || 0, output: Number(r.output_tokens) || 0 },
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -239,7 +310,7 @@ export async function handleSessionsApi(
   // show per-game and total spend without a second request.
   if (path === "/sessions" && request.method === "GET") {
     const { results } = await env.DB.prepare(
-      "SELECT session_id, title, game_id, game_url, deployed, input_tokens, output_tokens, created_at FROM agent_sessions WHERE user_id = ? ORDER BY updated_at DESC",
+      "SELECT session_id, title, game_id, game_url, deployed, input_tokens, output_tokens, activity_phase, activity_detail, activity_updated_at, created_at, updated_at FROM agent_sessions WHERE user_id = ? ORDER BY updated_at DESC",
     )
       .bind(user.id)
       .all();
@@ -256,8 +327,10 @@ export async function handleSessionsApi(
         gameId: (r.game_id as string) || undefined,
         gameUrl: (r.game_url as string) || undefined,
         deployed: !!r.deployed,
+        activity: rowActivity(r),
         tokens: { input, output },
         createdAt: r.created_at,
+        updatedAt: r.updated_at,
       };
     });
     return json({ sessions, totals: { input: totalIn, output: totalOut, games: sessions.length } });
@@ -274,17 +347,22 @@ export async function handleSessionsApi(
         gameUrl?: string;
         deployed?: boolean;
       };
+      const activityPhase = body.deployed ? "live" : "idle";
+      const activityDetail = body.deployed ? "Live" : null;
       await env.DB.prepare(
-        `INSERT INTO agent_sessions (user_id, session_id, title, game_id, game_url, deployed, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+        `INSERT INTO agent_sessions (user_id, session_id, title, game_id, game_url, deployed, activity_phase, activity_detail, activity_updated_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 1 THEN datetime('now') ELSE NULL END, datetime('now'))
          ON CONFLICT(user_id, session_id) DO UPDATE SET
            title = COALESCE(excluded.title, agent_sessions.title),
            game_id = COALESCE(excluded.game_id, agent_sessions.game_id),
            game_url = COALESCE(excluded.game_url, agent_sessions.game_url),
            deployed = excluded.deployed,
+           activity_phase = CASE WHEN excluded.deployed = 1 THEN excluded.activity_phase ELSE agent_sessions.activity_phase END,
+           activity_detail = CASE WHEN excluded.deployed = 1 THEN excluded.activity_detail ELSE agent_sessions.activity_detail END,
+           activity_updated_at = CASE WHEN excluded.deployed = 1 THEN datetime('now') ELSE agent_sessions.activity_updated_at END,
            updated_at = datetime('now')`,
       )
-        .bind(user.id, sessionId, body.title ?? null, body.gameId ?? null, body.gameUrl ?? null, body.deployed ? 1 : 0)
+        .bind(user.id, sessionId, body.title ?? null, body.gameId ?? null, body.gameUrl ?? null, body.deployed ? 1 : 0, activityPhase, activityDetail, body.deployed ? 1 : 0)
         .run();
       return json({ ok: true });
     }

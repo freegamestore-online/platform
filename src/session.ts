@@ -16,7 +16,7 @@ import { resolveUserKey } from "./keys";
 import { compKeyFor, getActiveComp } from "./keygrants";
 import { allowDeploy, allowRequest } from "./ratelimit";
 import { enforceSessionBudget } from "./session-budget";
-import { bumpSessionTokens, upsertSessionIndex } from "./sessions";
+import { activityFromDeployStatus, bumpSessionTokens, updateSessionActivity, upsertSessionIndex } from "./sessions";
 import { armWatchdog } from "./watchdog";
 
 interface ErrorEntry {
@@ -578,6 +578,9 @@ export class AgentSession implements DurableObject {
     const writer = writable.getWriter();
 
     this.chatInProgress = true;
+    updateSessionActivity(this.env.DB, pending.userId, pending.sessionId, { phase: "writing", detail: "Writing" }).catch(
+      (e) => this.logError("storage", `activity persist: ${String(e)}`),
+    );
     // Re-arm BEFORE the long await so another death mid-resume is also caught.
     await this.state.storage.setAlarm(Date.now() + TURN_HEARTBEAT_MS);
     await this.executeTurn({
@@ -627,6 +630,10 @@ export class AgentSession implements DurableObject {
         : null;
 
     const encoder = new TextEncoder();
+    const setActivity = (activity: { phase: "idle" | "writing" | "provisioning" | "pushing" | "building" | "live" | "error"; detail?: string | null }) => {
+      if (!userId || !sessionId) return;
+      updateSessionActivity(this.env.DB, userId, sessionId, activity).catch((e) => this.logError("storage", `activity persist: ${String(e)}`));
+    };
     const sendSSE = (evt: { type: string; data: string }) => {
       this.lastTurnEventAt = Date.now();
       writer.write(encoder.encode(`data: ${JSON.stringify(evt)}\n\n`)).catch(() => {});
@@ -643,6 +650,7 @@ export class AgentSession implements DurableObject {
       // a watchdog death looks like silent abandonment on reload ("I got
       // interrupted") and nobody can tell why the build stopped.
       this.appendAssistantError("timeout", `The build ran past the ${TURN_DEADLINE_MS / 60_000}-minute limit and was stopped. Say "continue" to pick up where it left off.`);
+      setActivity({ phase: "error", detail: "Stopped after running too long" });
       this.persistNow().catch(() => {});
       sendSSE({ type: "error", data: "The build took too long and was stopped. Say \"continue\" to pick up where it left off." });
       sendSSE({ type: "done", data: "" });
@@ -664,6 +672,7 @@ export class AgentSession implements DurableObject {
         const MAX_INFRA_ROUNDS = 6;
         let resumeMsg: string | null = initialMessage;
         let infraRounds = 0;
+        setActivity({ phase: "writing", detail: "Writing" });
         while (true) {
         // First round rebuilds from the pre-turn snapshot (`history`) since the
         // user message was provisionally saved above; resume rounds continue
@@ -739,6 +748,7 @@ export class AgentSession implements DurableObject {
           if (!deployEnv) {
             const msg = "Server configuration error: deploy environment not available.";
             this.appendAssistantError("deploy", msg);
+            setActivity({ phase: "error", detail: msg });
             await this.save();
             sendSSE({ type: "error", data: msg });
             sendSSE({ type: "done", data: "" });
@@ -817,6 +827,7 @@ export class AgentSession implements DurableObject {
                 engine: session.engine,
                 onDeployStatus: (status) => {
                   session.deployStatus = status;
+                  setActivity(activityFromDeployStatus(status));
                   this.logDeploy(status);
                   this.persistNow().catch((e) => this.logError("deploy", `persist status: ${String(e)}`));
                   sendSSE({ type: "deploy_status", data: JSON.stringify(status) });
@@ -850,6 +861,7 @@ export class AgentSession implements DurableObject {
                   session.appId = id;
                   session.appName = name;
                   session.deployStatus = { phase: "provisioning", steps: [] };
+                  setActivity({ phase: "provisioning", detail: "Provisioning" });
                   this.persistNow().catch((e) => this.logError("deploy", `persist provision: ${String(e)}`));
                 },
               });
@@ -902,6 +914,7 @@ export class AgentSession implements DurableObject {
       } catch (err) {
         const message = String(err);
         this.appendAssistantError("chat", message);
+        setActivity({ phase: "error", detail: message });
         // Surface the error to the client FIRST, then persist best-effort. If
         // save() throws (e.g. the session blob outgrew the DO value cap), the
         // old ordering meant the error SSE never fired and the stream just
@@ -916,6 +929,10 @@ export class AgentSession implements DurableObject {
         if (!watchdog.fired() && epoch === this.turnEpoch) {
           watchdog.clear();
           this.chatInProgress = false;
+          if (session.deployStatus?.phase === "live") setActivity({ phase: "live", detail: "Live" });
+          else if (session.deployStatus?.phase === "error") setActivity(activityFromDeployStatus(session.deployStatus));
+          else if (session.deployStatus?.phase) setActivity(activityFromDeployStatus(session.deployStatus));
+          else setActivity({ phase: "idle", detail: "Needs prompt" });
           writer.close().catch(() => {});
           // Turn concluded with a persisted outcome — stand down the alarm.
           await this.state.storage.delete(PENDING_TURN_KEY).catch(() => {});
