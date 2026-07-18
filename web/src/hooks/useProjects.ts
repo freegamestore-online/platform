@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
 import { mapServerSession, type Project, type ServerSession } from "../lib/sessions";
+import { readCurrentProjectId, writeCurrentProjectId } from "../lib/currentProjectStorage";
 
 export type { Project };
 
@@ -11,7 +12,15 @@ export type { Project };
 // sessions live (and leaves the picker empty while transcripts sit orphaned).
 const AGENT_URL = "https://agent.freegamestore.online";
 
-const CURRENT_KEY = "fgs_current_project";
+function placeholderProject(id: string, name = "Current game"): Project {
+  return {
+    id,
+    name,
+    createdAt: new Date().toISOString(),
+    updatedAt: Date.now(),
+    deployed: false,
+  };
+}
 
 async function fetchSessions(signal: AbortSignal): Promise<Project[]> {
   const res = await fetch(`${AGENT_URL}/sessions`, { signal, credentials: "include" });
@@ -51,20 +60,19 @@ async function putSession(project: Project, attempt = 0): Promise<void> {
 }
 
 export function useProjects() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
-  const [currentId, setCurrentIdState] = useState<string | null>(() => localStorage.getItem(CURRENT_KEY));
+  const [currentId, setCurrentIdState] = useState<string | null>(null);
 
   const reload = useCallback(() => setReloadNonce((n) => n + 1), []);
 
   const setCurrentId = useCallback((id: string | null) => {
     setCurrentIdState(id);
-    if (id) localStorage.setItem(CURRENT_KEY, id);
-    else localStorage.removeItem(CURRENT_KEY);
-  }, []);
+    writeCurrentProjectId(user?.sub, id);
+  }, [user?.sub]);
 
   useEffect(() => {
     try {
@@ -75,6 +83,11 @@ export function useProjects() {
   }, []);
 
   useEffect(() => {
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+
     if (!user) {
       setProjects([]);
       setCurrentId(null);
@@ -92,7 +105,7 @@ export function useProjects() {
         // "start or open a game" state) instead of spawning a blank "New Game"
         // session on every visit — those unbound shells piled up and made it
         // look like chat had vanished when switching between them.
-        const stored = localStorage.getItem(CURRENT_KEY);
+        const stored = readCurrentProjectId(user.sub);
         const storedInList = !!stored && server.some((project) => project.id === stored);
 
         // Never abandon the open session on reload. The transcript lives in the
@@ -104,14 +117,7 @@ export function useProjects() {
         // picker/toolbar have an entry; loadHistory() fills in the real
         // transcript + name from the DO.
         if (stored && !storedInList) {
-          const placeholder: Project = {
-            id: stored,
-            name: "Current game",
-            createdAt: new Date().toISOString(),
-            updatedAt: Date.now(),
-            deployed: false,
-          };
-          setProjects([placeholder, ...server]);
+          setProjects([placeholderProject(stored), ...server]);
           setCurrentId(stored);
           return;
         }
@@ -128,7 +134,7 @@ export function useProjects() {
       .finally(() => setLoading(false));
 
     return () => ctrl.abort();
-  }, [user?.sub, reloadNonce, setCurrentId]);
+  }, [authLoading, user?.sub, reloadNonce, setCurrentId]);
 
   const create = useCallback((name: string, appId?: string) => {
     const id = crypto.randomUUID();
@@ -148,6 +154,7 @@ export function useProjects() {
   }, [setCurrentId]);
 
   const switchTo = useCallback((id: string) => {
+    setProjects((prev) => prev.some((project) => project.id === id) ? prev : [placeholderProject(id), ...prev]);
     setCurrentId(id);
   }, [setCurrentId]);
 
@@ -171,8 +178,9 @@ export function useProjects() {
         const server = await fetchSessions(new AbortController().signal);
         existing = server.find((p) => p.appId === gameId);
       } catch {
-        // Server unreachable — fall through and mint a fresh session; the next
-        // reload/open reconciles against the server index.
+        // If the authoritative index is unreachable and we have no local match,
+        // do not mint a second session for a live game. Let the user retry.
+        throw new Error(`Couldn't load your sessions before opening "${gameId}". Please retry.`);
       }
     }
     // Always re-import: the endpoint re-syncs the session's files from the repo
@@ -261,7 +269,8 @@ export function useProjects() {
   const rename = useCallback((id: string, name: string) => {
     setProjects((prev) => {
       const existing = prev.find((project) => project.id === id);
-      if (!existing || existing.name === name) return prev;
+      if (!existing) return [placeholderProject(id, name), ...prev];
+      if (existing.name === name) return prev;
       const updated = prev.map((project) => (project.id === id ? { ...project, name, updatedAt: Date.now() } : project));
       const project = updated.find((candidate) => candidate.id === id);
       if (project) putSession(project);
@@ -289,6 +298,16 @@ export function useProjects() {
       const existing = prev.find((project) => project.id === sessionId);
       if (existing?.deployed && existing.appId === appId && existing.appUrl === appUrl) {
         return prev;
+      }
+      if (!existing) {
+        const project: Project = {
+          ...placeholderProject(sessionId, appId),
+          appId,
+          appUrl,
+          deployed: true,
+        };
+        putSession(project);
+        return [project, ...prev];
       }
       // Keep the user's chosen project name — don't overwrite it with the repo id.
       const updated = prev.map((project) =>

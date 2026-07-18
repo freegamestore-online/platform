@@ -4,6 +4,7 @@ import {
   isFreeProvider,
   resolveInitialProvider,
   readLegacyLocalKeys,
+  writeLegacyLocalKeys,
   clearLegacyLocalKeys,
 } from "./ai-keys";
 import { MODEL_OPTIONS } from "./models";
@@ -80,5 +81,12 @@ describe("legacy localStorage key migration", () => {
     clearLegacyLocalKeys();
     expect(localStorage.getItem("fgs_ai_keys")).toBeNull();
     expect(readLegacyLocalKeys()).toEqual({});
+  });
+
+  it("writeLegacyLocalKeys keeps only providers that still need migration", () => {
+    writeLegacyLocalKeys({ openrouter: "sk-or-v1-legacy", openai: "" });
+    expect(readLegacyLocalKeys()).toEqual({ openrouter: "sk-or-v1-legacy" });
+    writeLegacyLocalKeys({});
+    expect(localStorage.getItem("fgs_ai_keys")).toBeNull();
   });
 });

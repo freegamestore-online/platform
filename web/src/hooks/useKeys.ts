@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
-import { isFreeProvider, readLegacyLocalKeys, clearLegacyLocalKeys } from "../lib/ai-keys";
+import { isFreeProvider, readLegacyLocalKeys, writeLegacyLocalKeys } from "../lib/ai-keys";
 
 // AI provider keys live in the agent worker's ENCRYPTED vault (D1, AES-256-GCM),
 // NOT in localStorage. The browser only ever learns WHICH providers have a key
@@ -62,13 +62,15 @@ export function useKeys() {
       const legacy = readLegacyLocalKeys();
       const entries = Object.entries(legacy).filter(([, v]) => v);
       if (entries.length) {
-        await Promise.all(entries.map(([p, k]) =>
-          fetch(`${AGENT_URL}/v1/keys/${p}`, {
+        const results = await Promise.all(entries.map(async ([provider, key]) => {
+          const res = await fetch(`${AGENT_URL}/v1/keys/${provider}`, {
             method: "PUT", credentials: "include",
-            headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: k }),
-          }).catch(() => null),
-        ));
-        clearLegacyLocalKeys();
+            headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key }),
+          }).catch(() => null);
+          return { provider, key, ok: !!res?.ok };
+        }));
+        const failed = Object.fromEntries(results.filter((r) => !r.ok).map((r) => [r.provider, r.key]));
+        writeLegacyLocalKeys(failed);
         if (!cancelled) await refresh();
       }
     })();

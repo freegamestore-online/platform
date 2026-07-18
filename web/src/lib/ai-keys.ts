@@ -75,6 +75,13 @@ export function readLegacyLocalKeys(): Record<string, string> {
   try { return JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) || "{}"); } catch { return {}; }
 }
 
+/** Persist any legacy plaintext keys that could not be migrated yet. */
+export function writeLegacyLocalKeys(keys: Record<string, string>) {
+  const entries = Object.entries(keys).filter(([, value]) => value);
+  if (entries.length) localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(Object.fromEntries(entries)));
+  else localStorage.removeItem(LEGACY_STORAGE_KEY);
+}
+
 /** Remove the legacy plaintext keys from the browser once migrated. */
 export function clearLegacyLocalKeys() {
   localStorage.removeItem(LEGACY_STORAGE_KEY);
@@ -99,4 +106,3 @@ export function resolveInitialProvider(): string {
   // Create.tsx moves them to a keyed provider once keys load, if they have one.
   return "github";
 }
-

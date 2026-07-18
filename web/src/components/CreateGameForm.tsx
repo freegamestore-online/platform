@@ -160,8 +160,8 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
       const createData = await createRes.json().catch(() => ({} as { steps?: ProvisionStep[]; success?: boolean; error?: string }));
       if (!createRes.ok || createData.error) {
         setSubmitError(createData.error || `Create failed (${createRes.status})`);
-      } else if (createData.steps) {
-        setResult({ steps: createData.steps, success: createData.success ?? false });
+      } else if (createData.success || createData.steps) {
+        setResult({ steps: createData.steps ?? [], success: createData.success ?? false });
         if (createData.success) {
           const prompt = buildInitialPrompt({ gameName, gameId, category, description, template, cloneFrom, buildPrompt });
           queueInitialBuild(gameId, prompt);

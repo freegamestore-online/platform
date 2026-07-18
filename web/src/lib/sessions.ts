@@ -68,6 +68,6 @@ export function mapServerSession(s: ServerSession, nowMs: number): Project {
  *  a Live game in the registry-backed list, so it's excluded here. */
 export function toDrafts(sessions: ServerSession[]): DraftSession[] {
   return sessions
-    .filter((s) => !s.deployed)
+    .filter((s) => !s.deployed && !s.gameId)
     .map((s) => ({ id: s.id, name: s.name || "Untitled", createdAt: s.createdAt, gameId: s.gameId }));
 }

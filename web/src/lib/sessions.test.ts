@@ -45,11 +45,12 @@ describe("formatTokens", () => {
 });
 
 describe("toDrafts", () => {
-  it("keeps only undeployed sessions", () => {
+  it("keeps only undeployed sessions that are not already bound to a game", () => {
     const drafts = toDrafts([
       session({ id: "a", deployed: false }),
       session({ id: "b", deployed: true, gameId: "snake" }),
       session({ id: "c", deployed: false }),
+      session({ id: "d", deployed: false, gameId: "live-but-misflagged" }),
     ]);
     expect(drafts.map((d) => d.id)).toEqual(["a", "c"]);
   });

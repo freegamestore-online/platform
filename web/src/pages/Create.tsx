@@ -44,6 +44,7 @@ export function Create() {
   const openedSessionRef = useRef<string | null>(null);
   const autoInitialPromptRef = useRef<string | null>(null);
   const [initialBuild, setInitialBuild] = useState<InitialBuild | null>(null);
+  const [providerResolved, setProviderResolved] = useState(false);
   const { id: urlKey } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const resolvedKeyRef = useRef<string | null>(null);
@@ -52,12 +53,25 @@ export function Create() {
   const legacyGameParam = searchParams.get("game");
   const legacySessionParam = searchParams.get("session");
 
+  const routeKeyForProject = useCallback((project: { id: string; appId?: string } | undefined | null) => project?.appId || project?.id || null, []);
+
+  const navigateToProject = useCallback((project: { id: string; appId?: string } | undefined | null, replace = false) => {
+    const key = routeKeyForProject(project);
+    if (!key) {
+      resolvedKeyRef.current = null;
+      navigate("/create", { replace });
+      return;
+    }
+    resolvedKeyRef.current = key;
+    navigate(`/create/${key}`, { replace });
+  }, [navigate, routeKeyForProject]);
+
   // Path routing: /create/<key> opens that game or session — the key is the
   // game id once deployed (/create/tetris), or the session id for a draft.
   // Runs once per key; canonical URL writes below pre-mark their key resolved
   // so switching games in the picker doesn't bounce back through here.
   useEffect(() => {
-    if (!urlKey || loading || !user || agent.projectsLoading || resolvedKeyRef.current === urlKey) return;
+    if (!urlKey || loading || !user || agent.projectsLoading || agent.isStreaming || resolvedKeyRef.current === urlKey) return;
     resolvedKeyRef.current = urlKey;
     const project = agent.projects.find((p) => p.appId === urlKey || p.id === urlKey);
     if (project?.id === agent.currentProjectId) return; // already open
@@ -69,7 +83,7 @@ export function Create() {
     if (!gameId) { agent.switchProject(urlKey); return; }
     setResolvingUrl(true);
     void agent.openGame(gameId).finally(() => setResolvingUrl(false));
-  }, [urlKey, loading, user, agent.projectsLoading, agent.projects, agent.currentProjectId, agent.switchProject, agent.openGame]);
+  }, [urlKey, loading, user, agent.projectsLoading, agent.isStreaming, agent.projects, agent.currentProjectId, agent.switchProject, agent.openGame]);
 
   // Canonical URL: keep the address bar on the open game's unique URL. Same
   // project (bare /create on load, or a draft URL right after deploy) is a
@@ -103,7 +117,7 @@ export function Create() {
     // the auth-loading window when projectsLoading is already false and the
     // project list is still empty — so openGame finds no match and mints a
     // duplicate session for a game that already has one.
-    if (!gameId || loading || !user || agent.projectsLoading || openedGameRef.current === gameId) return;
+    if (!gameId || loading || !user || agent.projectsLoading || agent.isStreaming || openedGameRef.current === gameId) return;
     openedGameRef.current = gameId;
     // ?fresh=1 (from a game's settings) starts a CLEAN chat for the game instead
     // of reopening its existing conversation — the escape hatch for a session
@@ -113,7 +127,7 @@ export function Create() {
     void open.finally(() => {
       setSearchParams({}, { replace: true });
     });
-  }, [searchParams, loading, user, agent.projectsLoading, agent.openGame, agent.startFreshChat, setSearchParams]);
+  }, [searchParams, loading, user, agent.projectsLoading, agent.isStreaming, agent.openGame, agent.startFreshChat, setSearchParams]);
 
   // Deep-link: /create?session=<id> resumes an in-progress draft session (opened
   // from the dashboard's Drafts list). Unlike ?game=, a draft has no live repo to
@@ -121,11 +135,11 @@ export function Create() {
   // switch to it and loadHistory() fills in the messages.
   useEffect(() => {
     const sessionId = searchParams.get("session");
-    if (!sessionId || loading || !user || agent.projectsLoading || openedSessionRef.current === sessionId) return;
+    if (!sessionId || loading || !user || agent.projectsLoading || agent.isStreaming || openedSessionRef.current === sessionId) return;
     openedSessionRef.current = sessionId;
     agent.switchProject(sessionId);
     setSearchParams({}, { replace: true });
-  }, [searchParams, loading, user, agent.projectsLoading, agent.switchProject, setSearchParams]);
+  }, [searchParams, loading, user, agent.projectsLoading, agent.isStreaming, agent.switchProject, setSearchParams]);
 
   useEffect(() => {
     if (!agent.currentProjectId || agent.projectsLoading || resolvingUrl) return;
@@ -169,6 +183,40 @@ export function Create() {
     setInitialBuild(readInitialBuild(currentProject?.appId));
   }, [currentProject?.appId]);
 
+  const autoPickedRef = useRef(false);
+  useEffect(() => {
+    autoPickedRef.current = false;
+    setProviderResolved(false);
+  }, [user?.sub]);
+
+  // Once the vault's key state loads, use whatever provider the user actually
+  // has a key for. If no paid provider is usable, fall back to the free GitHub
+  // Models tier so a first build is not blocked by a stale paid preference.
+  useEffect(() => {
+    if (keys.loading) {
+      setProviderResolved(false);
+      return;
+    }
+    if (autoPickedRef.current) {
+      setProviderResolved(true);
+      return;
+    }
+    autoPickedRef.current = true;
+    if (keys.hasKey(provider)) {
+      setProviderResolved(true);
+      return;
+    }
+    const keyed = PROVIDERS.find((p) => keys.hasKey(p.type));
+    if (keyed) {
+      setProvider(keyed.type);
+      setModel(firstModelFor(keyed.type));
+    } else if (!keys.providerUsable(provider)) {
+      setProvider("github");
+      setModel(firstModelFor("github"));
+    }
+    setProviderResolved(true);
+  }, [keys.loading, keys.hasKey, keys.providerUsable, provider, user?.sub]);
+
   const sendPrompt = useCallback(async (msg: string) => {
     if (!msg || agent.isStreaming) return;
     if (!keys.providerUsable(provider)) {
@@ -204,7 +252,7 @@ export function Create() {
     }
 
     const key = `${gameId}:${initialBuild.createdAt}`;
-    if (autoInitialPromptRef.current === key || agent.isStreaming || loading || !user || agent.projectsLoading) return;
+    if (autoInitialPromptRef.current === key || agent.isStreaming || loading || !user || agent.projectsLoading || !providerResolved) return;
     if (agent.messages.some((m) => m.role === "user")) {
       clearInitialBuild(gameId);
       setInitialBuild(null);
@@ -231,6 +279,7 @@ export function Create() {
     user,
     keys.loading,
     keys.providerUsable,
+    providerResolved,
     provider,
     sendPrompt,
   ]);
@@ -249,21 +298,6 @@ export function Create() {
     return () => { body.overflow = prev.body; html.overflow = prev.html; };
   }, []);
 
-  // Once the vault's key state loads, use whatever provider the user actually
-  // has a key for — don't sit on a keyless default and fail mid-build. Runs once
-  // (keys.loading → false); if the current provider already has a key, keep it.
-  const autoPickedRef = useRef(false);
-  useEffect(() => {
-    if (keys.loading || autoPickedRef.current) return;
-    autoPickedRef.current = true;
-    if (keys.hasKey(provider)) return;
-    const keyed = PROVIDERS.find((p) => keys.hasKey(p.type));
-    if (keyed) {
-      setProvider(keyed.type);
-      setModel(firstModelFor(keyed.type));
-    }
-  }, [keys.loading, keys.hasKey, provider]);
-
   if (loading) {
     return (
       <>
@@ -280,7 +314,8 @@ export function Create() {
   // from R2 at https://<id>.freegamestore.online (NOT pages.dev). Prefer the
   // persisted project URL; during a live deploy fall back to the deploy status's
   // appUrl so the preview appears before markDeployed persists.
-  const previewUrl = currentProject?.appUrl || agent.deployState?.appUrl || null;
+  const previewUrl = currentProject?.appUrl || agent.deployState?.appUrl || agent.deployState?.deployUrl || null;
+  const hasBuilt = agent.messages.some((m) => m.role === "tool");
   const initialBuildTerminal = agent.deployState?.phase === "live" || agent.deployState?.phase === "error";
   const initialBuildQueued = !!initialBuild && !initialBuildTerminal;
   const initialBuildPromptSent = initialBuildQueued && agent.messages.some((m) => m.role === "user");
@@ -293,11 +328,10 @@ export function Create() {
       ? "The AI is building the first playable version. The preview appears after it deploys."
       : "Opening the new game and starting the first build. The preview appears after deploy.",
   } : null);
-  const firstBuildNeedsDeploy = initialBuildQueued && !initialBuildInProgress && initialBuildPromptSent;
+  const firstBuildNeedsDeploy = initialBuildQueued && !initialBuildInProgress && initialBuildPromptSent && hasBuilt;
   // Only offer "Deploy now" once the AI has actually built something (wrote files
   // via a tool call). A bare user message + an error (e.g. no key) must NOT show
   // a deploy prompt — there's nothing to deploy yet.
-  const hasBuilt = agent.messages.some((m) => m.role === "tool");
   // Bring-your-own-key: nag only when the current provider is unusable — no key
   // saved and not the free tier (GitHub Models, which runs on the platform token).
   // Default is Claude; the auto-pick effect moves to whatever provider the user
@@ -479,12 +513,28 @@ export function Create() {
           currentId={agent.currentProjectId}
           loadError={agent.projectsError}
           onRetry={agent.reloadProjects}
-          onSelect={(id) => agent.switchProject(id)}
+          onSelect={(id) => {
+            if (agent.isStreaming) return;
+            const project = agent.projects.find((p) => p.id === id);
+            agent.switchProject(id);
+            navigateToProject(project ?? { id });
+          }}
           // Unified: "new" from the picker opens the one template picker, not a
           // blank canvas session.
           onCreate={() => { setPickerOpen(false); setNewOpen(true); }}
-          onDelete={(id) => agent.deleteProject(id)}
-          onFreshChat={(appId) => { setPickerOpen(false); void agent.startFreshChat(appId); }}
+          onDelete={(id) => {
+            const deletingCurrent = id === agent.currentProjectId;
+            const next = agent.projects.find((p) => p.id !== id) ?? null;
+            agent.deleteProject(id);
+            if (deletingCurrent) navigateToProject(next, true);
+          }}
+          onFreshChat={(appId) => {
+            if (agent.isStreaming) return;
+            setPickerOpen(false);
+            void agent.startFreshChat(appId).then((id) => {
+              if (id) navigateToProject({ id, appId });
+            });
+          }}
           onClose={() => setPickerOpen(false)}
         />
       )}

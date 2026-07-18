@@ -6,6 +6,11 @@ export type { Project };
 const AGENT_URL = "https://agent.freegamestore.online";
 const DEFAULT_MESSAGES: AgentMessage[] = [{ role: "system", content: "Describe the game you want to build." }];
 
+function normalizeDeployState(state: DeployState | null | undefined): DeployState | null {
+  if (!state) return null;
+  return state.appUrl || !state.deployUrl ? state : { ...state, appUrl: state.deployUrl };
+}
+
 /** A single message in the agent conversation (user, assistant, tool, or system). */
 export interface AgentMessage {
   role: "user" | "assistant" | "tool" | "system";
@@ -150,7 +155,7 @@ export function useAgent() {
         if (restored.length > 0) {
           setMessages(restored);
           setVisibleCount(INITIAL_VISIBLE); // show the last 20 on restore
-          setDeployState(historyData.deployStatus ?? null);
+          setDeployState(normalizeDeployState(historyData.deployStatus));
           // Restore the running token totals too — /history reports them, but
           // they weren't being read, so a reloaded session always showed
           // "In 0 · Out 0" even after a long build.
@@ -159,7 +164,7 @@ export function useAgent() {
             setTokensOut(historyData.tokenUsage.output ?? 0);
           }
           if (historyData.deployStatus?.phase === "live" && historyData.appId) {
-            projectsMgr.markDeployed(sessionId, historyData.appId, historyData.deployStatus.appUrl || "");
+            projectsMgr.markDeployed(sessionId, historyData.appId, historyData.deployStatus.appUrl || historyData.deployStatus.deployUrl || "");
           } else if (historyData.appName) {
             projectsMgr.rename(sessionId, historyData.appName);
           }
@@ -182,7 +187,7 @@ export function useAgent() {
       try {
         const res = await fetch(`${AGENT_URL}/session/${sid}/status`, { credentials: "include" });
         if (!res.ok) continue;
-        const ds = ((await res.json()) as { deployStatus?: DeployState | null }).deployStatus;
+        const ds = normalizeDeployState(((await res.json()) as { deployStatus?: DeployState | null }).deployStatus);
         if (ds?.phase === "live") { setDeployState(ds); setError(null); return; }
         if (ds?.phase === "error") { setDeployState(ds); setError(ds.error || "Deploy failed."); return; }
       } catch { /* keep polling */ }
@@ -308,7 +313,8 @@ export function useAgent() {
                 break;
               }
               case "deploy_status": {
-                const ds = JSON.parse(evt.data);
+                const ds = normalizeDeployState(JSON.parse(evt.data));
+                if (!ds) break;
                 // The server's error event carries only { phase, error } — no
                 // steps and no indication of which step failed. Preserve the
                 // in-progress steps/phase so DeployLog can highlight the failure.
@@ -319,8 +325,8 @@ export function useAgent() {
                 );
                 if (ds.phase === "error") setError(ds.error || "Deploy failed");
                 if (ds.phase === "live" && ds.appUrl && sessionId) {
-                  const host = ds.appUrl.replace("https://", "").split("/")[0].split(".")[0];
-                  projectsMgr.markDeployed(sessionId, host, ds.appUrl);
+                  const host = ds.appUrl.replace("https://", "").split("/")[0]?.split(".")[0];
+                  if (host) projectsMgr.markDeployed(sessionId, host, ds.appUrl);
                 }
                 break;
               }
@@ -353,8 +359,8 @@ export function useAgent() {
           // Don't declare failure — the Actions build finishes independent of
           // this stream. Keep the in-progress view and poll status; the poll
           // resolves it to live/error or a friendly "still building" note.
-          // DeployState exposes appUrl (not deployUrl) — reading the wrong field
-          // meant the "still building at <url>" hint always lost its link.
+          // Deploy status is normalized to appUrl, including server-side
+          // building statuses that arrive as deployUrl.
           const deployUrl = prev.appUrl;
           if (sessionId) void pollDeployStatus(sessionId, deployUrl);
           return prev;
