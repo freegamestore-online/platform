@@ -322,6 +322,7 @@ export function Create() {
   const initialBuildPromptSent = initialBuildQueued && agent.messages.some((m) => m.role === "user");
   const initialBuildInProgress = initialBuildQueued && (!!agent.deployState || agent.isStreaming || !initialBuildPromptSent);
   const showPreview = !!previewUrl && (agent.deployState?.phase === "live" || (!agent.deployState && currentProject?.deployed && !initialBuildQueued));
+  const versionUrl = showPreview ? previewUrl : null;
   const previewStatusState = agent.deployState ?? (initialBuildInProgress ? {
     phase: agent.isStreaming ? "pushing" : "provisioning",
     appUrl: previewUrl ?? undefined,
@@ -480,12 +481,14 @@ export function Create() {
             {previewUrl ? (
               <>
                 <a href={previewUrl} target="_blank" rel="noopener" className="text-xs truncate min-w-0 flex-1" style={{ color: "var(--accent)", fontFamily: "monospace" }}>{previewUrl.replace("https://", "")}</a>
-                <span className="hidden lg:inline-flex items-center shrink-0 text-[0.62rem] text-[var(--muted)] tabular-nums">
-                  <GameVersion
-                    key={agent.deployState?.phase === "live" ? "live" : previewUrl}
-                    liveUrl={previewUrl}
-                  />
-                </span>
+                {versionUrl && (
+                  <span className="hidden lg:inline-flex items-center shrink-0 text-[0.62rem] text-[var(--muted)] tabular-nums">
+                    <GameVersion
+                      key={agent.deployState?.phase === "live" ? "live" : versionUrl}
+                      liveUrl={versionUrl}
+                    />
+                  </span>
+                )}
                 <a href={previewUrl} target="_blank" rel="noopener" aria-label="Open in new tab" title="Open in new tab" className="shrink-0 inline-flex items-center justify-center" style={{ color: "var(--accent)", width: 28, height: 28 }}>
                   <ExternalLink className="w-4 h-4" />
                 </a>
