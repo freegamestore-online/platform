@@ -56,6 +56,20 @@ export function StudioToolbar({
           <span className="truncate">{currentProject?.name || "Select game"}</span>
           <ChevronDown className="w-4 h-4 shrink-0 opacity-60" />
         </Button>
+        {/* Ground-truth identity of the LIVE game this chat edits. The button
+            above shows the project's free-form name, which can diverge from the
+            bound game (a draft named "buildlessonline-spec" that later shipped as
+            slicing-game) — so nothing told the user which live game their next
+            prompt would overwrite. This chip always names the real game id. */}
+        {currentProject?.appId && (
+          <span
+            className="hidden sm:inline-flex items-center max-w-[220px] truncate shrink text-[0.7rem] font-mono px-1.5 py-0.5 rounded"
+            style={{ color: "var(--muted)", background: "var(--bg)", border: "1px solid var(--border)" }}
+            title={`This chat edits the live game ${currentProject.appId}.freegamestore.online — a different game needs a New Game`}
+          >
+            {currentProject.appId}
+          </span>
+        )}
         {/* Desktop only — on mobile the toolbar is tight, and a new game can be
             started from the game list ("My Games") or the picker's "New" tab. */}
         <span className="hidden sm:inline-flex">

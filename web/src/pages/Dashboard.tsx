@@ -8,11 +8,12 @@ import { LoadingShell, SignInShell, ErrorShell } from "../components/PageShell";
 import { useAuth, type GameRepo } from "../hooks/useAuth";
 import { useDraftSessions, type DraftSession } from "../hooks/useDraftSessions";
 import { decodeIcon, formatDate, formatRelative } from "../lib/format";
+import { activityLabel, activityTone, type SessionActivity } from "../lib/sessions";
 import { Button, Badge, buttonClass } from "../components/ui";
 
 export function Dashboard() {
   const { user, creator, creatorError, loading, error, fetchCreator, reloadCreator, signIn } = useAuth();
-  const { drafts, discard } = useDraftSessions();
+  const { drafts, activity, discard } = useDraftSessions();
   const [showForm, setShowForm] = useState(false);
   const navigate = useNavigate();
 
@@ -61,7 +62,7 @@ export function Dashboard() {
         </div>
 
         {(creator.games.length > 0 || drafts.length > 0) && (
-          <MyGamesList games={creator.games} drafts={drafts} onDiscard={discard} />
+          <MyGamesList games={creator.games} drafts={drafts} activity={activity} onDiscard={discard} />
         )}
 
         {!showForm && (
@@ -109,7 +110,17 @@ function rowTime(value?: string): number {
   return Number.isNaN(ms) ? 0 : ms;
 }
 
-function MyGamesList({ games, drafts, onDiscard }: { games: GameRepo[]; drafts: DraftSession[]; onDiscard: (id: string) => void }) {
+function MyGamesList({
+  games,
+  drafts,
+  activity,
+  onDiscard,
+}: {
+  games: GameRepo[];
+  drafts: DraftSession[];
+  activity: Map<string, SessionActivity>;
+  onDiscard: (id: string) => void;
+}) {
   const rows: GameRow[] = [
     ...games.map((game) => ({ kind: "live" as const, id: game.id, sortAt: rowTime(game.lastEditedAt || game.createdAt), game })),
     ...drafts.map((draft) => ({ kind: "draft" as const, id: draft.id, sortAt: rowTime(draft.createdAt), draft })),
@@ -120,7 +131,7 @@ function MyGamesList({ games, drafts, onDiscard }: { games: GameRepo[]; drafts: 
       <h3 className="text-lg font-semibold mb-3">My Games</h3>
       <div className="flex flex-col gap-2">
         {rows.map((row) => row.kind === "live" ? (
-          <LiveGameRow key={`live:${row.id}`} game={row.game} />
+          <LiveGameRow key={`live:${row.id}`} game={row.game} activity={activity.get(row.game.id)} />
         ) : (
           <DraftGameRow key={`draft:${row.id}`} draft={row.draft} onDiscard={onDiscard} />
         ))}
@@ -129,7 +140,16 @@ function MyGamesList({ games, drafts, onDiscard }: { games: GameRepo[]; drafts: 
   );
 }
 
-function LiveGameRow({ game }: { game: GameRepo }) {
+function StatusBadge({ activity, deployed = false }: { activity?: SessionActivity; deployed?: boolean }) {
+  const detail = activity?.detail && activity.phase === "error" ? activity.detail : undefined;
+  return (
+    <Badge tone={activityTone(activity, deployed)} className="shrink-0" title={detail}>
+      {activityLabel(activity, deployed)}
+    </Badge>
+  );
+}
+
+function LiveGameRow({ game, activity }: { game: GameRepo; activity?: SessionActivity }) {
   return (
     <div
       className="flex items-center gap-2 p-3 rounded-xl"
@@ -147,7 +167,7 @@ function LiveGameRow({ game }: { game: GameRepo }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-semibold break-words">{game.name}</p>
-            <Badge tone="success" className="shrink-0">Live</Badge>
+            <StatusBadge activity={activity} deployed />
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm mt-1" style={{ color: "var(--muted)" }}>
             {game.createdAt && <span title={`Created ${new Date(game.createdAt).toLocaleString()}`}>Created {formatDate(game.createdAt)}</span>}
@@ -198,7 +218,7 @@ function DraftGameRow({ draft, onDiscard }: { draft: DraftSession; onDiscard: (i
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-semibold break-words">{draft.name}</p>
-            <Badge tone="muted" className="shrink-0">Draft</Badge>
+            <StatusBadge activity={draft.activity} />
           </div>
           {draft.createdAt && (
             <div className="text-sm mt-1" style={{ color: "var(--muted)" }}>

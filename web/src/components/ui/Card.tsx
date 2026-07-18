@@ -14,9 +14,9 @@ const TONES: Record<BadgeTone, string> = {
   muted: "text-[var(--muted)] bg-[var(--bg)]",
 };
 
-export function Badge({ tone = "accent", className, children }: { tone?: BadgeTone; className?: string; children: ReactNode }) {
+export function Badge({ tone = "accent", className, children, ...props }: { tone?: BadgeTone; className?: string; children: ReactNode } & HTMLAttributes<HTMLSpanElement>) {
   return (
-    <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", TONES[tone], className)}>
+    <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", TONES[tone], className)} {...props}>
       {children}
     </span>
   );

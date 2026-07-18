@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
-import { toDrafts, type DraftSession, type ServerSession } from "../lib/sessions";
+import { activityByGameId, toDrafts, type DraftSession, type ServerSession, type SessionActivity } from "../lib/sessions";
 
 // Drafts (in-progress Studio sessions that haven't deployed to a live game)
 // live in the agent's D1 session index, keyed by the signed-in user — the SAME
@@ -14,6 +14,7 @@ export type { DraftSession };
 export function useDraftSessions() {
   const { user } = useAuth();
   const [drafts, setDrafts] = useState<DraftSession[]>([]);
+  const [activity, setActivity] = useState<Map<string, SessionActivity>>(new Map());
   const [loading, setLoading] = useState(true);
   const [nonce, setNonce] = useState(0);
 
@@ -22,6 +23,7 @@ export function useDraftSessions() {
   useEffect(() => {
     if (!user) {
       setDrafts([]);
+      setActivity(new Map());
       setLoading(false);
       return;
     }
@@ -30,7 +32,9 @@ export function useDraftSessions() {
     fetch(`${AGENT_URL}/sessions`, { credentials: "include", signal: ctrl.signal })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((data: { sessions: ServerSession[] }) => {
-        setDrafts(toDrafts(data.sessions || []));
+        const sessions = data.sessions || [];
+        setDrafts(toDrafts(sessions));
+        setActivity(activityByGameId(sessions));
       })
       .catch(() => {
         // Non-fatal: drafts are a convenience surface, never block the dashboard.
@@ -61,5 +65,5 @@ export function useDraftSessions() {
     return false;
   }, []);
 
-  return { drafts, loading, refresh, discard, rename };
+  return { drafts, activity, loading, refresh, discard, rename };
 }

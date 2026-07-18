@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatTokens, mapServerSession, toDrafts, type ServerSession } from "./sessions";
+import { activityByGameId, activityLabel, activityTone, formatTokens, mapServerSession, toDrafts, type ServerSession } from "./sessions";
 
 const NOW = Date.UTC(2026, 6, 3, 12, 0, 0); // fixed clock for determinism
 
@@ -31,6 +31,14 @@ describe("mapServerSession", () => {
     const p = mapServerSession(session({ tokens: { input: 100, output: 40 } }), NOW);
     expect(p.tokens).toEqual({ input: 100, output: 40 });
   });
+
+  it("carries activity through and uses its timestamp for sorting", () => {
+    const p = mapServerSession(session({
+      activity: { phase: "writing", detail: "Writing", updatedAt: "2026-07-03T13:00:00Z" },
+    }), NOW);
+    expect(p.activity?.phase).toBe("writing");
+    expect(p.updatedAt).toBe(Date.parse("2026-07-03T13:00:00Z"));
+  });
 });
 
 describe("formatTokens", () => {
@@ -61,5 +69,28 @@ describe("toDrafts", () => {
 
   it("defaults a missing title to 'Untitled'", () => {
     expect(toDrafts([session({ name: "" })])[0]!.name).toBe("Untitled");
+  });
+
+  it("carries draft activity", () => {
+    expect(toDrafts([session({ activity: { phase: "error", detail: "boom" } })])[0]!.activity?.phase).toBe("error");
+  });
+});
+
+describe("activity helpers", () => {
+  it("labels and tones busy/failed/live statuses", () => {
+    expect(activityLabel({ phase: "writing" })).toBe("Writing");
+    expect(activityTone({ phase: "writing" })).toBe("accent");
+    expect(activityLabel({ phase: "building" })).toBe("Building");
+    expect(activityLabel({ phase: "error", detail: "boom" })).toBe("Failed");
+    expect(activityTone({ phase: "error" })).toBe("danger");
+    expect(activityLabel(undefined, true)).toBe("Live");
+  });
+
+  it("indexes the newest live-session activity by game id", () => {
+    const byGame = activityByGameId([
+      session({ id: "old", deployed: true, gameId: "snake", activity: { phase: "idle", updatedAt: "2026-07-03T10:00:00Z" } }),
+      session({ id: "new", deployed: true, gameId: "snake", activity: { phase: "building", updatedAt: "2026-07-03T11:00:00Z" } }),
+    ]);
+    expect(byGame.get("snake")?.phase).toBe("building");
   });
 });

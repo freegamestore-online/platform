@@ -127,7 +127,14 @@ export function useProjects() {
         }
 
         setProjects(server);
-        setCurrentId(server.length === 0 ? null : storedInList ? stored : server[0]!.id);
+        // Only auto-open the session the user actually left open (stored). With no
+        // valid stored id — first visit, cleared storage, or a deleted session —
+        // land on the empty "start or open a game" state instead of silently
+        // dropping into the most-recent game (server[0]). That silent default let
+        // a user think they were in a fresh chat while actually sitting in a live
+        // game's session, so their next prompt edited that game (slicing-game
+        // overwritten as Beat Star, 2026-07-18). Make opening a game an explicit act.
+        setCurrentId(storedInList ? stored : null);
       })
       .catch((err) => {
         if ((err as Error).name !== "AbortError") {
