@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Settings, Bot, Plus, ChevronDown, Copy, Check, Play, ArrowLeft } from "lucide-react";
+import { Settings, Bot, ChevronDown, Copy, Check, Play, ArrowLeft } from "lucide-react";
 import { Button, buttonClass } from "./ui";
 import type { useAgent, Project } from "../hooks/useAgent";
 import type { useKeys } from "../hooks/useKeys";
 import { StudioSettingsDialog } from "./StudioSettingsDialog";
-import { GameVersion } from "./GameVersion";
 
 interface StudioToolbarProps {
   agent: ReturnType<typeof useAgent>;
@@ -19,7 +18,6 @@ interface StudioToolbarProps {
   settingsOpen: boolean;
   setSettingsOpen: (v: boolean) => void;
   setPickerOpen: (v: boolean) => void;
-  onNewGame: () => void;
   keys: ReturnType<typeof useKeys>;
 }
 
@@ -35,7 +33,6 @@ export function StudioToolbar({
   settingsOpen,
   setSettingsOpen,
   setPickerOpen,
-  onNewGame,
   keys,
 }: StudioToolbarProps) {
   return (
@@ -70,13 +67,6 @@ export function StudioToolbar({
             {currentProject.appId}
           </span>
         )}
-        {/* Desktop only — on mobile the toolbar is tight, and a new game can be
-            started from the game list ("My Games") or the picker's "New" tab. */}
-        <span className="hidden sm:inline-flex">
-          <Button size="sm" onClick={onNewGame} disabled={agent.isStreaming} title="Start a new game" aria-label="Start a new game">
-            <Plus className="w-4 h-4" />
-          </Button>
-        </span>
         {/* Actions for THIS game. Settings is ALWAYS available — for a live game
             it opens rename/artwork/delete; for a draft it opens the draft's
             settings (rename + discard). Play is shown only once the game is live.
@@ -105,18 +95,6 @@ export function StudioToolbar({
               <Settings className="w-4 h-4" />
             </Link>
           </>
-        )}
-        {/* Deployed version + "deployed X ago" (hover for the exact timestamp),
-            read from the live game's version.json. Keyed on the deploy phase so a
-            fresh deploy re-fetches the new stamp instead of showing the old one.
-            Desktop-only to keep the mobile toolbar tight. */}
-        {currentProject?.appId && (
-          <span className="hidden md:inline-flex items-center text-[0.62rem] text-[var(--muted)] tabular-nums">
-            <GameVersion
-              key={agent.deployState?.phase === "live" ? "live" : currentProject.appId}
-              liveUrl={currentProject.appUrl || `https://${currentProject.appId}.freegamestore.online`}
-            />
-          </span>
         )}
         {/* Stacked + tiny so the token counts never grow the toolbar height. */}
         <span className="ml-auto hidden sm:flex flex-col items-end leading-none text-[0.62rem] text-[var(--muted)] tabular-nums">

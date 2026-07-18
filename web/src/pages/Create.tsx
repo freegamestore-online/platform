@@ -5,6 +5,7 @@ import { Button, buttonClass } from "../components/ui";
 import { Nav } from "../components/Nav";
 import { ChatMessage } from "../components/ChatMessage";
 import { DeployLog } from "../components/DeployLog";
+import { GameVersion } from "../components/GameVersion";
 import { ProjectPicker } from "../components/ProjectPicker";
 import { StudioToolbar } from "../components/StudioToolbar";
 import { StatusBar } from "../components/StatusBar";
@@ -400,7 +401,6 @@ export function Create() {
             temperature={temperature} setTemperature={setTemperature}
             settingsOpen={settingsOpen} setSettingsOpen={setSettingsOpen}
             setPickerOpen={setPickerOpen}
-            onNewGame={() => setNewOpen(true)}
             keys={keys}
           />
           <StatusBar isStreaming={agent.isStreaming} deployState={agent.deployState} messages={agent.messages} />
@@ -479,8 +479,14 @@ export function Create() {
           <div className="flex items-center gap-2 shrink-0" style={{ padding: "0.5rem 0.75rem", borderBottom: "1px solid var(--border)", background: "var(--surface)", fontSize: "0.85rem" }}>
             {previewUrl ? (
               <>
-                <a href={previewUrl} target="_blank" rel="noopener" className="text-xs truncate min-w-0" style={{ color: "var(--accent)", fontFamily: "monospace" }}>{previewUrl.replace("https://", "")}</a>
-                <a href={previewUrl} target="_blank" rel="noopener" aria-label="Open in new tab" title="Open in new tab" className="ml-auto shrink-0 inline-flex items-center justify-center" style={{ color: "var(--accent)", width: 28, height: 28 }}>
+                <a href={previewUrl} target="_blank" rel="noopener" className="text-xs truncate min-w-0 flex-1" style={{ color: "var(--accent)", fontFamily: "monospace" }}>{previewUrl.replace("https://", "")}</a>
+                <span className="hidden lg:inline-flex items-center shrink-0 text-[0.62rem] text-[var(--muted)] tabular-nums">
+                  <GameVersion
+                    key={agent.deployState?.phase === "live" ? "live" : previewUrl}
+                    liveUrl={previewUrl}
+                  />
+                </span>
+                <a href={previewUrl} target="_blank" rel="noopener" aria-label="Open in new tab" title="Open in new tab" className="shrink-0 inline-flex items-center justify-center" style={{ color: "var(--accent)", width: 28, height: 28 }}>
                   <ExternalLink className="w-4 h-4" />
                 </a>
               </>
