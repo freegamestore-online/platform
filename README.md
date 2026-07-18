@@ -5,9 +5,8 @@ build, publish, and manage your web games.
 
 > **History:** this repo was named `publisher` until 2026-07 (it began as the
 > self-service publish worker and grew into the full console). Renamed to
-> `console` to match its role and the FAS `console/` repo; an abandoned parallel
-> `console` rebuild was archived as `console-deprecated` at the same time. The CF
-> Pages project is still `freegamestore-publisher` (internal; it owns the
+> `console` to match its role and the FAS `console/` repo. The CF Pages project
+> is still `freegamestore-publisher` (internal; it owns the
 > `console.freegamestore.online` domain — don't rename it without rebinding).
 
 - **Live:** https://console.freegamestore.online (also `publish.freegamestore.online`)
@@ -16,15 +15,16 @@ build, publish, and manage your web games.
 
 ## What's in it
 
-Three surfaces, one mental model — **My Games is everything you've made**; the studio
-is where you build:
+One creator console — **My Games is everything you've made**; the studio is where
+you build:
 
 - **My Games** (`/`) — your games in one place:
-  - **Your Games** — Live games, sourced from the store **registry** (a game you own
-    by `creatorGithub`). Play / Code / Edit / Settings.
-  - **Drafts** — in-progress VibeCode sessions that haven't deployed yet, sourced from
-    the agent's per-user **session index**. Open (resume the session) or Discard.
-- **VibeCode** (`/create`) — the studio. Chat with an AI agent (bring your own key)
+  - **Live games** — sourced from the store **registry** (a game you own by
+    `creatorGithub`). Play / Code / Edit / Settings.
+  - **Drafts** — in-progress Studio sessions that haven't deployed yet, sourced
+    from the agent's per-user **session index**. Open (resume the session) or
+    Discard.
+- **Studio** (`/create`) — chat with an AI agent (bring your own key)
   that writes the game, runs compliance, and deploys it. The toolbar switches
   sessions, starts new games, and — for the open game — offers **Play + Settings**
   (deployed) or **Discard** (draft).
@@ -35,11 +35,11 @@ is where you build:
 
 | Surface | Source | Keyed by | Shows |
 |---|---|---|---|
-| My Games → Your Games | store registry (`/api/me`) | `creatorGithub` | Live games |
-| My Games → Drafts / studio picker | agent `/sessions` (D1) | auth `user.id` | undeployed sessions |
+| My Games live rows | store registry (`/api/me`) | `creatorGithub` | Live games |
+| My Games draft rows / studio picker | agent `/sessions` (D1) | auth `user.id` | undeployed sessions |
 
-A session becomes a Live game — and moves from Drafts to Your Games — the moment it
-deploys. Opening a Live game in the studio **imports** its real repo files into a new
+A session becomes a Live game the moment it deploys. Opening a Live game in the
+studio **imports** its real repo files into a new
 session, so edits `push_update` the existing game instead of overwriting it.
 
 ## Layout
