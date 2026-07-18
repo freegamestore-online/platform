@@ -49,6 +49,12 @@ interface SessionState {
   deployLog: DeployLogEntry[];
   appId: string | null;
   appName: string | null;
+  /** Turn-scoped flag: the agent tried to `deploy` a DIFFERENT game id than the
+   *  one this chat is bound to (a "build a new game here" attempt, which
+   *  executeDeploy rejects). While set, push_update is refused so the agent
+   *  can't fall back to overwriting the bound game with the different game's
+   *  code. Cleared at the start of every new user turn. */
+  pivotAttempted?: boolean;
   /** The repo commit SHA the session's files were last imported from (set when
    *  opening an existing game). Lets a re-open skip the tree+blob walk when the
    *  repo hasn't changed, and forces a re-sync when it HAS (e.g. someone edited
@@ -460,6 +466,7 @@ export class AgentSession implements DurableObject {
     // superseded without duplicating the user turn.
     const history = session.messages.slice();
     session.messages.push({ role: "user", content: body.message, ts: Date.now() });
+    session.pivotAttempted = false; // new turn — clear any prior different-game block
     if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
     await this.save();
 
@@ -766,6 +773,28 @@ export class AgentSession implements DurableObject {
                   continue;
                 }
               }
+            }
+
+            // Pivot guard: a chat is bound to ONE game (its repo + files +
+            // history). Once the agent tries to `deploy` a DIFFERENT game id than
+            // the bound one — the "build a new game in this chat" attempt, which
+            // executeDeploy rejects — refuse push_update for the rest of the turn
+            // too. Otherwise the agent, told to "create a new project", falls back
+            // to push_update and OVERWRITES the bound game with the different
+            // game's code (slicing-game shipped as Beat Star, 2026-07-18). The
+            // only safe path is a fresh chat, so send the user there. A deploy of
+            // the CORRECT id clears the flag (recovers from a one-off typo'd id).
+            if (tc.name === "deploy" && session.appId) {
+              const wantId = typeof tc.input.id === "string" ? tc.input.id.trim() : "";
+              session.pivotAttempted = wantId !== "" && wantId !== session.appId;
+            }
+            if (tc.name === "push_update" && session.pivotAttempted) {
+              const label = session.appName || session.appId;
+              toolResult = `Error: this chat builds "${label}" — you just tried to deploy a DIFFERENT ${this.config.noun}, so push_update now would OVERWRITE "${session.appId}" with it. Do NOT push_update. Tell the user this chat is tied to "${label}", and that to build a different ${this.config.noun} they must start a new one with the "New ${this.config.Noun}" button (it opens a fresh chat).`;
+              this.logError("pivot", `push_update blocked: session bound to ${session.appId} after a different-game deploy attempt`);
+              sendSSE({ type: "tool_result", data: JSON.stringify({ id: tc.id, tool: tc.name, result: toolResult }) });
+              infraResults.push({ id: tc.id, content: toolResult });
+              continue;
             }
 
             const spendsSharedToken = tc.name === "deploy" || tc.name === "push_update";

@@ -1,5 +1,5 @@
 {
-  "name": "freeappstore-agent",
+  "name": "@freegamestore/agent",
   "private": true,
   "packageManager": "pnpm@10.30.3",
   "type": "module",

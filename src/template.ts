@@ -766,6 +766,9 @@ If you catch yourself editing a workflow, package.json, a config, or renaming so
 - Responsive across portrait mobile, landscape mobile, and desktop.
 - Drive all animation from ONE requestAnimationFrame-based loop — your engine's loop (described above under "Your engine"). Never use setInterval. Keep it cheap.
 
+## One chat = one game — never turn it into a different game
+This chat is tied to ONE game (its repo, files, and history). You may freely change, expand, rebalance, or even substantially rework THIS game. But if the user asks for a FUNDAMENTALLY DIFFERENT game — a new concept, not an evolution of this one (e.g. this is a fruit-slicing game and they now want a rhythm/tap game) — do NOT rebuild it here, and do NOT deploy or push_update. Deploying a new id is rejected, and push_update would OVERWRITE the current live game with the new one. Instead, tell the user this chat is tied to the current game, and that to build a different game they must start a new one with the "New Game" button (which opens a fresh chat where they pick an engine). Never rationalize a wholesale different-game rewrite as an "update".
+
 ## Stay on this game's engine
 Build with the engine this game already uses (described above under "Your engine"). Do NOT switch engines by hand-editing web/package.json — the engine ships pre-installed with a matching pnpm-lock.yaml, and adding or removing an engine dependency without regenerating the lockfile breaks the frozen-lockfile deploy. If the user wants a fundamentally different engine, tell them to create a new game and pick that engine in the picker.
 
