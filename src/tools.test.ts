@@ -136,6 +136,32 @@ describe("executeTool — file tools", () => {
     expect(files.get("web/src/lib/physics.ts")).toBe('import { Bird } from "../types";'); // write applied
   });
 
+  it("blocks destructive rewrites of a large game App.tsx without moved source", async () => {
+    const files = new Map<string, string>();
+    files.set("web/src/App.tsx", "x".repeat(12_000));
+    const result = await executeTool(
+      { id: "1", name: "write_file", input: { path: "web/src/App.tsx", content: "export default function App() { return null; }" } },
+      files,
+      gamesConfig,
+    );
+    expect(result.isError).toBe(true);
+    expect(result.content).toContain("destructive rewrite");
+    expect(files.get("web/src/App.tsx")).toBe("x".repeat(12_000));
+  });
+
+  it("allows a large game App.tsx shrink when real source was moved into modules first", async () => {
+    const files = new Map<string, string>();
+    files.set("web/src/App.tsx", "x".repeat(12_000));
+    files.set("web/src/lib/game.ts", "y".repeat(7_000));
+    const result = await executeTool(
+      { id: "1", name: "write_file", input: { path: "web/src/App.tsx", content: "export default function App() { return null; }" } },
+      files,
+      gamesConfig,
+    );
+    expect(result.isError).toBeFalsy();
+    expect(files.get("web/src/App.tsx")).toBe("export default function App() { return null; }");
+  });
+
   it("does NOT warn on a moderate shrink (normal edit)", async () => {
     const files = new Map<string, string>([["a.ts", "y".repeat(2000)]]);
     const r = await executeTool({ id: "1", name: "write_file", input: { path: "a.ts", content: "z".repeat(1200) } }, files, appsConfig);

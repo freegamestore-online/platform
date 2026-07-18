@@ -456,6 +456,119 @@ jobs:
         run: |
           test -d ./web/dist || { echo "::error::No build output at web/dist"; exit 1; }
           test -n "$(ls -A ./web/dist)" || { echo "::error::web/dist is empty"; exit 1; }
+      - name: Stamp version.json
+        run: |
+          cat > web/dist/version.json <<JSON
+          {
+            "repo": "\${GITHUB_REPOSITORY##*/}",
+            "commit": "\${GITHUB_SHA}",
+            "shortCommit": "\${GITHUB_SHA::7}",
+            "version": "\${GITHUB_SHA::7}",
+            "source": "build-stamp",
+            "ref": "\${GITHUB_REF_NAME}",
+            "runNumber": \${GITHUB_RUN_NUMBER},
+            "runId": "\${GITHUB_RUN_ID}",
+            "deployedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          JSON
+          echo "version.json:"; cat web/dist/version.json
+      - name: Smoke test built game
+        run: |
+          pnpm --dir web exec vite preview --host 127.0.0.1 --port 4173 > /tmp/fgs-preview.log 2>&1 &
+          PREVIEW_PID=$!
+          trap 'kill "$PREVIEW_PID" >/dev/null 2>&1 || true' EXIT
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4173/ >/dev/null
+          node <<'NODE'
+          const { spawn } = require("node:child_process");
+          async function main() {
+          const chromeBin = process.env.CHROME_BIN || "/usr/bin/google-chrome";
+          const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+          const chrome = spawn(chromeBin, [
+            "--headless=new",
+            "--disable-gpu",
+            "--no-sandbox",
+            "--remote-debugging-port=9222",
+            "--user-data-dir=/tmp/fgs-smoke-chrome",
+            "about:blank",
+          ], { stdio: ["ignore", "ignore", "pipe"] });
+          let stderr = "";
+          chrome.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
+          async function fetchJson(url, init) {
+            const res = await fetch(url, init);
+            if (!res.ok) throw new Error(url + " returned HTTP " + res.status);
+            return res.json();
+          }
+          try {
+            for (let i = 0; i < 40; i++) {
+              try { await fetchJson("http://127.0.0.1:9222/json/version"); break; }
+              catch { if (i === 39) throw new Error("Chrome DevTools did not start: " + stderr.slice(-1000)); await delay(250); }
+            }
+            let target;
+            try {
+              target = await fetchJson("http://127.0.0.1:9222/json/new?http://127.0.0.1:4173/", { method: "PUT" });
+            } catch {
+              target = (await fetchJson("http://127.0.0.1:9222/json/list"))[0];
+            }
+            const ws = new WebSocket(target.webSocketDebuggerUrl);
+            let seq = 0;
+            const pending = new Map();
+            const errors = [];
+            let loaded = false;
+            ws.onmessage = (event) => {
+              const msg = JSON.parse(event.data);
+              if (msg.id && pending.has(msg.id)) {
+                pending.get(msg.id)(msg);
+                pending.delete(msg.id);
+                return;
+              }
+              if (msg.method === "Page.loadEventFired") loaded = true;
+              if (msg.method === "Runtime.exceptionThrown") {
+                const ex = msg.params.exceptionDetails;
+                errors.push(ex.exception?.description || ex.text || "Runtime exception");
+              }
+              if (msg.method === "Runtime.consoleAPICalled" && msg.params.type === "error") {
+                errors.push(msg.params.args.map((arg) => arg.value || arg.description || "").join(" "));
+              }
+              if (msg.method === "Log.entryAdded" && msg.params.entry.level === "error") {
+                errors.push(msg.params.entry.text);
+              }
+            };
+            await new Promise((resolve, reject) => {
+              ws.onopen = resolve;
+              ws.onerror = () => reject(new Error("Chrome DevTools websocket failed"));
+            });
+            function send(method, params = {}) {
+              const id = ++seq;
+              ws.send(JSON.stringify({ id, method, params }));
+              return new Promise((resolve) => pending.set(id, resolve));
+            }
+            await send("Runtime.enable");
+            await send("Log.enable");
+            await send("Page.enable");
+            await send("Page.navigate", { url: "http://127.0.0.1:4173/" });
+            for (let i = 0; i < 80 && !loaded; i++) await delay(100);
+            await delay(2500);
+            const evaluated = await send("Runtime.evaluate", {
+              expression: "(() => ({ bodyText: document.body?.innerText?.trim().slice(0, 200) || '', canvasCount: document.querySelectorAll('canvas').length, bodyChildren: document.body?.childElementCount || 0, rootChildren: document.getElementById('root')?.childElementCount || 0 }))()",
+              returnByValue: true,
+            });
+            const value = evaluated.result?.result?.value;
+            if (errors.length) throw new Error("Browser errors:\\n" + errors.slice(0, 8).join("\\n"));
+            if (!value || (value.bodyChildren === 0 && value.rootChildren === 0 && value.canvasCount === 0)) {
+              throw new Error("Game rendered no body/root/canvas content");
+            }
+            console.log("Smoke OK:", JSON.stringify(value));
+            ws.close();
+          } finally {
+            chrome.kill("SIGTERM");
+          }
+          }
+          main().catch((err) => { console.error(err.stack || err); process.exit(1); });
+          NODE
       - name: Upload to R2
         env:
           AWS_ACCESS_KEY_ID: \${{ secrets.R2_ACCESS_KEY_ID }}

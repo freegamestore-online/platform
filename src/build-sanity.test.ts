@@ -81,6 +81,42 @@ describe("checkBuildSanity — multiple default exports", () => {
   });
 });
 
+describe("checkBuildSanity — Pixi runtime hazards", () => {
+  it("blocks RGBA-packed Pixi colors before they ship", () => {
+    const files = new Map([
+      ["web/package.json", JSON.stringify({ dependencies: { "pixi.js": "^8.0.0" } })],
+      ["web/src/App.tsx", `import { Graphics } from "pixi.js";
+
+const g = new Graphics();
+g.rect(0, 0, 10, 10).stroke({ color: 0x8b691466, width: 1 });
+`],
+    ]);
+
+    const findings = checkBuildSanity(files);
+    expect(findings.some((x) => x.problem.includes("0x8b691466"))).toBe(true);
+    expect(findings.some((x) => x.problem.includes("alpha"))).toBe(true);
+  });
+
+  it("allows normal Pixi RGB colors with a separate alpha field", () => {
+    const files = new Map([
+      ["web/package.json", JSON.stringify({ dependencies: { "pixi.js": "^8.0.0" } })],
+      ["web/src/App.tsx", `import { Graphics } from "pixi.js";
+
+const g = new Graphics();
+g.rect(0, 0, 10, 10).stroke({ color: 0x8b6914, alpha: 0.4, width: 1 });
+g.circle(5, 5, 3).fill({ color: 0xffffff, alpha: 0.5 });
+`],
+    ]);
+
+    expect(checkBuildSanity(files)).toHaveLength(0);
+  });
+
+  it("does not apply the Pixi color rule to non-Pixi projects", () => {
+    const findings = checkBuildSanity(f("web/src/App.tsx", `const mask = 0x8b691466;`));
+    expect(findings).toHaveLength(0);
+  });
+});
+
 describe("checkBuildSanity — NO false positives on real-world patterns", () => {
   it("passes JSX with apostrophes, regex, templates, generics, division", () => {
     const src = `import { useState } from "react";

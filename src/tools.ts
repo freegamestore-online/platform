@@ -38,6 +38,15 @@ function totalBytes(files: Map<string, string>): number {
   return total;
 }
 
+function sourceBytesExcept(files: Map<string, string>, exceptPath: string): number {
+  let total = 0;
+  for (const [path, content] of files) {
+    if (path === exceptPath) continue;
+    if (/^web\/src\/.+\.(?:tsx?|jsx?)$/.test(path)) total += byteLen(content);
+  }
+  return total;
+}
+
 // How much of a tool result is kept in the conversation history sent to the
 // model. read_file needs a MUCH larger budget than the rest: a game file is
 // routinely 300-500 lines (~15KB), and a too-small cap means the agent sees only
@@ -383,6 +392,23 @@ export async function executeTool(toolCall: ToolCall, files: Map<string, string>
       const prev = files.get(path);
       if (prev !== undefined) {
         const prevSize = byteLen(prev);
+        const destructivePrimaryRewrite =
+          config.store === "games" &&
+          path === "web/src/App.tsx" &&
+          prevSize >= 8_000 &&
+          size < prevSize * 0.25 &&
+          sourceBytesExcept(files, path) < prevSize * 0.5;
+        if (destructivePrimaryRewrite) {
+          return {
+            id,
+            content:
+              `Error: refusing to replace ${path} (${prevSize} bytes) with only ${size} bytes. ` +
+              `That looks like a destructive rewrite of the primary playable game file, not a safe fix. ` +
+              `Make the smallest targeted edit, or first move real code into focused files under web/src/ and then ` +
+              `rewrite App.tsx as a thin orchestrator. Do not simplify or replace the game wholesale just to fix layout/build issues.`,
+            isError: true,
+          };
+        }
         if (prevSize >= 500 && size < prevSize * 0.1) {
           shrinkWarning =
             ` — NOTE: this replaced a ${prevSize}-byte file with ${size} bytes (>90% smaller). If that was a truncated/` +

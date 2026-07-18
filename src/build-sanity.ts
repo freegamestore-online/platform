@@ -28,6 +28,7 @@
 
 /** Source files that the Vite build compiles (esbuild-parsed). */
 const SRC_RE = /^web\/src\/.+\.(?:tsx?|jsx?|mjs|cjs)$/;
+const PACKAGE_RE = /(^|\/)package\.json$/;
 
 export interface SanityFinding {
   file: string;
@@ -115,12 +116,46 @@ function duplicateDeclarations(skeleton: string): string[] {
   return [...seen.entries()].filter(([, count]) => count >= 2).map(([name]) => name);
 }
 
+function lineNumberAt(src: string, index: number): number {
+  let line = 1;
+  for (let i = 0; i < index; i++) if (src.charCodeAt(i) === 10) line++;
+  return line;
+}
+
+function projectUsesPixi(files: Map<string, string>): boolean {
+  for (const [path, content] of files) {
+    if (PACKAGE_RE.test(path) && /"pixi\.js"\s*:/.test(content)) return true;
+    if (SRC_RE.test(path) && /from\s+["']pixi\.js["']|import\s*\([^)]*["']pixi\.js["']/.test(content)) return true;
+  }
+  return false;
+}
+
+function findPackedPixiColors(content: string): { line: number; literal: string }[] {
+  const findings: { line: number; literal: string }[] = [];
+  const seen = new Set<string>();
+  const dangerousUse =
+    /\.(?:fill|stroke)\s*\([^;\n]*0x[0-9a-fA-F]{7,}[^;\n]*\)|(?:fill|color|tint)\s*:\s*0x[0-9a-fA-F]{7,}/g;
+  let use: RegExpExecArray | null;
+  while ((use = dangerousUse.exec(content))) {
+    const segment = use[0];
+    const literalMatch = /0x[0-9a-fA-F]{7,}/.exec(segment);
+    if (!literalMatch) continue;
+    const literal = literalMatch[0];
+    const key = `${literal}@${use.index + literalMatch.index}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    findings.push({ line: lineNumberAt(content, use.index + literalMatch.index), literal });
+  }
+  return findings;
+}
+
 /**
  * Run every build-sanity check across the project's compiled source. Returns the
  * findings that should BLOCK a deploy (empty ⇒ OK to build).
  */
 export function checkBuildSanity(files: Map<string, string>): SanityFinding[] {
   const findings: SanityFinding[] = [];
+  const usesPixi = projectUsesPixi(files);
 
   for (const [path, content] of files) {
     if (!SRC_RE.test(path)) continue;
@@ -142,6 +177,19 @@ export function checkBuildSanity(files: Map<string, string>): SanityFinding[] {
     const defaults = (skeleton.match(/^export\s+default\b/gm) || []).length;
     if (defaults >= 2) {
       findings.push({ file: path, problem: `${defaults} \`export default\` statements — a module may have only one.` });
+    }
+
+    if (usesPixi) {
+      const packedColors = findPackedPixiColors(content);
+      for (const color of packedColors) {
+        findings.push({
+          file: path,
+          problem:
+            `Pixi color ${color.literal} on line ${color.line} is wider than 24-bit RGB. ` +
+            `Pixi v8 colors must be 0xRRGGBB; put transparency in an \`alpha\` field instead ` +
+            `(for example, \`.stroke({ color: 0x8b6914, alpha: 0.4, width: 1 })\`).`,
+        });
+      }
     }
   }
 
