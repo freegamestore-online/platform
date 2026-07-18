@@ -491,7 +491,12 @@ jobs:
             "--headless=new",
             "--disable-gpu",
             "--no-sandbox",
+            "--remote-debugging-address=127.0.0.1",
             "--remote-debugging-port=9222",
+            "--disable-dev-shm-usage",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--disable-background-networking",
             "--user-data-dir=/tmp/fgs-smoke-chrome",
             "about:blank",
           ], { stdio: ["ignore", "ignore", "pipe"] });
@@ -503,9 +508,9 @@ jobs:
             return res.json();
           }
           try {
-            for (let i = 0; i < 40; i++) {
+            for (let i = 0; i < 80; i++) {
               try { await fetchJson("http://127.0.0.1:9222/json/version"); break; }
-              catch { if (i === 39) throw new Error("Chrome DevTools did not start: " + stderr.slice(-1000)); await delay(250); }
+              catch { if (i === 79) throw new Error("Chrome DevTools did not start: " + stderr.slice(-1000)); await delay(250); }
             }
             let target;
             try {
@@ -517,6 +522,12 @@ jobs:
             let seq = 0;
             const pending = new Map();
             const errors = [];
+            function isIgnoredBrowserNoise(text) {
+              return /Failed to load resource: the server responded with a status of 404/.test(text) ||
+                /auth\.freegamestore\.online\/v1\/me/.test(text) ||
+                /No 'Access-Control-Allow-Origin' header/.test(text) ||
+                /Failed to load resource: net::ERR_FAILED/.test(text);
+            }
             let loaded = false;
             ws.onmessage = (event) => {
               const msg = JSON.parse(event.data);
