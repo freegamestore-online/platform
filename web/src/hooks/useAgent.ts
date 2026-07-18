@@ -31,7 +31,7 @@ export interface AIConfig {
   maxTokens: number;
 }
 
-/** Manages the VibeCode agent session — chat messages, streaming, deploy state, and project switching. */
+/** Manages the Studio agent session — chat messages, streaming, deploy state, and project switching. */
 export function useAgent() {
   const projectsMgr = useProjects();
   const sessionId = projectsMgr.currentId;
@@ -64,7 +64,7 @@ export function useAgent() {
 
   // No client-side message persistence: the agent worker's Durable Object saves
   // the authoritative transcript on every turn, and loadHistory() restores it
-  // from /session/:id/history. Mirroring messages into a separate publisher
+  // from /session/:id/history. Mirroring messages into separate console storage
   // store only forked the transcript and raced the DO.
 
   const resetUI = useCallback(() => {

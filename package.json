@@ -1,10 +1,10 @@
 {
-  "name": "publisher",
+  "name": "freegamestore-console",
   "private": true,
   "packageManager": "pnpm@10.30.3",
   "repository": {
     "type": "git",
-    "url": "https://github.com/freegamestore-online/publisher"
+    "url": "https://github.com/freegamestore-online/console"
   },
   "engines": {
     "node": ">=22"

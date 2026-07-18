@@ -1,5 +1,5 @@
 {
-  "name": "@publisher/web",
+  "name": "@freegamestore/console-web",
   "private": true,
   "type": "module",
   "scripts": {

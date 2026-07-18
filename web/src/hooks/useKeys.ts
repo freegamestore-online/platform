@@ -59,7 +59,7 @@ export function useKeys() {
     (async () => {
       if (!user) { setProviders(new Set()); setLoading(false); return; }
       await refresh();
-      const legacy = readLegacyLocalKeys();
+      const legacy = readLegacyLocalKeys(user.sub);
       const entries = Object.entries(legacy).filter(([, v]) => v);
       if (entries.length) {
         const results = await Promise.all(entries.map(async ([provider, key]) => {
@@ -70,7 +70,7 @@ export function useKeys() {
           return { provider, key, ok: !!res?.ok };
         }));
         const failed = Object.fromEntries(results.filter((r) => !r.ok).map((r) => [r.provider, r.key]));
-        writeLegacyLocalKeys(failed);
+        writeLegacyLocalKeys(failed, user.sub);
         if (!cancelled) await refresh();
       }
     })();

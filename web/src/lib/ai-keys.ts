@@ -1,5 +1,5 @@
-/** AI API key management — stored in localStorage, never sent to our servers.
- *  Keys are used client-side only, piped directly to the provider APIs via the agent worker. */
+/** AI provider metadata and legacy-key migration helpers. Current API keys live
+ *  in the agent worker's encrypted vault, not in browser storage. */
 
 export interface ProviderConfig {
   type: string;
@@ -69,21 +69,33 @@ export const PROVIDERS: ProviderConfig[] = [
 // one-time migration can lift any pre-vault keys up and then wipe them.
 const LEGACY_STORAGE_KEY = "fgs_ai_keys";
 
+function legacyStorageKey(userSub: string | null | undefined): string {
+  return userSub ? `${LEGACY_STORAGE_KEY}:${userSub}` : LEGACY_STORAGE_KEY;
+}
+
 /** Read keys stored in localStorage before the server vault existed, so they can
  *  be migrated into the vault. */
-export function readLegacyLocalKeys(): Record<string, string> {
-  try { return JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) || "{}"); } catch { return {}; }
+export function readLegacyLocalKeys(userSub?: string | null): Record<string, string> {
+  try {
+    const scoped = userSub ? localStorage.getItem(legacyStorageKey(userSub)) : null;
+    return JSON.parse(scoped || localStorage.getItem(LEGACY_STORAGE_KEY) || "{}");
+  } catch {
+    return {};
+  }
 }
 
 /** Persist any legacy plaintext keys that could not be migrated yet. */
-export function writeLegacyLocalKeys(keys: Record<string, string>) {
+export function writeLegacyLocalKeys(keys: Record<string, string>, userSub?: string | null) {
   const entries = Object.entries(keys).filter(([, value]) => value);
-  if (entries.length) localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(Object.fromEntries(entries)));
-  else localStorage.removeItem(LEGACY_STORAGE_KEY);
+  const key = legacyStorageKey(userSub);
+  if (entries.length) localStorage.setItem(key, JSON.stringify(Object.fromEntries(entries)));
+  else localStorage.removeItem(key);
+  if (userSub) localStorage.removeItem(LEGACY_STORAGE_KEY);
 }
 
 /** Remove the legacy plaintext keys from the browser once migrated. */
-export function clearLegacyLocalKeys() {
+export function clearLegacyLocalKeys(userSub?: string | null) {
+  if (userSub) localStorage.removeItem(legacyStorageKey(userSub));
   localStorage.removeItem(LEGACY_STORAGE_KEY);
 }
 

@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { currentProjectStorageKey, readCurrentProjectId, writeCurrentProjectId } from "./currentProjectStorage";
+import {
+  clearLegacyCurrentProjectId,
+  currentProjectStorageKey,
+  readCurrentProjectId,
+  readLegacyCurrentProjectId,
+  writeCurrentProjectId,
+} from "./currentProjectStorage";
 
 describe("current project storage", () => {
   beforeEach(() => localStorage.clear());
@@ -13,9 +19,10 @@ describe("current project storage", () => {
     expect(readCurrentProjectId("github:2")).toBe("session-b");
   });
 
-  it("migrates the legacy global value once a user is known", () => {
+  it("exposes the legacy global value separately for validated migration", () => {
     localStorage.setItem("fgs_current_project", "legacy-session");
-    expect(readCurrentProjectId("github:1")).toBe("legacy-session");
+    expect(readCurrentProjectId("github:1")).toBeNull();
+    expect(readLegacyCurrentProjectId()).toBe("legacy-session");
 
     writeCurrentProjectId("github:1", "session-a");
     expect(localStorage.getItem("fgs_current_project")).toBeNull();
@@ -25,5 +32,16 @@ describe("current project storage", () => {
   it("does not read anonymous storage before auth resolves", () => {
     localStorage.setItem("fgs_current_project", "legacy-session");
     expect(readCurrentProjectId(null)).toBeNull();
+  });
+
+  it("can clear only the legacy global value", () => {
+    localStorage.setItem("fgs_current_project", "legacy-session");
+    writeCurrentProjectId("github:1", "session-a");
+
+    localStorage.setItem("fgs_current_project", "legacy-session");
+    clearLegacyCurrentProjectId();
+
+    expect(readLegacyCurrentProjectId()).toBeNull();
+    expect(readCurrentProjectId("github:1")).toBe("session-a");
   });
 });

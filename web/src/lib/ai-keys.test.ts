@@ -89,4 +89,25 @@ describe("legacy localStorage key migration", () => {
     writeLegacyLocalKeys({});
     expect(localStorage.getItem("fgs_ai_keys")).toBeNull();
   });
+
+  it("scopes failed migration retries to the signed-in user", () => {
+    localStorage.setItem("fgs_ai_keys", JSON.stringify({ openrouter: "sk-or-v1-legacy" }));
+
+    expect(readLegacyLocalKeys("github:1")).toEqual({ openrouter: "sk-or-v1-legacy" });
+    writeLegacyLocalKeys({ openrouter: "sk-or-v1-legacy" }, "github:1");
+
+    expect(localStorage.getItem("fgs_ai_keys")).toBeNull();
+    expect(readLegacyLocalKeys("github:1")).toEqual({ openrouter: "sk-or-v1-legacy" });
+    expect(readLegacyLocalKeys("github:2")).toEqual({});
+  });
+
+  it("clears both scoped and legacy global plaintext keys for a user", () => {
+    writeLegacyLocalKeys({ openrouter: "sk-or-v1-scoped" }, "github:1");
+    localStorage.setItem("fgs_ai_keys", JSON.stringify({ openai: "sk-global" }));
+
+    clearLegacyLocalKeys("github:1");
+
+    expect(readLegacyLocalKeys("github:1")).toEqual({});
+    expect(localStorage.getItem("fgs_ai_keys")).toBeNull();
+  });
 });

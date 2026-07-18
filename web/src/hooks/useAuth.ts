@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { clearLegacyLocalKeys } from "../lib/ai-keys";
 
 /** freegamestore-auth worker — the store-wide identity provider. */
 const AUTH_BASE = "https://auth.freegamestore.online";
@@ -172,11 +173,12 @@ export function useAuthProvider(): AuthContextValue {
   }, []);
 
   const signOut = useCallback(async () => {
+    clearLegacyLocalKeys(user?.sub);
     await fetch(`${AUTH_BASE}/logout`, { method: "POST", credentials: "include" }).catch(() => {});
     setUser(null);
     setCreator(null);
     window.location.href = "/";
-  }, []);
+  }, [user?.sub]);
 
   return { user, creator, creatorError, loading, error, refetch, fetchCreator, reloadCreator, signIn, signOut };
 }

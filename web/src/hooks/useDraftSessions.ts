@@ -2,12 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
 import { toDrafts, type DraftSession, type ServerSession } from "../lib/sessions";
 
-// Drafts (in-progress VibeCode sessions that haven't deployed to a live game)
+// Drafts (in-progress Studio sessions that haven't deployed to a live game)
 // live in the agent's D1 session index, keyed by the signed-in user — the SAME
 // source the studio's session picker reads. The dashboard reads it too so a game
-// you're still building doesn't look lost: "My Games" shows registry (Live)
-// games, this shows the rest. A session becomes a Live game (and moves to "Your
-// Games") once it deploys.
+// you're still building doesn't look lost: My Games shows registry (Live) games
+// and undeployed sessions together. A session becomes a Live game once it deploys.
 const AGENT_URL = "https://agent.freegamestore.online";
 
 export type { DraftSession };

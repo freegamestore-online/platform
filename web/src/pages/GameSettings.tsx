@@ -91,7 +91,7 @@ export function GameSettings() {
   if (loading) return <LoadingShell />;
   if (!user) return <SignInShell onSignIn={signIn} message="Sign in to manage your games." />;
 
-  // A draft (in-progress VibeCode session that hasn't deployed to a live game)
+  // A draft (in-progress Studio session that hasn't deployed to a live game)
   // has its own, lighter settings — rename + discard. It isn't in the registry,
   // so it doesn't depend on `creator` loading at all.
   if (!game && draft) {
@@ -135,7 +135,7 @@ export function GameSettings() {
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm mt-2 mb-6" style={{ color: "var(--muted)" }}>
           <a href={game.liveUrl} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--accent)" }}>Play</a>
           <a href={game.repoUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">Code</a>
-          <Link to={`/create/${game.id}`} className="hover:underline" style={{ color: "var(--accent)" }}>Edit in VibeCode</Link>
+          <Link to={`/create/${game.id}`} className="hover:underline" style={{ color: "var(--accent)" }}>Edit in Studio</Link>
           {game.createdAt && <span>Created {formatDate(game.createdAt)}</span>}
           {game.lastEditedAt && <span>Last edited {formatRelative(game.lastEditedAt)}</span>}
         </div>
@@ -216,7 +216,7 @@ export function GameSettings() {
   );
 }
 
-/** Settings for a draft (undeployed VibeCode session): rename, continue building,
+/** Settings for a draft (undeployed Studio session): rename, continue building,
  *  or discard. Drafts aren't in the store registry, so there's no artwork /
  *  category / live URL until they deploy. */
 function DraftSettings({
@@ -264,10 +264,10 @@ function DraftSettings({
         </div>
 
         <p className="text-sm mt-2 mb-6" style={{ color: "var(--muted)" }}>
-          This game hasn't been published yet. Keep building it in VibeCode and deploy it
+          This game hasn't been published yet. Keep building it in Studio and deploy it
           to make it live in the store — artwork, category, and its play URL appear then.
           {" "}
-          <Link to={`/create/${draft.id}`} className="hover:underline" style={{ color: "var(--accent)" }}>Continue in VibeCode →</Link>
+          <Link to={`/create/${draft.id}`} className="hover:underline" style={{ color: "var(--accent)" }}>Continue in Studio →</Link>
         </p>
 
         {msg && (

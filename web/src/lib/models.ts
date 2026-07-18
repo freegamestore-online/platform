@@ -1,4 +1,4 @@
-// AI model catalog for the VibeCode studio, keyed by provider. Shared by the
+// AI model catalog for the Studio, keyed by provider. Shared by the
 // studio page (initial model state) and the toolbar's model picker so the two
 // never drift.
 export interface ModelOption {

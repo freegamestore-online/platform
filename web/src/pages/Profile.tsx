@@ -77,7 +77,7 @@ export function Profile() {
           <div className="min-w-0">
             <h2 className="text-xl font-bold mb-0.5 break-words">@{user.github}</h2>
             <p className="text-sm" style={{ color: "var(--muted)" }}>
-              GitHub publisher account
+              GitHub creator account
             </p>
           </div>
         </div>
@@ -201,7 +201,7 @@ export function Profile() {
             Danger Zone
           </h3>
           <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
-            Permanently delete your account and all stored data. Your published games will remain live but you will lose publisher access.
+            Permanently delete your account and all stored data. Your published games will remain live but you will lose creator access.
           </p>
           <button
             onClick={handleDeleteAccount}

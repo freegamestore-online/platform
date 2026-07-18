@@ -130,7 +130,7 @@ export function Create() {
   }, [searchParams, loading, user, agent.projectsLoading, agent.isStreaming, agent.openGame, agent.startFreshChat, setSearchParams]);
 
   // Deep-link: /create?session=<id> resumes an in-progress draft session (opened
-  // from the dashboard's Drafts list). Unlike ?game=, a draft has no live repo to
+  // from My Games). Unlike ?game=, a draft has no live repo to
   // import — its transcript already lives in the DO keyed by this id, so we just
   // switch to it and loadHistory() fills in the messages.
   useEffect(() => {
@@ -343,7 +343,7 @@ export function Create() {
       <>
         <Nav />
         <main className="flex flex-col items-center justify-center text-center" style={{ minHeight: "60vh", padding: "4rem 1.5rem", maxWidth: 640, margin: "0 auto" }}>
-          <h1 className="text-4xl font-extrabold tracking-tight mb-3" style={{ fontFamily: "Fraunces, serif" }}>VibeCode</h1>
+          <h1 className="text-4xl font-extrabold tracking-tight mb-3" style={{ fontFamily: "Fraunces, serif" }}>Studio</h1>
           <p className="text-lg mb-8" style={{ color: "var(--muted)", maxWidth: 480 }}>
             Describe the game you want. An AI agent builds it, deploys it, and you get a live game on FreeGameStore — in minutes.
           </p>
@@ -364,7 +364,7 @@ export function Create() {
       <div className="flex flex-col" style={{ height: "100dvh", overflow: "hidden" }}>
         <Nav />
         <main className="flex flex-col items-center justify-center text-center flex-1" style={{ padding: "2rem 1.5rem" }}>
-          <h1 className="text-3xl font-extrabold tracking-tight mb-3" style={{ fontFamily: "Fraunces, serif" }}>VibeCode</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight mb-3" style={{ fontFamily: "Fraunces, serif" }}>Studio</h1>
           <p className="text-base mb-6" style={{ color: "var(--muted)", maxWidth: 420 }}>
             Start a new game and describe it to the AI, or open one of your games to keep editing it.
           </p>

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
 import { mapServerSession, type Project, type ServerSession } from "../lib/sessions";
-import { readCurrentProjectId, writeCurrentProjectId } from "../lib/currentProjectStorage";
+import { clearLegacyCurrentProjectId, readCurrentProjectId, readLegacyCurrentProjectId, writeCurrentProjectId } from "../lib/currentProjectStorage";
 
 export type { Project };
 
 // The agent worker owns BOTH the session index (its D1) and the transcripts
 // (its Durable Objects). The console reads/writes that single source of truth —
 // the same origin it already uses for chat + /history — rather than a separate
-// publisher store, which forks the project list away from where the real
+// registry store, which forks the project list away from where the real
 // sessions live (and leaves the picker empty while transcripts sit orphaned).
 const AGENT_URL = "https://agent.freegamestore.online";
 
@@ -34,7 +34,7 @@ async function putSession(project: Project, attempt = 0): Promise<void> {
   // Session content (messages/files) is persisted by the DO during chat; this
   // only upserts the lightweight index row (title + deployed game). Retry a
   // couple times: for markDeployed this row is what flips a live game out of the
-  // Dashboard "Drafts" list, so a dropped PUT would otherwise leave a shipped
+  // dashboard inventory, so a dropped PUT would otherwise leave a shipped
   // game looking like an unfinished draft until the next manual index write.
   try {
     const res = await fetch(`${AGENT_URL}/sessions/${project.id}`, {
@@ -105,7 +105,11 @@ export function useProjects() {
         // "start or open a game" state) instead of spawning a blank "New Game"
         // session on every visit — those unbound shells piled up and made it
         // look like chat had vanished when switching between them.
-        const stored = readCurrentProjectId(user.sub);
+        const scopedStored = readCurrentProjectId(user.sub);
+        const legacyStored = readLegacyCurrentProjectId();
+        const legacyInList = !!legacyStored && server.some((project) => project.id === legacyStored);
+        if (legacyStored && !legacyInList) clearLegacyCurrentProjectId();
+        const stored = scopedStored || (legacyInList ? legacyStored : null);
         const storedInList = !!stored && server.some((project) => project.id === stored);
 
         // Never abandon the open session on reload. The transcript lives in the

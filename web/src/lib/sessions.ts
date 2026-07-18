@@ -1,6 +1,6 @@
-// Pure mapping/filtering for VibeCode session data (the agent's /sessions
-// index). Extracted from the hooks so the logic is unit-tested independently of
-// React/fetch — the studio session list and the dashboard Drafts list both
+// Pure mapping/filtering for Studio session data (the agent's /sessions index).
+// Extracted from the hooks so the logic is unit-tested independently of
+// React/fetch — the studio session list and dashboard inventory both
 // depend on getting this right.
 
 export interface ServerSession {
@@ -64,7 +64,7 @@ export function mapServerSession(s: ServerSession, nowMs: number): Project {
   };
 }
 
-/** The undeployed sessions, as dashboard "Drafts". A deployed session is already
+/** The undeployed sessions, as dashboard draft rows. A deployed session is already
  *  a Live game in the registry-backed list, so it's excluded here. */
 export function toDrafts(sessions: ServerSession[]): DraftSession[] {
   return sessions
