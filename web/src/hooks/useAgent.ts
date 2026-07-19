@@ -11,6 +11,12 @@ function normalizeDeployState(state: DeployState | null | undefined): DeployStat
   return state.appUrl || !state.deployUrl ? state : { ...state, appUrl: state.deployUrl };
 }
 
+function parseServerTime(ts: unknown): number {
+  if (!ts) return 0;
+  const s = String(ts);
+  return Date.parse(s.includes("T") ? s : `${s.replace(" ", "T")}Z`) || 0;
+}
+
 /** A single message in the agent conversation (user, assistant, tool, or system). */
 export interface AgentMessage {
   role: "user" | "assistant" | "tool" | "system";
@@ -207,6 +213,10 @@ export function useAgent() {
   const sendMessage = useCallback(async (message: string, aiConfig: AIConfig) => {
     if (!sessionId || isStreaming) return;
     const streamSession = sessionId;
+    const streamStartedAt = Date.now();
+    let lastStreamEventAt = streamStartedAt;
+    let releasedByTerminalStatus = false;
+    const controller = new AbortController();
     setIsStreaming(true);
     setError(null);
     setMessages((prev) => [...prev, { role: "user", content: message }, { role: "assistant", content: "" }]);
@@ -233,6 +243,7 @@ export function useAgent() {
 
     // Append streamed assistant text, starting a fresh bubble after a tool.
     const appendAssistant = (delta: string) => {
+      lastStreamEventAt = Date.now();
       if (pendingNewAssistant) {
         pendingNewAssistant = false;
         assistantText = "";
@@ -242,11 +253,40 @@ export function useAgent() {
       updateAssistant(assistantText);
     };
 
+    const terminalPoll = window.setInterval(async () => {
+      if (sessionIdRef.current !== streamSession) return;
+      if (Date.now() - lastStreamEventAt < 15000) return;
+      try {
+        const res = await fetch(`${AGENT_URL}/sessions`, { credentials: "include" });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          sessions?: Array<{
+            id: string;
+            activity?: { phase?: string; updatedAt?: string };
+            updatedAt?: string;
+          }>;
+        };
+        const row = data.sessions?.find((s) => s.id === streamSession);
+        const phase = row?.activity?.phase;
+        const updated = parseServerTime(row?.activity?.updatedAt || row?.updatedAt);
+        if ((phase === "live" || phase === "error" || phase === "idle") && updated >= streamStartedAt - 1000) {
+          releasedByTerminalStatus = true;
+          isStreamingRef.current = false;
+          setIsStreaming(false);
+          controller.abort();
+          void loadHistory();
+        }
+      } catch {
+        /* status polling is only an escape hatch */
+      }
+    }, 10000);
+
     try {
       const chatRes = await fetch(`${AGENT_URL}/session/${sessionId}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
+        signal: controller.signal,
         body: JSON.stringify({ message, aiConfig }),
       });
       if (!chatRes.ok) {
@@ -269,6 +309,7 @@ export function useAgent() {
 
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
+          lastStreamEventAt = Date.now();
           let evt;
           try { evt = JSON.parse(line.slice(6).trim()); } catch { continue; }
 
@@ -340,6 +381,7 @@ export function useAgent() {
       }
       if (!assistantText) updateAssistant("(No response)");
     } catch (err) {
+      if (releasedByTerminalStatus) return;
       const errMsg = (err as Error).message || String(err);
       if (errMsg.includes("reset") || errMsg.includes("network") || errMsg.includes("Failed to fetch")) {
         updateAssistant(`${assistantText}\n\nConnection interrupted. Say "continue" or "deploy" to resume.`);
@@ -349,6 +391,7 @@ export function useAgent() {
         setError(`Connection error: ${errMsg}`);
       }
     } finally {
+      window.clearInterval(terminalPoll);
       setIsStreaming(false);
       // If the stream ended (cleanly or by a dropped connection) while a deploy
       // was still provisioning/pushing/building — with no terminal live/error

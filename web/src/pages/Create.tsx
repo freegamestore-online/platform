@@ -253,7 +253,7 @@ export function Create() {
     const gameId = currentProject?.appId;
     if (!gameId || !initialBuild) return;
 
-    if (agent.deployState?.phase === "live" || agent.deployState?.phase === "error") {
+    if (currentProject?.deployed || agent.deployState?.phase === "live" || agent.deployState?.phase === "error") {
       clearInitialBuild(gameId);
       setInitialBuild(null);
       return;
@@ -278,6 +278,7 @@ export function Create() {
     void sendPrompt(initialBuild.prompt);
   }, [
     currentProject?.appId,
+    currentProject?.deployed,
     initialBuild,
     agent.deployState?.phase,
     agent.isStreaming,
@@ -324,7 +325,7 @@ export function Create() {
   // appUrl so the preview appears before markDeployed persists.
   const previewUrl = currentProject?.appUrl || agent.deployState?.appUrl || agent.deployState?.deployUrl || null;
   const hasBuilt = agent.messages.some((m) => m.role === "tool");
-  const initialBuildTerminal = agent.deployState?.phase === "live" || agent.deployState?.phase === "error";
+  const initialBuildTerminal = !!currentProject?.deployed || agent.deployState?.phase === "live" || agent.deployState?.phase === "error";
   const initialBuildQueued = !!initialBuild && !initialBuildTerminal;
   const initialBuildPromptSent = initialBuildQueued && agent.messages.some((m) => m.role === "user");
   const initialBuildInProgress = initialBuildQueued && (!!agent.deployState || agent.isStreaming || !initialBuildPromptSent);
