@@ -1,7 +1,27 @@
 import { useState } from "react";
 import { RotateCcw, Trash2, X } from "lucide-react";
 import type { Project } from "../hooks/useProjects";
+import { activityLabel, activityTone } from "../lib/sessions";
 import { Button, IconButton, Input } from "./ui";
+
+// Colored status dot for each session, driven by the last known build/deploy
+// phase (session.activity, surfaced by mapServerSession). We can't reuse the
+// Badge tones directly for the dot: Badge's "accent" is green, so an in-progress
+// build would read as already-live. Map in-progress to amber so the four states
+// are visually distinct — green = live, amber = building, red = failed, grey =
+// never built / unknown.
+function statusDotColor(project: Project): string {
+  switch (activityTone(project.activity, project.deployed)) {
+    case "success":
+      return "#16a34a"; // live / last build succeeded
+    case "accent":
+      return "#f59e0b"; // writing / provisioning / pushing / building — in progress
+    case "danger":
+      return "#ef4444"; // last build failed
+    default:
+      return "var(--line-strong)"; // never built / unknown
+  }
+}
 
 interface ProjectPickerProps {
   projects: Project[];
@@ -104,11 +124,12 @@ export function ProjectPicker({ projects, currentId, loadError, onRetry, onSelec
               {filtered.map((p) => (
                 <div key={p.id} className="w-full flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-lg mb-1" style={{ background: p.id === currentId ? "color-mix(in srgb, var(--accent) 10%, var(--panel))" : "transparent" }}>
                   <button onClick={() => handleSelect(p)} className="flex-1 flex items-center gap-3 min-w-0 py-1.5 text-left" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink)" }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: p.deployed ? "#16a34a" : "var(--line-strong)", flexShrink: 0 }} title={p.deployed ? "Live" : "Draft"} />
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: statusDotColor(p), flexShrink: 0 }} title={activityLabel(p.activity, p.deployed)} />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold truncate">{p.name}</div>
                       {p.appId && <div className="text-xs truncate" style={{ color: "var(--muted)" }}>{p.appId}</div>}
                     </div>
+                    <span className="text-xs shrink-0 font-medium" style={{ color: statusDotColor(p) }}>{activityLabel(p.activity, p.deployed)}</span>
                     {p.id === currentId && <span className="text-xs shrink-0" style={{ color: "var(--accent)" }}>current</span>}
                   </button>
                   {/* Fresh chat — only for a live game (needs a repo to re-import). */}
