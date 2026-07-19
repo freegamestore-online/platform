@@ -65,3 +65,13 @@ html, body {
 input, select, textarea {
   font-size: max(1rem, 16px);
 }
+
+/* Horizontal-scroll containers (e.g. the mobile studio toolbar) that should
+   still scroll but without a visible scrollbar. */
+.no-scrollbar {
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* legacy Edge/IE */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;                /* Chrome/Safari */
+}

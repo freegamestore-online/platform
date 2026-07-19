@@ -497,8 +497,8 @@ export function Create() {
               <span className="text-xs" style={{ color: "var(--muted)" }}>Preview</span>
             )}
           </div>
-          <div className="flex-1 flex items-center justify-center" style={{ background: "var(--bg)", minHeight: 0, overflow: "hidden" }}>
-            {showPreview ? <iframe src={previewUrl} title="Preview" className="w-full h-full border-0" style={{ background: "var(--bg)" }} /> :
+          <div className="flex-1 flex items-center justify-center" style={{ background: "#000", minHeight: 0, overflow: "hidden" }}>
+            {showPreview ? <iframe src={previewUrl} title="Preview" className="w-full h-full border-0" style={{ background: "#000" }} /> :
              previewStatusState ? <DeployLog state={previewStatusState} /> :
              <div className="text-center p-8 flex flex-col items-center gap-3 max-w-sm" style={{ color: "var(--muted)" }}>
                {hasBuilt || firstBuildNeedsDeploy ? (

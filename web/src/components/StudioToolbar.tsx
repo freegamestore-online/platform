@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Settings, Bot, ChevronDown, Copy, Check, Play, ArrowLeft } from "lucide-react";
+import { Settings, Bot, ChevronDown, Copy, Check, Play } from "lucide-react";
 import { Button, buttonClass } from "./ui";
 import type { useAgent, Project } from "../hooks/useAgent";
 import type { useKeys } from "../hooks/useKeys";
@@ -37,18 +37,10 @@ export function StudioToolbar({
 }: StudioToolbarProps) {
   return (
     <>
-      <div className="flex items-center gap-2 shrink-0 px-3 py-2 border-b border-[var(--border)] bg-[var(--surface)]">
-        {/* Mobile only: the global nav is hidden on small screens, so this is the
-            way back to the games overview. Desktop uses the top nav bar instead. */}
-        <Link
-          to="/"
-          className={buttonClass("secondary", "sm", "md:hidden no-underline")}
-          title="My Games"
-          aria-label="My Games"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </Link>
-        <Button size="sm" onClick={() => setPickerOpen(true)} disabled={agent.isStreaming} className="max-w-[190px]" title={agent.isStreaming ? "Finish the current build to switch games" : "Switch game"}>
+      {/* Horizontally scrollable on mobile (tighter gap/padding) so every action
+          stays reachable on a narrow phone; scrollbar hidden via .no-scrollbar. */}
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 overflow-x-auto no-scrollbar px-2 sm:px-3 py-2 border-b border-[var(--border)] bg-[var(--surface)]">
+        <Button size="sm" onClick={() => setPickerOpen(true)} disabled={agent.isStreaming} className="max-w-[190px] shrink-0" title={agent.isStreaming ? "Finish the current build to switch games" : "Switch game"}>
           {currentProject?.deployed && <span className="w-2 h-2 rounded-full bg-[var(--accent)] shrink-0" />}
           <span className="truncate">{currentProject?.name || "Select game"}</span>
           <ChevronDown className="w-4 h-4 shrink-0 opacity-60" />
