@@ -10,7 +10,7 @@ const MODELS: Record<string, [string, string][]> = {
   github: [["openai/gpt-4.1", "GPT-4.1"], ["openai/gpt-4o", "GPT-4o"]],
 };
 
-export function UsersPage() {
+export function UsersPage({ navigate }: { navigate: (h: string) => void }) {
   const [users, setUsers] = useState<RegisteredUser[] | null>(null);
   const [creators, setCreators] = useState<Creator[] | null>(null);
   const [grants, setGrants] = useState<CompGrant[]>([]);
@@ -41,7 +41,11 @@ export function UsersPage() {
             <tbody>
               {users.map((u) => (
                 <tr key={u.id} className="border-t" style={{ borderColor: "var(--line)" }}>
-                  <td className="px-4 py-2.5 font-medium" style={{ color: "var(--ink)" }}>{u.name}</td>
+                  <td className="px-4 py-2.5 font-medium" style={{ color: "var(--ink)" }}>
+                    <button onClick={() => navigate(`/users/${encodeURIComponent(u.id)}`)} className="font-semibold text-left" style={{ color: "var(--accent)" }}>
+                      {u.name}
+                    </button>
+                  </td>
                   <td className="px-4 py-2.5 text-xs" style={{ color: "var(--muted)" }}>{u.id}</td>
                   <td className="px-4 py-2.5">
                     {u.keys.length === 0 ? <span className="text-xs" style={{ color: "var(--muted)" }}>none</span> : u.keys.map((k) => (
@@ -52,7 +56,10 @@ export function UsersPage() {
                     ))}
                   </td>
                   <td className="px-4 py-2.5 text-xs" style={{ color: "var(--muted)" }}>{u.grant ? `${u.grant.provider}/${u.grant.model}` : "—"}</td>
-                  <td className="px-4 py-2.5"><button onClick={() => setKeyModal({ id: u.id, name: u.name })} className="text-xs font-semibold rounded-lg px-2.5 py-1 text-white" style={{ background: "var(--accent)" }}>Add key</button></td>
+                  <td className="px-4 py-2.5 whitespace-nowrap">
+                    <button onClick={() => navigate(`/users/${encodeURIComponent(u.id)}`)} className="text-xs font-semibold rounded-lg px-2.5 py-1 mr-2 border" style={{ borderColor: "var(--line)", color: "var(--accent)" }}>Open</button>
+                    <button onClick={() => setKeyModal({ id: u.id, name: u.name })} className="text-xs font-semibold rounded-lg px-2.5 py-1 text-white" style={{ background: "var(--accent)" }}>Add key</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -70,7 +77,10 @@ export function UsersPage() {
             <tbody>
               {(creators ?? []).map((c) => (
                 <tr key={c.login} className="border-t" style={{ borderColor: "var(--line)" }}>
-                  <td className="px-4 py-2.5"><a href={`https://github.com/${c.login}`} target="_blank" rel="noopener" style={{ color: "var(--accent)" }}>{c.login}</a></td>
+                  <td className="px-4 py-2.5">
+                    <button onClick={() => navigate(`/users/${encodeURIComponent(c.login)}`)} className="font-semibold mr-2" style={{ color: "var(--accent)" }}>{c.login}</button>
+                    {c.login !== "(unknown)" && <a href={`https://github.com/${c.login}`} target="_blank" rel="noopener" className="text-xs" style={{ color: "var(--muted)" }}>GitHub</a>}
+                  </td>
                   <td className="px-4 py-2.5 font-bold" style={{ color: "var(--ink)" }}>{c.games.length}</td>
                   <td className="px-4 py-2.5 text-xs" style={{ color: "var(--muted)" }}>{c.games.join(", ")}</td>
                 </tr>
