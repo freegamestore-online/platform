@@ -46,6 +46,7 @@ export function Create() {
   const autoInitialPromptRef = useRef<string | null>(null);
   const [initialBuild, setInitialBuild] = useState<InitialBuild | null>(null);
   const [providerResolved, setProviderResolved] = useState(false);
+  const keySignature = [...keys.providers].sort().join("|");
   const { id: urlKey } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const resolvedKeyRef = useRef<string | null>(null);
@@ -185,8 +186,10 @@ export function Create() {
   }, [currentProject?.appId]);
 
   const autoPickedRef = useRef(false);
+  const lastKeySignatureRef = useRef("");
   useEffect(() => {
     autoPickedRef.current = false;
+    lastKeySignatureRef.current = "";
     setProviderResolved(false);
   }, [user?.sub]);
 
@@ -197,6 +200,10 @@ export function Create() {
     if (keys.loading) {
       setProviderResolved(false);
       return;
+    }
+    if (lastKeySignatureRef.current !== keySignature) {
+      autoPickedRef.current = false;
+      lastKeySignatureRef.current = keySignature;
     }
     if (autoPickedRef.current) {
       setProviderResolved(true);
@@ -216,7 +223,7 @@ export function Create() {
       setModel(firstModelFor("github"));
     }
     setProviderResolved(true);
-  }, [keys.loading, keys.hasKey, keys.providerUsable, provider, user?.sub]);
+  }, [keys.loading, keys.hasKey, keys.providerUsable, keySignature, provider, user?.sub]);
 
   const sendPrompt = useCallback(async (msg: string) => {
     if (!msg || agent.isStreaming) return;
