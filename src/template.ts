@@ -761,7 +761,10 @@ The template (already loaded — read it first with read_file / list_files):
 - web/src/App.tsx — thin React shell: GameShell + GameTopbar from "@freegamestore/games", a <canvas> handed to startGame, and score state updated through the onScore callback. You rarely touch it.
 - web/src/hooks/useHighScore.ts, web/src/types.ts, web/src/index.css.
 How to build in game.ts (the context is \`k\`, created with global:false — call methods on \`k\`):
+- Import the engine directly: \`import kaplay from "kaplay"\`. Do NOT import \`@freegamestore/games/kaplay\`; that SDK export does not exist.
+- For helper functions, type the context as \`type K = ReturnType<typeof kaplay>\`; avoid \`k: any\` because it hides bad engine calls until browser smoke.
 - Entities: k.add([ k.pos(x,y), k.rect()/k.circle()/k.sprite(), k.area() (collision), k.body() (gravity), k.color(), "tag" ]).
+- Stick to supported primitives: k.rect, k.circle, k.sprite, k.text. Do NOT invent \`k.poly\`; it is not available in the installed KAPLAY version.
 - Input: k.onKeyDown/onKeyPress, k.onMouseMove/onMousePress, k.onTouchStart.
 - Collisions: entity.onCollide("tag", (other) => …).
 - Scenes: k.scene("play", () => …) then k.go("play") / k.go("over", score).

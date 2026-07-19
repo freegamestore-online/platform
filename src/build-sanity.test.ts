@@ -117,6 +117,39 @@ g.circle(5, 5, 3).fill({ color: 0xffffff, alpha: 0.5 });
   });
 });
 
+describe("checkBuildSanity — KAPLAY build hazards", () => {
+  it("blocks the invalid @freegamestore/games/kaplay import", () => {
+    const files = new Map([
+      ["web/package.json", JSON.stringify({ dependencies: { kaplay: "^3001.0.19" } })],
+      ["web/src/game.ts", `import k from "@freegamestore/games/kaplay";\nexport function startGame() { k.setCanvas(canvas); }`],
+    ]);
+
+    const findings = checkBuildSanity(files);
+    expect(findings.some((x) => x.problem.includes("@freegamestore/games does not export ./kaplay"))).toBe(true);
+    expect(findings.some((x) => x.problem.includes('import kaplay from "kaplay"'))).toBe(true);
+  });
+
+  it("blocks malformed one-line k.text template literals", () => {
+    const files = new Map([
+      ["web/package.json", JSON.stringify({ dependencies: { kaplay: "^3001.0.19" } })],
+      ["web/src/game.ts", `k.add([\n  k.text(\`Score: \${score}", { size: 24 }),\n]);`],
+    ]);
+
+    const findings = checkBuildSanity(files);
+    expect(findings.some((x) => x.problem.includes("likely unterminated template literal"))).toBe(true);
+    expect(findings.some((x) => x.problem.includes("line 2"))).toBe(true);
+  });
+
+  it("allows valid one-line k.text template literals", () => {
+    const files = new Map([
+      ["web/package.json", JSON.stringify({ dependencies: { kaplay: "^3001.0.19" } })],
+      ["web/src/game.ts", "k.add([k.text(`Score: ${score}`, { size: 24 })]);"],
+    ]);
+
+    expect(checkBuildSanity(files)).toHaveLength(0);
+  });
+});
+
 describe("checkBuildSanity — NO false positives on real-world patterns", () => {
   it("passes JSX with apostrophes, regex, templates, generics, division", () => {
     const src = `import { useState } from "react";

@@ -130,6 +130,40 @@ function projectUsesPixi(files: Map<string, string>): boolean {
   return false;
 }
 
+function projectUsesKaplay(files: Map<string, string>): boolean {
+  for (const [path, content] of files) {
+    if (PACKAGE_RE.test(path) && /"kaplay"\s*:/.test(content)) return true;
+    if (SRC_RE.test(path) && /from\s+["']kaplay["']|import\s*\([^)]*["']kaplay["']/.test(content)) return true;
+  }
+  return false;
+}
+
+function countUnescapedBackticks(line: string): number {
+  let count = 0;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] !== "`") continue;
+    let slashes = 0;
+    for (let j = i - 1; j >= 0 && line[j] === "\\"; j--) slashes++;
+    if (slashes % 2 === 0) count++;
+  }
+  return count;
+}
+
+function findKaplayTextTemplateIssues(content: string): { line: number; text: string }[] {
+  const findings: { line: number; text: string }[] = [];
+  const lines = content.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // KAPLAY text labels in generated games should be a single-line string.
+    // This catches the Crossy School failure: k.text(`Score: ${score}", ...)
+    // without doing a risky full quote/brace balance pass over TSX.
+    if (/\bk\.text\s*\(/.test(line) && countUnescapedBackticks(line) % 2 === 1) {
+      findings.push({ line: i + 1, text: line.trim().slice(0, 160) });
+    }
+  }
+  return findings;
+}
+
 function findPackedPixiColors(content: string): { line: number; literal: string }[] {
   const findings: { line: number; literal: string }[] = [];
   const seen = new Set<string>();
@@ -156,6 +190,7 @@ function findPackedPixiColors(content: string): { line: number; literal: string 
 export function checkBuildSanity(files: Map<string, string>): SanityFinding[] {
   const findings: SanityFinding[] = [];
   const usesPixi = projectUsesPixi(files);
+  const usesKaplay = projectUsesKaplay(files);
 
   for (const [path, content] of files) {
     if (!SRC_RE.test(path)) continue;
@@ -188,6 +223,27 @@ export function checkBuildSanity(files: Map<string, string>): SanityFinding[] {
             `Pixi color ${color.literal} on line ${color.line} is wider than 24-bit RGB. ` +
             `Pixi v8 colors must be 0xRRGGBB; put transparency in an \`alpha\` field instead ` +
             `(for example, \`.stroke({ color: 0x8b6914, alpha: 0.4, width: 1 })\`).`,
+        });
+      }
+    }
+
+    if (usesKaplay) {
+      if (/from\s+["']@freegamestore\/games\/kaplay["']|import\s*\([^)]*["']@freegamestore\/games\/kaplay["']/.test(content)) {
+        findings.push({
+          file: path,
+          problem:
+            `invalid KAPLAY import. @freegamestore/games does not export ./kaplay; ` +
+            `use \`import kaplay from "kaplay"\` and create the context with \`kaplay({ canvas, global: false, ... })\`.`,
+        });
+      }
+
+      const textIssues = findKaplayTextTemplateIssues(content);
+      for (const issue of textIssues) {
+        findings.push({
+          file: path,
+          problem:
+            `likely unterminated template literal in KAPLAY text on line ${issue.line}: \`${issue.text}\`. ` +
+            `Close template strings with a backtick, for example \`k.text(\`Score: \${score}\`, { size: 24 })\`.`,
         });
       }
     }
