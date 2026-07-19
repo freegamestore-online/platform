@@ -12,7 +12,7 @@ import { clampToolResultForHistory } from "./tools";
 import { ownsGame } from "./ownership";
 import type { AIConfig, Message, TokenUsage } from "./providers/types";
 import { type PushSubscription, sendWebPush } from "./push";
-import { resolveUserKey } from "./keys";
+import { keyStatus, resolveUserKey } from "./keys";
 import { compKeyFor, getActiveComp } from "./keygrants";
 import { allowDeploy, allowRequest } from "./ratelimit";
 import { enforceSessionBudget } from "./session-budget";
@@ -71,6 +71,13 @@ interface SessionState {
 const MAX_MESSAGES = 400;
 const MAX_ERRORS = 50;
 const MAX_DEPLOY_LOG = 200;
+const DEFAULT_MODELS: Record<AIConfig["provider"], string> = {
+  anthropic: "claude-sonnet-4-6",
+  openai: "gpt-4o",
+  google: "gemini-2.5-flash",
+  github: "openai/gpt-4o",
+};
+const SAVED_KEY_PRIORITY: AIConfig["provider"][] = ["anthropic", "openai", "google", "github"];
 
 // The whole session is persisted as ONE Durable Object value, and a
 // SQLite-backed DO caps a single key+value at ~2 MB. Guard the blob so save()
@@ -318,12 +325,21 @@ export class AgentSession implements DurableObject {
 
   /** POST /chat — stream an agent turn via SSE */
   /** Resolve the effective AIConfig for a turn: explicit key (MCP BYO) →
-   *  vault key → complimentary grant (overrides provider+model) → free tier
-   *  (github, platform token). Null when nothing usable. */
+   *  vault key for requested provider → any saved vault key when the request is
+   *  for the free GitHub tier → complimentary grant → free tier (github,
+   *  platform token). Null when nothing usable. */
   private async resolveTurnConfig(userId: string, aiConfig: AIConfig): Promise<{ aiConfig: AIConfig; usedFreeTier: boolean } | null> {
     let resolvedKey =
       aiConfig.apiKey?.trim() ||
       (userId ? await resolveUserKey(this.env, userId, aiConfig.provider) : null);
+
+    if (!resolvedKey && userId && aiConfig.provider === "github") {
+      const saved = await this.resolveAnySavedKey(userId);
+      if (saved) {
+        resolvedKey = saved.apiKey;
+        aiConfig = { ...aiConfig, provider: saved.provider, model: DEFAULT_MODELS[saved.provider] };
+      }
+    }
 
     let usedComp = false;
     if (!resolvedKey && userId) {
@@ -347,6 +363,16 @@ export class AgentSession implements DurableObject {
     }
     if (!resolvedKey) return null;
     return { aiConfig: { ...aiConfig, apiKey: resolvedKey }, usedFreeTier };
+  }
+
+  private async resolveAnySavedKey(userId: string): Promise<{ provider: AIConfig["provider"]; apiKey: string } | null> {
+    const saved = new Set((await keyStatus(this.env, userId)).map((k) => k.provider));
+    for (const provider of SAVED_KEY_PRIORITY) {
+      if (!saved.has(provider)) continue;
+      const apiKey = await resolveUserKey(this.env, userId, provider);
+      if (apiKey) return { provider, apiKey };
+    }
+    return null;
   }
 
   private async handleChat(request: Request): Promise<Response> {
