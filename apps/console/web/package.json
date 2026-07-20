@@ -1,0 +1,30 @@
+{
+  "name": "@freegamestore/console-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "lucide-react": "^1.23.0",
+    "react": "^19",
+    "react-dom": "^19",
+    "react-router-dom": "^7.18.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4",
+    "@tailwindcss/vite": "^4.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.3",
+    "@vitest/coverage-v8": "^4.1.7",
+    "jsdom": "^29.1.1",
+    "tailwindcss": "^4.1",
+    "typescript": "^5.7",
+    "vite": "^6",
+    "vitest": "^4.1.7"
+  }
+}

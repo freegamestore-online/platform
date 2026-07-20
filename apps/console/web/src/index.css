@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+/* Fonts loaded via <link> in index.html (Manrope + Fraunces from Google Fonts) */
+
+:root {
+  /* Dark theme (matches FreeGameStore) */
+  --bg: #0f0f0f;
+  --paper: #0f0f0f;
+  --surface: #1a1a1a;
+  --panel: #1a1a1a;
+  --ink: #f0f0f0;
+  --muted: #999;
+  --accent: #10b981;
+  --accent-hover: #34d399;
+  --accent-soft: #1a2e26;
+  --border: #2a2a2a;
+  --line: #2a2a2a;
+  --line-strong: #3a3a3a;
+  --glass: rgba(15,15,15,0.8);
+  --radius: 1.25rem;
+  --shadow: 0 1px 3px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.3);
+
+  /* Pro */
+  --pro: #a78bfa;
+
+  /* Status */
+  --success: #22c55e;
+  --warning: #fbbf24;
+  --error: #ef4444;
+
+  /* Fonts */
+  font-family: "Manrope", system-ui, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* Text-size preference (Profile → Text size). Scales the root font-size so all
+   rem-based UI text grows/shrinks together. Set via html[data-text] by
+   src/lib/textSize.ts; applied before first paint in main.tsx. */
+html { font-size: 16px; }
+html[data-text="sm"] { font-size: 14px; }
+html[data-text="lg"] { font-size: 18px; }
+html[data-text="xl"] { font-size: 20px; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  /* `clip`, not `hidden`: `overflow-x: hidden` forces overflow-y to compute to
+     `auto`, turning these into scroll containers and defeating the sticky Nav.
+     `clip` prevents horizontal scroll without establishing a scrollport. */
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#root {
+  overflow-x: clip;
+  min-height: 100dvh;
+}
+
+/* Inputs scale with the text-size preference but never below 16px, so iOS
+   doesn't zoom the viewport on focus. */
+input, select, textarea {
+  font-size: max(1rem, 16px);
+}
+
+/* Horizontal-scroll containers (e.g. the mobile studio toolbar) that should
+   still scroll but without a visible scrollbar. */
+.no-scrollbar {
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* legacy Edge/IE */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;                /* Chrome/Safari */
+}

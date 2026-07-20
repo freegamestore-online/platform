@@ -1,0 +1,11 @@
+node_modules
+.wrangler
+.dev.vars
+
+# Build output — deploy.yml rebuilds web/dist fresh in CI before
+# `wrangler pages deploy`, so the committed copy was never used.
+web/dist/
+*.tsbuildinfo
+# Orphaned pre-CI deploy staging dir (unreferenced).
+.deploy/
+.vibe-check/

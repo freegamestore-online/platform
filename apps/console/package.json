@@ -1,0 +1,22 @@
+{
+  "name": "freegamestore-console",
+  "private": true,
+  "packageManager": "pnpm@10.30.3",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/freegamestore-online/console"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "cd web && npx wrangler pages dev -- pnpm dev",
+    "build": "cd web && pnpm build",
+    "test": "pnpm test:web && pnpm test:functions",
+    "test:web": "cd web && pnpm test",
+    "test:functions": "vitest run -c vitest.functions.config.ts"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.7"
+  }
+}
