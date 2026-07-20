@@ -16,7 +16,7 @@ import { useKeys } from "../hooks/useKeys";
 import { resolveInitialProvider, PROVIDERS } from "../lib/ai-keys";
 import { resolveModel, firstModelFor } from "../lib/models";
 import { getKidMode } from "../lib/kidMode";
-import { clearInitialBuild, isInitialBuildDeployTerminal, readInitialBuild, type InitialBuild } from "../lib/initialBuild";
+import { clearInitialBuild, isInitialBuildComplete, readInitialBuild, type InitialBuild } from "../lib/initialBuild";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -253,7 +253,8 @@ export function Create() {
     const gameId = currentProject?.appId;
     if (!gameId || !initialBuild) return;
 
-    if (isInitialBuildDeployTerminal(agent.deployState?.phase)) {
+    const hasUserMessage = agent.messages.some((m) => m.role === "user");
+    if (isInitialBuildComplete(agent.deployState?.phase, hasUserMessage)) {
       clearInitialBuild(gameId);
       setInitialBuild(null);
       return;
@@ -261,7 +262,7 @@ export function Create() {
 
     const key = `${gameId}:${initialBuild.createdAt}`;
     if (autoInitialPromptRef.current === key || agent.isStreaming || loading || !user || agent.projectsLoading || !providerResolved) return;
-    if (agent.messages.some((m) => m.role === "user")) {
+    if (hasUserMessage) {
       clearInitialBuild(gameId);
       setInitialBuild(null);
       return;
@@ -324,7 +325,7 @@ export function Create() {
   // appUrl so the preview appears before markDeployed persists.
   const previewUrl = currentProject?.appUrl || agent.deployState?.appUrl || agent.deployState?.deployUrl || null;
   const hasBuilt = agent.messages.some((m) => m.role === "tool");
-  const initialBuildTerminal = isInitialBuildDeployTerminal(agent.deployState?.phase);
+  const initialBuildTerminal = isInitialBuildComplete(agent.deployState?.phase, agent.messages.some((m) => m.role === "user"));
   const initialBuildQueued = !!initialBuild && !initialBuildTerminal;
   const initialBuildPromptSent = initialBuildQueued && agent.messages.some((m) => m.role === "user");
   const initialBuildInProgress = initialBuildQueued && (!!agent.deployState || agent.isStreaming || !initialBuildPromptSent);

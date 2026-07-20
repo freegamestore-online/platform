@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { buildInitialPrompt, clearInitialBuild, isInitialBuildDeployTerminal, queueInitialBuild, readInitialBuild } from "./initialBuild";
+import { buildInitialPrompt, clearInitialBuild, isInitialBuildComplete, isInitialBuildDeployTerminal, queueInitialBuild, readInitialBuild } from "./initialBuild";
 
 describe("initial build queue", () => {
   beforeEach(() => localStorage.clear());
@@ -43,5 +43,12 @@ describe("initial build queue", () => {
     expect(isInitialBuildDeployTerminal("pushing")).toBe(false);
     expect(isInitialBuildDeployTerminal("live")).toBe(true);
     expect(isInitialBuildDeployTerminal("error")).toBe(true);
+  });
+
+  it("does not complete a queued first build from a live starter before the first user prompt exists", () => {
+    expect(isInitialBuildComplete("live", false)).toBe(false);
+    expect(isInitialBuildComplete("error", false)).toBe(false);
+    expect(isInitialBuildComplete("live", true)).toBe(true);
+    expect(isInitialBuildComplete("error", true)).toBe(true);
   });
 });

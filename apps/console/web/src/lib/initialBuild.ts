@@ -62,3 +62,7 @@ export function clearInitialBuild(gameId: string | undefined | null): void {
 export function isInitialBuildDeployTerminal(phase: string | undefined | null): boolean {
   return phase === "live" || phase === "error";
 }
+
+export function isInitialBuildComplete(phase: string | undefined | null, hasUserMessage: boolean): boolean {
+  return hasUserMessage && isInitialBuildDeployTerminal(phase);
+}
