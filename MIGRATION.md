@@ -1,6 +1,8 @@
 # Private Platform Migration
 
-Status: source imported, deploy cutover not enabled.
+Status: source imported, root deploy workflows added. Deploy cutover is complete
+only after each workflow has run successfully from this repo and the old
+standalone repo is made private or archived.
 
 Imported from standalone repos:
 
@@ -13,21 +15,14 @@ Imported from standalone repos:
 - `workers/mcp` from `freegamestore-online/mcp`
 - `jobs/auditor` from `freegamestore-online/auditor`
 
-The old standalone repos still own production deploys until this repo has
-repo-level GitHub Actions secrets and path-scoped deploy workflows.
+The old standalone repos can still deploy production until they are made private
+or archived.
 
-Required next step before deploy cutover:
-
-```bash
-gh secret set CLOUDFLARE_API_TOKEN -R freegamestore-online/platform
-gh secret set CLOUDFLARE_ACCOUNT_ID -R freegamestore-online/platform
-```
-
-Additional secrets are needed before porting scheduled/audit jobs:
+Required verification after pushing root workflows:
 
 ```bash
-gh secret set GH_ADMIN_TOKEN -R freegamestore-online/platform
+gh -R freegamestore-online/platform run list --limit 20
 ```
 
-Do not archive or disable a standalone repo until the corresponding monorepo
-deploy workflow has shipped and the live route has been verified.
+Do not archive a standalone repo until the corresponding monorepo deploy workflow
+has shipped and the live route has been verified.

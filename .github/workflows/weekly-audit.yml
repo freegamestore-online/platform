@@ -1,0 +1,52 @@
+name: Weekly platform audit
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: jobs/auditor
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout freegamestore registry
+        uses: actions/checkout@v4
+        with:
+          repository: freegamestore-online/freegamestore
+          path: jobs/auditor/freegamestore
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: jobs/auditor/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Run audit
+        run: npx tsx audit.ts --all --output audit-results.json
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-results-${{ github.run_id }}
+          path: jobs/auditor/audit-results.json
+          retention-days: 90
+      - name: Publish results to store repo
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "::warning::GH_ADMIN_TOKEN unset - skipping publish"; exit 0; fi
+          B64=$(base64 -w0 audit-results.json)
+          SHA=$(gh api repos/freegamestore-online/freegamestore/contents/data/quality-results.json --jq .sha 2>/dev/null || true)
+          gh api -X PUT repos/freegamestore-online/freegamestore/contents/data/quality-results.json \
+            -f message="data: weekly quality audit $(date -u +%F)" \
+            -f content="$B64" ${SHA:+-f sha="$SHA"} > /dev/null

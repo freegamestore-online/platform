@@ -1,20 +1,26 @@
-name: Deploy games agent worker
+name: Deploy agent
 
 on:
   push:
     branches: [main]
+    paths:
+      - workers/agent/**
+      - .github/workflows/deploy-agent.yml
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: deploy-games-agent
+  group: deploy-agent
   cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workers/agent
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -22,22 +28,14 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-
-      - name: Install
-        run: pnpm install --frozen-lockfile
-
-      - name: Typecheck
-        run: npx tsc --noEmit
-
-      - name: Test
-        run: pnpm test
-
-      - name: Deploy
-        run: pnpm exec wrangler deploy
+          cache-dependency-path: workers/agent/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: npx tsc --noEmit
+      - run: pnpm test
+      - run: pnpm exec wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
       - name: Smoke test
         run: |
           sleep 5
@@ -45,5 +43,5 @@ jobs:
           if [ "$CODE" = "200" ]; then
             echo "agent reachable (HTTP $CODE)"
           else
-            echo "WARNING: agent returned HTTP $CODE (may need secrets)"
+            echo "WARNING: agent returned HTTP $CODE"
           fi
