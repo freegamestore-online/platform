@@ -1,0 +1,26 @@
+{
+  "name": "freegamestore-leaderboard",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.11.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/freegamestore-online/leaderboard"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute leaderboard --file=schema.sql",
+    "db:init:local": "wrangler d1 execute leaderboard --file=schema.sql --local",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4",
+    "typescript": "^5.7",
+    "vitest": "^2",
+    "wrangler": "^4"
+  }
+}
