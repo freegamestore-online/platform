@@ -58,3 +58,7 @@ export function readInitialBuild(gameId: string | undefined | null): InitialBuil
 export function clearInitialBuild(gameId: string | undefined | null): void {
   if (gameId) localStorage.removeItem(storageKey(gameId));
 }
+
+export function isInitialBuildDeployTerminal(phase: string | undefined | null): boolean {
+  return phase === "live" || phase === "error";
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { buildInitialPrompt, clearInitialBuild, queueInitialBuild, readInitialBuild } from "./initialBuild";
+import { buildInitialPrompt, clearInitialBuild, isInitialBuildDeployTerminal, queueInitialBuild, readInitialBuild } from "./initialBuild";
 
 describe("initial build queue", () => {
   beforeEach(() => localStorage.clear());
@@ -33,5 +33,15 @@ describe("initial build queue", () => {
     expect(readInitialBuild("bird-drop")?.prompt).toBe("Build it now");
     clearInitialBuild("bird-drop");
     expect(readInitialBuild("bird-drop")).toBeNull();
+  });
+
+  it("only treats completed agent deploy phases as terminal for a queued first build", () => {
+    expect(isInitialBuildDeployTerminal(undefined)).toBe(false);
+    expect(isInitialBuildDeployTerminal(null)).toBe(false);
+    expect(isInitialBuildDeployTerminal("provisioning")).toBe(false);
+    expect(isInitialBuildDeployTerminal("building")).toBe(false);
+    expect(isInitialBuildDeployTerminal("pushing")).toBe(false);
+    expect(isInitialBuildDeployTerminal("live")).toBe(true);
+    expect(isInitialBuildDeployTerminal("error")).toBe(true);
   });
 });

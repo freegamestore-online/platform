@@ -16,7 +16,7 @@ import { useKeys } from "../hooks/useKeys";
 import { resolveInitialProvider, PROVIDERS } from "../lib/ai-keys";
 import { resolveModel, firstModelFor } from "../lib/models";
 import { getKidMode } from "../lib/kidMode";
-import { clearInitialBuild, readInitialBuild, type InitialBuild } from "../lib/initialBuild";
+import { clearInitialBuild, isInitialBuildDeployTerminal, readInitialBuild, type InitialBuild } from "../lib/initialBuild";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -253,7 +253,7 @@ export function Create() {
     const gameId = currentProject?.appId;
     if (!gameId || !initialBuild) return;
 
-    if (currentProject?.deployed || agent.deployState?.phase === "live" || agent.deployState?.phase === "error") {
+    if (isInitialBuildDeployTerminal(agent.deployState?.phase)) {
       clearInitialBuild(gameId);
       setInitialBuild(null);
       return;
@@ -278,7 +278,6 @@ export function Create() {
     void sendPrompt(initialBuild.prompt);
   }, [
     currentProject?.appId,
-    currentProject?.deployed,
     initialBuild,
     agent.deployState?.phase,
     agent.isStreaming,
@@ -325,7 +324,7 @@ export function Create() {
   // appUrl so the preview appears before markDeployed persists.
   const previewUrl = currentProject?.appUrl || agent.deployState?.appUrl || agent.deployState?.deployUrl || null;
   const hasBuilt = agent.messages.some((m) => m.role === "tool");
-  const initialBuildTerminal = !!currentProject?.deployed || agent.deployState?.phase === "live" || agent.deployState?.phase === "error";
+  const initialBuildTerminal = isInitialBuildDeployTerminal(agent.deployState?.phase);
   const initialBuildQueued = !!initialBuild && !initialBuildTerminal;
   const initialBuildPromptSent = initialBuildQueued && agent.messages.some((m) => m.role === "user");
   const initialBuildInProgress = initialBuildQueued && (!!agent.deployState || agent.isStreaming || !initialBuildPromptSent);
