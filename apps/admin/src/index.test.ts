@@ -1,0 +1,212 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import worker from "./index";
+import { mintSessionToken } from "./auth";
+
+// Real coverage for the security-critical admin sign-in gate (src/index.ts):
+//  - ADMIN_PATHS observability/console routes require an allowlisted Google email
+//  - the allowlist match is case + whitespace insensitive
+//  - console pages (/, /docs) fall back to the 200 sign-in page, not a 401
+//  - the gate FAILS CLOSED when the auth worker is unreachable / non-200
+//  - creator self-serve routes (provision/publish/PATCH+DELETE games) are NOT
+//    admin-gated — a regression either direction is dangerous.
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+/** Build an env whose AUTH service binding resolves `/me` to a chosen email. */
+function makeEnv(opts: {
+  meEmail?: string | null;
+  meOk?: boolean;
+  authThrows?: boolean;
+  adminEmails?: string;
+  signingKey?: string;
+  internalToken?: string;
+  DB?: unknown;
+}) {
+  const AUTH = {
+    fetch: async () => {
+      if (opts.authThrows) throw new Error("auth worker down");
+      if (opts.meOk === false) return new Response("bad gateway", { status: 502 });
+      return new Response(JSON.stringify({ email: opts.meEmail ?? null }), { status: 200 });
+    },
+  };
+  return {
+    AUTH,
+    ADMIN_EMAILS: opts.adminEmails,
+    SESSION_SIGNING_KEY: opts.signingKey ?? "test-signing-key",
+    INTERNAL_TOKEN: opts.internalToken,
+    DB: opts.DB,
+  } as unknown as Parameters<typeof worker.fetch>[1];
+}
+
+const ADMIN = "serge.the.dev@gmail.com";
+function req(path: string, init?: RequestInit): Request {
+  return new Request("https://admin.freegamestore.online" + path, init);
+}
+
+describe("admin gate — observability/console routes", () => {
+  const gatedApis = ["/api/errors", "/api/stats", "/api/users", "/api/status"];
+
+  it("smoke: exports a default fetch handler", () => {
+    expect(typeof worker.fetch).toBe("function");
+  });
+
+  for (const path of gatedApis) {
+    it(`${path} returns 401 JSON for a NON-allowlisted email`, async () => {
+      const res = await worker.fetch(
+        req(path, { headers: { "X-FGS-Token": "t" } }),
+        makeEnv({ meEmail: "intruder@example.com", adminEmails: ADMIN, DB: undefined }),
+      );
+      expect(res.status).toBe(401);
+      expect(res.headers.get("Content-Type")).toMatch(/application\/json/);
+      expect(await res.json()).toEqual({ error: "unauthorized" });
+    });
+  }
+
+  it("returns data (not 401) for an allowlisted email — allowlist is case + whitespace insensitive", async () => {
+    // The ADMIN_EMAILS config value carries mixed case AND surrounding whitespace;
+    // the verified /me email is the clean lowercase form. They must still match.
+    const res = await worker.fetch(
+      req("/api/errors", { headers: { "X-FGS-Token": "t" } }),
+      makeEnv({ meEmail: ADMIN, adminEmails: "  Serge.The.Dev@GMAIL.com ", DB: undefined }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]); // listErrors(undefined) → []
+  });
+
+  it("matches a mixed-case verified email against a lowercase allowlist entry", async () => {
+    const res = await worker.fetch(
+      req("/api/errors", { headers: { "X-FGS-Token": "t" } }),
+      makeEnv({ meEmail: "Serge.The.Dev@GMAIL.com", adminEmails: ADMIN, DB: undefined }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
+  });
+
+  for (const path of ["/", "/docs"]) {
+    it(`${path} returns a 200 text/html sign-in page (not 401) for a non-admin`, async () => {
+      const res = await worker.fetch(
+        req(path, { headers: { "X-FGS-Token": "t" } }),
+        makeEnv({ meEmail: "intruder@example.com", adminEmails: ADMIN }),
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Content-Type")).toMatch(/text\/html/);
+      const body = await res.text();
+      expect(body).toMatch(/Sign in|Google|admin/i);
+    });
+
+    it(`${path} returns a 200 sign-in page for a signed-out visitor (no token)`, async () => {
+      const res = await worker.fetch(req(path), makeEnv({ adminEmails: ADMIN }));
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Content-Type")).toMatch(/text\/html/);
+    });
+  }
+});
+
+describe("admin gate — fails closed", () => {
+  it("401 on a gated API when the auth worker THROWS", async () => {
+    const res = await worker.fetch(
+      req("/api/errors", { headers: { "X-FGS-Token": "t" } }),
+      makeEnv({ authThrows: true, adminEmails: ADMIN, DB: undefined }),
+    );
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "unauthorized" });
+  });
+
+  it("401 on a gated API when the auth worker returns NON-200", async () => {
+    const res = await worker.fetch(
+      req("/api/errors", { headers: { "X-FGS-Token": "t" } }),
+      makeEnv({ meOk: false, adminEmails: ADMIN, DB: undefined }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("401 on a gated API when no credential is presented at all", async () => {
+    const res = await worker.fetch(req("/api/errors"), makeEnv({ adminEmails: ADMIN, DB: undefined }));
+    expect(res.status).toBe(401);
+  });
+
+  it("401 when /me yields no email (e.g. GitHub identity, which carries none)", async () => {
+    const res = await worker.fetch(
+      req("/api/stats", { headers: { "X-FGS-Token": "t" } }),
+      makeEnv({ meEmail: null, adminEmails: ADMIN, DB: undefined }),
+    );
+    expect(res.status).toBe(401);
+  });
+});
+
+describe("creator self-serve routes are NOT behind the admin gate", () => {
+  // A regression that ADDED these to the gate would lock creators out; a
+  // regression that REMOVED them from the observability gate would leak data.
+  // We prove they are reachable by a NON-admin identity (no allowlisted email),
+  // landing in their own per-caller auth rather than the gate's 401.
+
+  it("DELETE /api/games/:id reaches the ownership check for a non-admin session", async () => {
+    const key = "creator-key";
+    const token = await mintSessionToken("randocreator", key);
+    // Registry read → the game is owned by someone else.
+    vi.stubGlobal("fetch", async () =>
+      new Response(
+        JSON.stringify({
+          content: btoa(JSON.stringify({ games: [{ id: "chess", name: "Chess", creatorGithub: "someone-else" }] })),
+          sha: "s",
+        }),
+        { status: 200 },
+      ),
+    );
+    const res = await worker.fetch(
+      req("/api/games/chess", { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }),
+      makeEnv({ signingKey: key, adminEmails: ADMIN, DB: undefined }),
+    );
+    // Reached handleDeleteGame (400 ownership), NOT the admin gate's 401.
+    expect(res.status).toBe(400);
+    expect((await res.json() as { error?: string }).error).toMatch(/only the creator/i);
+  });
+
+  it("PATCH /api/games/:id reaches the ownership check for a non-admin session", async () => {
+    const key = "creator-key";
+    const token = await mintSessionToken("randocreator", key);
+    vi.stubGlobal("fetch", async () =>
+      new Response(
+        JSON.stringify({
+          content: btoa(JSON.stringify({ games: [{ id: "chess", name: "Chess", creatorGithub: "someone-else" }] })),
+          sha: "s",
+        }),
+        { status: 200 },
+      ),
+    );
+    const res = await worker.fetch(
+      req("/api/games/chess", {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Hacked" }),
+      }),
+      makeEnv({ signingKey: key, adminEmails: ADMIN, DB: undefined }),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json() as { error?: string }).error).toMatch(/only the creator/i);
+  });
+
+  it("POST /api/provision reaches handlePublish via the trusted internal token (no admin email)", async () => {
+    // No user credential at all — the trusted worker-to-worker path. A malformed
+    // creatorGithub aborts inside handlePublish (no network), proving the request
+    // passed the gate and reached the provision handler.
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", async (input: unknown) => {
+      calls.push(typeof input === "string" ? input : (input as Request).url);
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+    const res = await worker.fetch(
+      req("/api/provision", {
+        method: "POST",
+        headers: { "X-Internal-Token": "secret", "Content-Type": "application/json" },
+        body: JSON.stringify({ id: "chess", name: "Chess", category: "arcade", creatorGithub: "bad name!!" }),
+      }),
+      makeEnv({ internalToken: "secret", adminEmails: ADMIN, DB: undefined }),
+    );
+    expect(res.status).toBe(400); // handlePublish success:false, NOT gate 401
+    expect(JSON.stringify(await res.json())).toMatch(/invalid creatorgithub/i);
+    expect(calls).toHaveLength(0); // aborted before any GitHub call
+  });
+});

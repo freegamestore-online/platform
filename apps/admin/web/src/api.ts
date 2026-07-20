@@ -1,0 +1,145 @@
+// FGS admin API client. All endpoints are same-origin on the admin worker
+// (auth: Google-signed fgs_token cookie; every call 401s when signed out —
+// App.tsx catches that and shows the sign-in screen).
+
+export const LOGIN_URL =
+  "https://auth.freegamestore.online/login/google?redirect=" + encodeURIComponent("https://admin.freegamestore.online/");
+
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+export async function api<T = unknown>(path: string, opts?: RequestInit): Promise<T> {
+  const res = await fetch(path, {
+    credentials: "include",
+    ...opts,
+    headers: { "Content-Type": "application/json", ...opts?.headers },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    throw new ApiError(res.status, (body as { error?: string }).error ?? `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+// ── types matching the FGS admin worker responses ─────────────────────────────
+
+export interface PlatformStats {
+  games: number;
+  creators: number;
+  errors24h: number;
+  errorsTotal: number;
+  errorSeries: { d: string; c: number }[];
+}
+
+export interface GameInfo {
+  id: string;
+  name: string;
+  org: string;
+  cfProject: string;
+  domain: string;
+}
+
+export interface QualityData {
+  timestamp: string;
+  games: { id: string; score: number; loadTimeMs: number; consoleErrors: string[] }[];
+}
+
+export interface ErrorRow {
+  ts: string;
+  source: string;
+  user_github: string | null;
+  message: string;
+  stack: string | null;
+  context: string | null;
+}
+
+export interface Creator {
+  login: string;
+  games: string[];
+}
+
+export interface RegisteredUser {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  createdAt: string | null;
+  lastSeen: string | null;
+  keys: string[];
+  grant: { provider: string; model: string; expiresAt: string | null } | null;
+}
+
+export interface CompGrant {
+  userId: string;
+  provider: string;
+  model: string;
+  note: string | null;
+  grantedBy: string | null;
+  expiresAt: string | null;
+}
+
+export interface SessionRow {
+  id: string;
+  user: string;
+  userId: string;
+  name: string;
+  gameId?: string;
+  gameUrl?: string;
+  deployed: boolean;
+  activity?: SessionActivity;
+  tokens: { input: number; output: number };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ActivityPhase = "idle" | "writing" | "provisioning" | "pushing" | "building" | "live" | "error";
+
+export interface SessionActivity {
+  phase: ActivityPhase;
+  detail?: string;
+  updatedAt?: string;
+}
+
+export interface TranscriptMessage {
+  role: "user" | "assistant" | "tool_result" | string;
+  content?: string;
+  ts?: number;
+  toolCalls?: { name: string; input?: { path?: string; id?: string; name?: string } }[];
+  toolResults?: { id: string; content: string }[];
+}
+
+export interface SessionHistory {
+  messages: TranscriptMessage[];
+  appId: string | null;
+  appName: string | null;
+  deployStatus: { phase: string; appUrl?: string; error?: string } | null;
+  tokenUsage: { input: number; output: number };
+  fileCount: number;
+}
+
+export interface SessionErrorEntry {
+  timestamp: string;
+  source: string;
+  message: string;
+}
+
+export interface ProvisionStep {
+  name: string;
+  status: "ok" | "skip" | "fail";
+  detail: string;
+}
+
+export function timeAgo(ts: string | number | undefined): string {
+  if (!ts) return "—";
+  const d = typeof ts === "number" ? new Date(ts) : new Date(String(ts).replace(" ", "T") + (String(ts).endsWith("Z") ? "" : "Z"));
+  const s = (Date.now() - d.getTime()) / 1000;
+  if (Number.isNaN(s)) return String(ts);
+  if (s < 60) return `${Math.floor(s)}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}

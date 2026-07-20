@@ -1,0 +1,61 @@
+name = "freegamestore-admin"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+workers_dev = false
+
+# Built React admin app (web/ → public/). run_worker_first so the worker's
+# Google-allowlist auth gates the shell exactly like the old inline HTML did.
+[assets]
+directory = "public"
+binding = "ASSETS"
+run_worker_first = true
+
+# Persistent Workers Logs so provisioning failures are debuggable after the fact.
+[observability]
+enabled = true
+
+[vars]
+CF_ACCOUNT_ID = "c1089bfcc43c1c6c2aa89e584e86f0bc"
+# Console + all observability endpoints are restricted to these verified Google
+# emails (resolved via the auth worker /me). Comma-separated to add admins.
+ADMIN_EMAILS = "serge.the.dev@gmail.com"
+
+[[routes]]
+pattern = "admin.freegamestore.online/*"
+zone_name = "freegamestore.online"
+
+# Hourly reconcile: compares the storefront registry against the D1 routes table
+# and logs provisioning drift (registry entry with no route = CF 1014 symptom;
+# route with no registry entry = half-done provision). Report-only; see the
+# `scheduled` handler + GET /api/reconcile in src/index.ts.
+[triggers]
+crons = ["0 * * * *"]
+
+# Path B: publish writes a D1 routes row to the FGS-owned `freegamestore` D1.
+# The fgs/host worker (same DB binding) reads it + serves from the fgs-games R2
+# bucket at games/<slug>/. Replaces the previous CF Pages provisioning that
+# capped the free side at 100 games per CF account. Split off the shared `fas`
+# D1 on 2026-07-05 so FGS no longer depends on the FAS store's database
+# (see fgs-architecture-review Tier-2 #1).
+[[d1_databases]]
+binding = "DB"
+database_name = "freegamestore"
+database_id = "a122751e-11a2-466e-b403-4696f3f4a698"
+
+# Direct invocation of the auth worker (verifies fgs_token via /me). Service
+# binding bypasses the public edge — fetching auth's hostname loops back (CF 522).
+[[services]]
+binding = "AUTH"
+service = "freegamestore-auth"
+
+# Direct invocation of the agent worker — proxies complimentary-grant admin
+# calls (/v1/admin/comp) to the vault DB the agent owns. Authenticated by the
+# shared INTERNAL_TOKEN secret.
+[[services]]
+binding = "AGENT"
+service = "freegamestore-agent"
+
+# Secrets (set via `wrangler secret put`):
+#   GITHUB_TOKEN          repo create + collaborator + registry write
+#   CF_API_TOKEN          (kept for future CF API calls; not used by publish)
+#   SESSION_SIGNING_KEY   shared with FAS auth flow (HS256 Bearer check)
