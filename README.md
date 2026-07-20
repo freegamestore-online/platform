@@ -25,3 +25,5 @@ jobs/
 Each imported project remains self-contained with its own package manager files
 and deployment configuration. Deploy workflows are ported one service at a time
 before the old standalone repo is archived.
+
+See `MIGRATION.md` for current cutover status.
