@@ -90,9 +90,18 @@ export interface SessionRow {
   gameId?: string;
   gameUrl?: string;
   deployed: boolean;
+  activity?: SessionActivity;
   tokens: { input: number; output: number };
   createdAt: string;
   updatedAt: string;
+}
+
+export type ActivityPhase = "idle" | "writing" | "provisioning" | "pushing" | "building" | "live" | "error";
+
+export interface SessionActivity {
+  phase: ActivityPhase;
+  detail?: string;
+  updatedAt?: string;
 }
 
 export interface TranscriptMessage {

@@ -8,11 +8,13 @@ import { UserDetail } from "./UserDetail.tsx";
 import { Sessions } from "./Sessions.tsx";
 import { SessionView } from "./SessionView.tsx";
 import { ProvisionForm } from "./ProvisionForm.tsx";
+import { Ops } from "./Ops.tsx";
 
 type View =
   | { page: "overview" }
   | { page: "games" }
   | { page: "errors" }
+  | { page: "ops" }
   | { page: "users" }
   | { page: "user"; id: string }
   | { page: "sessions" }
@@ -23,6 +25,7 @@ function parseHash(): View {
   const hash = window.location.hash.slice(1);
   if (hash === "/games") return { page: "games" };
   if (hash === "/errors") return { page: "errors" };
+  if (hash === "/ops") return { page: "ops" };
   if (hash === "/users") return { page: "users" };
   const user = hash.match(/^\/users\/(.+)$/);
   if (user) return { page: "user", id: user[1]! };
@@ -67,6 +70,7 @@ export default function App() {
             {view.page === "overview" && <Overview />}
             {view.page === "games" && <GamesList />}
             {view.page === "errors" && <ErrorsPage />}
+            {view.page === "ops" && <Ops navigate={navigate} />}
             {view.page === "users" && <UsersPage navigate={navigate} />}
             {view.page === "user" && <UserDetail id={view.id} navigate={navigate} />}
             {view.page === "sessions" && <Sessions navigate={navigate} />}
@@ -105,6 +109,7 @@ function Header({ navigate, view }: { navigate: (h: string) => void; view: View 
           </button>
           <nav className="hidden sm:flex items-center gap-1">
             <NavLink label="Overview" hash="/" active={view.page === "overview"} navigate={navigate} />
+            <NavLink label="Ops" hash="/ops" active={view.page === "ops"} navigate={navigate} />
             <NavLink label="Games" hash="/games" active={view.page === "games"} navigate={navigate} />
             <NavLink label="Errors" hash="/errors" active={view.page === "errors"} navigate={navigate} />
             <NavLink label="Users" hash="/users" active={view.page === "users" || view.page === "user"} navigate={navigate} />
