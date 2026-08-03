@@ -1,0 +1,31 @@
+# FreeGameStore MCP
+
+> Remote MCP server for AI agents (Claude, Cursor, etc.) to build, publish, and improve
+> games on FreeGameStore from the editor. Your model can author code directly
+> (create_game + update_files) or hand a prompt to the platform's VibeCode agent
+> (agent_build + edit_game), which writes and deploys. Games go live at
+> <id>.freegamestore.online. Auth is delegated to auth.freegamestore.online (GitHub);
+> ownership is enforced server-side via the store registry.
+
+Endpoint: https://mcp.freegamestore.online/mcp (streamable-http)
+Connect: npx mcp-remote https://mcp.freegamestore.online/mcp
+
+## Tools
+
+- Read (open): deploy_status, game_info, game_quality, leaderboard, platform_guide, sdk_reference
+- Read (account): whoami, list_games, list_files, read_file, list_sessions, session_history, agent_status, mcp_audit_log
+- Write (owner): create_game, update_files, agent_build, edit_game
+- Destructive (owner): delete_game (confirm=game_id), discard_session (confirm=session_id)
+- Admin (org members): admin_list_sessions, admin_session_history, admin_send_prompt
+
+Write and destructive tools accept dry_run: true. delete_game / discard_session require a
+matching confirm token. Failed calls return isError: true. MCP_READ_ONLY=1 disables every
+write tool. Every write/dry-run/denial is audited to KV (90-day TTL, secrets redacted) and
+readable via mcp_audit_log.
+
+## Docs
+
+- AGENTS.md: rules, capabilities table, workflow recipes, safety model
+- README.md: overview and connection
+- CLAUDE.md: implementation notes and gotchas
+- server.json: machine-readable tool manifest

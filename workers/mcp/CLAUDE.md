@@ -59,6 +59,22 @@ improve games on FreeGameStore — straight from the editor.
   `GH_ADMIN_TOKEN`, `--project fgs --config prd`). Required for the write tools.
 - CI deploy uses repo secrets `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`.
 
+## Safety layer (`src/safety.ts`)
+
+Vendored (not shared) from the FAS/PAGS/FDS MCP servers — copy fixes across by hand.
+Every write/destructive tool follows: `requireWritable` → validation → (`dry_run` →
+`dryRun`) → (destructive: `requireConfirmation`) → mutate → `audit(success)`. Genuine
+failures return `errText` (`isError: true`); empty-but-ok results stay plain `txt`.
+
+- `MCP_READ_ONLY=1` (wrangler var) disables every write tool; `whoami` reports it.
+- `audit`/`listAuditEvents` use **OAUTH_KV** (already bound) — no new namespace. 90-day
+  TTL, secrets redacted by field name AND value shape (agent_build/edit_game take an
+  `api_key`, so name-only redaction isn't enough). `mcp_audit_log` reads the caller's trail.
+- Keep the tool list in sync across `src/index.ts`, `server.json`, and any store
+  `.well-known/mcp.json`; `test/safety.test.mjs` asserts index.ts ↔ server.json parity.
+- Tests: `npm test` (node's built-in runner; imports `safety.ts` directly via Node 22
+  type-stripping). CI runs typecheck + test before deploy.
+
 ## Gotchas baked in (don't undo these)
 
 - `agents@0.0.74` Streamable HTTP `serve()` drops `ctx.props` → the fetch handler

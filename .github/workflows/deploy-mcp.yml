@@ -30,6 +30,7 @@ jobs:
           cache-dependency-path: workers/mcp/package-lock.json
       - run: npm install
       - run: npm run typecheck
+      - run: npm test
       - run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
