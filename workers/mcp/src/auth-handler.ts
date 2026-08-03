@@ -104,6 +104,23 @@ export default {
     }
 
     if (url.pathname === "/" || url.pathname === "") {
+      // A client pointed at the origin instead of /mcp sends either
+      // `GET / Accept: text/event-stream` (SSE transport) or a JSON-RPC POST.
+      // Answering 200 with a non-stream body reads as "stream opened, then
+      // dropped" and the client redials ~1/sec forever. 405 is the "wrong
+      // number" that stops the redial. OPTIONS/HEAD fall through so CORS
+      // preflight is unaffected.
+      const wantsStream = (request.headers.get("accept") ?? "").includes("text/event-stream");
+      if (wantsStream || request.method === "POST") {
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: null,
+            error: { code: -32000, message: "Method Not Allowed - the MCP endpoint is https://mcp.freegamestore.online/mcp" },
+          }),
+          { status: 405, headers: { "content-type": "application/json", allow: "GET, HEAD" } },
+        );
+      }
       return new Response(
         "FreeGameStore MCP\nConnect: npx mcp-remote https://mcp.freegamestore.online/mcp\nSign-in is delegated to auth.freegamestore.online.\n",
         { headers: { "content-type": "text/plain" } },
