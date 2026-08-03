@@ -1,9 +1,9 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.freegamestore-online/mcp",
-  "description": "Build, publish, and improve games on FreeGameStore from your editor: create_game/update_files (your model authors) or agent_build (the VibeCode agent authors), plus deploy status, SDK docs, and game info.",
+  "description": "Build, publish, and improve games on FreeGameStore from your editor: create_game/update_files (your model authors) or agent_build/edit_game (the VibeCode agent authors), plus deploy status, SDK docs, game info, session history, and a redacted per-account audit log.",
   "repository": {
-    "url": "https://github.com/freegamestore-online/mcp",
+    "url": "https://github.com/freegamestore-online/platform",
     "source": "github"
   },
   "version": "0.1.0",
@@ -14,30 +14,6 @@
     }
   ],
   "tools": [
-    {
-      "name": "create_game",
-      "description": "Provision repo+R2 hosting+listing, scaffold any of 10 engine templates (kaplay, phaser, 3d, pixi, babylon, excalibur, littlejs, canvas, grid, cards), push \u2192 live at <id>.freegamestore.online"
-    },
-    {
-      "name": "update_files",
-      "description": "Write/overwrite files in a game you own \u2192 auto-deploys (improve loop)"
-    },
-    {
-      "name": "read_file",
-      "description": "Read one file from a game's repo"
-    },
-    {
-      "name": "list_files",
-      "description": "List files in a game's repo"
-    },
-    {
-      "name": "agent_build",
-      "description": "Hand a prompt to the VibeCode agent \u2014 it writes the code AND deploys. Uses your saved vault key by default (api_key overrides); pass game_id to work on an existing game"
-    },
-    {
-      "name": "agent_status",
-      "description": "Poll a VibeCode agent build session \u2014 game id, deploy phase, live URL"
-    },
     {
       "name": "list_games",
       "description": "List your published games (requires FGS session token)"
@@ -51,8 +27,12 @@
       "description": "Get live URL, repo, store listing, and up/down status for any game"
     },
     {
-      "name": "game_logs",
-      "description": "Latest deploy/build logs for a game"
+      "name": "game_quality",
+      "description": "Quality audit results for games (scores, load times, console errors)"
+    },
+    {
+      "name": "leaderboard",
+      "description": "Query a game's leaderboard — top and recent scores"
     },
     {
       "name": "platform_guide",
@@ -61,6 +41,46 @@
     {
       "name": "sdk_reference",
       "description": "Quick @freegamestore/games SDK reference"
+    },
+    {
+      "name": "create_game",
+      "description": "Provision repo+R2 hosting+listing, scaffold any of 10 engine templates, push → live at <id>.freegamestore.online. Write tool: supports dry_run"
+    },
+    {
+      "name": "list_files",
+      "description": "List files in a game's repo"
+    },
+    {
+      "name": "read_file",
+      "description": "Read one file from a game's repo"
+    },
+    {
+      "name": "update_files",
+      "description": "Write/overwrite files in a game you own → auto-deploys. Write tool: supports dry_run"
+    },
+    {
+      "name": "agent_build",
+      "description": "Hand a prompt to the VibeCode agent — it writes the code AND deploys. Write tool: supports dry_run"
+    },
+    {
+      "name": "edit_game",
+      "description": "Open one of your existing games in VibeCode and optionally have the agent change it. Write tool"
+    },
+    {
+      "name": "agent_status",
+      "description": "Poll a VibeCode agent build session — game id, deploy phase, live URL"
+    },
+    {
+      "name": "whoami",
+      "description": "Show who you're authenticated as (and whether the server is read-only)"
+    },
+    {
+      "name": "list_sessions",
+      "description": "List your VibeCode sessions from the web console"
+    },
+    {
+      "name": "session_history",
+      "description": "Read the full chat transcript of one of your VibeCode sessions"
     },
     {
       "name": "admin_list_sessions",
@@ -72,7 +92,19 @@
     },
     {
       "name": "admin_send_prompt",
-      "description": "Platform admins (org members) only: send a prompt into any user's session on their behalf"
+      "description": "Platform admins (org members) only: send a prompt into any user's session on their behalf. Write tool"
+    },
+    {
+      "name": "delete_game",
+      "description": "Delete a live game you own (delist, drop route, archive repo). Destructive: requires confirm=<game_id>; supports dry_run"
+    },
+    {
+      "name": "discard_session",
+      "description": "Discard an in-progress VibeCode draft session. Destructive: requires confirm=<session_id>; supports dry_run"
+    },
+    {
+      "name": "mcp_audit_log",
+      "description": "Read your recent MCP audit events (writes, dry-runs, denials), newest first"
     }
   ]
 }

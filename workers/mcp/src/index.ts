@@ -2,6 +2,7 @@ import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { listRepoFiles, pushFiles, readRegistryGames, readRepoFile, type RepoFile, textToB64 } from "./github.js";
+import { audit, dryRun, isReadOnly, listAuditEvents, requireConfirmation, requireWritable, type SafetyContext } from "./safety.js";
 import { OAuthProvider, type OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import { WorkerEntrypoint } from "cloudflare:workers";
 import authHandler from "./auth-handler.js";
@@ -17,6 +18,8 @@ interface Env {
   GITHUB_TOKEN?: string;
   OAUTH_KV: KVNamespace;
   OAUTH_PROVIDER: OAuthHelpers;
+  // "1" disables every write tool (safety layer read-only mode).
+  MCP_READ_ONLY?: string;
 }
 
 // Wrap a fetch in an AbortController-backed timeout so a slow/edge-stalled
@@ -104,6 +107,10 @@ async function fgsDelete(base: string, path: string, token: string) {
 }
 
 const txt = (text: string) => ({ content: [{ type: "text" as const, text }] });
+// Failure result carrying isError:true so an agent can detect a failed tool call
+// without parsing the message text. Use for every genuine error return (auth,
+// validation, ownership, upstream failure) — NOT for empty-but-ok results.
+const errText = (text: string) => ({ content: [{ type: "text" as const, text }], isError: true as const });
 
 // Scope VibeCode agent sessions to the caller.
 function sessionPrefix(userId?: string): string {
@@ -142,6 +149,12 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
     return games.some((g) => g.id === gameId && g.creatorGithub?.toLowerCase() === login.toLowerCase());
   }
 
+  /** Safety context for the current caller: env (read-only flag + audit KV) and
+   *  the GitHub login the audit trail is keyed on. */
+  private safety(): SafetyContext {
+    return { env: this.env, subject: this.props.userId };
+  }
+
   async init() {
     // -- list_games --
     this.server.tool(
@@ -152,7 +165,7 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
         const data = (await fgsApi(this.env.API_BASE, "/api/status")) as
           | Array<{ id: string; name: string; domain: string; org: string }>
           | { error: string };
-        if (!Array.isArray(data)) return txt(`Error: ${(data as { error: string }).error ?? "unexpected response"}`);
+        if (!Array.isArray(data)) return errText(`Error: ${(data as { error: string }).error ?? "unexpected response"}`);
         const games = data as Array<{ id: string; name: string; domain: string; org: string }>;
         if (games.length === 0) return txt("No games published yet.");
         const lines = games.map(
@@ -169,7 +182,7 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
       { game_id: z.string().describe("Game ID (e.g. 'chess', 'tetris')") },
       async ({ game_id }) => {
         const runs = await getDeployStatus(this.env.GITHUB_ORG, game_id);
-        if (!Array.isArray(runs)) return txt(`Error: ${(runs as { error: string }).error}`);
+        if (!Array.isArray(runs)) return errText(`Error: ${(runs as { error: string }).error}`);
         if (runs.length === 0)
           return txt(`No workflow runs found for ${game_id}.`);
         const lines = runs.map(
@@ -226,7 +239,7 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
           | { error: string }
           | null;
         if (!data || typeof data !== "object") return txt("No quality audit data available yet.");
-        if ("error" in data) return txt(`Error: ${(data as { error: string }).error}`);
+        if ("error" in data) return errText(`Error: ${(data as { error: string }).error}`);
         const qd = data as { timestamp: string; games: Array<{ id: string; score: number; loadTimeMs: number; consoleErrors: string[] }> };
         if (!qd.games) return txt("No quality audit data available yet.");
         let games = qd.games ?? [];
@@ -255,14 +268,14 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
           `${this.env.LEADERBOARD_BASE}/api/leaderboard/${game_id}?limit=${n}`,
           { headers: { "User-Agent": "freegamestore-mcp" }, signal }
         ));
-        if (!res.ok) return txt(`Leaderboard API error: ${res.status}`);
+        if (!res.ok) return errText(`Leaderboard API error: ${res.status}`);
         // The worker returns rows keyed `player_name` (not `name`); keep `name`
         // as a fallback so this doesn't render "**undefined**".
         let data: { scores?: Array<{ player_name?: string; name?: string; score: number; created_at: string }> };
         try {
           data = (await res.json()) as typeof data;
         } catch {
-          return txt(`Leaderboard API returned invalid JSON.`);
+          return errText(`Leaderboard API returned invalid JSON.`);
         }
         const scores = data.scores ?? [];
         if (scores.length === 0) return txt(`No leaderboard entries for ${game_id}.`);
@@ -284,7 +297,7 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
           if (res.ok) return txt(await res.text());
           await res.body?.cancel();
         }
-        return txt("Failed to fetch SKILLS.md from freegamestore.online.");
+        return errText("Failed to fetch SKILLS.md from freegamestore.online.");
       }
     );
 
@@ -398,13 +411,25 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
           .describe(
             "Engine/template to build on (default: canvas). Engines: 'kaplay' = beginner-friendly 2D arcade engine; 'phaser' = production 2D engine (scenes, arcade physics); '3d' = Three.js + react-three-fiber; 'pixi' = Pixi.js v8 WebGL 2D (particles, sprites); 'babylon' = Babylon.js 3D engine; 'excalibur' = TypeScript-native actor-based 2D; 'littlejs' = tiny all-in-one arcade (particles + procedural sound built in). Starters: 'canvas' = raw HTML5 canvas 2D; 'grid' = CSS-grid puzzle/board; 'cards' = DOM card game.",
           ),
+        dry_run: z.boolean().optional().describe("Preview only: validate and report what would be provisioned without creating the repo, hosting, or listing."),
       },
-      async ({ game_id, name, category, description, template }) => {
+      async ({ game_id, name, category, description, template, dry_run = false }) => {
         const token = this.props.token;
-        if (!token) return txt("Not authenticated. Connect with a FGS session token to create games.");
-        if (!this.env.GITHUB_TOKEN) return txt("Write tools are disabled (server missing GITHUB_TOKEN).");
+        if (!token) return errText("Not authenticated. Connect with a FGS session token to create games.");
+        if (!this.env.GITHUB_TOKEN) return errText("Write tools are disabled (server missing GITHUB_TOKEN).");
+        const roBlock = await requireWritable(this.safety(), "create_game", { game_id, template });
+        if (roBlock) return roBlock;
 
         const tmpl = template ?? "canvas";
+
+        if (dry_run) {
+          return dryRun(this.safety(), "create_game", "provision", { game_id, name, category, template: tmpl }, {
+            game_id,
+            template: tmpl,
+            wouldCreate: [`GitHub repo ${this.env.GITHUB_ORG}/${game_id}`, "R2 host route", "store listing"],
+            liveUrl: `https://${game_id}.freegamestore.online`,
+          });
+        }
 
         // Provision via the admin API — the SINGLE scaffold path (same one the
         // VibeCode agent uses). Admin generates the repo from the chosen template
@@ -422,7 +447,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
           creatorGithub: this.props.userId,
           template: tmpl,
         })) as { error?: string; detail?: string; success?: boolean; appUrl?: string; repoUrl?: string; steps?: Array<{ name: string; status: string }> };
-        if (prov.error) return txt(`Provision failed: ${prov.error}${prov.detail ? ` — ${typeof prov.detail === "string" ? prov.detail : JSON.stringify(prov.detail)}` : ""}`);
+        if (prov.error) return errText(`Provision failed: ${prov.error}${prov.detail ? ` — ${typeof prov.detail === "string" ? prov.detail : JSON.stringify(prov.detail)}` : ""}`);
 
         // Provision is idempotent and reports the repo step as "skip" when the
         // repo already exists. Don't imply we re-created it.
@@ -431,6 +456,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
           return txt(`**${game_id}** already exists — use \`update_files\` to change it.`);
         }
 
+        await audit(this.safety(), { tool: "create_game", action: "success", input: { game_id, template: tmpl }, result: { game_id, appUrl: `https://${game_id}.freegamestore.online` } });
         return txt(
           `Created **${name}** (${game_id}) from the ${tmpl} template.\n` +
           `Live in ~1-2 min: https://${game_id}.freegamestore.online\n` +
@@ -460,7 +486,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       { game_id: z.string().describe("Game ID"), path: z.string().describe("File path relative to repo root") },
       async ({ game_id, path }) => {
         const content = await readRepoFile(this.env.GITHUB_ORG, game_id, this.env.GITHUB_TOKEN, path);
-        if (content === null) return txt(`Could not read ${path} from ${game_id} (not found?).`);
+        if (content === null) return errText(`Could not read ${path} from ${game_id} (not found?).`);
         const ext = path.split(".").pop() ?? "";
         return txt(`\`\`\`${ext}\n${content}\n\`\`\``);
       },
@@ -474,22 +500,33 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
         game_id: z.string().describe("Game ID"),
         files: z.array(z.object({ path: z.string(), content: z.string() })).describe("Files to write — each with the FULL new content"),
         message: z.string().optional().describe("Commit message"),
+        dry_run: z.boolean().optional().describe("Preview only: report which files would be written without pushing or deploying."),
       },
-      async ({ game_id, files, message }) => {
+      async ({ game_id, files, message, dry_run = false }) => {
         const token = this.props.token;
-        if (!token) return txt("Not authenticated. Connect with a FGS session token.");
-        if (!this.env.GITHUB_TOKEN) return txt("Write tools are disabled (server missing GITHUB_TOKEN).");
-        if (!files?.length) return txt("No files provided.");
+        if (!token) return errText("Not authenticated. Connect with a FGS session token.");
+        if (!this.env.GITHUB_TOKEN) return errText("Write tools are disabled (server missing GITHUB_TOKEN).");
+        const roBlock = await requireWritable(this.safety(), "update_files", { game_id });
+        if (roBlock) return roBlock;
+        if (!files?.length) return errText("No files provided.");
         if (!(await this.ownsGame(game_id)))
-          return txt(`You don't own "${game_id}" (or it isn't registered to your login). Only the creator can update it.`);
+          return errText(`You don't own "${game_id}" (or it isn't registered to your login). Only the creator can update it.`);
+        if (dry_run) {
+          return dryRun(this.safety(), "update_files", "push", { game_id, files: files.map((f) => f.path) }, {
+            game_id,
+            wouldWrite: files.map((f) => f.path),
+            message: message || `Update ${game_id} via MCP`,
+          });
+        }
         const map = new Map<string, RepoFile>(
           files.map((f) => [f.path, { content: textToB64(f.content), encoding: "base64" as const }]),
         );
         try {
           const sha = await pushFiles(this.env.GITHUB_ORG, game_id, this.env.GITHUB_TOKEN, map, message || `Update ${game_id} via MCP`);
+          await audit(this.safety(), { tool: "update_files", action: "success", input: { game_id, files: files.map((f) => f.path) }, result: { sha: sha.slice(0, 7) } });
           return txt(`Pushed ${files.length} file(s) to **${game_id}** (${sha.slice(0, 7)}). Auto-deploying to https://${game_id}.freegamestore.online (~30-60s). Use deploy_status to watch.`);
         } catch (e) {
-          return txt(`Push failed: ${String(e)}`);
+          return errText(`Push failed: ${String(e)}`);
         }
       },
     );
@@ -506,10 +543,13 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
         provider: z.enum(["anthropic", "openai", "google", "github"]).optional().describe("AI provider (default anthropic). Must match the saved/override key."),
         model: z.string().optional().describe("Model id"),
         session_id: z.string().optional().describe("Continue an existing build session"),
+        dry_run: z.boolean().optional().describe("Preview only: report the resolved session and target without running the agent or deploying."),
       },
-      async ({ prompt, game_id, template, api_key, provider, model, session_id }) => {
+      async ({ prompt, game_id, template, api_key, provider, model, session_id, dry_run = false }) => {
         const token = this.props.token;
-        if (!token) return txt("Not authenticated. Connect with a FGS session token.");
+        if (!token) return errText("Not authenticated. Connect with a FGS session token.");
+        const roBlock = await requireWritable(this.safety(), "agent_build", { game_id, template });
+        if (roBlock) return roBlock;
         const prov = provider ?? "anthropic";
         const defaultModel: Record<string, string> = {
           anthropic: "claude-sonnet-4-6",
@@ -523,6 +563,15 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
             ? session_id
             : prefix + session_id.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40)
           : prefix + crypto.randomUUID().slice(0, 12);
+        if (dry_run) {
+          return dryRun(this.safety(), "agent_build", game_id ? "edit" : "build", { prompt, game_id, template, provider: prov }, {
+            session_id: sid,
+            provider: prov,
+            model: model ?? defaultModel[prov] ?? "claude-sonnet-4-6",
+            target: game_id ?? "(new game)",
+            note: "Would run one VibeCode agent turn and deploy; nothing is written in dry-run.",
+          });
+        }
         // Bind the session to an existing game BEFORE the first turn: /import
         // loads the repo's committed files into the session, so the agent gets
         // engine-correct guidance (detectEngine reads web/package.json) and
@@ -534,7 +583,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
             body: JSON.stringify({ id: game_id }),
           });
           if (!imp.ok) {
-            return txt(`Could not open "${game_id}" in the session (${imp.status}): ${(await imp.text()).slice(0, 300)}`);
+            return errText(`Could not open "${game_id}" in the session (${imp.status}): ${(await imp.text()).slice(0, 300)}`);
           }
         }
         const ctrl = new AbortController();
@@ -553,7 +602,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
           });
           if (!res.ok || !res.body) {
             clearTimeout(timer);
-            return txt(`Agent chat failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
+            return errText(`Agent chat failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
           }
           const reader = res.body.getReader();
           const dec = new TextDecoder();
@@ -585,12 +634,13 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
             timedOut = true;
           } else {
             clearTimeout(timer);
-            return txt(`Agent request failed: ${String(err)}`);
+            return errText(`Agent request failed: ${String(err)}`);
           }
         }
         clearTimeout(timer);
         const last = phases[phases.length - 1];
         const liveLine = gameId ? `Live (when built): https://${gameId}.freegamestore.online` : "";
+        await audit(this.safety(), { tool: "agent_build", action: "success", input: { prompt, game_id }, result: { session_id: sid, gameId, lastPhase: last, timedOut } });
         return txt(
           `${timedOut ? "Agent still building" : "Agent turn finished"} (session \`${sid}\`).\n` +
           (gameId ? `Game: **${gameId}**\n` : "") +
@@ -613,9 +663,11 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       },
       async ({ game_id, prompt, api_key, provider, model }) => {
         const token = this.props.token;
-        if (!token) return txt("Not authenticated. Connect with a FGS session token.");
+        if (!token) return errText("Not authenticated. Connect with a FGS session token.");
+        const roBlock = await requireWritable(this.safety(), "edit_game", { game_id });
+        if (roBlock) return roBlock;
         const gid = game_id.trim().toLowerCase();
-        if (!/^[a-z0-9](?:[a-z0-9-]{0,56}[a-z0-9])?$/.test(gid)) return txt(`Invalid game id: \`${game_id}\`.`);
+        if (!/^[a-z0-9](?:[a-z0-9-]{0,56}[a-z0-9])?$/.test(gid)) return errText(`Invalid game id: \`${game_id}\`.`);
 
         // Deterministic session per (user, game): reopening continues the same
         // VibeCode conversation. Kept ≤64 chars (agent route cap) and prefixed so
@@ -632,7 +684,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
         const impData = (await imp.json().catch(() => ({}))) as { ok?: boolean; error?: string; name?: string; appUrl?: string; fileCount?: number; unchanged?: boolean };
         if (!imp.ok || !impData.ok) {
           const hint = imp.status === 403 ? " (you can only edit games you own)" : imp.status === 404 ? " (no such game)" : "";
-          return txt(`Couldn't open \`${gid}\`: ${impData.error || `HTTP ${imp.status}`}${hint}`);
+          return errText(`Couldn't open \`${gid}\`: ${impData.error || `HTTP ${imp.status}`}${hint}`);
         }
         const name = impData.name || gid;
         const appUrl = impData.appUrl || `https://${gid}.freegamestore.online`;
@@ -663,7 +715,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
             body: JSON.stringify({ message: prompt, aiConfig: { provider: prov, model: model ?? defaultModel[prov] ?? "claude-sonnet-4-6", ...(api_key ? { apiKey: api_key } : {}) } }),
             signal: ctrl.signal,
           });
-          if (!res.ok || !res.body) { clearTimeout(timer); return txt(`${opened}\n\nAgent edit failed (${res.status}): ${(await res.text()).slice(0, 300)}`); }
+          if (!res.ok || !res.body) { clearTimeout(timer); return errText(`${opened}\n\nAgent edit failed (${res.status}): ${(await res.text()).slice(0, 300)}`); }
           const reader = res.body.getReader();
           const dec = new TextDecoder();
           let buf = "";
@@ -687,10 +739,11 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
           }
         } catch (err) {
           if (err instanceof DOMException && err.name === "AbortError") timedOut = true;
-          else { clearTimeout(timer); return txt(`${opened}\n\nAgent request failed: ${String(err)}`); }
+          else { clearTimeout(timer); return errText(`${opened}\n\nAgent request failed: ${String(err)}`); }
         }
         clearTimeout(timer);
         const last = phases[phases.length - 1];
+        await audit(this.safety(), { tool: "edit_game", action: "success", input: { game_id: gid, hasPrompt: !!prompt }, result: { session_id: sid, lastPhase: last, timedOut } });
         return txt(
           `${opened}\n\n${timedOut ? "Agent still working" : "Agent turn finished"}.\n` +
           (last ? `Last deploy phase: ${last}\n` : "") +
@@ -706,18 +759,18 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       { session_id: z.string().describe("The session_id returned by agent_build") },
       async ({ session_id }) => {
         const token = this.props.token;
-        if (!token) return txt("Not authenticated. Connect with a FGS session token.");
+        if (!token) return errText("Not authenticated. Connect with a FGS session token.");
         if (!session_id.startsWith(sessionPrefix(this.props.userId)))
-          return txt("That session isn't one of yours — agent sessions are scoped to your account.");
+          return errText("That session isn't one of yours — agent sessions are scoped to your account.");
         const res = await fetch(`${this.env.AGENT_BASE}/session/${session_id}/status`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!res.ok) return txt(`Status fetch failed (${res.status}).`);
+        if (!res.ok) return errText(`Status fetch failed (${res.status}).`);
         let s: { appId?: string | null; appUrl?: string | null; deployStatus?: { phase?: string; error?: string } | null; messageCount?: number };
         try {
           s = (await res.json()) as typeof s;
         } catch {
-          return txt("Agent status returned invalid JSON.");
+          return errText("Agent status returned invalid JSON.");
         }
         const lines = [
           `Session **${session_id}**`,
@@ -738,7 +791,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       async () => {
         const login = this.props.userId;
         const token = this.props.token;
-        if (!login && !token) return txt("Not authenticated — no session on this MCP connection.");
+        if (!login && !token) return errText("Not authenticated — no session on this MCP connection.");
         let claims = "";
         if (token) {
           try {
@@ -748,7 +801,8 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
             claims = `\n- login: ${payload.login ?? "—"}\n- name: ${payload.name ?? "—"}\n- sub: ${payload.sub ?? "—"}\n- token expires: ${exp}`;
           } catch { /* unsigned read, best effort */ }
         }
-        return txt(`You are authenticated as **${login ?? "(unknown)"}**.${claims}`);
+        const ro = isReadOnly(this.env) ? "\n\n**Read-only mode is ON** (MCP_READ_ONLY=1) — every write tool is disabled; reads and dry-runs still work." : "";
+        return txt(`You are authenticated as **${login ?? "(unknown)"}**.${claims}${ro}`);
       },
     );
 
@@ -759,11 +813,11 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       {},
       async () => {
         const token = this.props.token;
-        if (!token) return txt("Not authenticated. Connect with a FGS session token.");
+        if (!token) return errText("Not authenticated. Connect with a FGS session token.");
         const res = await fetch(`${this.env.AGENT_BASE}/sessions`, { headers: { "X-FGS-Token": token } });
-        if (!res.ok) return txt(`Could not list sessions (${res.status}). Your VibeCode session list isn't reachable yet — use session_history with a session id (from a console.freegamestore.online/create/<id> URL) to read a specific chat.`);
+        if (!res.ok) return errText(`Could not list sessions (${res.status}). Your VibeCode session list isn't reachable yet — use session_history with a session id (from a console.freegamestore.online/create/<id> URL) to read a specific chat.`);
         let data: { sessions?: Array<{ id: string; name: string; gameId?: string; deployed?: boolean; createdAt?: string }> };
-        try { data = (await res.json()) as typeof data; } catch { return txt("Sessions returned invalid JSON."); }
+        try { data = (await res.json()) as typeof data; } catch { return errText("Sessions returned invalid JSON."); }
         const sessions = data.sessions ?? [];
         if (!sessions.length) {
           return txt("No VibeCode sessions found server-side yet. Open console.freegamestore.online once while signed in to sync your existing sessions, then try again. (Old sessions live only in that browser's storage until synced.) You can also read any session directly with session_history if you have its id.");
@@ -782,15 +836,15 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       { session_id: z.string().describe("VibeCode session id") },
       async ({ session_id }) => {
         const token = this.props.token;
-        if (!token) return txt("Not authenticated. Connect with a FGS session token.");
+        if (!token) return errText("Not authenticated. Connect with a FGS session token.");
         // The agent worker gates every /session/* route — without the token this
         // always 401'd. resolveUser accepts a Bearer token.
         const res = await fetch(`${this.env.AGENT_BASE}/session/${encodeURIComponent(session_id)}/history`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!res.ok) return txt(`Could not fetch history (${res.status}).`);
+        if (!res.ok) return errText(`Could not fetch history (${res.status}).`);
         let data: { messages?: Array<{ role: string; content?: string; toolCalls?: Array<{ name: string }> }>; appId?: string | null; appName?: string | null };
-        try { data = (await res.json()) as typeof data; } catch { return txt("History returned invalid JSON."); }
+        try { data = (await res.json()) as typeof data; } catch { return errText("History returned invalid JSON."); }
         const msgs = data.messages ?? [];
         if (!msgs.length) return txt(`Session \`${session_id}\` has no messages (empty or unknown session id).`);
         const out = msgs.map((m) => {
@@ -814,14 +868,14 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       {},
       async () => {
         const token = this.props.token;
-        if (!token) return txt("Not authenticated. Connect with a FGS session token.");
+        if (!token) return errText("Not authenticated. Connect with a FGS session token.");
         const res = await withTimeout((signal) => fetch(`${this.env.AGENT_BASE}/admin/sessions`, {
           headers: { "X-FGS-Token": token, Authorization: `Bearer ${token}` }, signal,
         }));
-        if (res.status === 403) return txt("Forbidden — this tool is for platform admins (GitHub org members) only.");
-        if (!res.ok) return txt(`Could not list sessions (${res.status}).`);
+        if (res.status === 403) return errText("Forbidden — this tool is for platform admins (GitHub org members) only.");
+        if (!res.ok) return errText(`Could not list sessions (${res.status}).`);
         let data: { sessions?: Array<{ id: string; user: string; name: string; gameId?: string; deployed?: boolean; tokens?: { input: number; output: number }; updatedAt?: string }> };
-        try { data = (await res.json()) as typeof data; } catch { return txt("Admin sessions returned invalid JSON."); }
+        try { data = (await res.json()) as typeof data; } catch { return errText("Admin sessions returned invalid JSON."); }
         const sessions = data.sessions ?? [];
         if (!sessions.length) return txt("No sessions recorded on the platform yet.");
         const lines = sessions.map((s, i) =>
@@ -838,17 +892,17 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       { session_id: z.string().describe("VibeCode session id (any user's)") },
       async ({ session_id }) => {
         const token = this.props.token;
-        if (!token) return txt("Not authenticated. Connect with a FGS session token.");
+        if (!token) return errText("Not authenticated. Connect with a FGS session token.");
         // ?admin=1 asks the agent worker to verify org membership and pass the
         // read-only admin flag to the session DO (bypasses the ownership gate
         // for GET history/status only).
         const res = await withTimeout((signal) => fetch(`${this.env.AGENT_BASE}/session/${encodeURIComponent(session_id)}/history?admin=1`, {
           headers: { "X-FGS-Token": token, Authorization: `Bearer ${token}` }, signal,
         }));
-        if (res.status === 403) return txt("Forbidden — you don't own this session and aren't a platform admin (org member).");
-        if (!res.ok) return txt(`Could not fetch history (${res.status}).`);
+        if (res.status === 403) return errText("Forbidden — you don't own this session and aren't a platform admin (org member).");
+        if (!res.ok) return errText(`Could not fetch history (${res.status}).`);
         let data: { messages?: Array<{ role: string; content?: string; toolCalls?: Array<{ name: string }> }>; appId?: string | null; appName?: string | null };
-        try { data = (await res.json()) as typeof data; } catch { return txt("History returned invalid JSON."); }
+        try { data = (await res.json()) as typeof data; } catch { return errText("History returned invalid JSON."); }
         const msgs = data.messages ?? [];
         if (!msgs.length) return txt(`Session \`${session_id}\` has no messages (empty or unknown session id).`);
         const out = msgs.map((m) => {
@@ -876,7 +930,9 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       },
       async ({ session_id, prompt, provider }) => {
         const token = this.props.token;
-        if (!token) return txt("Not authenticated. Connect with a FGS session token.");
+        if (!token) return errText("Not authenticated. Connect with a FGS session token.");
+        const roBlock = await requireWritable(this.safety(), "admin_send_prompt", { session_id });
+        if (roBlock) return roBlock;
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 110_000);
         const trace: string[] = [];
@@ -888,8 +944,8 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
             body: JSON.stringify({ message: prompt, ...(provider ? { provider } : {}) }),
             signal: ctrl.signal,
           });
-          if (res.status === 403) { clearTimeout(timer); return txt("Forbidden — this tool is for platform admins (GitHub org members) only."); }
-          if (!res.ok || !res.body) { clearTimeout(timer); return txt(`Admin chat failed (${res.status}): ${(await res.text().catch(() => "")).slice(0, 300)}`); }
+          if (res.status === 403) { clearTimeout(timer); return errText("Forbidden — this tool is for platform admins (GitHub org members) only."); }
+          if (!res.ok || !res.body) { clearTimeout(timer); return errText(`Admin chat failed (${res.status}): ${(await res.text().catch(() => "")).slice(0, 300)}`); }
           const reader = res.body.getReader();
           const dec = new TextDecoder();
           let buf = "";
@@ -918,11 +974,12 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
           }
         } catch (e) {
           if ((e as Error).name === "AbortError") timedOut = true;
-          else { clearTimeout(timer); return txt(`Admin chat error: ${String(e).slice(0, 300)}`); }
+          else { clearTimeout(timer); return errText(`Admin chat error: ${String(e).slice(0, 300)}`); }
         } finally {
           clearTimeout(timer);
         }
         const traceTxt = trace.length ? `\n\nTurn trace:\n${trace.map((t) => `- ${t}`).join("\n")}` : "";
+        await audit(this.safety(), { tool: "admin_send_prompt", action: "success", input: { session_id }, result: { timedOut, traceSteps: trace.length } });
         return txt(
           (timedOut
             ? `Prompt sent into \`${session_id}\` — the turn is STILL RUNNING server-side (streamed 110s of progress).`
@@ -937,19 +994,34 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     this.server.tool(
       "delete_game",
       "Delete a LIVE game you own: delists it from the store, drops its host route (stops serving at <game_id>.freegamestore.online), and archives its GitHub repo. Frees a creator slot. Ownership is enforced server-side (registry creatorGithub). Irreversible from here. For an in-progress VibeCode draft that never deployed, use discard_session instead.",
-      { game_id: z.string().describe("Game id / slug, e.g. 'ts-probe'") },
-      async ({ game_id }) => {
+      {
+        game_id: z.string().describe("Game id / slug, e.g. 'ts-probe'"),
+        confirm: z.string().optional().describe("Must equal the game id to confirm permanent deletion."),
+        dry_run: z.boolean().optional().describe("Preview only: report what would be deleted without deleting anything (no confirm needed)."),
+      },
+      async ({ game_id, confirm, dry_run = false }) => {
         const token = this.props.token;
-        if (!token) return txt("Not authenticated. Connect with a FGS session token.");
+        if (!token) return errText("Not authenticated. Connect with a FGS session token.");
+        const roBlock = await requireWritable(this.safety(), "delete_game", { game_id });
+        if (roBlock) return roBlock;
         const id = game_id.trim().toLowerCase();
-        if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) return txt(`Invalid game id: \`${game_id}\`.`);
+        if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) return errText(`Invalid game id: \`${game_id}\`.`);
+        if (dry_run) {
+          return dryRun(this.safety(), "delete_game", "delete", { game_id: id }, {
+            game_id: id,
+            wouldDo: ["delist from the store", "drop the host route (stops serving)", "archive the GitHub repo"],
+          });
+        }
+        const confirmBlock = await requireConfirmation(this.safety(), "delete_game", confirm, id, { game_id: id });
+        if (confirmBlock) return confirmBlock;
         const result = await fgsDelete(this.env.API_BASE, `/api/games/${id}`, token);
         if (result?.error) {
           const hint = result.status === 401 ? " (your token may be expired — re-connect)"
             : result.status === 403 || /own|permission/i.test(String(result.error)) ? " (you can only delete games you own)"
             : "";
-          return txt(`Could not delete \`${id}\`: ${result.error}${result.detail ? ` — ${result.detail}` : ""}${hint}`);
+          return errText(`Could not delete \`${id}\`: ${result.error}${result.detail ? ` — ${result.detail}` : ""}${hint}`);
         }
+        await audit(this.safety(), { tool: "delete_game", action: "success", input: { game_id: id }, result: { deleted: id } });
         return txt(`Deleted **${id}** — delisted from the store, route dropped, repo archived. A creator slot is now free.`);
       },
     );
@@ -958,15 +1030,40 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     this.server.tool(
       "discard_session",
       "Discard an in-progress VibeCode session (a DRAFT that never deployed to a live game). Removes it from your session list. Use list_sessions to find the id. This does NOT delete a published game — for that use delete_game.",
-      { session_id: z.string().describe("VibeCode session id (from list_sessions)") },
-      async ({ session_id }) => {
+      {
+        session_id: z.string().describe("VibeCode session id (from list_sessions)"),
+        confirm: z.string().optional().describe("Must equal the session id to confirm discarding the draft."),
+        dry_run: z.boolean().optional().describe("Preview only: report what would be discarded without discarding (no confirm needed)."),
+      },
+      async ({ session_id, confirm, dry_run = false }) => {
         const token = this.props.token;
-        if (!token) return txt("Not authenticated. Connect with a FGS session token.");
+        if (!token) return errText("Not authenticated. Connect with a FGS session token.");
+        const roBlock = await requireWritable(this.safety(), "discard_session", { session_id });
+        if (roBlock) return roBlock;
         const id = session_id.trim();
-        if (!/^[a-zA-Z0-9_-]{1,64}$/.test(id)) return txt(`Invalid session id: \`${session_id}\`.`);
+        if (!/^[a-zA-Z0-9_-]{1,64}$/.test(id)) return errText(`Invalid session id: \`${session_id}\`.`);
+        if (dry_run) {
+          return dryRun(this.safety(), "discard_session", "discard", { session_id: id }, { session_id: id, wouldDo: ["remove the draft session from your list"] });
+        }
+        const confirmBlock = await requireConfirmation(this.safety(), "discard_session", confirm, id, { session_id: id });
+        if (confirmBlock) return confirmBlock;
         const result = await fgsDelete(this.env.AGENT_BASE, `/sessions/${id}`, token);
-        if (result?.error) return txt(`Could not discard session \`${id}\`: ${result.error}${result.detail ? ` — ${result.detail}` : ""}`);
+        if (result?.error) return errText(`Could not discard session \`${id}\`: ${result.error}${result.detail ? ` — ${result.detail}` : ""}`);
+        await audit(this.safety(), { tool: "discard_session", action: "success", input: { session_id: id }, result: { discarded: id } });
         return txt(`Discarded draft session \`${id}\`.`);
+      },
+    );
+
+    // -- mcp_audit_log (read your own audit trail) --
+    this.server.tool(
+      "mcp_audit_log",
+      "Read your recent MCP audit events for this account — every write, dry-run, and denied tool action, newest first. Secrets are redacted; entries expire after 90 days. Requires an authenticated FGS session.",
+      { limit: z.number().int().min(1).max(200).optional().describe("Max events to return (default 50)") },
+      async ({ limit }) => {
+        if (!this.props.userId) return errText("Not authenticated — the audit log is keyed to your GitHub login.");
+        const events = await listAuditEvents(this.safety(), limit ?? 50);
+        if (!events.length) return txt("No audit events recorded for your account yet.");
+        return txt(JSON.stringify(events, null, 2));
       },
     );
   }
