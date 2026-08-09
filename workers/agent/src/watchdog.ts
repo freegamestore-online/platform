@@ -18,6 +18,18 @@ export interface Watchdog {
   fired: () => boolean;
 }
 
+/** Whether a held `chatInProgress` lock is STALE — its turn leaked the lock and
+ *  no longer counts as running. True when the lock is held AND the turn has
+ *  produced no event for at least `hungMs`. A hung provider/GitHub call means
+ *  the turn's `finally` (which clears the lock) never runs; if the pending-turn
+ *  record is also gone, the resurrection alarm can't fence it either, so every
+ *  later /chat 429s and /import & /reset 409 until the DO is evicted. Recovery
+ *  endpoints call this to break such a lock instead of rejecting forever. Pure +
+ *  exported so the decision is unit-testable (mirrors deadlineStatus). */
+export function lockIsStale(chatInProgress: boolean, lastTurnEventAt: number, now: number, hungMs: number): boolean {
+  return chatInProgress && now - lastTurnEventAt >= hungMs;
+}
+
 export function armWatchdog(ms: number, onExpire: () => void): Watchdog {
   let done = false;
   const timer = setTimeout(() => {

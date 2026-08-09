@@ -17,7 +17,7 @@ import { compKeyFor, getActiveComp } from "./keygrants";
 import { allowDeploy, allowRequest } from "./ratelimit";
 import { enforceSessionBudget } from "./session-budget";
 import { activityFromDeployStatus, bumpSessionTokens, updateSessionActivity, upsertSessionIndex } from "./sessions";
-import { armWatchdog } from "./watchdog";
+import { armWatchdog, lockIsStale } from "./watchdog";
 
 interface ErrorEntry {
   timestamp: string;
@@ -375,8 +375,26 @@ export class AgentSession implements DurableObject {
     return null;
   }
 
+  /** Force-release a `chatInProgress` lock that a leaked/hung turn never cleared,
+   *  so the recovery endpoints (chat, import, reset) can't be wedged forever by
+   *  the very flag they guard on. Only breaks a STALE lock (held + silent past
+   *  HUNG_TURN_MS) — a turn still producing events is left running. Bumps the
+   *  turn epoch so any zombie turn that later unwinds hits the epoch-mismatch
+   *  branch and can't re-clear the lock or clobber the fresh state, and clears
+   *  the pending record + alarm the resurrection path keys on. Returns true when
+   *  a stale lock was broken (caller should proceed instead of rejecting). */
+  private async breakStaleLock(): Promise<boolean> {
+    if (!lockIsStale(this.chatInProgress, this.lastTurnEventAt, Date.now(), HUNG_TURN_MS)) return false;
+    this.logError("hung", `stale build lock (silent ${Math.round((Date.now() - this.lastTurnEventAt) / 1000)}s) — force-releasing so recovery isn't blocked`);
+    this.turnEpoch++;
+    this.chatInProgress = false;
+    await this.state.storage.delete(PENDING_TURN_KEY).catch(() => {});
+    await this.state.storage.deleteAlarm().catch(() => {});
+    return true;
+  }
+
   private async handleChat(request: Request): Promise<Response> {
-    if (this.chatInProgress) {
+    if (this.chatInProgress && !(await this.breakStaleLock())) {
       return json({ error: "A build is already in progress for this game — wait for it to finish." }, 429, request, this.config.domain);
     }
     // Claim the turn SYNCHRONOUSLY, before the first await. A DO interleaves
@@ -1083,7 +1101,7 @@ export class AgentSession implements DurableObject {
     // Refuse while a turn is streaming: import replaces session.files/appId, but
     // the in-flight turn holds the old `session` and keeps persisting it — the
     // import would be silently clobbered (or corrupt a half-written deploy).
-    if (this.chatInProgress) {
+    if (this.chatInProgress && !(await this.breakStaleLock())) {
       return json({ error: "A build is in progress — wait for it to finish before opening another game." }, 409, request, this.config.domain);
     }
     const body = await request.json<{ id?: string }>().catch(() => ({}) as { id?: string });
@@ -1191,7 +1209,7 @@ export class AgentSession implements DurableObject {
     // Refuse while a turn is streaming: the in-flight turn's deploy callbacks
     // still hold the pre-reset `session` and would persist it back over the
     // fresh one, silently undoing the reset.
-    if (this.chatInProgress) {
+    if (this.chatInProgress && !(await this.breakStaleLock())) {
       return json({ error: "A build is in progress — wait for it to finish before resetting." }, 409, request, this.config.domain);
     }
     this.session = await this.freshSession();
