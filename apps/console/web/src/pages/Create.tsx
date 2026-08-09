@@ -50,6 +50,10 @@ export function Create() {
   const { id: urlKey } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const resolvedKeyRef = useRef<string | null>(null);
+  // The urlKey seen on the previous run of the path-routing effect, so it can tell
+  // an actual URL change (navigate / My Games link / back button) apart from an
+  // internal re-fire (the open session changed). See the effect below + issue #6.
+  const lastUrlKeyRef = useRef<string | undefined>(undefined);
   const [resolvingUrl, setResolvingUrl] = useState(false);
   const currentProject = agent.projects.find((p) => p.id === agent.currentProjectId);
   const legacyGameParam = searchParams.get("game");
@@ -73,7 +77,20 @@ export function Create() {
   // Runs once per key; canonical URL writes below pre-mark their key resolved
   // so switching games in the picker doesn't bounce back through here.
   useEffect(() => {
-    if (!urlKey || loading || !user || agent.projectsLoading || agent.isStreaming || resolvedKeyRef.current === urlKey) return;
+    if (!urlKey || loading || !user || agent.projectsLoading || agent.isStreaming) return;
+    // Only resolve when the URL ITSELF changed — not when this effect re-fires
+    // because the open session changed. A picker switch calls switchProject
+    // (updates currentProjectId) then navigateToProject (updates the URL); those
+    // two updates don't batch, so there is a transient render where
+    // currentProjectId is already the NEW game while urlKey still names the OLD
+    // one. currentProjectId is a dependency here, so the effect re-fires in that
+    // transient; without this gate it treats the stale urlKey as "needs opening"
+    // and re-opens the PREVIOUS game, reverting the switch (the flick-to-previous
+    // bug). Recording lastUrlKeyRef only after the readiness guards above ensures
+    // a run that bailed on projectsLoading doesn't mark the key as seen. See #6.
+    const urlKeyChanged = urlKey !== lastUrlKeyRef.current;
+    lastUrlKeyRef.current = urlKey;
+    if (resolvedKeyRef.current === urlKey || !urlKeyChanged) return;
     resolvedKeyRef.current = urlKey;
     const project = agent.projects.find((p) => p.appId === urlKey || p.id === urlKey);
     if (project?.id === agent.currentProjectId) return; // already open
