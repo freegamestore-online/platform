@@ -98,6 +98,16 @@ const gameB: Project = {
   appUrl: "https://game-b.freegamestore.online",
 };
 
+const gameC: Project = {
+  id: "sess-c",
+  name: "Game C",
+  createdAt: new Date(0).toISOString(),
+  updatedAt: 0,
+  deployed: true,
+  appId: "game-c",
+  appUrl: "https://game-c.freegamestore.online",
+};
+
 describe("Create — opening a game via /create/:id", () => {
   it("attempts to open the game named in the path", async () => {
     h.openGame.mockResolvedValue("sess-new");
@@ -174,5 +184,62 @@ describe("Create — opening a game via /create/:id", () => {
     await act(async () => { resolveOpen(null); });
 
     await waitFor(() => expect(screen.getByTestId("loc").textContent).toBe("/create/game-a"));
+  });
+
+  it("FIX (#5): a superseded openGame null does NOT revert the URL when the user switched away via the picker", async () => {
+    // Scenario: user is on game-a (/create/game-a), navigates to game-b
+    // (/create/game-b), openGame("game-b") starts. While it is still in flight
+    // the user uses the picker to switch to game-c — navigateToProject updates
+    // resolvedKeyRef to "game-c" and pushes /create/game-c. Then
+    // openGame("game-b") resolves with null (OpenSupersededError → null in
+    // useAgent). Before the #5 fix the .then() revert guard was missing, so the
+    // stale callback would navigate back to /create/game-a. With the fix the
+    // guard `resolvedKeyRef.current !== urlKey` catches the mismatch and the URL
+    // stays on /create/game-c. See issue #5.
+    //
+    // Test design: openGame for game-b resolves null (superseded). Any other
+    // gameId (game-a, game-c) gets a NEVER-resolving deferred so that if a
+    // spurious navigate to /create/game-a fires the URL stays there and the
+    // final assertion catches the regression.
+
+    let resolveGameB!: (id: null) => void;
+    const deferredGameB = new Promise<null>((res) => { resolveGameB = res; });
+    const neverResolve = new Promise<null>(() => { /* intentionally never resolves */ });
+
+    h.openGame.mockImplementation((id: string) => id === "game-b" ? deferredGameB : neverResolve);
+
+    // Start on game-a, navigate to game-b via URL. Agent has game-a open.
+    h.agent = makeAgent({ projects: [gameA, gameB, gameC], currentProjectId: "sess-a" });
+    render(
+      <MemoryRouter initialEntries={["/create/game-b"]}>
+        <Loc />
+        <Link to="/create/game-c" data-testid="switch-to-c">switch to c</Link>
+        <Routes>
+          <Route path="/create/:id" element={<Create />} />
+          <Route path="/create" element={<Create />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    // Routing effect fires and calls openGame("game-b") — still in flight.
+    await waitFor(() => expect(h.openGame).toHaveBeenCalledWith("game-b"));
+    expect(screen.getByTestId("loc").textContent).toBe("/create/game-b");
+
+    // Simulate picker switch to game-c: update currentProjectId to sess-c so
+    // the routing effect for urlKey="game-c" sees project.id===currentProjectId
+    // and returns early after setting resolvedKeyRef.current="game-c".
+    h.agent = makeAgent({ projects: [gameA, gameB, gameC], currentProjectId: "sess-c" });
+    fireEvent.click(screen.getByTestId("switch-to-c"));
+    await waitFor(() => expect(screen.getByTestId("loc").textContent).toBe("/create/game-c"));
+
+    // resolvedKeyRef.current is now "game-c". Resolve the stale openGame("game-b")
+    // with null (superseded). The guard `resolvedKeyRef.current !== urlKey` must
+    // suppress the revert. Any incorrect navigate to /create/game-a would then
+    // fire openGame("game-a") which never resolves, leaving the URL stuck at
+    // /create/game-a — so the final assertion would fail without the fix.
+    await act(async () => { resolveGameB(null); });
+
+    await Promise.resolve();
+    expect(screen.getByTestId("loc").textContent).toBe("/create/game-c");
   });
 });

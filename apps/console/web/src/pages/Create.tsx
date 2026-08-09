@@ -105,6 +105,12 @@ export function Create() {
       // re-runs once and re-latches to the open game — so re-selecting the
       // failed game later still RETRIES.
       if (openedId) return;
+      // Guard against reverting a superseded open: if the user switched to a
+      // different game while this openGame was in flight, resolvedKeyRef has
+      // already been updated by navigateToProject to the new key. Don't clobber
+      // the URL the user deliberately landed on. Only revert for genuine failures
+      // where this effect is still the active resolution. See issue #5.
+      if (resolvedKeyRef.current !== urlKey) return;
       navigate(revertKey ? `/create/${revertKey}` : "/create", { replace: true });
     }).finally(() => setResolvingUrl(false));
   }, [urlKey, loading, user, agent.projectsLoading, agent.isStreaming, agent.projects, agent.currentProjectId, agent.switchProject, agent.openGame, currentProject, navigate]);
