@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Link, MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type { Project } from "../hooks/useProjects";
 
@@ -88,6 +88,16 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+const gameB: Project = {
+  id: "sess-b",
+  name: "Game B",
+  createdAt: new Date(0).toISOString(),
+  updatedAt: 0,
+  deployed: true,
+  appId: "game-b",
+  appUrl: "https://game-b.freegamestore.online",
+};
+
 describe("Create — opening a game via /create/:id", () => {
   it("attempts to open the game named in the path", async () => {
     h.openGame.mockResolvedValue("sess-new");
@@ -127,5 +137,42 @@ describe("Create — opening a game via /create/:id", () => {
     // Give any errant navigation a chance to run, then assert we stayed put.
     await Promise.resolve();
     expect(screen.getByTestId("loc").textContent).toBe("/create/beat-star2");
+  });
+
+  it("RACE FIX (#4): a superseded openGame (null from useAgent) does not revert the URL to a stale revertKey", async () => {
+    // Scenario: user is on game-a (/create/game-a), navigates to game-b
+    // (/create/game-b), openGame("game-b") starts. Before it resolves the user
+    // switches BACK to game-a (or to a third game). openGame("game-b") completes
+    // but returns null (superseded). The routing effect's .then() fires with
+    // openedId=null and uses the synchronously-captured revertKey ("game-a").
+    // Navigating to /create/game-a is a no-op since the user is already there —
+    // so the URL and session must agree on game-a.
+    //
+    // The pre-fix bug: the .then() read currentProject from the stale closure
+    // (the render when the effect last fired, which could be game-b or something
+    // else entirely), leading to an incorrect back-navigation.
+    //
+    // We simulate openGame returning null (as useAgent.openGame does when the
+    // underlying openGame throws OpenSupersededError) and verify the URL does
+    // not get corrupted.
+    let resolveOpen!: (id: null) => void;
+    const deferredOpen = new Promise<null>((res) => { resolveOpen = res; });
+    h.openGame.mockReturnValue(deferredOpen);
+
+    // Start on game-a, navigate to game-b via URL.
+    h.agent = makeAgent({ projects: [gameA, gameB], currentProjectId: "sess-a" });
+    renderAt("/create/game-b");
+
+    // Routing effect fires and calls openGame("game-b") — still in flight.
+    await waitFor(() => expect(h.openGame).toHaveBeenCalledWith("game-b"));
+    // URL is currently /create/game-b (the route we navigated to).
+    expect(screen.getByTestId("loc").textContent).toBe("/create/game-b");
+
+    // Now resolve the deferred openGame with null (superseded / failed).
+    // The revertKey captured before the call was "game-a" (the open project at
+    // the time the routing effect fired), so navigate should go to /create/game-a.
+    await act(async () => { resolveOpen(null); });
+
+    await waitFor(() => expect(screen.getByTestId("loc").textContent).toBe("/create/game-a"));
   });
 });

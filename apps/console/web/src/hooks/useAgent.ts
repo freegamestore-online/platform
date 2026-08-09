@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useProjects, type Project } from "./useProjects";
+import { useProjects, OpenSupersededError, type Project } from "./useProjects";
 
 export type { Project };
 
@@ -109,6 +109,9 @@ export function useAgent() {
       resetUI();
       return id;
     } catch (e) {
+      // OpenSupersededError means the user deliberately switched to a different game
+      // while this import was in flight — that's expected and not an error to show.
+      if (e instanceof OpenSupersededError) return null;
       setError((e as Error).message || `Couldn't open ${gameId}.`);
       return null;
     }
@@ -129,6 +132,7 @@ export function useAgent() {
       resetUI();
       return id;
     } catch (e) {
+      if (e instanceof OpenSupersededError) return null;
       setError((e as Error).message || `Couldn't start a fresh chat for ${gameId}.`);
       return null;
     } finally {

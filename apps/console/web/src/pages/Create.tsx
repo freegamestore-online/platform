@@ -84,6 +84,13 @@ export function Create() {
     const gameId = project?.appId ?? (UUID_RE.test(urlKey) ? null : urlKey);
     if (!gameId) { agent.switchProject(urlKey); return; }
     setResolvingUrl(true);
+    // Capture the revert target SYNCHRONOUSLY before the async openGame call.
+    // Reading currentProject inside the .then() callback would use a potentially
+    // stale closure value if the component re-rendered while the import was in
+    // flight — e.g. if a stale openGame from a DIFFERENT call had already mutated
+    // currentProjectId. Capturing here ensures the revert always points at the
+    // game that was genuinely open when the user initiated this navigation.
+    const revertKey = currentProject?.appId || currentProject?.id || null;
     void agent.openGame(gameId).then((openedId) => {
       // openGame resolves to null when the import fails (game not found / no
       // access / a build in progress) — it has already surfaced the reason on
@@ -98,8 +105,7 @@ export function Create() {
       // re-runs once and re-latches to the open game — so re-selecting the
       // failed game later still RETRIES.
       if (openedId) return;
-      const backKey = currentProject?.appId || currentProject?.id;
-      navigate(backKey ? `/create/${backKey}` : "/create", { replace: true });
+      navigate(revertKey ? `/create/${revertKey}` : "/create", { replace: true });
     }).finally(() => setResolvingUrl(false));
   }, [urlKey, loading, user, agent.projectsLoading, agent.isStreaming, agent.projects, agent.currentProjectId, agent.switchProject, agent.openGame, currentProject, navigate]);
 

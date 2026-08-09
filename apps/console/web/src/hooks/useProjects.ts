@@ -1,7 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "./useAuth";
 import { mapServerSession, type Project, type ServerSession } from "../lib/sessions";
 import { clearLegacyCurrentProjectId, readCurrentProjectId, readLegacyCurrentProjectId, writeCurrentProjectId } from "../lib/currentProjectStorage";
+
+// Thrown when an in-flight openGame / startFreshChat is superseded by a newer
+// user intent (picker switch or direct navigation). Callers that catch ALL
+// errors (like useAgent.openGame) should check for this name and silently
+// discard rather than surfacing it to the user.
+export class OpenSupersededError extends Error {
+  override readonly name = "OpenSupersededError";
+}
 
 export type { Project };
 
@@ -66,10 +74,17 @@ export function useProjects() {
   const [loadError, setLoadError] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [currentId, setCurrentIdState] = useState<string | null>(null);
+  // Monotonic counter — incremented on every explicit user intent (switchTo,
+  // openGame, startFreshChat, setCurrentId). An in-flight openGame / startFreshChat
+  // captures this value at call time and compares after each await; if the value has
+  // advanced, the user has since switched to something else and we discard the stale
+  // setCurrentId call (same pattern as loadHistory / sendMessage in useAgent).
+  const openTokenRef = useRef(0);
 
   const reload = useCallback(() => setReloadNonce((n) => n + 1), []);
 
   const setCurrentId = useCallback((id: string | null) => {
+    openTokenRef.current += 1;
     setCurrentIdState(id);
     writeCurrentProjectId(user?.sub, id);
   }, [user?.sub]);
@@ -175,6 +190,12 @@ export function useProjects() {
   // rather than overwriting it with a blank scaffold — the bug the old picker's
   // "create empty session linked to repo" path caused). Returns the session id.
   const openGame = useCallback(async (gameId: string): Promise<string> => {
+    // Capture the token BEFORE the first await so we can detect a user switching
+    // away mid-flight. If the token advances after any await it means switchTo /
+    // setCurrentId was called with a DIFFERENT intent and we must not clobber it.
+    // (Same guard pattern as loadHistory / sendMessage in useAgent.)
+    const token = openTokenRef.current;
+
     // Resolve the session that already owns this game so we reuse it (and its
     // chat transcript) instead of minting a duplicate. Check the local list
     // first (fast path), then fall back to the AUTHORITATIVE server index: the
@@ -194,6 +215,9 @@ export function useProjects() {
         throw new Error(`Couldn't load your sessions before opening "${gameId}". Please retry.`);
       }
     }
+    // If the user switched away while we were fetching sessions, discard.
+    if (openTokenRef.current !== token) throw new OpenSupersededError(`openGame("${gameId}") superseded by a newer selection`);
+
     // Always re-import: the endpoint re-syncs the session's files from the repo
     // HEAD, so changes made directly (update_files / git / another session)
     // since you last opened it are picked up. Import is cheap when the repo
@@ -219,8 +243,13 @@ export function useProjects() {
       appId: gameId,
       appUrl: data.appUrl || `https://${gameId}.freegamestore.online`,
     };
+    // Always update the project row (keeps the local list in sync with the import
+    // result), but only switch the active session if the user hasn't already moved
+    // on to a different game in the time the async import was in flight.
     setProjects((prev) => [project, ...prev.filter((p) => p.id !== id)]);
-    setCurrentId(id);
+    if (openTokenRef.current === token) {
+      setCurrentId(id);
+    }
     putSession(project);
     return id;
   }, [projects, setCurrentId]);
@@ -233,6 +262,9 @@ export function useProjects() {
   // deliberately REUSES an existing session (to preserve history), so it can't
   // escape a poisoned one; this is the deliberate opposite. Returns the new id.
   const startFreshChat = useCallback(async (gameId: string): Promise<string> => {
+    // Capture token before first await (same race-guard as openGame).
+    const token = openTokenRef.current;
+
     // Every session currently bound to this game — local list + authoritative
     // server index — so we can drop them all (a game may have accreted more than
     // one session across browsers/deploys).
@@ -243,6 +275,7 @@ export function useProjects() {
     } catch {
       // Offline — drop just the local ones; the next reload reconciles.
     }
+    if (openTokenRef.current !== token) throw new OpenSupersededError(`startFreshChat("${gameId}") superseded by a newer selection`);
 
     const id = crypto.randomUUID();
     const res = await fetch(`${AGENT_URL}/session/${id}/import`, {
@@ -267,7 +300,9 @@ export function useProjects() {
     };
     // Swap in the fresh session and drop every stale one for this game.
     setProjects((prev) => [project, ...prev.filter((p) => !stale.has(p.id))]);
-    setCurrentId(id);
+    if (openTokenRef.current === token) {
+      setCurrentId(id);
+    }
     putSession(project);
     // Best-effort: remove the stale index rows server-side (their DO transcripts
     // become orphaned + unreachable, which is fine — nothing references them).

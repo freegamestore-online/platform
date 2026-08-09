@@ -117,4 +117,62 @@ describe("useProjects — openGame", () => {
     expect(result.current.currentId).toBe("sess-a");
     expect(result.current.projects.some((p) => p.appId === "beat-star2")).toBe(false);
   });
+
+  it("RACE FIX (#4): a picker switch during an in-flight openGame keeps currentId on the switched-to game", async () => {
+    // Reproduce: openGame(ocean-save2) starts (slow import); before it resolves,
+    // user switches to beat-star via switchTo. When ocean-save2's import later
+    // resolves, setCurrentId must NOT clobber currentId back to ocean-save2.
+    //
+    // We use a deferred import promise to synchronously interleave switchTo
+    // between the openGame call and its import resolution. Because ocean-save2 is
+    // already in the local session list, openGame skips the fetchSessions round-
+    // trip and goes straight to the import POST — the deferred promise blocks there.
+    sessionsResponse = { sessions: [srv("sess-bs", "Beat Star", "beat-star"), srv("sess-os", "Ocean Save 2", "ocean-save2")] };
+
+    let resolveImport!: (r: Response) => void;
+    const deferredImport = new Promise<Response>((res) => { resolveImport = res; });
+    importResponse = () => deferredImport;
+
+    const { result } = await mounted();
+
+    // Start opening ocean-save2 (import is blocked by the deferred promise).
+    let openGamePromise!: Promise<string>;
+    act(() => {
+      openGamePromise = result.current.openGame("ocean-save2");
+    });
+
+    // While import is in flight, user switches to beat-star via the picker.
+    // switchTo calls setCurrentId which bumps openTokenRef.current.
+    act(() => result.current.switchTo("sess-bs"));
+    expect(result.current.currentId).toBe("sess-bs");
+
+    // Now resolve the stale ocean-save2 import. The token has advanced, so
+    // setCurrentId must NOT be called — currentId must remain beat-star.
+    // openGame still resolves (returns the id) rather than throws, because the
+    // token guard only suppresses the setCurrentId call, not the import itself.
+    await act(async () => {
+      resolveImport({ ok: true, status: 200, json: () => Promise.resolve({ name: "Ocean Save 2", appUrl: "https://ocean-save2.freegamestore.online" }) } as Response);
+      await openGamePromise; // resolves to sess-os without clobbering currentId
+    });
+
+    // currentId must remain on beat-star, not regress to ocean-save2.
+    expect(result.current.currentId).toBe("sess-bs");
+  });
+
+  it("RACE FIX (#4): a normal unraced openGame still switches to the opened game", async () => {
+    // Control: no race. openGame should still switch currentId when there is no
+    // intervening switchTo / setCurrentId call.
+    sessionsResponse = { sessions: [] };
+    importResponse = () => jsonRes({ name: "New Game", appUrl: "https://new-game.freegamestore.online" });
+    const { result } = await mounted();
+
+    let openedId = "";
+    await act(async () => {
+      openedId = await result.current.openGame("new-game");
+    });
+
+    expect(result.current.currentId).toBe(openedId);
+    const p = result.current.projects.find((x) => x.id === openedId);
+    expect(p?.appId).toBe("new-game");
+  });
 });
