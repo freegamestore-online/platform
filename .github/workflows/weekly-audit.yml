@@ -36,17 +36,65 @@ jobs:
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: audit-results-${{ github.run_id }}
+          name: audit-results
           path: jobs/auditor/audit-results.json
           retention-days: 90
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: audit
+    permissions:
+      contents: write
+    timeout-minutes: 10
+    steps:
+      - name: Check GH_ADMIN_TOKEN
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_ADMIN_TOKEN:-}" ]; then
+            echo "::error::GH_ADMIN_TOKEN secret is not set or is empty. Cannot publish audit results."
+            exit 1
+          fi
+          echo "GH_ADMIN_TOKEN is present."
+        env:
+          GH_ADMIN_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
+
+      - name: Download audit results
+        uses: actions/download-artifact@v4
+        with:
+          name: audit-results
+
+      - name: Check audit-results.json exists
+        run: |
+          set -euo pipefail
+          if [ ! -f audit-results.json ]; then
+            echo "::error::audit-results.json not found after download. Cannot publish."
+            exit 1
+          fi
+          echo "audit-results.json found ($(wc -c < audit-results.json) bytes)."
+
       - name: Publish results to store repo
-        if: success()
         env:
           GH_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
         run: |
-          if [ -z "$GH_TOKEN" ]; then echo "::warning::GH_ADMIN_TOKEN unset - skipping publish"; exit 0; fi
-          B64=$(base64 -w0 audit-results.json)
-          SHA=$(gh api repos/freegamestore-online/freegamestore/contents/data/quality-results.json --jq .sha 2>/dev/null || true)
-          gh api -X PUT repos/freegamestore-online/freegamestore/contents/data/quality-results.json \
-            -f message="data: weekly quality audit $(date -u +%F)" \
-            -f content="$B64" ${SHA:+-f sha="$SHA"} > /dev/null
+          set -euo pipefail
+
+          echo "Encoding audit-results.json to base64..."
+          B64=$(base64 < audit-results.json | tr -d '\n')
+
+          echo "Fetching current file SHA (if exists)..."
+          SHA=$(gh api repos/freegamestore-online/freegamestore/contents/data/quality-results.json \
+            --jq '.sha' 2>/dev/null || true)
+
+          echo "Uploading quality-results.json to freegamestore-online/freegamestore..."
+          if [ -n "$SHA" ]; then
+            gh api -X PUT repos/freegamestore-online/freegamestore/contents/data/quality-results.json \
+              -f "message=data: weekly quality audit $(date -u +%F)" \
+              -f "content=${B64}" \
+              -f "sha=${SHA}"
+          else
+            gh api -X PUT repos/freegamestore-online/freegamestore/contents/data/quality-results.json \
+              -f "message=data: weekly quality audit $(date -u +%F)" \
+              -f "content=${B64}"
+          fi
+
+          echo "Publish complete."
