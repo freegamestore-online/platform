@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { clearLegacyLocalKeys } from "../lib/ai-keys";
+import { reportError } from "../lib/errorReporter";
 
 /** freegamestore-auth worker — the store-wide identity provider. */
 const AUTH_BASE = "https://auth.freegamestore.online";
@@ -124,6 +125,7 @@ export function useAuthProvider(): AuthContextValue {
       });
     } catch (e) {
       console.error("[auth] error:", e);
+      reportError({ message: (e as Error).message || "Auth fetch failed", context: JSON.stringify({ op: "auth" }) });
       setError("Failed to connect to server");
     } finally {
       setLoading(false);

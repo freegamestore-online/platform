@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "./useAuth";
 import { mapServerSession, type Project, type ServerSession } from "../lib/sessions";
 import { clearLegacyCurrentProjectId, readCurrentProjectId, readLegacyCurrentProjectId, writeCurrentProjectId } from "../lib/currentProjectStorage";
+import { reportError } from "../lib/errorReporter";
 
 // Thrown when an in-flight openGame / startFreshChat is superseded by a newer
 // user intent (picker switch or direct navigation). Callers that catch ALL
@@ -154,6 +155,7 @@ export function useProjects() {
       .catch((err) => {
         if ((err as Error).name !== "AbortError") {
           console.error("Failed to load projects:", err);
+          reportError({ message: (err as Error).message || "Failed to load projects", context: JSON.stringify({ op: "loadProjects" }) });
           setLoadError(true);
         }
       })

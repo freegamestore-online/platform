@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useProjects, OpenSupersededError, type Project } from "./useProjects";
+import { reportError } from "../lib/errorReporter";
 
 export type { Project };
 
@@ -112,7 +113,9 @@ export function useAgent() {
       // OpenSupersededError means the user deliberately switched to a different game
       // while this import was in flight — that's expected and not an error to show.
       if (e instanceof OpenSupersededError) return null;
-      setError((e as Error).message || `Couldn't open ${gameId}.`);
+      const message = (e as Error).message || `Couldn't open ${gameId}.`;
+      setError(message);
+      reportError({ message, context: JSON.stringify({ op: "openGame", gameId }) });
       return null;
     }
   }, [projectsMgr, resetUI]);
@@ -133,7 +136,9 @@ export function useAgent() {
       return id;
     } catch (e) {
       if (e instanceof OpenSupersededError) return null;
-      setError((e as Error).message || `Couldn't start a fresh chat for ${gameId}.`);
+      const message = (e as Error).message || `Couldn't start a fresh chat for ${gameId}.`;
+      setError(message);
+      reportError({ message, context: JSON.stringify({ op: "startFreshChat", gameId }) });
       return null;
     } finally {
       freshBusyRef.current = null;
