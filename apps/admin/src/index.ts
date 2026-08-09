@@ -573,7 +573,9 @@ export default {
       // and NaN must fall back to the default.
       const raw = parseInt(url.searchParams.get("limit") || "200", 10);
       const limit = Math.max(1, Math.min(Number.isFinite(raw) ? raw : 200, 500));
-      return jsonResponse(await listErrors(env.DB, limit), 200, request);
+      const user = url.searchParams.get("user") || undefined;
+      const source = url.searchParams.get("source") || undefined;
+      return jsonResponse(await listErrors(env.DB, limit, { user, source }), 200, request);
     }
 
     // Aggregate stats + the errors-per-day series for the Overview graph.

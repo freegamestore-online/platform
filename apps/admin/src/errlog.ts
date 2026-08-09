@@ -48,13 +48,24 @@ export async function recordError(db: D1Database | undefined, row: ErrLogRow): P
   }
 }
 
-export async function listErrors(db: D1Database | undefined, limit = 200): Promise<ErrLogEntry[]> {
+export interface ListErrorsOpts {
+  user?: string;
+  source?: string;
+}
+
+export async function listErrors(db: D1Database | undefined, limit = 200, opts: ListErrorsOpts = {}): Promise<ErrLogEntry[]> {
   if (!db) return [];
   try {
     await ensure(db);
+    const clauses: string[] = [];
+    const bindings: unknown[] = [];
+    if (opts.user) { clauses.push("user_github = ?"); bindings.push(opts.user); }
+    if (opts.source) { clauses.push("source = ?"); bindings.push(opts.source); }
+    const where = clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "";
+    bindings.push(Math.min(limit, 500));
     const r = await db
-      .prepare("SELECT id, ts, source, user_github, context, message, stack FROM error_log ORDER BY id DESC LIMIT ?")
-      .bind(Math.min(limit, 500))
+      .prepare(`SELECT id, ts, source, user_github, context, message, stack FROM error_log${where} ORDER BY id DESC LIMIT ?`)
+      .bind(...bindings)
       .all<ErrLogEntry>();
     return r.results ?? [];
   } catch {

@@ -136,6 +136,81 @@ describe("admin gate — fails closed", () => {
   });
 });
 
+describe("/api/errors filter params — user and source", () => {
+  /** Build a minimal D1 stub that records the last prepared SQL + bindings. */
+  function makeDB(rows: object[] = []) {
+    const lastCall: { sql: string; bindings: unknown[] }[] = [];
+    return {
+      _calls: lastCall,
+      prepare(sql: string) {
+        const bindings: unknown[] = [];
+        return {
+          bind(...args: unknown[]) { bindings.push(...args); return this; },
+          run: async () => ({ results: [] }),
+          all: async () => {
+            lastCall.push({ sql, bindings });
+            return { results: rows };
+          },
+          first: async () => null,
+        };
+      },
+    };
+  }
+
+  it("passes no WHERE clause when neither user nor source is provided", async () => {
+    const db = makeDB();
+    const res = await worker.fetch(
+      req("/api/errors", { headers: { "X-FGS-Token": "t" } }),
+      makeEnv({ meEmail: ADMIN, adminEmails: ADMIN, DB: db }),
+    );
+    expect(res.status).toBe(200);
+    const call = db._calls[0];
+    expect(call).toBeDefined();
+    expect(call!.sql).not.toContain("WHERE");
+    expect(call!.bindings).toEqual([200]); // just the LIMIT
+  });
+
+  it("passes WHERE user_github = ? when ?user= is set", async () => {
+    const db = makeDB();
+    const res = await worker.fetch(
+      req("/api/errors?user=alice", { headers: { "X-FGS-Token": "t" } }),
+      makeEnv({ meEmail: ADMIN, adminEmails: ADMIN, DB: db }),
+    );
+    expect(res.status).toBe(200);
+    const call = db._calls[0];
+    expect(call!.sql).toContain("WHERE");
+    expect(call!.sql).toContain("user_github = ?");
+    expect(call!.bindings).toEqual(["alice", 200]);
+  });
+
+  it("passes WHERE source = ? when ?source= is set", async () => {
+    const db = makeDB();
+    const res = await worker.fetch(
+      req("/api/errors?source=console%2Fweb", { headers: { "X-FGS-Token": "t" } }),
+      makeEnv({ meEmail: ADMIN, adminEmails: ADMIN, DB: db }),
+    );
+    expect(res.status).toBe(200);
+    const call = db._calls[0];
+    expect(call!.sql).toContain("WHERE");
+    expect(call!.sql).toContain("source = ?");
+    expect(call!.bindings).toEqual(["console/web", 200]);
+  });
+
+  it("combines both filters with AND when both params are set", async () => {
+    const db = makeDB();
+    const res = await worker.fetch(
+      req("/api/errors?user=alice&source=console%2Fweb", { headers: { "X-FGS-Token": "t" } }),
+      makeEnv({ meEmail: ADMIN, adminEmails: ADMIN, DB: db }),
+    );
+    expect(res.status).toBe(200);
+    const call = db._calls[0];
+    expect(call!.sql).toContain("user_github = ?");
+    expect(call!.sql).toContain("source = ?");
+    expect(call!.sql).toContain("AND");
+    expect(call!.bindings).toEqual(["alice", "console/web", 200]);
+  });
+});
+
 describe("creator self-serve routes are NOT behind the admin gate", () => {
   // A regression that ADDED these to the gate would lock creators out; a
   // regression that REMOVED them from the observability gate would leak data.

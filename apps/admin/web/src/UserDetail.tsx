@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, timeAgo, type CompGrant, type Creator, type GameInfo, type QualityData, type RegisteredUser, type SessionRow } from "./api.ts";
+import { api, timeAgo, type CompGrant, type Creator, type ErrorRow, type GameInfo, type QualityData, type RegisteredUser, type SessionRow } from "./api.ts";
 import { ErrorBox, Loading } from "./Overview.tsx";
+import { ErrorCard } from "./Errors.tsx";
 
 interface UserDetailData {
   users: RegisteredUser[];
@@ -150,8 +151,51 @@ export function UserDetail({ id, navigate }: { id: string; navigate: (h: string)
         </div>
       </section>
 
+      <RecentErrors login={detail.login} />
+
       {keyModal && <AddKeyModal target={keyModal} onClose={() => setKeyModal(null)} onSaved={() => { setKeyModal(null); reload(); setMsg("Key saved."); }} />}
     </div>
+  );
+}
+
+function RecentErrors({ login }: { login: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [rows, setRows] = useState<ErrorRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadErrors = useCallback(() => {
+    setError(null);
+    api<ErrorRow[]>(`/api/errors?user=${encodeURIComponent(login)}&limit=20`)
+      .then(setRows)
+      .catch((e) => setError((e as Error).message));
+  }, [login]);
+
+  const toggle = () => {
+    if (!expanded && rows === null) loadErrors();
+    setExpanded((v) => !v);
+  };
+
+  return (
+    <section>
+      <button
+        onClick={toggle}
+        className="flex items-center gap-2 text-lg font-bold mb-2"
+        style={{ color: "var(--ink)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+      >
+        <span style={{ fontSize: "0.85em", color: "var(--muted)" }}>{expanded ? "▾" : "▸"}</span>
+        Recent errors
+      </button>
+      {expanded && (
+        <div className="flex flex-col gap-3">
+          {error && <div className="text-sm" style={{ color: "#dc2626" }}>{error}</div>}
+          {!error && rows === null && <p className="text-sm" style={{ color: "var(--muted)" }}>Loading…</p>}
+          {rows !== null && rows.length === 0 && (
+            <p className="text-sm" style={{ color: "var(--muted)" }}>No errors logged for this user.</p>
+          )}
+          {rows !== null && rows.map((e, i) => <ErrorCard key={i} e={e} />)}
+        </div>
+      )}
+    </section>
   );
 }
 
