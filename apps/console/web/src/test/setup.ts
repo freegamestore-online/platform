@@ -47,3 +47,10 @@ try {
 } catch {
   install();
 }
+
+// jsdom doesn't implement scrollIntoView; the studio's auto-scroll effect calls
+// it on a timer, which would otherwise throw as an unhandled exception in
+// component tests. Provide a no-op.
+if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}

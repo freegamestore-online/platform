@@ -9,6 +9,7 @@ import { StudioSettingsDialog } from "./StudioSettingsDialog";
 interface StudioToolbarProps {
   agent: ReturnType<typeof useAgent>;
   currentProject: Project | undefined;
+  switching: boolean;
   provider: string;
   setProvider: (v: string) => void;
   model: string;
@@ -24,6 +25,7 @@ interface StudioToolbarProps {
 export function StudioToolbar({
   agent,
   currentProject,
+  switching,
   provider,
   setProvider,
   model,
@@ -40,10 +42,27 @@ export function StudioToolbar({
       {/* Horizontally scrollable on mobile (tighter gap/padding) so every action
           stays reachable on a narrow phone; scrollbar hidden via .no-scrollbar. */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 overflow-x-auto no-scrollbar px-2 sm:px-3 py-2 border-b border-[var(--border)] bg-[var(--surface)]">
-        <Button size="sm" onClick={() => setPickerOpen(true)} disabled={agent.isStreaming} className="max-w-[190px] shrink-0" title={agent.isStreaming ? "Finish the current build to switch games" : "Switch game"}>
-          {currentProject?.deployed && <span className="w-2 h-2 rounded-full bg-[var(--accent)] shrink-0" />}
-          <span className="truncate">{currentProject?.name || "Select game"}</span>
-          <ChevronDown className="w-4 h-4 shrink-0 opacity-60" />
+        {/* While the studio is resolving a newly-selected game (openGame is in
+            flight), currentProject still points at the PREVIOUS game — showing
+            its name here would be stale. Swap in a spinner until the switch
+            lands so the dropdown never names the wrong game. */}
+        <Button size="sm" onClick={() => setPickerOpen(true)} disabled={agent.isStreaming || switching} className="max-w-[190px] shrink-0" title={switching ? "Loading game…" : agent.isStreaming ? "Finish the current build to switch games" : "Switch game"}>
+          {switching ? (
+            <>
+              <span
+                aria-hidden
+                className="shrink-0 rounded-full motion-safe:animate-spin"
+                style={{ width: 14, height: 14, border: "2px solid var(--accent)", borderTopColor: "transparent" }}
+              />
+              <span className="truncate">Loading…</span>
+            </>
+          ) : (
+            <>
+              {currentProject?.deployed && <span className="w-2 h-2 rounded-full bg-[var(--accent)] shrink-0" />}
+              <span className="truncate">{currentProject?.name || "Select game"}</span>
+              <ChevronDown className="w-4 h-4 shrink-0 opacity-60" />
+            </>
+          )}
         </Button>
         {/* Ground-truth identity of the LIVE game this chat edits. The button
             above shows the project's free-form name, which can diverge from the

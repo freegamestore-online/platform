@@ -84,8 +84,24 @@ export function Create() {
     const gameId = project?.appId ?? (UUID_RE.test(urlKey) ? null : urlKey);
     if (!gameId) { agent.switchProject(urlKey); return; }
     setResolvingUrl(true);
-    void agent.openGame(gameId).finally(() => setResolvingUrl(false));
-  }, [urlKey, loading, user, agent.projectsLoading, agent.isStreaming, agent.projects, agent.currentProjectId, agent.switchProject, agent.openGame]);
+    void agent.openGame(gameId).then((openedId) => {
+      // openGame resolves to null when the import fails (game not found / no
+      // access / a build in progress) — it has already surfaced the reason on
+      // the error banner. See freegamestore-online/platform#3.
+      // Do NOT leave the user parked on /create/<gameId> while
+      // the studio still shows the PREVIOUS game: that URL↔session mismatch is
+      // silent and dangerous — their next prompt would edit the previous game.
+      // Point the address bar back at whatever is actually open (or the empty
+      // state). Crucially, DON'T rewrite resolvedKeyRef here: it is already
+      // latched to the failed key (above), which stops this effect from
+      // re-firing openGame in a loop; when the reverted URL lands, the effect
+      // re-runs once and re-latches to the open game — so re-selecting the
+      // failed game later still RETRIES.
+      if (openedId) return;
+      const backKey = currentProject?.appId || currentProject?.id;
+      navigate(backKey ? `/create/${backKey}` : "/create", { replace: true });
+    }).finally(() => setResolvingUrl(false));
+  }, [urlKey, loading, user, agent.projectsLoading, agent.isStreaming, agent.projects, agent.currentProjectId, agent.switchProject, agent.openGame, currentProject, navigate]);
 
   // Canonical URL: keep the address bar on the open game's unique URL. Same
   // project (bare /create on load, or a draft URL right after deploy) is a
@@ -404,7 +420,7 @@ export function Create() {
             overflow-y-auto region becomes the only scroll surface. */}
         <div className="flex flex-col overflow-hidden border-r min-h-0" style={{ borderColor: "var(--border)" }}>
           <StudioToolbar
-            agent={agent} currentProject={currentProject}
+            agent={agent} currentProject={currentProject} switching={resolvingUrl}
             provider={provider} setProvider={setProvider}
             model={model} setModel={setModel}
             temperature={temperature} setTemperature={setTemperature}
