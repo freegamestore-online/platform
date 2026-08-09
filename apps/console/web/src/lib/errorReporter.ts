@@ -4,7 +4,10 @@
  * - Silences fetch errors (best-effort, must not throw into callers).
  * - Only technical error info is sent; no PII beyond the already-known
  *   GitHub identity (resolved server-side from the session cookie).
+ * - Attaches recent breadcrumbs so support can see what led up to a crash.
  */
+
+import { serializeBreadcrumbs } from "./breadcrumbs";
 
 const ENDPOINT = "/api/client-error";
 const DEBOUNCE_MS = 2_000;
@@ -37,11 +40,17 @@ export function reportError(report: ErrorReport): void {
   const key = `${report.message}|${report.route ?? ""}`;
   if (isDuplicate(key)) return;
 
+  // Attach recent breadcrumbs to context so support can see what led up to
+  // this error. The server caps the context field at 1 000 chars.
+  const crumbs = serializeBreadcrumbs(700);
+  const callerCtx = report.context ?? "";
+  const contextWithCrumbs = [callerCtx, crumbs ? `crumbs:${crumbs}` : ""].filter(Boolean).join("; ").slice(0, 950);
+
   const body: ErrorReport = {
     route: report.route ?? location.pathname,
     message: report.message,
     stack: report.stack,
-    context: report.context,
+    context: contextWithCrumbs || undefined,
   };
 
   // Fire-and-forget; never propagate errors from the reporter itself.

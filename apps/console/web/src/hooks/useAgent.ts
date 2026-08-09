@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useProjects, OpenSupersededError, type Project } from "./useProjects";
 import { reportError } from "../lib/errorReporter";
+import { addBreadcrumb } from "../lib/breadcrumbs";
 
 export type { Project };
 
@@ -97,6 +98,7 @@ export function useAgent() {
 
   const switchProject = useCallback((id: string) => {
     if (isStreamingRef.current) return;
+    addBreadcrumb("game_switch", id);
     projectsMgr.switchTo(id);
     resetUI();
   }, [projectsMgr, resetUI]);
@@ -105,6 +107,7 @@ export function useAgent() {
   // Surfaces any failure on the sticky error banner instead of silently no-op'ing.
   const openGame = useCallback(async (gameId: string): Promise<string | null> => {
     if (isStreamingRef.current) return null;
+    addBreadcrumb("game_open", gameId);
     try {
       const id = await projectsMgr.openGame(gameId);
       resetUI();
@@ -349,7 +352,10 @@ export function useAgent() {
               }
               case "tool_result": {
                 const tr = JSON.parse(evt.data);
-                if (tr.tool === "deploy") setDeployState({ phase: "provisioning", steps: [] });
+                if (tr.tool === "deploy") {
+                  addBreadcrumb("deploy", sessionId ?? "");
+                  setDeployState({ phase: "provisioning", steps: [] });
+                }
                 else if (!["write_file", "read_file", "list_files", "delete_file"].includes(tr.tool) && tr.result) {
                   setMessages((prev) => [...prev, { role: "tool", content: `${tr.tool}:\n${tr.result.slice(0, 400)}` }]);
                   pendingNewAssistant = true;

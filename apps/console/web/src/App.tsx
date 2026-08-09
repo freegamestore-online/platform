@@ -1,9 +1,20 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { useEffect } from "react";
 import { AuthContext, useAuthProvider } from "./hooks/useAuth";
 import { Dashboard } from "./pages/Dashboard";
 import { Profile } from "./pages/Profile";
 import { Create } from "./pages/Create";
 import { GameSettings } from "./pages/GameSettings";
+import { addBreadcrumb } from "./lib/breadcrumbs";
+
+/** Records a breadcrumb on every route change (pathname only — no PII). */
+function RouteTracker() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    addBreadcrumb("route", pathname);
+  }, [pathname]);
+  return null;
+}
 
 export default function App() {
   const auth = useAuthProvider();
@@ -11,6 +22,7 @@ export default function App() {
   return (
     <AuthContext.Provider value={auth}>
       <BrowserRouter>
+        <RouteTracker />
         <Routes>
           <Route path="/" element={<Dashboard />} />
           {/* One route with an optional param — two separate <Route> entries
