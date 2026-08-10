@@ -765,6 +765,7 @@ How to build in game.ts (the context is \`k\`, created with global:false — cal
 - For helper functions, type the context as \`type K = ReturnType<typeof kaplay>\`; avoid \`k: any\` because it hides bad engine calls until browser smoke.
 - Entities: k.add([ k.pos(x,y), k.rect()/k.circle()/k.sprite(), k.area() (collision), k.body() (gravity), k.color(), "tag" ]).
 - Stick to supported primitives: k.rect, k.circle, k.sprite, k.text. Do NOT invent \`k.poly\`; it is not available in the installed KAPLAY version.
+- k.text() parses \`[name]…[/name]\` as STYLED-TEXT MARKUP. Never put a bare square bracket in a text string: \`k.text("[G] Gummies  [C] Chocolates")\` throws "Styled text error: unclosed tags G,C" at runtime even though the build passes. Write labels without brackets ("G - Gummies"), close the tag (\`[red]Score[/red]\`), or escape it (\`\\\\[G]\`).
 - Input: k.onKeyDown/onKeyPress, k.onMouseMove/onMousePress, k.onTouchStart.
 - Collisions: entity.onCollide("tag", (other) => …).
 - Scenes: k.scene("play", () => …) then k.go("play") / k.go("over", score).

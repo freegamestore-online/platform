@@ -150,6 +150,119 @@ describe("checkBuildSanity — KAPLAY build hazards", () => {
   });
 });
 
+// The candy-shop failure (2026-08-09): KAPLAY parses [name]…[/name] as styled
+// text, so bare bracket labels threw "Styled text error: unclosed tags G,C,H" at
+// runtime while tsc and vite build both passed.
+describe("checkBuildSanity — KAPLAY unclosed styled-text tags", () => {
+  const kaplayFiles = (game: string) =>
+    new Map([
+      ["web/package.json", JSON.stringify({ dependencies: { kaplay: "^3001.0.19" } })],
+      ["web/src/game.ts", game],
+    ]);
+
+  it("blocks the candy-shop pattern and names every unclosed tag", () => {
+    const findings = checkBuildSanity(
+      kaplayFiles(`k.add([\n  k.text("[G] Gummies   [C] Chocolates   [H] Hard", { size: 18 }),\n]);`),
+    );
+    const styled = findings.find((x) => x.problem.includes("unclosed styled-text tag"));
+    expect(styled).toBeDefined();
+    expect(styled?.problem).toContain("[G], [C], [H]");
+    expect(styled?.problem).toContain("line 2");
+    // The message must explain the escape, not just report the fault.
+    expect(styled?.problem).toContain("escape");
+  });
+
+  it("allows a balanced [red]…[/red] pair", () => {
+    expect(checkBuildSanity(kaplayFiles(`k.text("[red]Score[/red]: 0", { size: 24 });`))).toHaveLength(0);
+  });
+
+  it("flags a bracket key hint — KAPLAY would throw on it too", () => {
+    const findings = checkBuildSanity(kaplayFiles(`k.text("Press [Enter] to start");`));
+    expect(findings.some((x) => x.problem.includes("[Enter]"))).toBe(true);
+  });
+
+  it("stays silent on an interpolated index — an interpolated [0] is not markup", () => {
+    expect(checkBuildSanity(kaplayFiles(`k.text(\`\${items[0]} pts\`, { size: 16 });`))).toHaveLength(0);
+  });
+
+  it("stays silent on an escaped bracket", () => {
+    expect(checkBuildSanity(kaplayFiles(`k.text("\\\\[G] Gummies");`))).toHaveLength(0);
+  });
+
+  it("ignores brackets in the options argument, which KAPLAY never parses", () => {
+    expect(checkBuildSanity(kaplayFiles(`k.text("Score", { font: fonts[0], styles: { red: { color: c } } });`))).toHaveLength(0);
+  });
+
+  it("does not fire for a non-KAPLAY project using the same string", () => {
+    const files = new Map([
+      ["web/package.json", JSON.stringify({ dependencies: { "pixi.js": "^8.0.0" } })],
+      ["web/src/game.ts", `k.text("[G] Gummies   [C] Chocolates");`],
+    ]);
+    expect(checkBuildSanity(files)).toHaveLength(0);
+  });
+
+  it("reports each offending call separately", () => {
+    const findings = checkBuildSanity(
+      kaplayFiles(`k.text("[G] Gummies");\nk.text("[red]ok[/red]");\nk.text("[H] Hard");`),
+    );
+    const styled = findings.filter((x) => x.problem.includes("unclosed styled-text tag"));
+    expect(styled).toHaveLength(2);
+    expect(styled[0].problem).toContain("line 1");
+    expect(styled[1].problem).toContain("line 3");
+  });
+
+  it("handles a k.text call whose string sits on a later line", () => {
+    const findings = checkBuildSanity(kaplayFiles(`k.text(\n  "[G] Gummies",\n  { size: 18 },\n);`));
+    expect(findings.some((x) => x.problem.includes("[G]"))).toBe(true);
+  });
+
+  // The ACTUAL candy-shop shape (f48a74b^): the tags never appear at the call
+  // site — they live in a data table that is passed to k.text() a scope away.
+  // Scanning only the call's own argument missed the real bug entirely.
+  it("catches tags reached indirectly through a data table", () => {
+    const game = `const buttons = [
+  { cat: "gummy", x: 10, label: "GUM\\n[G]" },
+  { cat: "choco", x: 20, label: "CHO\\n[C]" },
+];
+for (const b of buttons) {
+  k.add([k.text(b.label, { size: 14 }), k.pos(b.x, 0)]);
+}`;
+    const findings = checkBuildSanity(kaplayFiles(game));
+    expect(findings.some((x) => x.problem.includes("[G]"))).toBe(true);
+    expect(findings.some((x) => x.problem.includes("[C]"))).toBe(true);
+  });
+
+  it("does not scan a file that never renders text", () => {
+    const files = new Map([
+      ["web/package.json", JSON.stringify({ dependencies: { kaplay: "^3001.0.19" } })],
+      ["web/src/game.ts", `k.text("ok");`],
+      ["web/src/data.ts", `export const KEYS = { g: "[G] Gummies" };`],
+    ]);
+    expect(checkBuildSanity(files)).toHaveLength(0);
+  });
+
+  // Live candy-shop code today. An interpolated index must never block a deploy.
+  it("stays silent on the real interpolated-stock pattern shipping in production", () => {
+    const game = `k.text(\`\${tier.name}  ×\${gs.stock[cat]}\`, { size: 13, font: "sans-serif" });`;
+    expect(checkBuildSanity(kaplayFiles(game))).toHaveLength(0);
+  });
+
+  // KAPLAY's own matcher is /^\[(\/)?(\w+?)\]/ — a space or "!" fails it, so
+  // "[Type it!]" is plain text and must not be reported.
+  it("does not flag a bracket phrase KAPLAY would not parse as a tag", () => {
+    expect(checkBuildSanity(kaplayFiles(`k.text("STOP\\n[Type it!]", { size: 14 });`))).toHaveLength(0);
+  });
+
+  it("survives a JSX apostrophe without swallowing the file", () => {
+    const src = `export function Hud() {\n  return <h1>Don't stop</h1>;\n}\nk.text("[G] Gummies");`;
+    const files = new Map([
+      ["web/package.json", JSON.stringify({ dependencies: { kaplay: "^3001.0.19" } })],
+      ["web/src/Hud.tsx", src],
+    ]);
+    expect(checkBuildSanity(files).some((x) => x.problem.includes("[G]"))).toBe(true);
+  });
+});
+
 describe("checkBuildSanity — NO false positives on real-world patterns", () => {
   it("passes JSX with apostrophes, regex, templates, generics, division", () => {
     const src = `import { useState } from "react";

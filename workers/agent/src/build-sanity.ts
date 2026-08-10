@@ -164,6 +164,125 @@ function findKaplayTextTemplateIssues(content: string): { line: number; text: st
   return findings;
 }
 
+/** Index of the closing quote for the literal opening at `start`, or -1 if it
+ *  never closes on this line (normal strings) / in this file (templates). */
+function endOfStringLiteral(src: string, start: number): number {
+  const quote = src[start];
+  for (let i = start + 1; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === "\\") {
+      i++;
+      continue;
+    }
+    if (ch === quote) return i;
+    // A single/double-quoted string cannot span a newline — if we reach one the
+    // scan was wrong about where the literal started; bail rather than guess.
+    if (quote !== "`" && ch === "\n") return -1;
+  }
+  return -1;
+}
+
+/** Raw source of every string literal in `src`, with its start offset. A quote
+ *  that never closes on its line is a JSX apostrophe ("Don't"), not a literal —
+ *  skip just that character rather than letting it swallow the rest of the file
+ *  (the failure mode that sank the prototype brace-balance check). */
+function stringLiteralsIn(src: string, from = 0): { content: string; index: number }[] {
+  const out: { content: string; index: number }[] = [];
+  for (let i = from; i < src.length; i++) {
+    const ch = src[i];
+    if (ch !== '"' && ch !== "'" && ch !== "`") continue;
+    const end = endOfStringLiteral(src, i);
+    if (end === -1) continue;
+    out.push({ content: src.slice(i + 1, end), index: i });
+    i = end;
+  }
+  return out;
+}
+
+/** Drop `${…}` spans — an interpolation is evaluated before KAPLAY ever sees the
+ *  string, so `k.text(\`${items[0]} pts\`)` must not read as a "[0]" tag. */
+function stripInterpolations(literal: string): string {
+  let out = "";
+  let i = 0;
+  while (i < literal.length) {
+    if (literal[i] === "$" && literal[i + 1] === "{") {
+      let depth = 1;
+      i += 2;
+      while (i < literal.length && depth > 0) {
+        if (literal[i] === "{") depth++;
+        else if (literal[i] === "}") depth--;
+        i++;
+      }
+      continue;
+    }
+    out += literal[i];
+    i++;
+  }
+  return out;
+}
+
+/** KAPLAY's styled-text markup. Mirrors the engine's own matcher exactly —
+ *  kaplay@3001 compileStyledText uses `/^\[(\/)?(\w+?)\]/`, so a tag name is
+ *  \w+ and nothing else: "[Type it!]" is plain text to KAPLAY (the space and "!"
+ *  fail the match), which is why the candy-shop crash named only G, C and H. */
+const STYLED_TAG_RE = /\[(\/?)(\w+)\]/g;
+
+/** Style-tag names opened but never closed in one literal, in source order.
+ *  Counts opens vs closes per name rather than emulating KAPLAY's tag STACK, so
+ *  a mis-NESTED but balanced string ("[a][b][/a][/b]", which KAPLAY rejects as
+ *  "mismatched tags") is deliberately not reported. That direction only ever
+ *  costs a missed hit; the reverse would block a working deploy. */
+function unclosedStyledTags(literal: string): string[] {
+  const text = stripInterpolations(literal);
+  const opens = new Map<string, number>();
+  const closes = new Map<string, number>();
+  const order: string[] = [];
+  for (const m of text.matchAll(STYLED_TAG_RE)) {
+    if (m.index === undefined) continue;
+    // Any backslash immediately before the "[" means the author was escaping it.
+    // Checked loosely (not odd/even): we are reading RAW source, where the same
+    // runtime "\[" can appear as `\[` or `\\[` depending on the quoting. Skipping
+    // both costs a missed hit; guessing wrong would BLOCK a legitimate deploy.
+    if (m.index > 0 && text[m.index - 1] === "\\") continue;
+    const name = m[2];
+    if (m[1]) {
+      closes.set(name, (closes.get(name) ?? 0) + 1);
+    } else {
+      if (!opens.has(name)) order.push(name);
+      opens.set(name, (opens.get(name) ?? 0) + 1);
+    }
+  }
+  return order.filter((name) => (opens.get(name) ?? 0) > (closes.get(name) ?? 0));
+}
+
+/**
+ * KAPLAY parses `[name]…[/name]` inside `text()` as styled-text markup, so a bare
+ * square-bracket label — `k.text("[G] Gummies  [C] Chocolates")` — throws
+ * "Styled text error: unclosed tags G,C" at RUNTIME. The code is valid
+ * TypeScript, so tsc and vite build both pass and only the CI smoke test catches
+ * it (candy-shop, 2026-08-09).
+ *
+ * EVERY string literal in the file is inspected, not just the argument at the
+ * `k.text(…)` call site: in the candy-shop code the tags lived in a data table
+ * (`{ cat: "gummy", label: "GUM\n[G]" }`) that was passed to `k.text(b.label)`
+ * one scope away, and that indirection is the common shape in generated code.
+ * The file must render text at all (`k.text(` present) for the check to run.
+ *
+ * `${…}` spans are removed and escaped brackets are skipped, so a balanced
+ * `[red]Score[/red]` and an interpolated `${gs.stock[cat]}` both stay silent —
+ * the latter is live candy-shop code today and must never block a deploy.
+ */
+function findKaplayStyledTextIssues(content: string): { line: number; tags: string[] }[] {
+  // No text rendering in this file ⇒ nothing can reach the styled-text parser.
+  if (!/\bk\.text\s*\(/.test(content)) return [];
+  const findings: { line: number; tags: string[] }[] = [];
+  for (const literal of stringLiteralsIn(content)) {
+    const tags = unclosedStyledTags(literal.content);
+    if (tags.length) findings.push({ line: lineNumberAt(content, literal.index), tags });
+  }
+  return findings;
+}
+
 function findPackedPixiColors(content: string): { line: number; literal: string }[] {
   const findings: { line: number; literal: string }[] = [];
   const seen = new Set<string>();
@@ -244,6 +363,18 @@ export function checkBuildSanity(files: Map<string, string>): SanityFinding[] {
           problem:
             `likely unterminated template literal in KAPLAY text on line ${issue.line}: \`${issue.text}\`. ` +
             `Close template strings with a backtick, for example \`k.text(\`Score: \${score}\`, { size: 24 })\`.`,
+        });
+      }
+
+      for (const issue of findKaplayStyledTextIssues(content)) {
+        const list = issue.tags.map((t) => `[${t}]`).join(", ");
+        findings.push({
+          file: path,
+          problem:
+            `KAPLAY text() on line ${issue.line} contains unclosed styled-text tag(s): ${list}. ` +
+            `KAPLAY parses [name]…[/name] as markup, so a bare bracket label throws ` +
+            `"Styled text error: unclosed tags ${issue.tags.join(",")}" at runtime — the build itself passes. ` +
+            `Either close them (\`[${issue.tags[0]}]…[/${issue.tags[0]}]\`) or escape the bracket as \`\\\\[${issue.tags[0]}]\`.`,
         });
       }
     }
