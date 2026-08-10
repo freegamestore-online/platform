@@ -20,6 +20,7 @@ function makeCtx(
     },
     config: appsConfig,
     onDeployStatus: vi.fn() as (status: DeployStatus) => void,
+    onAppBound: vi.fn() as (id: string, name: string) => void,
     onAppDeployed: vi.fn() as (id: string, name: string) => void,
   };
 }
@@ -98,7 +99,9 @@ describe("executeInfraTool — missing id validation (no 'undefined' writes)", (
       ctx,
     );
     expect(result).toContain("requires a valid app id");
-    // onAppDeployed must NOT have been called with an undefined id.
+    // Neither callback may fire with an undefined id — onAppBound is the one
+    // that would bind the session to it.
+    expect(ctx.onAppBound).not.toHaveBeenCalled();
     expect(ctx.onAppDeployed).not.toHaveBeenCalled();
   });
 

@@ -49,6 +49,11 @@ interface SessionState {
   deployLog: DeployLogEntry[];
   appId: string | null;
   appName: string | null;
+  /** Has a CI-confirmed successful build ever shipped for this session's app?
+   *  Set only from executeDeploy's onAppDeployed (phase === "live"). `appId`
+   *  answers "which app does this session own" (set before the build, retained
+   *  through failures); this answers "did it actually ship" (#9). */
+  deployed?: boolean;
   /** Turn-scoped flag: the agent tried to `deploy` a DIFFERENT game id than the
    *  one this chat is bound to (a "build a new game here" attempt, which
    *  executeDeploy rejects). While set, push_update is refused so the agent
@@ -901,12 +906,20 @@ export class AgentSession implements DurableObject {
                     this.persistNow().catch((e) => this.logError("deploy", `persist error: ${String(e)}`));
                   }
                 },
-                onAppDeployed: (id, name) => {
+                onAppBound: (id, name) => {
                   session.appId = id;
                   session.appName = name;
                   session.deployStatus = { phase: "provisioning", steps: [] };
                   setActivity({ phase: "provisioning", detail: "Provisioning" });
                   this.persistNow().catch((e) => this.logError("deploy", `persist provision: ${String(e)}`));
+                },
+                onAppDeployed: () => {
+                  // Reached only on a CI-confirmed live build. `deployed` is the
+                  // session's own record that this game genuinely shipped at least
+                  // once — distinct from appId, which is set at bind time and
+                  // survives a failed build so the agent can push_update a fix.
+                  session.deployed = true;
+                  this.persistNow().catch((e) => this.logError("deploy", `persist deployed: ${String(e)}`));
                 },
               });
             } catch (err) {

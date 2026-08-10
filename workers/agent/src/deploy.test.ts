@@ -35,7 +35,15 @@ describe("deploy uniqueness — apps", () => {
         name: "deploy",
         input: { id: "taken-app", name: "Taken", category: "utilities", icon: "x", iconBg: "#fff", description: "test" },
       },
-      { appId: null, files: new Map(), env: mockEnv, config: appsConfig, onDeployStatus: vi.fn(), onAppDeployed: vi.fn() },
+      {
+        appId: null,
+        files: new Map(),
+        env: mockEnv,
+        config: appsConfig,
+        onDeployStatus: vi.fn(),
+        onAppBound: vi.fn(),
+        onAppDeployed: vi.fn(),
+      },
     );
     expect(result).toContain("already taken");
   });
@@ -55,7 +63,15 @@ describe("deploy uniqueness — apps", () => {
         name: "deploy",
         input: { id: "new-app", name: "New", category: "utilities", icon: "x", iconBg: "#fff", description: "test" },
       },
-      { appId: null, files: new Map(), env: mockEnv, config: appsConfig, onDeployStatus: vi.fn(), onAppDeployed: vi.fn() },
+      {
+        appId: null,
+        files: new Map(),
+        env: mockEnv,
+        config: appsConfig,
+        onDeployStatus: vi.fn(),
+        onAppBound: vi.fn(),
+        onAppDeployed: vi.fn(),
+      },
     );
     // Should NOT contain "already taken" — it passed uniqueness check
     expect(result).not.toContain("already taken");
@@ -73,7 +89,15 @@ describe("deploy uniqueness — apps", () => {
         name: "deploy",
         input: { id: "my-app", name: "My App", category: "utilities", icon: "x", iconBg: "#fff", description: "test" },
       },
-      { appId: "my-app", files: new Map(), env: mockEnv, config: appsConfig, onDeployStatus: vi.fn(), onAppDeployed: vi.fn() },
+      {
+        appId: "my-app",
+        files: new Map(),
+        env: mockEnv,
+        config: appsConfig,
+        onDeployStatus: vi.fn(),
+        onAppBound: vi.fn(),
+        onAppDeployed: vi.fn(),
+      },
     );
     // Should NOT contain "already taken" — uniqueness check was skipped
     expect(result).not.toContain("already taken");
@@ -90,7 +114,15 @@ describe("deploy uniqueness — games", () => {
         name: "deploy",
         input: { id: "taken-game", name: "Taken", category: "arcade", icon: "x", iconBg: "#fff", description: "test" },
       },
-      { appId: null, files: new Map(), env: mockEnv, config: gamesConfig, onDeployStatus: vi.fn(), onAppDeployed: vi.fn() },
+      {
+        appId: null,
+        files: new Map(),
+        env: mockEnv,
+        config: gamesConfig,
+        onDeployStatus: vi.fn(),
+        onAppBound: vi.fn(),
+        onAppDeployed: vi.fn(),
+      },
     );
     expect(result).toContain("already taken");
     // Verify it checked the correct org
@@ -106,7 +138,15 @@ describe("deploy ID validation edge cases", () => {
         name: "deploy",
         input: { id: "my app", name: "My App", category: "utilities", icon: "x", iconBg: "#fff", description: "test" },
       },
-      { appId: null, files: new Map(), env: mockEnv, config: appsConfig, onDeployStatus: vi.fn(), onAppDeployed: vi.fn() },
+      {
+        appId: null,
+        files: new Map(),
+        env: mockEnv,
+        config: appsConfig,
+        onDeployStatus: vi.fn(),
+        onAppBound: vi.fn(),
+        onAppDeployed: vi.fn(),
+      },
     );
     expect(result).toContain("invalid");
   });
@@ -118,7 +158,15 @@ describe("deploy ID validation edge cases", () => {
         name: "deploy",
         input: { id: "MyApp", name: "My App", category: "utilities", icon: "x", iconBg: "#fff", description: "test" },
       },
-      { appId: null, files: new Map(), env: mockEnv, config: appsConfig, onDeployStatus: vi.fn(), onAppDeployed: vi.fn() },
+      {
+        appId: null,
+        files: new Map(),
+        env: mockEnv,
+        config: appsConfig,
+        onDeployStatus: vi.fn(),
+        onAppBound: vi.fn(),
+        onAppDeployed: vi.fn(),
+      },
     );
     expect(result).toContain("invalid");
   });
@@ -130,7 +178,15 @@ describe("deploy ID validation edge cases", () => {
         name: "deploy",
         input: { id: "-my-app", name: "My App", category: "utilities", icon: "x", iconBg: "#fff", description: "test" },
       },
-      { appId: null, files: new Map(), env: mockEnv, config: appsConfig, onDeployStatus: vi.fn(), onAppDeployed: vi.fn() },
+      {
+        appId: null,
+        files: new Map(),
+        env: mockEnv,
+        config: appsConfig,
+        onDeployStatus: vi.fn(),
+        onAppBound: vi.fn(),
+        onAppDeployed: vi.fn(),
+      },
     );
     expect(result).toContain("invalid");
   });
@@ -142,7 +198,15 @@ describe("deploy ID validation edge cases", () => {
         name: "deploy",
         input: { id: "my-app-", name: "My App", category: "utilities", icon: "x", iconBg: "#fff", description: "test" },
       },
-      { appId: null, files: new Map(), env: mockEnv, config: appsConfig, onDeployStatus: vi.fn(), onAppDeployed: vi.fn() },
+      {
+        appId: null,
+        files: new Map(),
+        env: mockEnv,
+        config: appsConfig,
+        onDeployStatus: vi.fn(),
+        onAppBound: vi.fn(),
+        onAppDeployed: vi.fn(),
+      },
     );
     expect(result).toContain("invalid");
   });
@@ -154,7 +218,15 @@ describe("deploy ID validation edge cases", () => {
         name: "deploy",
         input: { id: "a".repeat(59), name: "Long", category: "utilities", icon: "x", iconBg: "#fff", description: "test" },
       },
-      { appId: null, files: new Map(), env: mockEnv, config: appsConfig, onDeployStatus: vi.fn(), onAppDeployed: vi.fn() },
+      {
+        appId: null,
+        files: new Map(),
+        env: mockEnv,
+        config: appsConfig,
+        onDeployStatus: vi.fn(),
+        onAppBound: vi.fn(),
+        onAppDeployed: vi.fn(),
+      },
     );
     expect(result).toContain("invalid");
   });
@@ -171,7 +243,15 @@ describe("deploy ID validation edge cases", () => {
         name: "deploy",
         input: { id: "my-cool-app-2", name: "Cool", category: "utilities", icon: "x", iconBg: "#fff", description: "test" },
       },
-      { appId: null, files: new Map(), env: mockEnv, config: appsConfig, onDeployStatus: vi.fn(), onAppDeployed: vi.fn() },
+      {
+        appId: null,
+        files: new Map(),
+        env: mockEnv,
+        config: appsConfig,
+        onDeployStatus: vi.fn(),
+        onAppBound: vi.fn(),
+        onAppDeployed: vi.fn(),
+      },
     );
     expect(result).not.toContain("invalid");
   });
@@ -184,7 +264,15 @@ describe("deploy ID validation edge cases", () => {
 
     const result = await executeInfraTool(
       { id: "1", name: "deploy", input: { id: "x", name: "X", category: "utilities", icon: "x", iconBg: "#fff", description: "test" } },
-      { appId: null, files: new Map(), env: mockEnv, config: appsConfig, onDeployStatus: vi.fn(), onAppDeployed: vi.fn() },
+      {
+        appId: null,
+        files: new Map(),
+        env: mockEnv,
+        config: appsConfig,
+        onDeployStatus: vi.fn(),
+        onAppBound: vi.fn(),
+        onAppDeployed: vi.fn(),
+      },
     );
     expect(result).not.toContain("invalid");
   });
@@ -247,7 +335,15 @@ describe("infra tool authorization", () => {
   it("rejects get_build_logs for different app", async () => {
     const result = await executeInfraTool(
       { id: "1", name: "get_build_logs", input: { id: "other-app" } },
-      { appId: "my-app", files: new Map(), env: mockEnv, config: appsConfig, onDeployStatus: vi.fn(), onAppDeployed: vi.fn() },
+      {
+        appId: "my-app",
+        files: new Map(),
+        env: mockEnv,
+        config: appsConfig,
+        onDeployStatus: vi.fn(),
+        onAppBound: vi.fn(),
+        onAppDeployed: vi.fn(),
+      },
     );
     expect(result).toContain("you can only");
     expect(result).toContain("my-app");
@@ -256,7 +352,15 @@ describe("infra tool authorization", () => {
   it("rejects check_deploy_status for different app", async () => {
     const result = await executeInfraTool(
       { id: "1", name: "check_deploy_status", input: { id: "other-app" } },
-      { appId: "my-app", files: new Map(), env: mockEnv, config: appsConfig, onDeployStatus: vi.fn(), onAppDeployed: vi.fn() },
+      {
+        appId: "my-app",
+        files: new Map(),
+        env: mockEnv,
+        config: appsConfig,
+        onDeployStatus: vi.fn(),
+        onAppBound: vi.fn(),
+        onAppDeployed: vi.fn(),
+      },
     );
     expect(result).toContain("you can only");
   });
@@ -264,7 +368,15 @@ describe("infra tool authorization", () => {
   it("rejects get_ci_results with no deployed app", async () => {
     const result = await executeInfraTool(
       { id: "1", name: "get_ci_results", input: { id: "some-app" } },
-      { appId: null, files: new Map(), env: mockEnv, config: appsConfig, onDeployStatus: vi.fn(), onAppDeployed: vi.fn() },
+      {
+        appId: null,
+        files: new Map(),
+        env: mockEnv,
+        config: appsConfig,
+        onDeployStatus: vi.fn(),
+        onAppBound: vi.fn(),
+        onAppDeployed: vi.fn(),
+      },
     );
     expect(result).toContain("no app deployed yet");
   });
@@ -272,7 +384,15 @@ describe("infra tool authorization", () => {
   it("uses game noun in error messages for games config", async () => {
     const result = await executeInfraTool(
       { id: "1", name: "push_update", input: { id: "some-game" } },
-      { appId: null, files: new Map(), env: mockEnv, config: gamesConfig, onDeployStatus: vi.fn(), onAppDeployed: vi.fn() },
+      {
+        appId: null,
+        files: new Map(),
+        env: mockEnv,
+        config: gamesConfig,
+        onDeployStatus: vi.fn(),
+        onAppBound: vi.fn(),
+        onAppDeployed: vi.fn(),
+      },
     );
     expect(result).toContain("no game deployed yet");
   });

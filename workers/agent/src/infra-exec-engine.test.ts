@@ -21,6 +21,7 @@ function makeCtx(engine?: string) {
     config: gamesConfig,
     engine,
     onDeployStatus: vi.fn(),
+    onAppBound: vi.fn(),
     onAppDeployed: vi.fn(),
   };
 }

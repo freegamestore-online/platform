@@ -21,6 +21,16 @@ interface ExecContext {
    *  generated repo's template (and its lockfile) match the session's code. */
   engine?: string;
   onDeployStatus: (status: DeployStatus) => void;
+  /** Bind the session to an app id BEFORE the build runs. This is the
+   *  AUTHORIZATION write: push_update / get_build_logs / check_deploy_status all
+   *  gate on ctx.appId, so they must work during the same deploy turn — and on a
+   *  failed build, so the agent can self-fix. It says "this session owns this id",
+   *  NOT "this app shipped". */
+  onAppBound: (id: string, name: string) => void;
+  /** Mark the app actually DEPLOYED. Fires only after CI confirms the build
+   *  succeeded (finalStatus.phase === "live"). Anything that reports shipped
+   *  state to a creator or operator must hang off this, never off onAppBound —
+   *  the two were one callback, so a red build still read as deployed (#9). */
   onAppDeployed: (id: string, name: string) => void;
 }
 
@@ -126,7 +136,9 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
   // so this must stay the single canonical substitution — hence the shared fn.
   substituteAppName(ctx.files, appId, appName);
 
-  ctx.onAppDeployed(appId, appName);
+  // Bind the id only — the build hasn't run yet. Marking "deployed" here is what
+  // let a red CI run read as a shipped game (#9).
+  ctx.onAppBound(appId, appName);
 
   let deployError: string | null = null;
   let finalStatus: DeployStatus | null = null;
@@ -166,7 +178,13 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
   // TS narrows finalStatus to never inside the closure; read via a widened local.
   const last = finalStatus as DeployStatus | null;
   if (last?.phase === "error") return `Deploy FAILED: ${last.error || "the build did not complete"}. Use get_build_logs to see why, fix the code, then push_update.`;
-  if (last?.phase === "live") return `Deploy succeeded. Live: ${last.appUrl}`;
+  if (last?.phase === "live") {
+    // CI confirmed the build. Only now is the app genuinely deployed.
+    ctx.onAppDeployed(appId, appName);
+    return `Deploy succeeded. Live: ${last.appUrl}`;
+  }
+  // Still building on timeout: NOT deployed. Leave the session bound-but-pending
+  // so a later poll resolves it, rather than claiming a ship that never happened.
   return `Deploy pushed — CI is still building. Poll check_deploy_status; if it ends in failure, use get_build_logs and push_update a fix.`;
 }
 
