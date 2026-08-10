@@ -5,6 +5,7 @@ import { Button, buttonClass } from "../components/ui";
 import { Nav } from "../components/Nav";
 import { ChatMessage } from "../components/ChatMessage";
 import { DeployLog } from "../components/DeployLog";
+import { DeployErrorNotice } from "../components/DeployErrorNotice";
 import { GameVersion } from "../components/GameVersion";
 import { ProjectPicker } from "../components/ProjectPicker";
 import { StudioToolbar } from "../components/StudioToolbar";
@@ -17,6 +18,7 @@ import { resolveInitialProvider, PROVIDERS } from "../lib/ai-keys";
 import { resolveModel, firstModelFor } from "../lib/models";
 import { getKidMode } from "../lib/kidMode";
 import { clearInitialBuild, isInitialBuildComplete, readInitialBuild, type InitialBuild } from "../lib/initialBuild";
+import { RETRY_DEPLOY_PROMPT } from "../lib/deployError";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -392,6 +394,11 @@ export function Create() {
   // Default is Claude; the auto-pick effect moves to whatever provider the user
   // has a key for, so this rarely fires for someone who's added a key.
   const needsKey = !keys.loading && !keys.providerUsable(provider);
+  // A failed deploy gets its own full surface (DeployErrorNotice) in the chat
+  // column. The game is provisioned before the session exists, so appId is set
+  // even when the FIRST build fails — which is exactly when retry matters most.
+  const deployFailed = agent.deployState?.phase === "error";
+  const canRetryDeploy = deployFailed && !agent.isStreaming && !!currentProject?.appId;
 
   if (!user) {
     return (
@@ -473,7 +480,18 @@ export function Create() {
               </button>
             </div>
           )}
-          {agent.error && (
+          {deployFailed && agent.deployState && (
+            <DeployErrorNotice
+              state={agent.deployState}
+              appId={currentProject?.appId}
+              canRetry={canRetryDeploy}
+              onRetry={() => sendPrompt(RETRY_DEPLOY_PROMPT)}
+            />
+          )}
+          {/* Suppressed on a deploy failure: agent.error holds the SAME string
+              the notice above already shows in full, and stacking both (plus
+              DeployLog on desktop) reported one failure three times. */}
+          {agent.error && !deployFailed && (
             <div
               role="alert"
               className="shrink-0 flex items-start gap-2 px-3 py-2 text-sm"
@@ -552,7 +570,7 @@ export function Create() {
           </div>
           <div className="flex-1 flex items-center justify-center" style={{ background: "#000", minHeight: 0, overflow: "hidden" }}>
             {showPreview ? <iframe src={previewUrl} title="Preview" className="w-full h-full border-0" style={{ background: "#000" }} /> :
-             previewStatusState ? <DeployLog state={previewStatusState} /> :
+             previewStatusState ? <DeployLog state={previewStatusState} appId={currentProject?.appId} /> :
              <div className="text-center p-8 flex flex-col items-center gap-3 max-w-sm" style={{ color: "var(--muted)" }}>
                {hasBuilt || firstBuildNeedsDeploy ? (
                  <>

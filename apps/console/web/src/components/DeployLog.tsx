@@ -1,3 +1,4 @@
+import { deployErrorInfo } from "../lib/deployError";
 import type { DeployState } from "../types";
 
 // FGS games deploy on Path B: admin provisions (repo from template + host route
@@ -13,7 +14,7 @@ const DEPLOY_PIPELINE = [
 
 const PHASE_ORDER = ["provisioning", "pushing", "building", "live"];
 
-export function DeployLog({ state }: { state: DeployState }) {
+export function DeployLog({ state, appId }: { state: DeployState; appId?: string | null }) {
   const isError = state.phase === "error";
   // "error" is not itself a pipeline phase, so locate progress via the phase
   // that was active when the failure happened (captured by useAgent). On the
@@ -89,7 +90,9 @@ export function DeployLog({ state }: { state: DeployState }) {
       {state.phase === "error" && (
         <div className="mt-4 p-3 rounded-xl" style={{ background: "color-mix(in srgb, #ef4444 8%, var(--surface))", border: "1px solid color-mix(in srgb, #ef4444 25%, var(--border))" }}>
           <div className="font-bold text-sm mb-1" style={{ color: "#ef4444" }}>Deploy failed</div>
-          <pre className="text-xs whitespace-pre-wrap" style={{ color: "var(--muted)" }}>{state.error}</pre>
+          {/* Same helper as DeployErrorNotice, so an empty `error` gets the same
+              actionable fallback here as it does in the chat column. */}
+          <pre className="text-xs whitespace-pre-wrap" style={{ color: "var(--muted)" }}>{deployErrorInfo(state, appId).message}</pre>
         </div>
       )}
     </div>
