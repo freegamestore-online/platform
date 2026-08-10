@@ -3,9 +3,13 @@ import type { CheckResult } from '../types.js';
 
 /**
  * Games should save progress and/or high scores locally so players feel
- * rewarded for returning. This check looks for `localStorage` usage or
- * the `useHighScore` hook import (from the games SDK) anywhere under
- * `web/src/`.
+ * rewarded for returning. This check looks for `localStorage` usage
+ * anywhere under `web/src/`.
+ *
+ * Direct `localStorage` use is the only signal: the games SDK ships no
+ * local-persistence hook (its own localStorage keys are just the theme
+ * and text-size prefs), and `useLeaderboard` posts to the remote
+ * leaderboard Worker rather than storing anything locally.
  *
  * WARN level — not every game needs persistence. Short-session games
  * (Flappy Bird, reaction timers) are perfectly valid without saves. The
@@ -18,7 +22,6 @@ export async function checkUsesLocalStorage(source: FileSource): Promise<CheckRe
     const content = await source.read(path);
     if (!content) continue;
 
-    // Direct localStorage usage
     if (/\blocalStorage\b/.test(content)) {
       return {
         name: 'Local storage for progress/scores',
@@ -26,24 +29,15 @@ export async function checkUsesLocalStorage(source: FileSource): Promise<CheckRe
         detail: `localStorage usage found in ${path}`,
       };
     }
-
-    // SDK high-score hook
-    if (/\buseHighScore\b/.test(content)) {
-      return {
-        name: 'Local storage for progress/scores',
-        status: 'pass',
-        detail: `useHighScore hook found in ${path}`,
-      };
-    }
   }
 
   return {
     name: 'Local storage for progress/scores',
     status: 'warn',
-    detail: 'no localStorage usage or useHighScore hook found in web/src/',
+    detail: 'no localStorage usage found in web/src/',
     suggestions: [
       'Consider saving high scores or progress with localStorage so returning players feel rewarded.',
-      'The games SDK provides a useHighScore() hook that handles serialisation and leaderboard formatting.',
+      'To also publish scores to the global leaderboard, use useLeaderboard() from @freegamestore/games — it complements a local save rather than replacing it.',
     ],
   };
 }

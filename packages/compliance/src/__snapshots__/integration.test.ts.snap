@@ -95,12 +95,12 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
     ],
   },
   {
-    "detail": "no localStorage usage or useHighScore hook found in web/src/",
+    "detail": "no localStorage usage found in web/src/",
     "name": "Local storage for progress/scores",
     "status": "warn",
     "suggestions": [
       "Consider saving high scores or progress with localStorage so returning players feel rewarded.",
-      "The games SDK provides a useHighScore() hook that handles serialisation and leaderboard formatting.",
+      "To also publish scores to the global leaderboard, use useLeaderboard() from @freegamestore/games — it complements a local save rather than replacing it.",
     ],
   },
   {
