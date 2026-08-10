@@ -1,0 +1,33 @@
+name = "freegamestore-host"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+workers_dev = false
+
+# Emit invocation logs to Workers Logs so host failures (D1/R2 blips → 503,
+# unexpected exceptions) are visible without redeploying with extra logging.
+[observability]
+enabled = true
+
+# Catches every subdomain under freegamestore.online. The wildcard DNS
+# record + wildcard SSL cert on the zone makes Path B scale to thousands
+# of games without per-game DNS / CF Pages provisioning.
+[[routes]]
+pattern = "*.freegamestore.online/*"
+zone_name = "freegamestore.online"
+
+# Apex (freegamestore.online) stays on the storefront's CF Pages project
+# — this worker only catches subdomains.
+
+[[r2_buckets]]
+binding = "APPS"
+bucket_name = "fgs-games"
+
+# FGS-owned D1. The `routes` table is zone-scoped (`zone` column) and this
+# worker only ever queries `zone = 'freegamestore.online'`, so FGS serving no
+# longer depends on the FAS store's D1. Admin writes the same rows here via
+# insertHostRoute() in fgs/admin/src/publish.ts. (Split off the shared `fas`
+# D1 on 2026-07-05 — see fgs-architecture-review Tier-2 #1.)
+[[d1_databases]]
+binding = "DB"
+database_name = "freegamestore"
+database_id = "a122751e-11a2-466e-b403-4696f3f4a698"

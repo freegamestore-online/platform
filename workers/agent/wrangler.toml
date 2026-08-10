@@ -1,0 +1,57 @@
+name = "freegamestore-agent"
+main = "src/index.ts"
+compatibility_date = "2025-05-01"
+workers_dev = true
+
+[[routes]]
+pattern = "agent.freegamestore.online/*"
+zone_name = "freegamestore.online"
+
+[durable_objects]
+bindings = [
+  { name = "SESSION", class_name = "AgentSession" }
+]
+
+# Direct worker-to-worker invocation of the auth worker (verifies fgs_token via
+# /me). A service binding bypasses the public edge — fetching auth's public
+# hostname from here loops back and times out (CF error 522).
+[[services]]
+binding = "AUTH"
+service = "freegamestore-auth"
+
+# Path B provisioning: register the D1 host route + store registry entry through
+# the admin worker (it owns the shared `fas` routes D1 + registry writes). The
+# agent holds no user fgs_token at deploy time, so it authenticates with the
+# shared INTERNAL_TOKEN secret (X-Internal-Token) instead.
+[[services]]
+binding = "ADMIN"
+service = "freegamestore-admin"
+
+# Shared with auth + leaderboard. Holds the per-user `agent_sessions` index
+# (session metadata only; conversation state stays in the Durable Object).
+[[d1_databases]]
+binding = "DB"
+database_name = "leaderboard"
+database_id = "165c4cb7-d93e-4afc-8ac0-7d48e627efaa"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AgentSession"]
+
+# Persistent Workers Logs — so prod incidents are debuggable after the fact
+# (a live `wrangler tail` only sees traffic while it's attached). Sampled at
+# 100% given current low volume; dial head_sampling_rate down if volume grows.
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[vars]
+CF_ACCOUNT_ID = "c1089bfcc43c1c6c2aa89e584e86f0bc"
+STORE = "games"
+VAPID_PUBLIC_KEY = "BB9nIKmrVFJQJWZ4MiXzv3eN2UfGtuXESqVlQMobPiZiTmS8cQuldiXNreIV03dCo3Jkkflk6UDoAzWMvhNXCuw"
+
+# Secrets (set via `wrangler secret put`):
+# GITHUB_TOKEN       — org-level PAT for provisioning + pushing code (needs `workflow` scope for Path B)
+# CF_API_TOKEN       — Cloudflare API token; used ONLY by the legacy FAS apps CF Pages branch
+# INTERNAL_TOKEN     — shared secret to auth Path B provision calls to the admin worker
+# (FGS games are Path B: R2 + D1 host route via the admin worker — no CF Pages.)

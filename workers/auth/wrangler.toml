@@ -1,0 +1,19 @@
+name = "freegamestore-auth"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+workers_dev = false
+
+[observability]
+enabled = true
+
+[vars]
+GOOGLE_CLIENT_ID = "891659870829-33roehi8s6431qb5n4jt3bn6rd29gnuq.apps.googleusercontent.com"
+
+[[routes]]
+pattern = "auth.freegamestore.online/*"
+zone_name = "freegamestore.online"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "leaderboard"
+database_id = "165c4cb7-d93e-4afc-8ac0-7d48e627efaa"

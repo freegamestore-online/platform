@@ -1,0 +1,100 @@
+name: Weekly platform audit
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: jobs/auditor
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout freegamestore registry
+        uses: actions/checkout@v4
+        with:
+          repository: freegamestore-online/freegamestore
+          path: jobs/auditor/freegamestore
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: jobs/auditor/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Run audit
+        run: npx tsx audit.ts --all --output audit-results.json
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-results
+          path: jobs/auditor/audit-results.json
+          retention-days: 90
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: audit
+    permissions:
+      contents: write
+    timeout-minutes: 10
+    steps:
+      - name: Check GH_ADMIN_TOKEN
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_ADMIN_TOKEN:-}" ]; then
+            echo "::error::GH_ADMIN_TOKEN secret is not set or is empty. Cannot publish audit results."
+            exit 1
+          fi
+          echo "GH_ADMIN_TOKEN is present."
+        env:
+          GH_ADMIN_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
+
+      - name: Download audit results
+        uses: actions/download-artifact@v4
+        with:
+          name: audit-results
+
+      - name: Check audit-results.json exists
+        run: |
+          set -euo pipefail
+          if [ ! -f audit-results.json ]; then
+            echo "::error::audit-results.json not found after download. Cannot publish."
+            exit 1
+          fi
+          echo "audit-results.json found ($(wc -c < audit-results.json) bytes)."
+
+      - name: Publish results to store repo
+        env:
+          GH_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          echo "Encoding audit-results.json to base64..."
+          B64=$(base64 < audit-results.json | tr -d '\n')
+
+          echo "Fetching current file SHA (if exists)..."
+          SHA=$(gh api repos/freegamestore-online/freegamestore/contents/data/quality-results.json \
+            --jq '.sha' 2>/dev/null || true)
+
+          echo "Uploading quality-results.json to freegamestore-online/freegamestore..."
+          if [ -n "$SHA" ]; then
+            gh api -X PUT repos/freegamestore-online/freegamestore/contents/data/quality-results.json \
+              -f "message=data: weekly quality audit $(date -u +%F)" \
+              -f "content=${B64}" \
+              -f "sha=${SHA}"
+          else
+            gh api -X PUT repos/freegamestore-online/freegamestore/contents/data/quality-results.json \
+              -f "message=data: weekly quality audit $(date -u +%F)" \
+              -f "content=${B64}"
+          fi
+
+          echo "Publish complete."

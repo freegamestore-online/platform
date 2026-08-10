@@ -1,0 +1,22 @@
+name = "freegamestore-leaderboard"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[observability]
+enabled = true
+
+# After creating the D1 database, fill in the database_id:
+#   wrangler d1 create leaderboard
+# Then paste the id below.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "leaderboard"
+database_id = "165c4cb7-d93e-4afc-8ac0-7d48e627efaa"
+migrations_dir = "migrations"
+
+[[routes]]
+pattern = "leaderboard.freegamestore.online/*"
+zone_name = "freegamestore.online"
+
+# JWT_SECRET must be set via `wrangler secret put JWT_SECRET`

@@ -1,0 +1,2374 @@
+{
+  "version": "0.44.0",
+  "timestamp": "2026-07-04T04:51:00.354Z",
+  "score": 88,
+  "grade": "B",
+  "checks": [
+    {
+      "name": "structure",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "found": [
+          "package.json",
+          "tsconfig.json",
+          "LICENSE",
+          ".gitignore",
+          "README.md",
+          "lockfile"
+        ],
+        "missing": [],
+        "srcFiles": 84,
+        "testFiles": 39,
+        "testRatio": "46%",
+        "monorepo": true,
+        "workspaceTool": "pnpm",
+        "packages": 3
+      },
+      "issues": [],
+      "duration": 19
+    },
+    {
+      "name": "lint",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "errors": 0,
+        "warnings": 0,
+        "linter": "biome"
+      },
+      "issues": [],
+      "duration": 335
+    },
+    {
+      "name": "types",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "errors": 0,
+        "ok": true
+      },
+      "issues": [],
+      "duration": 1623
+    },
+    {
+      "name": "type-safety",
+      "score": 99,
+      "grade": "A",
+      "details": {
+        "as any": 1,
+        ": any": 1,
+        "filesScanned": 84,
+        "totalUnsafe": 2
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "as any",
+          "file": "packages/compliance/src/checks/no-any-types.ts",
+          "line": 63,
+          "rule": "unsafe-type"
+        },
+        {
+          "severity": "warning",
+          "message": ": any",
+          "file": "packages/compliance/src/checks/no-any-types.ts",
+          "line": 63,
+          "rule": "unsafe-type"
+        }
+      ],
+      "duration": 10
+    },
+    {
+      "name": "standards",
+      "score": 88,
+      "grade": "B",
+      "details": {
+        "filesScanned": 84,
+        "codeSmells": 4,
+        "largeFiles": 5,
+        "namingViolations": 0
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "TS file uses PascalCase but doesn't export a class: useAuth.ts",
+          "file": "packages/games-sdk/src/useAuth.ts",
+          "rule": "file-naming"
+        },
+        {
+          "severity": "warning",
+          "message": "TS file uses PascalCase but doesn't export a class: useGameSounds.ts",
+          "file": "packages/games-sdk/src/useGameSounds.ts",
+          "rule": "file-naming"
+        },
+        {
+          "severity": "warning",
+          "message": "TS file uses PascalCase but doesn't export a class: useLeaderboard.ts",
+          "file": "packages/games-sdk/src/useLeaderboard.ts",
+          "rule": "file-naming"
+        },
+        {
+          "severity": "warning",
+          "message": "420 lines — consider splitting (penalty grows exponentially above 300)",
+          "file": "packages/compliance/src/checks/pwa-offline.ts",
+          "rule": "large-file"
+        },
+        {
+          "severity": "warning",
+          "message": "339 lines — consider splitting (penalty grows exponentially above 300)",
+          "file": "packages/compliance/src/live/index.ts",
+          "rule": "large-file"
+        },
+        {
+          "severity": "warning",
+          "message": "436 lines — consider splitting (penalty grows exponentially above 300)",
+          "file": "packages/fgs-cli/src/commands/publish.ts",
+          "rule": "large-file"
+        },
+        {
+          "severity": "warning",
+          "message": "407 lines — consider splitting (penalty grows exponentially above 300)",
+          "file": "packages/fgs-cli/src/commands/screencheck.ts",
+          "rule": "large-file"
+        },
+        {
+          "severity": "warning",
+          "message": "488 lines — consider splitting (penalty grows exponentially above 300)",
+          "file": "packages/games-sdk/src/GameTopbar.tsx",
+          "rule": "large-file"
+        },
+        {
+          "severity": "warning",
+          "message": "console.log in production code",
+          "file": "packages/compliance/src/checks/no-console-log.ts",
+          "line": 55,
+          "rule": "console.log"
+        },
+        {
+          "severity": "warning",
+          "message": "console.log in production code",
+          "file": "packages/compliance/src/checks/no-console-log.ts",
+          "line": 62,
+          "rule": "console.log"
+        },
+        {
+          "severity": "warning",
+          "message": "Non-HTTPS URL — use https://",
+          "file": "packages/compliance/src/checks/no-external-scripts.ts",
+          "line": 50,
+          "rule": "http:// URL"
+        },
+        {
+          "severity": "warning",
+          "message": "Non-HTTPS URL — use https://",
+          "file": "packages/fgs-cli/src/commands/screencheck.ts",
+          "line": 386,
+          "rule": "http:// URL"
+        }
+      ],
+      "duration": 10
+    },
+    {
+      "name": "complexity",
+      "score": 84,
+      "grade": "B",
+      "details": {
+        "totalFiles": 84,
+        "totalLines": 8766,
+        "longFunctions": 19,
+        "complexFunctions": 4,
+        "functionCount": 244
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "checkBundleSize: 78 lines (max 60)",
+          "file": "packages/compliance/src/checks/bundle-size.ts",
+          "line": 27,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "if: 64 lines (max 60)",
+          "file": "packages/compliance/src/checks/no-brand-overrides.ts",
+          "line": 150,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "checkNoExternalFetch: 61 lines (max 60)",
+          "file": "packages/compliance/src/checks/no-external-fetch.ts",
+          "line": 48,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "checkNoExternalFetch: complexity 16 (max 15)",
+          "file": "packages/compliance/src/checks/no-external-fetch.ts",
+          "line": 48,
+          "rule": "high-complexity"
+        },
+        {
+          "severity": "warning",
+          "message": "checkNoScroll: 72 lines (max 60)",
+          "file": "packages/compliance/src/checks/no-scroll.ts",
+          "line": 26,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "checkPwaOffline: 228 lines (max 60)",
+          "file": "packages/compliance/src/checks/pwa-offline.ts",
+          "line": 46,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "checkPwaOffline: complexity 38 (max 15)",
+          "file": "packages/compliance/src/checks/pwa-offline.ts",
+          "line": 46,
+          "rule": "high-complexity"
+        },
+        {
+          "severity": "warning",
+          "message": "checkSdkVersion: 65 lines (max 60)",
+          "file": "packages/compliance/src/checks/sdk-version.ts",
+          "line": 28,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "checkTechVersions: 85 lines (max 60)",
+          "file": "packages/compliance/src/checks/tech-versions.ts",
+          "line": 59,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "checkTechVersions: complexity 20 (max 15)",
+          "file": "packages/compliance/src/checks/tech-versions.ts",
+          "line": 59,
+          "rule": "high-complexity"
+        },
+        {
+          "severity": "warning",
+          "message": "checkTypescriptStrict: 92 lines (max 60)",
+          "file": "packages/compliance/src/checks/typescript-strict.ts",
+          "line": 22,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "resolveFromFlags: complexity 19 (max 15)",
+          "file": "packages/fgs-cli/src/commands/publish.ts",
+          "line": 286,
+          "rule": "high-complexity"
+        },
+        {
+          "severity": "warning",
+          "message": "GameAuth: 167 lines (max 60)",
+          "file": "packages/games-sdk/src/GameAuth.tsx",
+          "line": 12,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "GameButton: 70 lines (max 60)",
+          "file": "packages/games-sdk/src/GameButton.tsx",
+          "line": 47,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "GameModal: 82 lines (max 60)",
+          "file": "packages/games-sdk/src/GameModal.tsx",
+          "line": 15,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "GameOverScreen: 80 lines (max 60)",
+          "file": "packages/games-sdk/src/GameOverScreen.tsx",
+          "line": 20,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "GameShell: 80 lines (max 60)",
+          "file": "packages/games-sdk/src/GameShell.tsx",
+          "line": 28,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "GameThemeToggle: 74 lines (max 60)",
+          "file": "packages/games-sdk/src/GameThemeToggle.tsx",
+          "line": 35,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "GameTopbar: 280 lines (max 60)",
+          "file": "packages/games-sdk/src/GameTopbar.tsx",
+          "line": 73,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "RulesOverlay: 75 lines (max 60)",
+          "file": "packages/games-sdk/src/GameTopbar.tsx",
+          "line": 354,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "Leaderboard: 64 lines (max 60)",
+          "file": "packages/games-sdk/src/Leaderboard.tsx",
+          "line": 10,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "useGameSounds: 117 lines (max 60)",
+          "file": "packages/games-sdk/src/useGameSounds.ts",
+          "line": 9,
+          "rule": "long-function"
+        },
+        {
+          "severity": "warning",
+          "message": "useLeaderboard: 88 lines (max 60)",
+          "file": "packages/games-sdk/src/useLeaderboard.ts",
+          "line": 34,
+          "rule": "long-function"
+        }
+      ],
+      "duration": 8
+    },
+    {
+      "name": "duplication",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "filesScanned": 84,
+        "totalSourceLines": 8766,
+        "duplicateBlocks": 22,
+        "duplicationPct": "2.5%",
+        "tool": "built-in"
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "Duplicate (34 lines): const ch = block[i]!;",
+          "file": "packages/compliance/src/lib/inline-manifest.ts:137 ↔ packages/compliance/src/lib/inline-manifest.ts:52",
+          "rule": "duplicate-code",
+          "snippet": "const ch = block[i]!;"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (14 lines): name: 'Tech stack versions',",
+          "file": "packages/compliance/src/checks/tech-versions.ts:74 ↔ packages/compliance/src/checks/sdk-version.ts:43",
+          "rule": "duplicate-code",
+          "snippet": "name: 'Tech stack versions',"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (14 lines): const issues: string[] = [];",
+          "file": "packages/compliance/src/checks/unsafe-vh.ts:27 ↔ packages/compliance/src/checks/no-payment-sdk.ts:83",
+          "rule": "duplicate-code",
+          "snippet": "const issues: string[] = [];"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (14 lines): title={`Theme: ${pref}`}",
+          "file": "packages/games-sdk/src/GameThemeToggle.tsx:55 ↔ packages/games-sdk/src/GameTextSizeToggle.tsx:48",
+          "rule": "duplicate-code",
+          "snippet": "title={`Theme: ${pref}`}"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (13 lines): const VIEWPORT_LOCK = /(?:height|max-height)\\s*:\\s*100(?:s?vh)|GameShell|@freegamestore\\/games/i;",
+          "file": "packages/compliance/src/checks/no-scroll.ts:108 ↔ packages/compliance/src/checks/no-any-types.ts:20",
+          "rule": "duplicate-code",
+          "snippet": "const VIEWPORT_LOCK = /(?:height|max-height)\\s*:\\s*100(?:s?vh)|GameShell|@freegamestore\\/games/i;"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (13 lines): ];",
+          "file": "packages/compliance/src/checks/unsafe-vh.ts:99 ↔ packages/compliance/src/checks/no-any-types.ts:20",
+          "rule": "duplicate-code",
+          "snippet": "];"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (12 lines): export function stripCommentsForExt(src: string, ext: string): string {",
+          "file": "packages/compliance/src/lib/strip.ts:112 ↔ packages/compliance/src/lib/strip.ts:91",
+          "rule": "duplicate-code",
+          "snippet": "export function stripCommentsForExt(src: string, ext: string): string {"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (10 lines): 'Use them as your body / display fonts in CSS so storefront and apps feel consistent.',",
+          "file": "packages/compliance/src/checks/brand-fonts.ts:39 ↔ packages/compliance/src/checks/audio-mute-respect.ts:69",
+          "rule": "duplicate-code",
+          "snippet": "'Use them as your body / display fonts in CSS so storefront and apps feel consistent.',"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (10 lines): return content.slice(start, i);",
+          "file": "packages/compliance/src/checks/no-brand-overrides.ts:252 ↔ packages/compliance/src/checks/audio-mute-respect.ts:71",
+          "rule": "duplicate-code",
+          "snippet": "return content.slice(start, i);"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (10 lines): return false;",
+          "file": "packages/compliance/src/checks/no-external-fetch.ts:39 ↔ packages/compliance/src/checks/audio-mute-respect.ts:71",
+          "rule": "duplicate-code",
+          "snippet": "return false;"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (10 lines): 'If you need monetisation, publish on ProGameStore (progamestore.online) instead.',",
+          "file": "packages/compliance/src/checks/no-payment-sdk.ts:116 ↔ packages/compliance/src/checks/audio-mute-respect.ts:69",
+          "rule": "duplicate-code",
+          "snippet": "'If you need monetisation, publish on ProGameStore (progamestore.online) instead.',"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (10 lines): 'Or do a project-wide find/replace: APPNAME → your app id (lowercase, hyphenated).',",
+          "file": "packages/compliance/src/checks/no-placeholders.ts:47 ↔ packages/compliance/src/checks/audio-mute-respect.ts:69",
+          "rule": "duplicate-code",
+          "snippet": "'Or do a project-wide find/replace: APPNAME → your app id (lowercase, hyphenated).',"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (10 lines): 'Configure providers (GA4, Plausible, custom <head>) via PUT /v1/apps/<id>/analytics — the loader em",
+          "file": "packages/compliance/src/checks/no-tracking.ts:116 ↔ packages/compliance/src/checks/audio-mute-respect.ts:69",
+          "rule": "duplicate-code",
+          "snippet": "'Configure providers (GA4, Plausible, custom <head>) via PUT /v1/apps/<id>/analytics — the loader emits the right tags so policy can evolve without redeploying every app.',"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (9 lines): const INLINE_STYLE_RE = /\\bstyle\\s*=\\s*\\{\\{/g;",
+          "file": "packages/compliance/src/checks/no-excessive-inline-styles.ts:24 ↔ packages/compliance/src/checks/no-any-types.ts:20",
+          "rule": "duplicate-code",
+          "snippet": "const INLINE_STYLE_RE = /\\bstyle\\s*=\\s*\\{\\{/g;"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (9 lines): const CSS_VAR_DEF_RE = /--[\\w-]+\\s*:\\s*#/;",
+          "file": "packages/compliance/src/checks/no-hardcoded-colors.ts:32 ↔ packages/compliance/src/checks/no-any-types.ts:20",
+          "rule": "duplicate-code",
+          "snippet": "const CSS_VAR_DEF_RE = /--[\\w-]+\\s*:\\s*#/;"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (8 lines): const hits: { file: string; matches: string[] }[] = [];",
+          "file": "packages/compliance/src/checks/no-payment-sdk.ts:83 ↔ packages/compliance/src/checks/audio-mute-respect.ts:30",
+          "rule": "duplicate-code",
+          "snippet": "const hits: { file: string; matches: string[] }[] = [];"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (8 lines): if (c === '/' && src[i + 1] === '*') {",
+          "file": "packages/compliance/src/lib/strip.ts:138 ↔ packages/compliance/src/lib/strip.ts:72",
+          "rule": "duplicate-code",
+          "snippet": "if (c === '/' && src[i + 1] === '*') {"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (8 lines): const isTTY = Boolean(process.stdout.isTTY) && process.env.NO_COLOR !== '1';",
+          "file": "packages/fgs-cli/src/commands/doctor.ts:11 ↔ packages/fgs-cli/src/commands/check.ts:31",
+          "rule": "duplicate-code",
+          "snippet": "const isTTY = Boolean(process.stdout.isTTY) && process.env.NO_COLOR !== '1';"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (7 lines): const SCAN_EXTS = new Set(['.ts', '.tsx']);",
+          "file": "packages/compliance/src/checks/no-console-log.ts:20 ↔ packages/compliance/src/checks/no-any-types.ts:20",
+          "rule": "duplicate-code",
+          "snippet": "const SCAN_EXTS = new Set(['.ts', '.tsx']);"
+        },
+        {
+          "severity": "warning",
+          "message": "Duplicate (7 lines): export async function checkNoConsoleLog(source: FileSource): Promise<CheckResult> {",
+          "file": "packages/compliance/src/checks/no-console-log.ts:28 ↔ packages/compliance/src/checks/no-any-types.ts:34",
+          "rule": "duplicate-code",
+          "snippet": "export async function checkNoConsoleLog(source: FileSource): Promise<CheckResult> {"
+        }
+      ],
+      "duration": 173
+    },
+    {
+      "name": "error-handling",
+      "score": 91,
+      "grade": "A",
+      "details": {
+        "emptyCatch": 0,
+        "throwString": 0,
+        "floatingPromises": 2,
+        "jsonParseUnsafe": 0,
+        "infiniteLoops": 0,
+        "hasErrorBoundary": false,
+        "tool": "built-in"
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": ".catch(() => {}) silently swallows errors — at least log them",
+          "file": "packages/games-sdk/src/useGameSounds.ts",
+          "line": 34,
+          "rule": "swallowed-promise"
+        },
+        {
+          "severity": "warning",
+          "message": "Floating promise — missing await, .catch(), or return",
+          "file": "packages/games-sdk/src/useLeaderboard.ts",
+          "line": 65,
+          "rule": "floating-promise"
+        },
+        {
+          "severity": "warning",
+          "message": "Floating promise — missing await, .catch(), or return",
+          "file": "packages/games-sdk/src/useLeaderboard.ts",
+          "line": 72,
+          "rule": "floating-promise"
+        },
+        {
+          "severity": "info",
+          "message": "Catch block may expose error details to caller — consider logging and returning a safe message",
+          "file": "packages/fgs-cli/src/commands/publish.ts",
+          "line": 338,
+          "rule": "error-info-leak"
+        },
+        {
+          "severity": "info",
+          "message": "Catch block may expose error details to caller — consider logging and returning a safe message",
+          "file": "packages/fgs-cli/src/commands/publish.ts",
+          "line": 339,
+          "rule": "error-info-leak"
+        },
+        {
+          "severity": "info",
+          "message": "Catch block may expose error details to caller — consider logging and returning a safe message",
+          "file": "packages/fgs-cli/src/commands/publish.ts",
+          "line": 340,
+          "rule": "error-info-leak"
+        },
+        {
+          "severity": "info",
+          "message": "Catch block may expose error details to caller — consider logging and returning a safe message",
+          "file": "packages/fgs-cli/src/commands/publish.ts",
+          "line": 341,
+          "rule": "error-info-leak"
+        },
+        {
+          "severity": "info",
+          "message": "Catch block may expose error details to caller — consider logging and returning a safe message",
+          "file": "packages/fgs-cli/src/one-shot/doctor.ts",
+          "line": 86,
+          "rule": "error-info-leak"
+        },
+        {
+          "severity": "info",
+          "message": "Server with no process.on('unhandledRejection') handler — uncaught promise rejections crash in Node 15+",
+          "rule": "no-rejection-handler"
+        },
+        {
+          "severity": "warning",
+          "message": "React project with no Error Boundary",
+          "rule": "no-error-boundary"
+        }
+      ],
+      "duration": 13
+    },
+    {
+      "name": "react",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "jsxFiles": 11,
+        "conditionalHooks": 0,
+        "missingKeys": 0,
+        "indexKeys": 0,
+        "propSpreading": 0,
+        "inlineHandlers": 5,
+        "effectNoDeps": 0,
+        "domManipulation": 0,
+        "suggestion": "Install eslint-plugin-react-hooks for deeper React analysis: pnpm add -D eslint-plugin-react-hooks"
+      },
+      "issues": [],
+      "duration": 5
+    },
+    {
+      "name": "accessibility",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "jsxFiles": 11,
+        "missingAlt": 0,
+        "clickDiv": 0,
+        "missingLabel": 0,
+        "missingLang": 0,
+        "autofocus": 0,
+        "positiveTabindex": 0,
+        "suggestion": "Install eslint-plugin-jsx-a11y for deeper accessibility analysis: pnpm add -D eslint-plugin-jsx-a11y"
+      },
+      "issues": [],
+      "duration": 5
+    },
+    {
+      "name": "docs",
+      "score": 80,
+      "grade": "B",
+      "details": {
+        "readmeLines": 34,
+        "totalExports": 127,
+        "documentedExports": 64,
+        "documentedPct": "50%",
+        "hasChangelog": true
+      },
+      "issues": [],
+      "duration": 4
+    },
+    {
+      "name": "best-practices",
+      "score": 80,
+      "grade": "B",
+      "details": {
+        "practicesChecked": 30,
+        "practicesFollowed": 20,
+        "adherence": "67%"
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "fleet-health.yml: no explicit permissions block — defaults to read-write (overly permissive)",
+          "file": ".github/workflows/fleet-health.yml",
+          "rule": "explicit-permissions"
+        },
+        {
+          "severity": "info",
+          "message": "quality.yml: 1 third-party actions not pinned to SHA — vulnerable to supply chain attacks",
+          "file": ".github/workflows/quality.yml",
+          "rule": "pin-actions-to-sha"
+        },
+        {
+          "severity": "info",
+          "message": "No CODEOWNERS file — no mandatory reviewers for critical paths",
+          "rule": "codeowners"
+        },
+        {
+          "severity": "info",
+          "message": "No pre-commit hooks (husky/lefthook) — lint/format not enforced before commit",
+          "rule": "pre-commit-hooks"
+        },
+        {
+          "severity": "info",
+          "message": "No Dependabot/Renovate — dependency updates are manual and often forgotten",
+          "rule": "automated-deps"
+        },
+        {
+          "severity": "info",
+          "message": "No test coverage configuration — coverage thresholds not enforced",
+          "rule": "coverage-config"
+        },
+        {
+          "severity": "info",
+          "message": "No commit convention enforcement (commitlint/changesets) — changelog generation is manual",
+          "rule": "conventional-commits"
+        }
+      ],
+      "duration": 2
+    },
+    {
+      "name": "env-validation",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "envFiles": [],
+        "hasExample": false
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "git-hygiene",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "skipped": true,
+        "reason": "runner error: require is not defined"
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "memory-safety",
+      "score": 95,
+      "grade": "A",
+      "details": {
+        "totalFiles": 84,
+        "affectedFiles": 2,
+        "patterns": 2
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "Event listener registered — ensure .off() or .removeListener() on cleanup",
+          "file": "packages/fgs-cli/src/lib/open.ts",
+          "line": 12,
+          "rule": "emitter-leak"
+        },
+        {
+          "severity": "warning",
+          "message": "Event listener registered — ensure .off() or .removeListener() on cleanup",
+          "file": "packages/fgs-cli/src/one-shot/doctor.ts",
+          "line": 121,
+          "rule": "emitter-leak"
+        }
+      ],
+      "duration": 5
+    },
+    {
+      "name": "testing",
+      "score": 44,
+      "grade": "D",
+      "details": {
+        "pyramid": {
+          "unit": 36,
+          "integration": 1,
+          "component": 2,
+          "e2e": 0
+        },
+        "layersPresent": "3/4",
+        "e2eTool": "none",
+        "testFiles": 39,
+        "srcFiles": 84,
+        "pairing": "38%",
+        "quality": {
+          "assertionsPerTest": 1.7,
+          "mockRatio": 0.05,
+          "snapshotRatio": 0
+        }
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "No E2E test framework (Playwright/Cypress) — critical user flows untested",
+          "rule": "no-e2e-framework"
+        },
+        {
+          "severity": "info",
+          "message": "No test file for packages/compliance/src/checks/deploy-workflow.ts",
+          "file": "packages/compliance/src/checks/deploy-workflow.ts",
+          "rule": "untested-file"
+        },
+        {
+          "severity": "info",
+          "message": "No test file for packages/compliance/src/checks/game-naming.ts",
+          "file": "packages/compliance/src/checks/game-naming.ts",
+          "rule": "untested-file"
+        },
+        {
+          "severity": "info",
+          "message": "No test file for packages/compliance/src/checks/gitignore-complete.ts",
+          "file": "packages/compliance/src/checks/gitignore-complete.ts",
+          "rule": "untested-file"
+        },
+        {
+          "severity": "info",
+          "message": "No test file for packages/compliance/src/checks/no-any-types.ts",
+          "file": "packages/compliance/src/checks/no-any-types.ts",
+          "rule": "untested-file"
+        },
+        {
+          "severity": "info",
+          "message": "No test file for packages/compliance/src/checks/no-console-log.ts",
+          "file": "packages/compliance/src/checks/no-console-log.ts",
+          "rule": "untested-file"
+        },
+        {
+          "severity": "info",
+          "message": "...and 43 more untested files",
+          "rule": "untested-file"
+        }
+      ],
+      "duration": 721
+    },
+    {
+      "name": "secrets",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "secretsFound": 0,
+        "tool": "gitleaks"
+      },
+      "issues": [],
+      "duration": 319
+    },
+    {
+      "name": "security",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "filesScanned": 84,
+        "patterns": 0,
+        "cweCategories": 0,
+        "errors": 0,
+        "warnings": 0,
+        "storageAudit": {
+          "localStorageSecrets": 0,
+          "sessionStorageSecrets": 0,
+          "hardcodedCredentials": 0,
+          "insecureCookies": 0,
+          "total": 0
+        },
+        "tool": "built-in"
+      },
+      "issues": [],
+      "duration": 16
+    },
+    {
+      "name": "dependencies",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "vulnerabilities": {
+          "critical": 0,
+          "high": 0,
+          "moderate": 0,
+          "low": 0
+        },
+        "outdated": 1,
+        "majorOutdated": 0,
+        "licenses": {
+          "copyleft": 0,
+          "unknown": 1
+        }
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "message": "@biomejs/biome@2.4.15: license unknown — verify manually",
+          "rule": "unknown-license"
+        }
+      ],
+      "duration": 954
+    },
+    {
+      "name": "architecture",
+      "score": 98,
+      "grade": "A",
+      "details": {
+        "totalModules": 84,
+        "circularDeps": 0,
+        "godModules": 0,
+        "orphans": 0,
+        "highFanOut": 2,
+        "connectors": 0,
+        "graph": {
+          "packages/compliance/src/checks/audio-mute-respect.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/strip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/brand-fonts.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/brand-tokens.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/project-type.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/bundle-size.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/gzip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/claude-md-slim.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/dark-mode.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/project-type.ts",
+              "packages/compliance/src/lib/strip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/deploy-workflow.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/game-naming.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/gitignore-complete.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/html-meta.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/strip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/license-mit.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/manifest.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/inline-manifest.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/no-any-types.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/strip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/no-brand-overrides.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/strip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/no-console-log.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/strip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/no-cookies.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/strip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/no-env-production.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/no-excessive-inline-styles.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/strip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/no-external-fetch.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/strip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/no-external-scripts.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/strip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/no-hardcoded-colors.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/strip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/no-payment-sdk.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/strip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/no-placeholders.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/no-scroll.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/project-type.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/no-tracking.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/strip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/pwa-icons.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/pwa-maskable-icon.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/inline-manifest.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/pwa-meta.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/strip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/pwa-offline.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/strip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/react-strict-mode.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/sdk-version.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/store-link.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/tech-versions.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/typescript-strict.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/unsafe-vh.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/strip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/uses-game-sdk.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/strip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/uses-localstorage.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/checks/viewport-support.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/inline-manifest.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/checks"
+          },
+          "packages/compliance/src/index.ts": {
+            "imports": [
+              "packages/compliance/src/checks/audio-mute-respect.ts",
+              "packages/compliance/src/checks/brand-fonts.ts",
+              "packages/compliance/src/checks/brand-tokens.ts",
+              "packages/compliance/src/checks/bundle-size.ts",
+              "packages/compliance/src/checks/claude-md-slim.ts",
+              "packages/compliance/src/checks/dark-mode.ts",
+              "packages/compliance/src/checks/deploy-workflow.ts",
+              "packages/compliance/src/checks/game-naming.ts",
+              "packages/compliance/src/checks/gitignore-complete.ts",
+              "packages/compliance/src/checks/html-meta.ts",
+              "packages/compliance/src/checks/license-mit.ts",
+              "packages/compliance/src/checks/manifest.ts",
+              "packages/compliance/src/checks/no-any-types.ts",
+              "packages/compliance/src/checks/no-brand-overrides.ts",
+              "packages/compliance/src/checks/no-console-log.ts",
+              "packages/compliance/src/checks/no-cookies.ts",
+              "packages/compliance/src/checks/no-env-production.ts",
+              "packages/compliance/src/checks/no-excessive-inline-styles.ts",
+              "packages/compliance/src/checks/no-external-fetch.ts",
+              "packages/compliance/src/checks/no-external-scripts.ts",
+              "packages/compliance/src/checks/no-hardcoded-colors.ts",
+              "packages/compliance/src/checks/no-payment-sdk.ts",
+              "packages/compliance/src/checks/no-placeholders.ts",
+              "packages/compliance/src/checks/no-scroll.ts",
+              "packages/compliance/src/checks/no-tracking.ts",
+              "packages/compliance/src/checks/pwa-icons.ts",
+              "packages/compliance/src/checks/pwa-maskable-icon.ts",
+              "packages/compliance/src/checks/pwa-meta.ts",
+              "packages/compliance/src/checks/pwa-offline.ts",
+              "packages/compliance/src/checks/react-strict-mode.ts",
+              "packages/compliance/src/checks/sdk-version.ts",
+              "packages/compliance/src/checks/store-link.ts",
+              "packages/compliance/src/checks/tech-versions.ts",
+              "packages/compliance/src/checks/typescript-strict.ts",
+              "packages/compliance/src/checks/unsafe-vh.ts",
+              "packages/compliance/src/checks/uses-game-sdk.ts",
+              "packages/compliance/src/checks/uses-localstorage.ts",
+              "packages/compliance/src/checks/viewport-support.ts",
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/lib/project-type.ts",
+              "packages/compliance/src/types.ts",
+              "packages/compliance/src/lib/file-source.ts",
+              "packages/compliance/src/live/index.ts",
+              "packages/compliance/src/live/index.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [],
+            "dir": "packages/compliance/src"
+          },
+          "packages/compliance/src/lib/file-source.ts": {
+            "imports": [],
+            "importedBy": [
+              "packages/compliance/src/checks/audio-mute-respect.ts",
+              "packages/compliance/src/checks/brand-fonts.ts",
+              "packages/compliance/src/checks/brand-tokens.ts",
+              "packages/compliance/src/checks/bundle-size.ts",
+              "packages/compliance/src/checks/claude-md-slim.ts",
+              "packages/compliance/src/checks/dark-mode.ts",
+              "packages/compliance/src/checks/deploy-workflow.ts",
+              "packages/compliance/src/checks/game-naming.ts",
+              "packages/compliance/src/checks/gitignore-complete.ts",
+              "packages/compliance/src/checks/html-meta.ts",
+              "packages/compliance/src/checks/license-mit.ts",
+              "packages/compliance/src/checks/manifest.ts",
+              "packages/compliance/src/checks/no-any-types.ts",
+              "packages/compliance/src/checks/no-brand-overrides.ts",
+              "packages/compliance/src/checks/no-console-log.ts",
+              "packages/compliance/src/checks/no-cookies.ts",
+              "packages/compliance/src/checks/no-env-production.ts",
+              "packages/compliance/src/checks/no-excessive-inline-styles.ts",
+              "packages/compliance/src/checks/no-external-fetch.ts",
+              "packages/compliance/src/checks/no-external-scripts.ts",
+              "packages/compliance/src/checks/no-hardcoded-colors.ts",
+              "packages/compliance/src/checks/no-payment-sdk.ts",
+              "packages/compliance/src/checks/no-placeholders.ts",
+              "packages/compliance/src/checks/no-scroll.ts",
+              "packages/compliance/src/checks/no-tracking.ts",
+              "packages/compliance/src/checks/pwa-icons.ts",
+              "packages/compliance/src/checks/pwa-maskable-icon.ts",
+              "packages/compliance/src/checks/pwa-meta.ts",
+              "packages/compliance/src/checks/pwa-offline.ts",
+              "packages/compliance/src/checks/react-strict-mode.ts",
+              "packages/compliance/src/checks/sdk-version.ts",
+              "packages/compliance/src/checks/store-link.ts",
+              "packages/compliance/src/checks/tech-versions.ts",
+              "packages/compliance/src/checks/typescript-strict.ts",
+              "packages/compliance/src/checks/unsafe-vh.ts",
+              "packages/compliance/src/checks/uses-game-sdk.ts",
+              "packages/compliance/src/checks/uses-localstorage.ts",
+              "packages/compliance/src/checks/viewport-support.ts",
+              "packages/compliance/src/index.ts",
+              "packages/compliance/src/index.ts",
+              "packages/compliance/src/lib/project-type.ts"
+            ],
+            "dir": "packages/compliance/src/lib"
+          },
+          "packages/compliance/src/lib/gzip.ts": {
+            "imports": [],
+            "importedBy": [
+              "packages/compliance/src/checks/bundle-size.ts",
+              "packages/compliance/src/live/index.ts"
+            ],
+            "dir": "packages/compliance/src/lib"
+          },
+          "packages/compliance/src/lib/inline-manifest.ts": {
+            "imports": [],
+            "importedBy": [
+              "packages/compliance/src/checks/manifest.ts",
+              "packages/compliance/src/checks/pwa-maskable-icon.ts",
+              "packages/compliance/src/checks/viewport-support.ts"
+            ],
+            "dir": "packages/compliance/src/lib"
+          },
+          "packages/compliance/src/lib/project-type.ts": {
+            "imports": [
+              "packages/compliance/src/lib/file-source.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/checks/brand-tokens.ts",
+              "packages/compliance/src/checks/dark-mode.ts",
+              "packages/compliance/src/checks/no-scroll.ts",
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/lib"
+          },
+          "packages/compliance/src/lib/strip.ts": {
+            "imports": [],
+            "importedBy": [
+              "packages/compliance/src/checks/audio-mute-respect.ts",
+              "packages/compliance/src/checks/dark-mode.ts",
+              "packages/compliance/src/checks/html-meta.ts",
+              "packages/compliance/src/checks/no-any-types.ts",
+              "packages/compliance/src/checks/no-brand-overrides.ts",
+              "packages/compliance/src/checks/no-console-log.ts",
+              "packages/compliance/src/checks/no-cookies.ts",
+              "packages/compliance/src/checks/no-excessive-inline-styles.ts",
+              "packages/compliance/src/checks/no-external-fetch.ts",
+              "packages/compliance/src/checks/no-external-scripts.ts",
+              "packages/compliance/src/checks/no-hardcoded-colors.ts",
+              "packages/compliance/src/checks/no-payment-sdk.ts",
+              "packages/compliance/src/checks/no-tracking.ts",
+              "packages/compliance/src/checks/pwa-meta.ts",
+              "packages/compliance/src/checks/pwa-offline.ts",
+              "packages/compliance/src/checks/unsafe-vh.ts",
+              "packages/compliance/src/checks/uses-game-sdk.ts"
+            ],
+            "dir": "packages/compliance/src/lib"
+          },
+          "packages/compliance/src/live/index.ts": {
+            "imports": [
+              "packages/compliance/src/lib/gzip.ts",
+              "packages/compliance/src/types.ts"
+            ],
+            "importedBy": [
+              "packages/compliance/src/index.ts",
+              "packages/compliance/src/index.ts"
+            ],
+            "dir": "packages/compliance/src/live"
+          },
+          "packages/compliance/src/types.ts": {
+            "imports": [],
+            "importedBy": [
+              "packages/compliance/src/checks/audio-mute-respect.ts",
+              "packages/compliance/src/checks/brand-fonts.ts",
+              "packages/compliance/src/checks/brand-tokens.ts",
+              "packages/compliance/src/checks/bundle-size.ts",
+              "packages/compliance/src/checks/claude-md-slim.ts",
+              "packages/compliance/src/checks/dark-mode.ts",
+              "packages/compliance/src/checks/deploy-workflow.ts",
+              "packages/compliance/src/checks/game-naming.ts",
+              "packages/compliance/src/checks/gitignore-complete.ts",
+              "packages/compliance/src/checks/html-meta.ts",
+              "packages/compliance/src/checks/license-mit.ts",
+              "packages/compliance/src/checks/manifest.ts",
+              "packages/compliance/src/checks/no-any-types.ts",
+              "packages/compliance/src/checks/no-brand-overrides.ts",
+              "packages/compliance/src/checks/no-console-log.ts",
+              "packages/compliance/src/checks/no-cookies.ts",
+              "packages/compliance/src/checks/no-env-production.ts",
+              "packages/compliance/src/checks/no-excessive-inline-styles.ts",
+              "packages/compliance/src/checks/no-external-fetch.ts",
+              "packages/compliance/src/checks/no-external-scripts.ts",
+              "packages/compliance/src/checks/no-hardcoded-colors.ts",
+              "packages/compliance/src/checks/no-payment-sdk.ts",
+              "packages/compliance/src/checks/no-placeholders.ts",
+              "packages/compliance/src/checks/no-scroll.ts",
+              "packages/compliance/src/checks/no-tracking.ts",
+              "packages/compliance/src/checks/pwa-icons.ts",
+              "packages/compliance/src/checks/pwa-maskable-icon.ts",
+              "packages/compliance/src/checks/pwa-meta.ts",
+              "packages/compliance/src/checks/pwa-offline.ts",
+              "packages/compliance/src/checks/react-strict-mode.ts",
+              "packages/compliance/src/checks/sdk-version.ts",
+              "packages/compliance/src/checks/store-link.ts",
+              "packages/compliance/src/checks/tech-versions.ts",
+              "packages/compliance/src/checks/typescript-strict.ts",
+              "packages/compliance/src/checks/unsafe-vh.ts",
+              "packages/compliance/src/checks/uses-game-sdk.ts",
+              "packages/compliance/src/checks/uses-localstorage.ts",
+              "packages/compliance/src/checks/viewport-support.ts",
+              "packages/compliance/src/index.ts",
+              "packages/compliance/src/index.ts",
+              "packages/compliance/src/live/index.ts"
+            ],
+            "dir": "packages/compliance/src"
+          },
+          "packages/fgs-cli/src/commands/check.ts": {
+            "imports": [],
+            "importedBy": [
+              "packages/fgs-cli/src/commands/publish.ts",
+              "packages/fgs-cli/src/index.ts"
+            ],
+            "dir": "packages/fgs-cli/src/commands"
+          },
+          "packages/fgs-cli/src/commands/doctor.ts": {
+            "imports": [
+              "packages/fgs-cli/src/one-shot/doctor.ts"
+            ],
+            "importedBy": [
+              "packages/fgs-cli/src/index.ts"
+            ],
+            "dir": "packages/fgs-cli/src/commands"
+          },
+          "packages/fgs-cli/src/commands/init.ts": {
+            "imports": [
+              "packages/fgs-cli/src/lib/app-id.ts"
+            ],
+            "importedBy": [
+              "packages/fgs-cli/src/index.ts"
+            ],
+            "dir": "packages/fgs-cli/src/commands"
+          },
+          "packages/fgs-cli/src/commands/list.ts": {
+            "imports": [
+              "packages/fgs-cli/src/lib/config.ts",
+              "packages/fgs-cli/src/lib/history.ts"
+            ],
+            "importedBy": [
+              "packages/fgs-cli/src/index.ts"
+            ],
+            "dir": "packages/fgs-cli/src/commands"
+          },
+          "packages/fgs-cli/src/commands/login.ts": {
+            "imports": [
+              "packages/fgs-cli/src/lib/config.ts",
+              "packages/fgs-cli/src/lib/github.ts"
+            ],
+            "importedBy": [
+              "packages/fgs-cli/src/index.ts"
+            ],
+            "dir": "packages/fgs-cli/src/commands"
+          },
+          "packages/fgs-cli/src/commands/logout.ts": {
+            "imports": [
+              "packages/fgs-cli/src/lib/config.ts"
+            ],
+            "importedBy": [
+              "packages/fgs-cli/src/index.ts"
+            ],
+            "dir": "packages/fgs-cli/src/commands"
+          },
+          "packages/fgs-cli/src/commands/logs.ts": {
+            "imports": [
+              "packages/fgs-cli/src/lib/app-id.ts",
+              "packages/fgs-cli/src/lib/apps.ts"
+            ],
+            "importedBy": [
+              "packages/fgs-cli/src/index.ts"
+            ],
+            "dir": "packages/fgs-cli/src/commands"
+          },
+          "packages/fgs-cli/src/commands/publish-workflow.ts": {
+            "imports": [],
+            "importedBy": [
+              "packages/fgs-cli/src/commands/publish.ts"
+            ],
+            "dir": "packages/fgs-cli/src/commands"
+          },
+          "packages/fgs-cli/src/commands/publish.ts": {
+            "imports": [
+              "packages/fgs-cli/src/lib/app-id.ts",
+              "packages/fgs-cli/src/lib/config.ts",
+              "packages/fgs-cli/src/lib/open.ts",
+              "packages/fgs-cli/src/commands/check.ts",
+              "packages/fgs-cli/src/commands/publish-workflow.ts"
+            ],
+            "importedBy": [
+              "packages/fgs-cli/src/index.ts"
+            ],
+            "dir": "packages/fgs-cli/src/commands"
+          },
+          "packages/fgs-cli/src/commands/screencheck-matrix.ts": {
+            "imports": [],
+            "importedBy": [
+              "packages/fgs-cli/src/commands/screencheck-render.ts",
+              "packages/fgs-cli/src/commands/screencheck.ts",
+              "packages/fgs-cli/src/commands/screencheck.ts"
+            ],
+            "dir": "packages/fgs-cli/src/commands"
+          },
+          "packages/fgs-cli/src/commands/screencheck-render.ts": {
+            "imports": [
+              "packages/fgs-cli/src/commands/screencheck-matrix.ts"
+            ],
+            "importedBy": [
+              "packages/fgs-cli/src/commands/screencheck.ts"
+            ],
+            "dir": "packages/fgs-cli/src/commands"
+          },
+          "packages/fgs-cli/src/commands/screencheck.ts": {
+            "imports": [
+              "packages/fgs-cli/src/commands/screencheck-matrix.ts",
+              "packages/fgs-cli/src/commands/screencheck-matrix.ts",
+              "packages/fgs-cli/src/commands/screencheck-render.ts"
+            ],
+            "importedBy": [
+              "packages/fgs-cli/src/index.ts"
+            ],
+            "dir": "packages/fgs-cli/src/commands"
+          },
+          "packages/fgs-cli/src/commands/whoami.ts": {
+            "imports": [
+              "packages/fgs-cli/src/lib/config.ts"
+            ],
+            "importedBy": [
+              "packages/fgs-cli/src/index.ts"
+            ],
+            "dir": "packages/fgs-cli/src/commands"
+          },
+          "packages/fgs-cli/src/index.ts": {
+            "imports": [
+              "packages/fgs-cli/src/commands/check.ts",
+              "packages/fgs-cli/src/commands/doctor.ts",
+              "packages/fgs-cli/src/commands/init.ts",
+              "packages/fgs-cli/src/commands/list.ts",
+              "packages/fgs-cli/src/commands/login.ts",
+              "packages/fgs-cli/src/commands/logout.ts",
+              "packages/fgs-cli/src/commands/logs.ts",
+              "packages/fgs-cli/src/commands/publish.ts",
+              "packages/fgs-cli/src/commands/screencheck.ts",
+              "packages/fgs-cli/src/commands/whoami.ts"
+            ],
+            "importedBy": [],
+            "dir": "packages/fgs-cli/src"
+          },
+          "packages/fgs-cli/src/lib/app-id.ts": {
+            "imports": [],
+            "importedBy": [
+              "packages/fgs-cli/src/commands/init.ts",
+              "packages/fgs-cli/src/commands/logs.ts",
+              "packages/fgs-cli/src/commands/publish.ts"
+            ],
+            "dir": "packages/fgs-cli/src/lib"
+          },
+          "packages/fgs-cli/src/lib/apps.ts": {
+            "imports": [],
+            "importedBy": [
+              "packages/fgs-cli/src/commands/logs.ts"
+            ],
+            "dir": "packages/fgs-cli/src/lib"
+          },
+          "packages/fgs-cli/src/lib/config.ts": {
+            "imports": [],
+            "importedBy": [
+              "packages/fgs-cli/src/commands/list.ts",
+              "packages/fgs-cli/src/commands/login.ts",
+              "packages/fgs-cli/src/commands/logout.ts",
+              "packages/fgs-cli/src/commands/publish.ts",
+              "packages/fgs-cli/src/commands/whoami.ts",
+              "packages/fgs-cli/src/one-shot/doctor.ts"
+            ],
+            "dir": "packages/fgs-cli/src/lib"
+          },
+          "packages/fgs-cli/src/lib/github.ts": {
+            "imports": [],
+            "importedBy": [
+              "packages/fgs-cli/src/commands/login.ts"
+            ],
+            "dir": "packages/fgs-cli/src/lib"
+          },
+          "packages/fgs-cli/src/lib/history.ts": {
+            "imports": [],
+            "importedBy": [
+              "packages/fgs-cli/src/commands/list.ts"
+            ],
+            "dir": "packages/fgs-cli/src/lib"
+          },
+          "packages/fgs-cli/src/lib/open.ts": {
+            "imports": [],
+            "importedBy": [
+              "packages/fgs-cli/src/commands/publish.ts"
+            ],
+            "dir": "packages/fgs-cli/src/lib"
+          },
+          "packages/fgs-cli/src/lib/style.ts": {
+            "imports": [],
+            "importedBy": [],
+            "dir": "packages/fgs-cli/src/lib"
+          },
+          "packages/fgs-cli/src/one-shot/doctor.ts": {
+            "imports": [
+              "packages/fgs-cli/src/lib/config.ts"
+            ],
+            "importedBy": [
+              "packages/fgs-cli/src/commands/doctor.ts"
+            ],
+            "dir": "packages/fgs-cli/src/one-shot"
+          },
+          "packages/games-sdk/src/GameAuth.tsx": {
+            "imports": [
+              "packages/games-sdk/src/useAuth.ts"
+            ],
+            "importedBy": [
+              "packages/games-sdk/src/index.ts"
+            ],
+            "dir": "packages/games-sdk/src"
+          },
+          "packages/games-sdk/src/GameButton.tsx": {
+            "imports": [],
+            "importedBy": [
+              "packages/games-sdk/src/GameConfirm.tsx",
+              "packages/games-sdk/src/GameOverScreen.tsx",
+              "packages/games-sdk/src/index.ts"
+            ],
+            "dir": "packages/games-sdk/src"
+          },
+          "packages/games-sdk/src/GameConfirm.tsx": {
+            "imports": [
+              "packages/games-sdk/src/GameButton.tsx",
+              "packages/games-sdk/src/GameModal.tsx"
+            ],
+            "importedBy": [
+              "packages/games-sdk/src/index.ts"
+            ],
+            "dir": "packages/games-sdk/src"
+          },
+          "packages/games-sdk/src/GameModal.tsx": {
+            "imports": [],
+            "importedBy": [
+              "packages/games-sdk/src/GameConfirm.tsx",
+              "packages/games-sdk/src/index.ts"
+            ],
+            "dir": "packages/games-sdk/src"
+          },
+          "packages/games-sdk/src/GameOverScreen.tsx": {
+            "imports": [
+              "packages/games-sdk/src/GameButton.tsx"
+            ],
+            "importedBy": [
+              "packages/games-sdk/src/index.ts"
+            ],
+            "dir": "packages/games-sdk/src"
+          },
+          "packages/games-sdk/src/GameShell.tsx": {
+            "imports": [
+              "packages/games-sdk/src/SoundContext.tsx"
+            ],
+            "importedBy": [
+              "packages/games-sdk/src/index.ts"
+            ],
+            "dir": "packages/games-sdk/src"
+          },
+          "packages/games-sdk/src/GameTextSizeToggle.tsx": {
+            "imports": [],
+            "importedBy": [
+              "packages/games-sdk/src/index.ts"
+            ],
+            "dir": "packages/games-sdk/src"
+          },
+          "packages/games-sdk/src/GameThemeToggle.tsx": {
+            "imports": [],
+            "importedBy": [
+              "packages/games-sdk/src/index.ts"
+            ],
+            "dir": "packages/games-sdk/src"
+          },
+          "packages/games-sdk/src/GameTopbar.tsx": {
+            "imports": [
+              "packages/games-sdk/src/SoundContext.tsx"
+            ],
+            "importedBy": [
+              "packages/games-sdk/src/index.ts"
+            ],
+            "dir": "packages/games-sdk/src"
+          },
+          "packages/games-sdk/src/Leaderboard.tsx": {
+            "imports": [
+              "packages/games-sdk/src/useLeaderboard.ts"
+            ],
+            "importedBy": [
+              "packages/games-sdk/src/index.ts"
+            ],
+            "dir": "packages/games-sdk/src"
+          },
+          "packages/games-sdk/src/SoundContext.tsx": {
+            "imports": [],
+            "importedBy": [
+              "packages/games-sdk/src/GameShell.tsx",
+              "packages/games-sdk/src/GameTopbar.tsx",
+              "packages/games-sdk/src/index.ts",
+              "packages/games-sdk/src/useGameSounds.ts"
+            ],
+            "dir": "packages/games-sdk/src"
+          },
+          "packages/games-sdk/src/index.ts": {
+            "imports": [
+              "packages/games-sdk/src/GameAuth.tsx",
+              "packages/games-sdk/src/GameButton.tsx",
+              "packages/games-sdk/src/GameConfirm.tsx",
+              "packages/games-sdk/src/GameModal.tsx",
+              "packages/games-sdk/src/GameOverScreen.tsx",
+              "packages/games-sdk/src/GameShell.tsx",
+              "packages/games-sdk/src/GameTextSizeToggle.tsx",
+              "packages/games-sdk/src/GameThemeToggle.tsx",
+              "packages/games-sdk/src/GameTopbar.tsx",
+              "packages/games-sdk/src/Leaderboard.tsx",
+              "packages/games-sdk/src/SoundContext.tsx",
+              "packages/games-sdk/src/useAuth.ts",
+              "packages/games-sdk/src/useGameSounds.ts",
+              "packages/games-sdk/src/useLeaderboard.ts"
+            ],
+            "importedBy": [],
+            "dir": "packages/games-sdk/src"
+          },
+          "packages/games-sdk/src/useAuth.ts": {
+            "imports": [],
+            "importedBy": [
+              "packages/games-sdk/src/GameAuth.tsx",
+              "packages/games-sdk/src/index.ts"
+            ],
+            "dir": "packages/games-sdk/src"
+          },
+          "packages/games-sdk/src/useGameSounds.ts": {
+            "imports": [
+              "packages/games-sdk/src/SoundContext.tsx"
+            ],
+            "importedBy": [
+              "packages/games-sdk/src/index.ts"
+            ],
+            "dir": "packages/games-sdk/src"
+          },
+          "packages/games-sdk/src/useLeaderboard.ts": {
+            "imports": [],
+            "importedBy": [
+              "packages/games-sdk/src/Leaderboard.tsx",
+              "packages/games-sdk/src/index.ts"
+            ],
+            "dir": "packages/games-sdk/src"
+          },
+          "src/index.ts": {
+            "imports": [],
+            "importedBy": [],
+            "dir": "src"
+          }
+        },
+        "containerSvg": "",
+        "assessment": {
+          "pattern": "plugin",
+          "patternDescription": "Plugin architecture — core defines interfaces, plugins implement independently.",
+          "layering": "tangled",
+          "stability": [
+            {
+              "package": "packages/compliance/src/checks",
+              "instability": 0.72,
+              "role": "unstable (easy to change)"
+            },
+            {
+              "package": "packages/compliance/src",
+              "instability": 0.52,
+              "role": "balanced"
+            },
+            {
+              "package": "packages/compliance/src/lib",
+              "instability": 0.01,
+              "role": "stable (hard to change)"
+            },
+            {
+              "package": "packages/compliance/src/live",
+              "instability": 0.5,
+              "role": "balanced"
+            },
+            {
+              "package": "packages/fgs-cli/src/commands",
+              "instability": 0.54,
+              "role": "balanced"
+            },
+            {
+              "package": "packages/fgs-cli/src",
+              "instability": 1,
+              "role": "unstable (easy to change)"
+            },
+            {
+              "package": "packages/fgs-cli/src/lib",
+              "instability": 0,
+              "role": "stable (hard to change)"
+            },
+            {
+              "package": "packages/fgs-cli/src/one-shot",
+              "instability": 0.5,
+              "role": "balanced"
+            },
+            {
+              "package": "packages/games-sdk/src",
+              "instability": 0.5,
+              "role": "balanced"
+            },
+            {
+              "package": "src",
+              "instability": 0,
+              "role": "stable (hard to change)"
+            }
+          ],
+          "crossCoupling": 45,
+          "cohesion": 47,
+          "rating": "poor",
+          "insights": [
+            "Plugin pattern detected — runners are independent and interchangeable.",
+            "High cross-coupling (45%) — packages depend heavily on each other.",
+            "Stable foundation detected — core modules rarely change.",
+            "No god modules — healthy dependency distribution."
+          ]
+        },
+        "tool": "built-in"
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "High fan-out: imports 45 modules — hard to test in isolation",
+          "file": "packages/compliance/src/index.ts",
+          "rule": "high-fan-out"
+        },
+        {
+          "severity": "warning",
+          "message": "High fan-out: imports 14 modules — hard to test in isolation",
+          "file": "packages/games-sdk/src/index.ts",
+          "rule": "high-fan-out"
+        }
+      ],
+      "duration": 53
+    },
+    {
+      "name": "performance",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "filesScanned": 84,
+        "barrelImports": 0,
+        "heavyDeps": 0,
+        "dynamicOpportunities": 0,
+        "cssInJsRuntime": 0,
+        "deadExports": 0,
+        "unusedFiles": 0,
+        "unusedDeps": 0,
+        "deadCodeTool": "knip"
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "message": "Large destructured import — if from a barrel, only imported items should be bundled",
+          "file": "packages/fgs-cli/src/commands/list.ts",
+          "line": 3,
+          "rule": "large-import"
+        }
+      ],
+      "duration": 1700
+    },
+    {
+      "name": "container-health",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "skipped": true,
+        "reason": "no Dockerfile found"
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "confusion",
+      "score": 98,
+      "grade": "A",
+      "details": {
+        "fileConfusability": 0,
+        "genericNames": 0,
+        "exportCollisions": 0,
+        "ambiguousAbbrevs": 2,
+        "filesScanned": 84
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "Ambiguous abbreviation \"env\" in filename — could mean: environment (runtime? deployment? variables?)",
+          "file": "packages/compliance/src/checks/no-env-production.ts",
+          "rule": "ambiguous-abbreviation"
+        },
+        {
+          "severity": "warning",
+          "message": "Ambiguous abbreviation \"config\" in filename — could mean: which configuration?",
+          "file": "packages/fgs-cli/src/lib/config.ts",
+          "rule": "ambiguous-abbreviation"
+        }
+      ],
+      "duration": 8
+    },
+    {
+      "name": "context",
+      "score": 89,
+      "grade": "B",
+      "details": {
+        "filesScanned": 84,
+        "totalTokens": 85190,
+        "avgTokensPerFile": 1014,
+        "avgImportsPerFile": 2.4,
+        "highTokenFiles": 4,
+        "heavyImportFiles": 1,
+        "circularDeps": 0,
+        "contextSinks": 1
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "~5037 tokens (>4000) — large context cost for LLMs",
+          "file": "packages/compliance/src/checks/pwa-offline.ts",
+          "rule": "high-token-count"
+        },
+        {
+          "severity": "warning",
+          "message": "~4369 tokens (>4000) — large context cost for LLMs",
+          "file": "packages/fgs-cli/src/commands/publish.ts",
+          "rule": "high-token-count"
+        },
+        {
+          "severity": "warning",
+          "message": "~4362 tokens (>4000) — large context cost for LLMs",
+          "file": "packages/fgs-cli/src/commands/screencheck.ts",
+          "rule": "high-token-count"
+        },
+        {
+          "severity": "warning",
+          "message": "~4451 tokens (>4000) — large context cost for LLMs",
+          "file": "packages/games-sdk/src/GameTopbar.tsx",
+          "rule": "high-token-count"
+        },
+        {
+          "severity": "warning",
+          "message": "45 imports (>15) — consider splitting or co-locating",
+          "file": "packages/compliance/src/index.ts",
+          "rule": "heavy-imports"
+        },
+        {
+          "severity": "warning",
+          "message": "10 imports but only 0 export — hard to understand in isolation",
+          "file": "packages/fgs-cli/src/index.ts",
+          "rule": "context-sink"
+        }
+      ],
+      "duration": 5
+    },
+    {
+      "name": "doc-coherence",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable LLM-powered analysis",
+        "docFiles": [
+          "README.md",
+          "CONTRIBUTING.md",
+          "CHANGELOG.md"
+        ],
+        "hasJSDoc": true,
+        "description": "Detects contradictions between documentation and code. Finds stale README claims, incorrect JSDoc, and misleading comments."
+      },
+      "issues": [],
+      "duration": 3
+    },
+    {
+      "name": "code-coherence",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable LLM-powered analysis",
+        "filesAnalyzed": 84,
+        "totalExports": 173,
+        "totalFunctions": 195,
+        "description": "Detects internal contradictions: inconsistent validation, conflicting defaults, naming drift, and behavioral mismatches."
+      },
+      "issues": [],
+      "duration": 3
+    },
+    {
+      "name": "comment-staleness",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable comment staleness analysis",
+        "description": "Detects stale comments: TODOs older than 6 months, numeric mismatches, commented-out code, semantic contradictions (LLM-powered)."
+      },
+      "issues": [],
+      "duration": 3
+    },
+    {
+      "name": "html-quality",
+      "score": 60,
+      "grade": "C",
+      "details": {
+        "htmlFiles": 3
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "Title too short: \"\" — aim for 30-60 characters",
+          "file": "packages/compliance/test/fixtures/failing-app/web/index.html",
+          "rule": "short-title"
+        },
+        {
+          "severity": "warning",
+          "message": "Missing meta description",
+          "file": "packages/compliance/test/fixtures/failing-app/web/index.html",
+          "rule": "missing-description"
+        },
+        {
+          "severity": "error",
+          "message": "Missing viewport meta — page won't be mobile-responsive",
+          "file": "packages/compliance/test/fixtures/failing-app/web/index.html",
+          "rule": "missing-viewport"
+        },
+        {
+          "severity": "info",
+          "message": "Missing Open Graph tags (og:title, og:description) — social sharing will look plain",
+          "file": "packages/compliance/test/fixtures/failing-app/web/index.html",
+          "rule": "missing-og"
+        },
+        {
+          "severity": "info",
+          "message": "Missing canonical link — may cause duplicate content issues",
+          "file": "packages/compliance/test/fixtures/failing-app/web/index.html",
+          "rule": "missing-canonical"
+        },
+        {
+          "severity": "info",
+          "message": "Missing favicon",
+          "file": "packages/compliance/test/fixtures/failing-app/web/index.html",
+          "rule": "missing-favicon"
+        },
+        {
+          "severity": "warning",
+          "message": "Missing lang attribute on <html> — screen readers need this",
+          "file": "packages/compliance/test/fixtures/failing-app/web/index.html",
+          "rule": "missing-lang"
+        },
+        {
+          "severity": "warning",
+          "message": "Missing meta description",
+          "file": "packages/compliance/test/fixtures/passing-app/web/index.html",
+          "rule": "missing-description"
+        },
+        {
+          "severity": "info",
+          "message": "Missing Open Graph tags (og:title, og:description) — social sharing will look plain",
+          "file": "packages/compliance/test/fixtures/passing-app/web/index.html",
+          "rule": "missing-og"
+        },
+        {
+          "severity": "info",
+          "message": "Missing canonical link — may cause duplicate content issues",
+          "file": "packages/compliance/test/fixtures/passing-app/web/index.html",
+          "rule": "missing-canonical"
+        },
+        {
+          "severity": "info",
+          "message": "Missing favicon",
+          "file": "packages/compliance/test/fixtures/passing-app/web/index.html",
+          "rule": "missing-favicon"
+        },
+        {
+          "severity": "warning",
+          "message": "Missing meta description",
+          "file": "packages/compliance/test/fixtures/passing-game/web/index.html",
+          "rule": "missing-description"
+        },
+        {
+          "severity": "info",
+          "message": "Missing Open Graph tags (og:title, og:description) — social sharing will look plain",
+          "file": "packages/compliance/test/fixtures/passing-game/web/index.html",
+          "rule": "missing-og"
+        },
+        {
+          "severity": "info",
+          "message": "Missing canonical link — may cause duplicate content issues",
+          "file": "packages/compliance/test/fixtures/passing-game/web/index.html",
+          "rule": "missing-canonical"
+        },
+        {
+          "severity": "info",
+          "message": "Missing favicon",
+          "file": "packages/compliance/test/fixtures/passing-game/web/index.html",
+          "rule": "missing-favicon"
+        },
+        {
+          "severity": "info",
+          "message": "Missing robots.txt",
+          "rule": "missing-robots"
+        },
+        {
+          "severity": "info",
+          "message": "Missing sitemap.xml",
+          "rule": "missing-sitemap"
+        }
+      ],
+      "duration": 2
+    },
+    {
+      "name": "frontend-health",
+      "score": 30,
+      "grade": "F",
+      "details": {
+        "componentFiles": 11,
+        "activeFrameworks": [],
+        "iconLibsUsed": [],
+        "unoptimizedImages": 0
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "p inside p — invalid HTML nesting",
+          "file": "packages/games-sdk/src/GameTopbar.tsx",
+          "line": 281,
+          "rule": "dom-nesting"
+        },
+        {
+          "severity": "warning",
+          "message": "p inside p — invalid HTML nesting",
+          "file": "packages/games-sdk/src/GameTopbar.tsx",
+          "line": 282,
+          "rule": "dom-nesting"
+        },
+        {
+          "severity": "warning",
+          "message": "p inside p — invalid HTML nesting",
+          "file": "packages/games-sdk/src/GameTopbar.tsx",
+          "line": 283,
+          "rule": "dom-nesting"
+        },
+        {
+          "severity": "warning",
+          "message": "p inside p — invalid HTML nesting",
+          "file": "packages/games-sdk/src/GameTopbar.tsx",
+          "line": 322,
+          "rule": "dom-nesting"
+        },
+        {
+          "severity": "warning",
+          "message": "p inside p — invalid HTML nesting",
+          "file": "packages/games-sdk/src/GameTopbar.tsx",
+          "line": 336,
+          "rule": "dom-nesting"
+        },
+        {
+          "severity": "warning",
+          "message": "p inside p — invalid HTML nesting",
+          "file": "packages/games-sdk/src/GameTopbar.tsx",
+          "line": 337,
+          "rule": "dom-nesting"
+        },
+        {
+          "severity": "warning",
+          "message": "div inside p — invalid HTML nesting",
+          "file": "packages/games-sdk/src/GameTopbar.tsx",
+          "line": 342,
+          "rule": "dom-nesting"
+        }
+      ],
+      "duration": 5
+    },
+    {
+      "name": "styling",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "skipped": true,
+        "reason": "runner error: require is not defined"
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "dead-patterns",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable dead pattern detection",
+        "description": "Detects leftover code from incomplete refactors: fallback paths, parallel implementations, dead guards, hardcoded feature flags. Produces a Feature Map of your codebase."
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "test-audit",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable test audit",
+        "description": "Detects fake and shallow tests: empty test bodies, trivial assertions, tautologies, mock-heavy tests, and tests whose names don't match what they actually verify."
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "file-cohesion",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable file cohesion analysis",
+        "description": "Detects files with multiple responsibilities — the #1 code smell in AI-generated code. Labels each file's concern clusters and suggests concrete split points."
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "design-consistency",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "Set VCQA_PRO_KEY to enable design consistency analysis",
+        "description": "LLM-powered audit of visual consistency — finds components with duplicate styling, inconsistent spacing scales, and missing component extraction opportunities."
+      },
+      "issues": [],
+      "duration": 0
+    }
+  ],
+  "meta": {
+    "cwd": "/Users/serge-ivo/dev/stores/fgs/platform",
+    "node": "v26.0.0",
+    "duration": 7234,
+    "stack": {
+      "language": "typescript",
+      "framework": "react",
+      "bundler": "none",
+      "testRunner": "vitest",
+      "linter": "biome",
+      "packageManager": "pnpm"
+    },
+    "workspace": {
+      "isMonorepo": true,
+      "tool": "pnpm",
+      "packages": [
+        {
+          "name": "@freegamestore/compliance",
+          "path": "packages/compliance",
+          "hasSrc": true,
+          "hasRootCode": false,
+          "hasTests": true,
+          "hasLinter": false
+        },
+        {
+          "name": "@freegamestore/cli",
+          "path": "packages/fgs-cli",
+          "hasSrc": true,
+          "hasRootCode": false,
+          "hasTests": true,
+          "hasLinter": false
+        },
+        {
+          "name": "@freegamestore/games",
+          "path": "packages/games-sdk",
+          "hasSrc": true,
+          "hasRootCode": false,
+          "hasTests": true,
+          "hasLinter": false
+        }
+      ],
+      "srcRoots": [
+        "packages/compliance/src",
+        "packages/compliance/test",
+        "packages/fgs-cli/src",
+        "packages/games-sdk/src",
+        "src"
+      ]
+    },
+    "repoUrl": "git@github-personal:freegamestore-online/platform",
+    "branch": "main"
+  }
+}
