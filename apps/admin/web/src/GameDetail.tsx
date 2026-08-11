@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, fetchAllSessions, timeAgo, type SessionRow } from "./api.ts";
+import { api, ApiError, fetchAllSessions, timeAgo, type SessionRow } from "./api.ts";
 import { ErrorBox, Loading } from "./Overview.tsx";
 
 /** Everything the detail page needs, from one round trip (`/api/games/:id/detail`). */
@@ -15,6 +15,14 @@ interface GameDetail {
   repo: string;
   http: { ok: boolean; status: number | null; error?: string };
   runs: { conclusion: string; sha: string | null; message: string; updatedAt: string | null; url: string | null }[];
+}
+
+interface Traffic {
+  host: string;
+  since: string;
+  until: string;
+  totals: { requests: number; pageViews: number; visitors: number };
+  days: { date: string | null; requests: number; pageViews: number; visitors: number }[];
 }
 
 interface DeleteResult {
@@ -33,6 +41,9 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [healing, setHealing] = useState(false);
+  // null = not loaded yet; "unconfigured" = the CF token/zone are not set, which
+  // is the expected state today and must read as such rather than as an error.
+  const [traffic, setTraffic] = useState<Traffic | "unconfigured" | { error: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [result, setResult] = useState<DeleteResult | null>(null);
 
@@ -44,6 +55,11 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
     fetchAllSessions()
       .then((all) => setSessions(all.filter((s) => s.gameId === id)))
       .catch(() => setSessions([]));
+    // Never let analytics failure take the page down — it is the least important
+    // thing here and the page must still show reachability and deploy history.
+    api<Traffic>(`/api/games/${id}/traffic`)
+      .then(setTraffic)
+      .catch((e) => setTraffic(e instanceof ApiError && e.status === 503 ? "unconfigured" : { error: (e as Error).message }));
   }, [id]);
 
   if (error) return <ErrorBox message={error} />;
@@ -145,6 +161,21 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
           scaffold, not the creator's code.
         </div>
       )}
+
+      <Section title="Traffic (30 days)">
+        {traffic === null && <Empty text="Loading…" />}
+        {traffic === "unconfigured" && (
+          <Empty text="Not configured — set CF_API_TOKEN and CF_ZONE_ID on the admin worker to enable Cloudflare Analytics." />
+        )}
+        {traffic && typeof traffic === "object" && "error" in traffic && <Empty text={traffic.error} />}
+        {traffic && typeof traffic === "object" && "totals" in traffic && (
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Card label="Requests" value={traffic.totals.requests.toLocaleString()} tone="var(--ink)" note={traffic.host} />
+            <Card label="Page views" value={traffic.totals.pageViews.toLocaleString()} tone="var(--ink)" note={`${traffic.since} → ${traffic.until}`} />
+            <Card label="Unique visitors" value={traffic.totals.visitors.toLocaleString()} tone="var(--ink)" note={`${traffic.days.length} day(s) reported`} />
+          </div>
+        )}
+      </Section>
 
       <Section title="Recent deploys">
         {detail.runs.length === 0 && <Empty text="No deploy.yml runs found." />}

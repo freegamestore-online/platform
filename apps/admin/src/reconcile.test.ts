@@ -867,3 +867,176 @@ describe("POST /api/games/:id/heal-route", () => {
     expect(calls.filter((c) => /INSERT INTO routes/i.test(c.sql))).toHaveLength(0);
   });
 });
+
+// CI test report (#24) and per-game traffic (#23 item 6). Both are INERT until
+// their Cloudflare resources exist, so the 503 path is the primary behaviour
+// today and is tested first — it is the correct state, not a failure.
+
+function kvStub(initial: string | null = null) {
+  const store = new Map<string, string>();
+  if (initial !== null) store.set("latest-test-report", initial);
+  return {
+    store,
+    CI_KV: {
+      get: async (k: string) => store.get(k) ?? null,
+      put: async (k: string, v: string) => { store.set(k, v); },
+    },
+  };
+}
+
+const adminAuth = () => ({
+  fetch: async () => new Response(JSON.stringify({ email: "serge.the.dev@gmail.com" }), { status: 200 }),
+});
+
+describe("CI test report endpoints (#24)", () => {
+  const baseEnv = (extra: Record<string, unknown>) => ({
+    DB: makeDB([]).db,
+    AUTH: adminAuth(),
+    ADMIN_EMAILS: "serge.the.dev@gmail.com",
+    ...extra,
+  } as unknown as Parameters<typeof worker.fetch>[1]);
+
+  const getReport = (env: any) =>
+    worker.fetch(new Request("https://admin.freegamestore.online/api/ci/test-report", { headers: { "X-FGS-Token": "t" } }), env);
+
+  const putReport = (env: any, body: string, token?: string) =>
+    worker.fetch(new Request("https://admin.freegamestore.online/api/ci/test-report", {
+      method: "PUT",
+      headers: token ? { "X-CI-Token": token } : {},
+      body,
+    }), env);
+
+  it("GET 503s while the KV namespace is not bound", async () => {
+    vi.stubGlobal("fetch", registryFetch([]));
+    const res = await getReport(baseEnv({}));
+    expect(res.status).toBe(503);
+    expect((await res.json()) as any).toEqual({ error: "CI_KV not bound" });
+  });
+
+  it("PUT 503s while the KV namespace is not bound", async () => {
+    vi.stubGlobal("fetch", registryFetch([]));
+    const res = await putReport(baseEnv({ CI_TOKEN: "ci" }), "<html></html>", "ci");
+    expect(res.status).toBe(503);
+  });
+
+  it("GET serves the stored report as HTML", async () => {
+    vi.stubGlobal("fetch", registryFetch([]));
+    const { CI_KV } = kvStub("<html><body>pass</body></html>");
+    const res = await getReport(baseEnv({ CI_KV }));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("text/html");
+    expect(await res.text()).toContain("pass");
+  });
+
+  it("GET 404s when KV is bound but empty", async () => {
+    vi.stubGlobal("fetch", registryFetch([]));
+    const { CI_KV } = kvStub(null);
+    expect((await getReport(baseEnv({ CI_KV }))).status).toBe(404);
+  });
+
+  it("GET is admin-gated", async () => {
+    vi.stubGlobal("fetch", registryFetch([]));
+    const { CI_KV } = kvStub("<html>x</html>");
+    const env = baseEnv({ CI_KV, AUTH: { fetch: async () => new Response(JSON.stringify({ email: "nobody@example.com" }), { status: 200 }) } });
+    expect((await getReport(env)).status).not.toBe(200);
+  });
+
+  it("PUT stores the report with a valid CI token", async () => {
+    vi.stubGlobal("fetch", registryFetch([]));
+    const { CI_KV, store } = kvStub();
+    const res = await putReport(baseEnv({ CI_KV, CI_TOKEN: "ci" }), "<html>ok</html>", "ci");
+    expect(res.status).toBe(200);
+    expect(store.get("latest-test-report")).toBe("<html>ok</html>");
+  });
+
+  it("PUT rejects a missing or wrong CI token without writing", async () => {
+    vi.stubGlobal("fetch", registryFetch([]));
+    const { CI_KV, store } = kvStub();
+    const env = baseEnv({ CI_KV, CI_TOKEN: "ci" });
+    expect((await putReport(env, "<html>x</html>")).status).toBe(401);
+    expect((await putReport(env, "<html>x</html>", "wrong")).status).toBe(401);
+    expect(store.size).toBe(0);
+  });
+
+  it("PUT rejects a body over the 512 KB cap, measured in bytes", async () => {
+    vi.stubGlobal("fetch", registryFetch([]));
+    const { CI_KV, store } = kvStub();
+    // Multi-byte characters: this is well under 512K CHARACTERS but over the
+    // byte cap, which is the case a naive length check would let through.
+    const oversized = "é".repeat(300 * 1024);
+    const res = await putReport(baseEnv({ CI_KV, CI_TOKEN: "ci" }), oversized, "ci");
+    expect(res.status).toBe(413);
+    expect(store.size).toBe(0);
+  });
+});
+
+describe("GET /api/games/:id/traffic (#23 item 6)", () => {
+  const env = (extra: Record<string, unknown> = {}) => ({
+    DB: makeDB([]).db,
+    AUTH: adminAuth(),
+    ADMIN_EMAILS: "serge.the.dev@gmail.com",
+    ...extra,
+  } as unknown as Parameters<typeof worker.fetch>[1]);
+
+  const get = (e: any, id = "chess") =>
+    worker.fetch(new Request(`https://admin.freegamestore.online/api/games/${id}/traffic`, { headers: { "X-FGS-Token": "t" } }), e);
+
+  /** Registry reads plus the Cloudflare GraphQL POST. */
+  function cfStub(payload: unknown, status = 200) {
+    const seen: { url: string; body: any }[] = [];
+    return {
+      seen,
+      fetchFn: async (input: unknown, init?: { method?: string; body?: string; headers?: Record<string, string> }) => {
+        const url = typeof input === "string" ? input : (input as Request).url;
+        if (url.includes("/client/v4/graphql")) {
+          seen.push({ url, body: JSON.parse(init!.body!) });
+          return new Response(JSON.stringify(payload), { status });
+        }
+        return registryFetch([])(input as any);
+      },
+    };
+  }
+
+  it("503s when the token or zone id is missing — the state today", async () => {
+    vi.stubGlobal("fetch", registryFetch([]));
+    expect((await get(env())).status).toBe(503);
+    expect((await get(env({ CF_API_TOKEN: "t" }))).status).toBe(503);
+    expect((await get(env({ CF_ZONE_ID: "z" }))).status).toBe(503);
+    const res = await get(env());
+    expect((await res.json()) as any).toEqual({ error: "CF_API_TOKEN or CF_ZONE_ID not configured" });
+  });
+
+  it("queries the zone filtered to the game's hostname and totals the days", async () => {
+    const { seen, fetchFn } = cfStub({
+      data: { viewer: { zones: [{ httpRequests1dGroups: [
+        { dimensions: { date: "2026-08-01" }, sum: { requests: 100, pageViews: 40 }, uniq: { uniques: 10 } },
+        { dimensions: { date: "2026-08-02" }, sum: { requests: 50, pageViews: 20 }, uniq: { uniques: 5 } },
+      ] }] } },
+    });
+    vi.stubGlobal("fetch", fetchFn);
+    const res = await get(env({ CF_API_TOKEN: "t", CF_ZONE_ID: "zone123" }));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as any;
+    expect(body.host).toBe("chess.freegamestore.online");
+    expect(body.totals).toEqual({ requests: 150, pageViews: 60, visitors: 15 });
+    expect(seen[0]!.body.variables.zone).toBe("zone123");
+    expect(seen[0]!.body.variables.host).toBe("chess.freegamestore.online");
+  });
+
+  it("surfaces a GraphQL error instead of rendering it as zero traffic", async () => {
+    // Cloudflare returns errors with HTTP 200; treating that as an empty result
+    // would show a healthy-looking zero instead of a broken query.
+    const { fetchFn } = cfStub({ errors: [{ message: "zone not found" }] });
+    vi.stubGlobal("fetch", fetchFn);
+    const res = await get(env({ CF_API_TOKEN: "t", CF_ZONE_ID: "bad" }));
+    expect(res.status).toBe(502);
+    expect(((await res.json()) as any).error).toContain("zone not found");
+  });
+
+  it("is admin-gated", async () => {
+    const { fetchFn } = cfStub({ data: { viewer: { zones: [] } } });
+    vi.stubGlobal("fetch", fetchFn);
+    const e = env({ CF_API_TOKEN: "t", CF_ZONE_ID: "z", AUTH: { fetch: async () => new Response(JSON.stringify({ email: "nobody@example.com" }), { status: 200 }) } });
+    expect((await get(e)).status).not.toBe(200);
+  });
+});

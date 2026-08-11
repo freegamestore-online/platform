@@ -59,3 +59,26 @@ service = "freegamestore-agent"
 #   GITHUB_TOKEN          repo create + collaborator + registry write
 #   CF_API_TOKEN          (kept for future CF API calls; not used by publish)
 #   SESSION_SIGNING_KEY   shared with FAS auth flow (HS256 Bearer check)
+
+# CI test report KV (#24) — COMMENTED OUT ON PURPOSE.
+#
+# `wrangler deploy` validates every binding against the Cloudflare API, so an
+# entry pointing at a namespace that does not exist FAILS THE DEPLOY. Since
+# deploy-admin.yml runs `npx wrangler deploy` on every push touching apps/admin,
+# committing a placeholder id would break admin deploys entirely — not just the
+# CI-report feature. The code treats CI_KV as optional and answers 503 while it
+# is absent, which is the correct state until the namespace is real.
+#
+# To enable:
+#   cd apps/admin && wrangler kv namespace create fgs-admin-kv
+#   wrangler secret put CI_TOKEN
+# then uncomment and paste the returned id:
+#
+# [[kv_namespaces]]
+# binding = "CI_KV"
+# id = "<paste the id from `wrangler kv namespace create fgs-admin-kv`>"
+
+# Traffic widget (#23 item 6) also needs, once the token is minted:
+#   wrangler secret put CF_API_TOKEN     # Analytics read
+# and the zone id, which nothing in this repo has today:
+#   CF_ZONE_ID = "<freegamestore.online zone id>"   # add under [vars]

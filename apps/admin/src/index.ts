@@ -23,6 +23,18 @@ interface Env {
   /** Shared secret for trusted worker-to-worker provision calls (the agent has
    *  no user fgs_token at deploy time). Presented as X-Internal-Token. */
   INTERNAL_TOKEN?: string;
+  /** KV for the CI test report (#24). OPTIONAL — the namespace does not exist
+   *  yet, so the endpoints answer 503 until it is created and bound. Declared
+   *  optional deliberately: a `[[kv_namespaces]]` entry pointing at a
+   *  non-existent id makes `wrangler deploy` FAIL, which would break every
+   *  admin deploy rather than just this feature. */
+  CI_KV?: KVNamespace;
+  /** Shared secret CI presents as X-CI-Token when uploading a report (#24). */
+  CI_TOKEN?: string;
+  /** Cloudflare zone id for freegamestore.online (#23 item 6). Only `zone_name`
+   *  exists in config today and the Analytics GraphQL API keys on `zoneTag`, so
+   *  this must be supplied before the traffic widget can resolve. */
+  CF_ZONE_ID?: string;
   /** Comma-separated allowlist of admin emails. The console UI + every
    *  observability endpoint are restricted to these (verified Google emails
    *  resolved via the auth worker's /me). Falls back to the sole owner. */
@@ -627,8 +639,8 @@ export default {
     ]);
     // The Game Detail endpoint is a regex path, so it cannot live in the exact
     // -match Set above — gate it explicitly rather than leaving it open.
-    const ADMIN_PATH_RE = /^\/api\/games\/[a-z0-9][a-z0-9-]*\/detail$/;
-    if (ADMIN_PATHS.has(url.pathname) || ADMIN_PATH_RE.test(url.pathname)) {
+    const ADMIN_PATH_RE = /^\/api\/games\/[a-z0-9][a-z0-9-]*\/(?:detail|traffic)$/;
+    if (ADMIN_PATHS.has(url.pathname) || ADMIN_PATH_RE.test(url.pathname) || (url.pathname === "/api/ci/test-report" && request.method === "GET")) {
       const { email, isAdmin } = await authenticateAdmin(request, env);
       if (!isAdmin) {
         // Console pages get the sign-in / wrong-account page (200 — it IS a
@@ -935,6 +947,113 @@ export default {
         stack: str(body.stack),
       });
       return jsonResponse({ ok: true }, 200, request);
+    }
+
+    // ── CI test report (#24) ─────────────────────────────────────────────
+    // Both endpoints are inert until `fgs-admin-kv` exists and is bound; see the
+    // commented block in wrangler.toml. A 503 here means "not provisioned", not
+    // "broken" — it is the correct state today, not a failure to handle.
+    const CI_REPORT_KEY = "latest-test-report";
+    const MAX_REPORT_BYTES = 512 * 1024;
+
+    // PUT /api/ci/test-report — CI uploads the report. Machine-authenticated via
+    // X-CI-Token, NOT the admin session: the caller is a workflow, not a human.
+    if (url.pathname === "/api/ci/test-report" && request.method === "PUT") {
+      if (!env.CI_KV) return jsonResponse({ error: "CI_KV not bound" }, 503, request);
+      const tok = request.headers.get("X-CI-Token") || "";
+      if (!(env.CI_TOKEN && safeEqual(tok, env.CI_TOKEN))) {
+        return jsonResponse({ error: "unauthorized" }, 401, request);
+      }
+      const html = await request.text();
+      // Cap enforced HERE, not just in the caller — a client-side limit is not a
+      // limit. Measured in BYTES, since a UTF-8 report can exceed the byte cap
+      // well before its character count does.
+      const bytes = new TextEncoder().encode(html).length;
+      if (bytes > MAX_REPORT_BYTES) {
+        return jsonResponse({ error: `report too large (${bytes} bytes, max ${MAX_REPORT_BYTES})` }, 413, request);
+      }
+      await env.CI_KV.put(CI_REPORT_KEY, html);
+      return jsonResponse({ ok: true, bytes }, 200, request);
+    }
+
+    // GET /api/ci/test-report — the console reads the stored report.
+    // ADMIN-GATED deliberately (#24 left this open): a CI report can name
+    // internal hostnames, failing test paths and stack traces, so it is treated
+    // as observability data like every other endpoint here, not as public.
+    if (url.pathname === "/api/ci/test-report" && request.method === "GET") {
+      if (!env.CI_KV) return jsonResponse({ error: "CI_KV not bound" }, 503, request);
+      const html = await env.CI_KV.get(CI_REPORT_KEY);
+      if (html === null) return jsonResponse({ error: "no report stored yet" }, 404, request);
+      return new Response(html, {
+        status: 200,
+        headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", ...corsHeaders(request) },
+      });
+    }
+
+    // GET /api/games/:id/traffic — 30-day Cloudflare Analytics for one game's
+    // hostname (#23 item 6). Inert until BOTH CF_API_TOKEN and CF_ZONE_ID are
+    // set: the zone id is the prerequisite this issue originally missed, since
+    // only `zone_name` exists in config and the GraphQL API keys on `zoneTag`.
+    const trafficMatch = url.pathname.match(/^\/api\/games\/([a-z0-9][a-z0-9-]*)\/traffic$/);
+    if (trafficMatch && request.method === "GET") {
+      if (!env.CF_API_TOKEN || !env.CF_ZONE_ID) {
+        return jsonResponse({ error: "CF_API_TOKEN or CF_ZONE_ID not configured" }, 503, request);
+      }
+      const id = trafficMatch[1]!;
+      const host = `${id}.${DOMAIN}`;
+      const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+      const until = new Date().toISOString().slice(0, 10);
+      const query = `query Traffic($zone: String!, $since: Date!, $until: Date!, $host: String!) {
+  viewer {
+    zones(filter: { zoneTag: $zone }) {
+      httpRequests1dGroups(
+        limit: 60
+        filter: { date_geq: $since, date_leq: $until, clientRequestHTTPHost: $host }
+        orderBy: [date_ASC]
+      ) {
+        dimensions { date }
+        sum { requests pageViews bytes }
+        uniq { uniques }
+      }
+    }
+  }
+}`;
+      try {
+        const res = await fetch("https://api.cloudflare.com/client/v4/graphql", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${env.CF_API_TOKEN}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ query, variables: { zone: env.CF_ZONE_ID, since, until, host } }),
+        });
+        if (!res.ok) {
+          return jsonResponse({ error: `Cloudflare Analytics returned ${res.status}` }, 502, request);
+        }
+        const data = (await res.json()) as any;
+        // GraphQL reports errors with HTTP 200 — surface them rather than
+        // rendering an empty chart that looks like "no traffic".
+        if (Array.isArray(data?.errors) && data.errors.length) {
+          return jsonResponse({ error: data.errors[0]?.message || "Analytics query failed" }, 502, request);
+        }
+        const groups: any[] = data?.data?.viewer?.zones?.[0]?.httpRequests1dGroups ?? [];
+        const days = groups.map((g) => ({
+          date: g?.dimensions?.date ?? null,
+          requests: Number(g?.sum?.requests) || 0,
+          pageViews: Number(g?.sum?.pageViews) || 0,
+          visitors: Number(g?.uniq?.uniques) || 0,
+        }));
+        return jsonResponse({
+          host,
+          since,
+          until,
+          days,
+          totals: {
+            requests: days.reduce((n, d) => n + d.requests, 0),
+            pageViews: days.reduce((n, d) => n + d.pageViews, 0),
+            visitors: days.reduce((n, d) => n + d.visitors, 0),
+          },
+        }, 200, request);
+      } catch (e) {
+        return jsonResponse({ error: `Analytics request failed: ${String(e)}` }, 502, request);
+      }
     }
 
     // POST /api/games/:id/heal-route — re-insert this game's D1 hosting route now
