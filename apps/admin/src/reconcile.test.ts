@@ -668,3 +668,89 @@ describe("GET /api/games/:id/detail", () => {
     expect((await get(anon)).status).not.toBe(200);
   });
 });
+
+// The Grants page (#14 item 5) sends optional `expiresAt` and `note` on
+// POST /api/comp. Those fields were ALREADY accepted by the agent and already
+// present on CompGrant — the old form simply never sent them. This guards the
+// admin→agent proxy hop they now depend on, which had no coverage at all.
+
+describe("admin→agent grant proxy", () => {
+  function agentStub() {
+    const seen: { path: string; method: string; body: string | null; token: string | null; actor: string | null }[] = [];
+    const AGENT = {
+      fetch: async (input: any, init?: any) => {
+        seen.push({
+          path: new URL(typeof input === "string" ? input : input.url).pathname,
+          method: init?.method ?? "GET",
+          body: init?.body ?? null,
+          token: init?.headers?.["X-Internal-Token"] ?? null,
+          actor: init?.headers?.["X-Admin-Actor"] ?? null,
+        });
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      },
+    };
+    return { seen, AGENT };
+  }
+
+  const env = (AGENT: any, admin = true) => ({
+    DB: makeDB([]).db,
+    AGENT,
+    INTERNAL_TOKEN: "secret",
+    AUTH: {
+      fetch: async () =>
+        new Response(JSON.stringify({ email: admin ? "serge.the.dev@gmail.com" : "nobody@example.com" }), { status: 200 }),
+    },
+    ADMIN_EMAILS: "serge.the.dev@gmail.com",
+  } as unknown as Parameters<typeof worker.fetch>[1]);
+
+  it("forwards expiresAt and note verbatim to the agent", async () => {
+    vi.stubGlobal("fetch", registryFetch([]));
+    const { seen, AGENT } = agentStub();
+    const res = await worker.fetch(
+      new Request("https://admin.freegamestore.online/api/comp", {
+        method: "POST",
+        headers: { "X-FGS-Token": "t", "Content-Type": "application/json" },
+        body: JSON.stringify({ login: "alice", provider: "anthropic", model: "claude-sonnet-4-6", expiresAt: "2026-12-31", note: "beta tester" }),
+      }),
+      env(AGENT),
+    );
+    expect(res.status).toBe(200);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.path).toBe("/v1/admin/comp");
+    const body = JSON.parse(seen[0]!.body!);
+    expect(body.expiresAt).toBe("2026-12-31");
+    expect(body.note).toBe("beta tester");
+    // The agent trusts the internal token and records who acted.
+    expect(seen[0]!.token).toBe("secret");
+    expect(seen[0]!.actor).toBe("serge.the.dev@gmail.com");
+  });
+
+  it("routes a revoke through to the agent", async () => {
+    vi.stubGlobal("fetch", registryFetch([]));
+    const { seen, AGENT } = agentStub();
+    await worker.fetch(
+      new Request("https://admin.freegamestore.online/api/comp/github%3A1", {
+        method: "DELETE",
+        headers: { "X-FGS-Token": "t" },
+      }),
+      env(AGENT),
+    );
+    expect(seen[0]!.method).toBe("DELETE");
+    expect(seen[0]!.path).toContain("/v1/admin/comp");
+  });
+
+  it("refuses a non-admin without ever reaching the agent", async () => {
+    vi.stubGlobal("fetch", registryFetch([]));
+    const { seen, AGENT } = agentStub();
+    const res = await worker.fetch(
+      new Request("https://admin.freegamestore.online/api/comp", {
+        method: "POST",
+        headers: { "X-FGS-Token": "t", "Content-Type": "application/json" },
+        body: JSON.stringify({ login: "alice", provider: "anthropic", model: "m" }),
+      }),
+      env(AGENT, false),
+    );
+    expect(res.status).toBe(401);
+    expect(seen).toHaveLength(0);
+  });
+});

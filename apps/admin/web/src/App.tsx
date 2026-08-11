@@ -5,6 +5,7 @@ import { GamesList } from "./GamesList.tsx";
 import { GameDetail } from "./GameDetail.tsx";
 import { ErrorsPage } from "./Errors.tsx";
 import { UsersPage } from "./Users.tsx";
+import { Grants } from "./Grants.tsx";
 import { UserDetail } from "./UserDetail.tsx";
 import { Sessions } from "./Sessions.tsx";
 import { SessionView } from "./SessionView.tsx";
@@ -18,6 +19,7 @@ type View =
   | { page: "errors" }
   | { page: "ops" }
   | { page: "users" }
+  | { page: "grants" }
   | { page: "user"; id: string }
   | { page: "sessions" }
   | { page: "session"; id: string }
@@ -31,6 +33,7 @@ function parseHash(): View {
   if (hash === "/errors") return { page: "errors" };
   if (hash === "/ops") return { page: "ops" };
   if (hash === "/users") return { page: "users" };
+  if (hash === "/grants") return { page: "grants" };
   const user = hash.match(/^\/users\/(.+)$/);
   if (user) return { page: "user", id: user[1]! };
   if (hash === "/sessions") return { page: "sessions" };
@@ -77,6 +80,7 @@ export default function App() {
             {view.page === "errors" && <ErrorsPage />}
             {view.page === "ops" && <Ops navigate={navigate} />}
             {view.page === "users" && <UsersPage navigate={navigate} />}
+            {view.page === "grants" && <Grants navigate={navigate} />}
             {view.page === "user" && <UserDetail id={view.id} navigate={navigate} />}
             {view.page === "sessions" && <Sessions navigate={navigate} />}
             {view.page === "session" && <SessionView id={view.id} navigate={navigate} />}
@@ -118,6 +122,7 @@ function Header({ navigate, view }: { navigate: (h: string) => void; view: View 
             <NavLink label="Games" hash="/games" active={view.page === "games" || view.page === "game"} navigate={navigate} />
             <NavLink label="Errors" hash="/errors" active={view.page === "errors"} navigate={navigate} />
             <NavLink label="Users" hash="/users" active={view.page === "users" || view.page === "user"} navigate={navigate} />
+            <NavLink label="Grants" hash="/grants" active={view.page === "grants"} navigate={navigate} />
             <NavLink label="Sessions" hash="/sessions" active={view.page === "sessions" || view.page === "session"} navigate={navigate} />
             <NavLink label="Provision" hash="/provision" active={view.page === "provision"} navigate={navigate} />
             <a href="/docs" className="px-3 py-1.5 rounded-lg text-sm font-medium" style={{ color: "var(--muted)" }}>API</a>
