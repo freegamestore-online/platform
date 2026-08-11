@@ -1,7 +1,7 @@
 /** Infra query tools — read-only operations against GitHub, CF, and audit APIs. */
 
 import type { StoreConfig } from "./config";
-import type { DeployEnv } from "./deploy";
+import { filterLogErrorLines, type DeployEnv } from "./deploy";
 import { makeGhApi, resilientFetch } from "./ghfetch";
 
 async function cfApi(token: string, _accountId: string, path: string) {
@@ -93,15 +93,10 @@ export async function getBuildLogs(appId: string, env: DeployEnv, config: StoreC
           },
         });
         if (logRes.ok) {
-          const text = await logRes.text();
-          const interesting = text
-            .split("\n")
-            .filter((l: string) => /error TS\d|[Ee]rror:|Could not resolve|is not exported|Build failed|ELIFECYCLE|✗/.test(l))
-            .map((l: string) => l.replace(/^[0-9T:.Z-]+\s*/, "").replace(/\u001b\[[0-9;]*m/g, ""))
-            .slice(-25);
-          const tail = interesting.length
-            ? interesting
-            : text.split("\n").slice(-30).map((l: string) => l.replace(/^[0-9T:.Z-]+\s*/, ""));
+          // Same extraction the deploy waiter now applies automatically on a
+          // failed run — shared so get_build_logs and the auto-injected error
+          // lines can never disagree about what counts as an error line.
+          const tail = filterLogErrorLines(await logRes.text());
           lines.push("", "── error lines from the failing job ──", ...tail);
         }
       } catch {

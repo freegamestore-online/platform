@@ -3,7 +3,7 @@
 import { checkBuildSanity, formatSanityBlock } from "./build-sanity";
 import type { StoreConfig } from "./config";
 import type { DeployEnv, DeployStatus } from "./deploy";
-import { deployApp, pushUpdate, substituteAppName, waitForActionsDeploy } from "./deploy";
+import { ACTIONS_DEPLOY_CEILING_MS, deployApp, pushUpdate, substituteAppName, waitForActionsDeploy } from "./deploy";
 import { checkDeployStatus, fetchUrl, getAuditResults, getBuildLogs, getCIResults, listDeployed } from "./infra";
 import type { ToolCall } from "./providers/types";
 
@@ -183,9 +183,12 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
     ctx.onAppDeployed(appId, appName);
     return `Deploy succeeded. Live: ${last.appUrl}`;
   }
-  // Still building on timeout: NOT deployed. Leave the session bound-but-pending
-  // so a later poll resolves it, rather than claiming a ship that never happened.
-  return `Deploy pushed — CI is still building. Poll check_deploy_status; if it ends in failure, use get_build_logs and push_update a fix.`;
+  // Ceiling reached with the run STILL IN PROGRESS: not deployed, and — crucially
+  // — not failed either. The waiter now only returns `building` when it actually
+  // observed a queued/in-progress run, so this string can no longer be the calm
+  // lie it was when a slow-but-failing build timed out at 180s and ended the turn
+  // (#7). A run that concluded in failure took the error branch above.
+  return `Deploy pushed — the CI run was STILL IN PROGRESS after ${ACTIONS_DEPLOY_CEILING_MS / 60_000} minutes; it has not failed, it just hasn't finished. Poll check_deploy_status for the verdict; if it ends in failure, use get_build_logs and push_update a fix.`;
 }
 
 async function executePushUpdate(tc: ToolCall, ctx: ExecContext): Promise<string> {
@@ -214,7 +217,9 @@ async function executePushUpdate(tc: ToolCall, ctx: ExecContext): Promise<string
   }, appUrl).catch((err) => {
     outcome = `Update pushed; couldn't confirm the build status: ${String(err)}. Use check_deploy_status.`;
   });
-  return outcome || `${result} CI is still building — check_deploy_status for the final result.`;
+  // Same rule as executeDeploy: reaching here means the waiter saw a run still in
+  // progress at the ceiling, never a concluded failure.
+  return outcome || `${result} The CI run was STILL IN PROGRESS after ${ACTIONS_DEPLOY_CEILING_MS / 60_000} minutes — not failed, just unfinished. Use check_deploy_status for the final result.`;
 }
 
 async function executeFetchUrl(tc: ToolCall, config: StoreConfig): Promise<string> {

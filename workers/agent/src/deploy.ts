@@ -1,7 +1,7 @@
 /** Deploy: provision via CF/GitHub APIs, then push all files. */
 
 import type { StoreConfig } from "./config";
-import { makeGhApi, mapPool } from "./ghfetch";
+import { makeGhApi, mapPool, resilientFetch } from "./ghfetch";
 import { getTemplateFiles } from "./template";
 
 export interface DeployConfig {
@@ -46,7 +46,15 @@ export type DeployStatus =
  *  is genuinely UNKNOWN → `error`. Only when polling was clean but the build is
  *  merely slow do we stay in the calm "still building" state. Pure + exported so
  *  the timeout branch can be unit-tested without a 3-minute poll loop. */
-export function deadlineStatus(sawPollError: boolean, lastError: string | null, appUrl: string): DeployStatus {
+export function deadlineStatus(
+  sawPollError: boolean,
+  lastError: string | null,
+  appUrl: string,
+  /** Last observed `status`/`conclusion` of the deploy run, or null if no run was
+   *  ever seen. Defaults to in-progress so the pre-existing 3-arg callers (and
+   *  their tests) keep the "clean but slow" meaning. */
+  lastRunState: string | null = "in_progress",
+): DeployStatus {
   if (sawPollError) {
     return {
       phase: "error",
@@ -55,7 +63,92 @@ export function deadlineStatus(sawPollError: boolean, lastError: string | null, 
       }. It may still complete; check ${appUrl} shortly, or push an update to retry.`,
     };
   }
+  // Polling was clean but NO run ever appeared for the pushed commit. That is not
+  // "slow", it is a workflow that never started — reporting it as "still
+  // building" is the calm lie #7 is about.
+  if (lastRunState === null) {
+    return {
+      phase: "error",
+      error: `No deploy workflow run appeared for this push within ${ACTIONS_DEPLOY_CEILING_MS / 60_000} minutes. The build never started — check the repo's Actions tab, then push an update to retry.`,
+    };
+  }
   return { phase: "building", deployUrl: appUrl };
+}
+
+/** Absolute hang guard for the Actions waiter. The loop's real exit condition is
+ *  the run REACHING a conclusion; this only bounds a run that never finishes.
+ *  The old 180s wall-clock was shorter than a routine cold-runner pipeline
+ *  (pnpm install + vite build + headless-Chrome smoke test), so a slow build that
+ *  was about to FAIL got reported as "still building" and ended the turn before
+ *  the failure landed — the agent never saw it (#7). The turn itself budgets 30
+ *  minutes (TURN_DEADLINE_MS), so this fits comfortably inside one turn. */
+export const ACTIONS_DEPLOY_CEILING_MS = 10 * 60_000;
+
+/** Pull the lines out of a raw Actions job log that actually explain a failure.
+ *  Pure + exported so the filter is testable without a live run.
+ *
+ *  The smoke test throws `Error: Browser errors:\n<message>` (or "Game rendered
+ *  no body/root/canvas content"), and a runtime crash surfaces as e.g.
+ *  `TypeError: Cannot read properties of undefined` — all matched by the
+ *  `[Ee]rror:` alternative. Falls back to the log tail so a failure with no
+ *  recognised marker still yields something actionable. */
+export function filterLogErrorLines(text: string): string[] {
+  const interesting = text
+    .split("\n")
+    .filter((l: string) => /error TS\d|[Ee]rror:|Could not resolve|is not exported|Build failed|ELIFECYCLE|✗/.test(l))
+    .map((l: string) => l.replace(/^[0-9T:.Z-]+\s*/, "").replace(/\u001b\[[0-9;]*m/g, ""))
+    .slice(-25);
+  if (interesting.length) return interesting;
+  return text.split("\n").slice(-30).map((l: string) => l.replace(/^[0-9T:.Z-]+\s*/, ""));
+}
+
+/** Describe a FAILED deploy run: the failing job/step name plus the error lines
+ *  from that job's raw log, in ONE jobs fetch.
+ *
+ *  The log pull is what closes the recovery loop. Before this, a failed deploy
+ *  told the agent only "deploy › Smoke test built game" — a step name it cannot
+ *  act on — and the actual browser error was reachable only if the model chose
+ *  to call get_build_logs. Now it rides along in the tool result automatically.
+ *  Every step is best-effort: a failure to read logs must still report a
+ *  failure, never a hang. */
+export async function describeFailedRun(
+  repoId: string,
+  runId: number | string,
+  env: DeployEnv,
+  config: StoreConfig,
+): Promise<{ detail: string; errorLines: string[] }> {
+  const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
+  let detail = "";
+  let failingJobId: number | null = null;
+  try {
+    const jobs = await ghApi(`/repos/${config.org}/${repoId}/actions/runs/${runId}/jobs`);
+    const failedJob = (jobs.jobs || []).find((j: any) => j.conclusion === "failure");
+    const failedStep = failedJob?.steps?.find((s: any) => s.conclusion === "failure");
+    detail = failedJob ? `${failedJob.name}${failedStep ? " › " + failedStep.name : ""}` : "";
+    failingJobId = failedJob?.id ?? null;
+  } catch (err) {
+    console.error(`[deploy] Actions job detail fetch failed for ${config.org}/${repoId}: ${String(err)}`);
+    return { detail, errorLines: [] };
+  }
+  if (failingJobId === null) return { detail, errorLines: [] };
+  try {
+    const logRes = await resilientFetch(
+      `https://api.github.com/repos/${config.org}/${repoId}/actions/jobs/${failingJobId}/logs`,
+      {
+        headers: {
+          Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+          Accept: "application/vnd.github+json",
+          "User-Agent": config.agentName,
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+      },
+    );
+    if (!logRes.ok) return { detail, errorLines: [] };
+    return { detail, errorLines: filterLogErrorLines(await logRes.text()) };
+  } catch (err) {
+    console.error(`[deploy] Actions job log fetch failed for ${config.org}/${repoId}: ${String(err)}`);
+    return { detail, errorLines: [] };
+  }
 }
 
 async function cfApi(token: string, _accountId: string, path: string, method = "GET", body?: unknown) {
@@ -476,9 +569,13 @@ export async function waitForActionsDeploy(
   appUrl: string,
 ): Promise<void> {
   const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
-  const deadline = Date.now() + 180_000; // 3 min — compliance + build + R2 sync
+  // The loop exits when the RUN reaches a conclusion, not when a wall-clock timer
+  // fires. The ceiling is only a hang guard (see ACTIONS_DEPLOY_CEILING_MS).
+  const deadline = Date.now() + ACTIONS_DEPLOY_CEILING_MS;
   let sawPollError = false;
   let lastError: string | null = null;
+  /** Last observed run state; null until a run for this workflow is seen at all. */
+  let lastRunState: string | null = null;
   while (Date.now() < deadline) {
     await sleep(8000);
     try {
@@ -488,7 +585,16 @@ export async function waitForActionsDeploy(
       const runs = await ghApi(`/repos/${config.org}/${repoId}/actions/workflows/deploy.yml/runs?per_page=1`);
       sawPollError = false; // this poll returned cleanly
       const run = runs.workflow_runs?.[0];
-      if (!run || run.status !== "completed") continue;
+      if (!run) {
+        // No run yet — the push may not have registered. Keep waiting, but leave
+        // lastRunState null so the ceiling can tell "never started" from "slow".
+        continue;
+      }
+      if (run.status !== "completed") {
+        // queued / in_progress / waiting / requested — genuinely still building.
+        lastRunState = run.status || "in_progress";
+        continue;
+      }
       if (run.conclusion === "success") {
         // Flip the registry to live BEFORE reporting live upstream, so the store
         // and game_info agree with what the creator is being shown.
@@ -501,33 +607,41 @@ export async function waitForActionsDeploy(
       // substitution, then the agent's delta push), and deploy.yml's
       // `concurrency: cancel-in-progress` cancels the earlier runs. Don't treat
       // that as a deploy failure — keep polling for the final run to finish.
-      if (run.conclusion === "cancelled") continue;
+      if (run.conclusion === "cancelled") {
+        lastRunState = "cancelled";
+        continue;
+      }
       if (["failure", "timed_out"].includes(run.conclusion)) {
-        let detail = "";
-        try {
-          const jobs = await ghApi(`/repos/${config.org}/${repoId}/actions/runs/${run.id}/jobs`);
-          const failedJob = (jobs.jobs || []).find((j: any) => j.conclusion === "failure");
-          const failedStep = failedJob?.steps?.find((s: any) => s.conclusion === "failure");
-          detail = failedJob ? `${failedJob.name}${failedStep ? " › " + failedStep.name : ""}` : "";
-        } catch (err) {
-          console.error(`[deploy] Actions job detail fetch failed for ${config.org}/${repoId}: ${String(err)}`);
-        }
+        // Pull the failing job/step AND the error lines from its raw log, so the
+        // tool result the model sees carries the actual browser error rather than
+        // a step name it cannot act on (#7).
+        const { detail, errorLines } = await describeFailedRun(repoId, run.id, env, config);
         // Only downgrades a game that has never shipped — admin refuses to move a
         // `live` game to `failed`, because R2 still serves its last good build.
         await reportBuildStatus(repoId, "failed", env, config);
-        onStatus({ phase: "error", error: `Deploy workflow ${run.conclusion}${detail ? `: ${detail}` : ""}. See ${run.html_url || "the repo's Actions tab"} for logs.` });
+        const logs = errorLines.length
+          ? `\n\n── error lines from the failing job ──\n${errorLines.join("\n").slice(0, 4000)}`
+          : "";
+        onStatus({
+          phase: "error",
+          error: `Deploy workflow ${run.conclusion}${detail ? `: ${detail}` : ""}. See ${run.html_url || "the repo's Actions tab"} for logs.${logs}`,
+        });
         return;
       }
+      // Any other conclusion (skipped / neutral / action_required) is not a
+      // verdict we can act on — record it and keep waiting for a real one.
+      lastRunState = run.conclusion || "completed";
     } catch (err) {
       sawPollError = true;
       lastError = String(err);
       console.error(`[deploy] Actions deploy poll failed for ${config.org}/${repoId}: ${lastError}`);
     }
   }
-  // Deadline hit WITHOUT a confirmed success. Never claim "live" — that reported
-  // a failing/stuck build as shipped. Stay calm ("still building") only when the
-  // last poll was clean; otherwise the status is genuinely unknown.
-  onStatus(deadlineStatus(sawPollError, lastError, appUrl));
+  // Ceiling hit WITHOUT a conclusion. Never claim "live" — that reported a
+  // failing/stuck build as shipped. Stay calm ("still building") only when
+  // polling was clean AND a run was actually observed running; a clean poll that
+  // never saw a run at all is a workflow that never started, not a slow one.
+  onStatus(deadlineStatus(sawPollError, lastError, appUrl, lastRunState));
 }
 
 /** Push all files as a single commit via the Git Data API (tree + commit + ref). */

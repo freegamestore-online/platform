@@ -109,7 +109,13 @@ describe("executeDeploy — deployed state is gated on CI success (#9)", () => {
     deployResolvingTo({ phase: "building", deployUrl: "https://my-game.freegamestore.online" } as DeployStatus);
     const ctx = makeCtx();
     const result = await runDeploy(ctx);
-    expect(result).toContain("still building");
+    // Wording changed with #7 ("still building" → "STILL IN PROGRESS"), but the
+    // contract is what matters: an unfinished run is reported as neither shipped
+    // nor failed, so the model doesn't announce a live game or start fixing code
+    // that never broke.
+    expect(result).toContain("STILL IN PROGRESS");
+    expect(result).not.toContain("Deploy succeeded");
+    expect(result).not.toContain("FAILED");
     expect(ctx.onAppDeployed).not.toHaveBeenCalled();
     expect(ctx.onAppBound).toHaveBeenCalled();
   });

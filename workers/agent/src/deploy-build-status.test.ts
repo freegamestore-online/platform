@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getConfig } from "./config";
-import { reportBuildStatus, waitForActionsDeploy } from "./deploy";
+import { ACTIONS_DEPLOY_CEILING_MS, reportBuildStatus, waitForActionsDeploy } from "./deploy";
 
 // Build-status reporting (#22). Provisioning lists a game as `pending` BEFORE the
 // first build, so the store must not claim it is live until a deploy.yml run
@@ -132,8 +132,10 @@ describe("waitForActionsDeploy reports the CI outcome", () => {
       (s) => statuses.push(s),
       "https://chess.freegamestore.online",
     );
-    // Run past the 3-minute deadline: a cancelled run never resolves the deploy.
-    await vi.advanceTimersByTimeAsync(200_000);
+    // Run past the waiter's ceiling: a cancelled run never resolves the deploy,
+    // so the loop only exits at the hang guard. Derived from the constant rather
+    // than hardcoded — #7 raised it from 180s to 10 minutes.
+    await vi.advanceTimersByTimeAsync(ACTIONS_DEPLOY_CEILING_MS + 20_000);
     await done;
 
     expect(admin.calls).toHaveLength(0);

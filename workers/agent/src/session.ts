@@ -958,9 +958,19 @@ export class AgentSession implements DurableObject {
           const hadDeploy = result.infraRequests.some(
             (r) => r.toolCall.name === "deploy" || r.toolCall.name === "push_update",
           );
+          // The string check used to be `startsWith("Error")` alone, which never
+          // matched what the deploy executors actually return — executeDeploy
+          // returns "Deploy FAILED: …" and executePushUpdate returns "Update
+          // pushed but the build FAILED: …". Detection therefore rested entirely
+          // on session.deployStatus, with the string arm as dead code. Match the
+          // real strings so either signal alone is enough to resume the model.
+          const failedResult = (c: string) =>
+            c.startsWith("Error") ||
+            c.includes("Deploy FAILED:") ||
+            c.includes("Update pushed but the build FAILED:");
           const deployFailed =
             hadDeploy &&
-            (session.deployStatus?.phase === "error" || infraResults.some((r) => r.content.startsWith("Error")));
+            (session.deployStatus?.phase === "error" || infraResults.some((r) => failedResult(r.content)));
           if (hadDeploy && !deployFailed) break;
           if (++infraRounds >= MAX_INFRA_ROUNDS) break;
           resumeMsg = null;
