@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, timeAgo, type CompGrant, type Creator, type ErrorRow, type GameInfo, type QualityData, type RegisteredUser, type SessionRow } from "./api.ts";
+import { api, fetchAllSessions, timeAgo, type CompGrant, type Creator, type ErrorRow, type GameInfo, type QualityData, type RegisteredUser, type SessionRow } from "./api.ts";
 import { ErrorBox, Loading } from "./Overview.tsx";
 import { ErrorCard } from "./Errors.tsx";
 
@@ -25,7 +25,7 @@ export function UserDetail({ id, navigate }: { id: string; navigate: (h: string)
       api<{ users: RegisteredUser[] }>("/api/allusers"),
       api<Creator[]>("/api/users"),
       api<GameInfo[]>("/api/status"),
-      api<{ sessions: SessionRow[] }>("/api/sessions"),
+      fetchAllSessions(),
       api<{ grants: CompGrant[] }>("/api/comp"),
       api<QualityData>("/api/quality").catch(() => ({ timestamp: "", games: [] })),
     ])
@@ -34,7 +34,7 @@ export function UserDetail({ id, navigate }: { id: string; navigate: (h: string)
           users: allUsers.users ?? [],
           creators: creators ?? [],
           games: games ?? [],
-          sessions: sessions.sessions ?? [],
+          sessions,
           grants: comp.grants ?? [],
           quality: new Map((quality.games ?? []).map((g) => [g.id, g])),
         });

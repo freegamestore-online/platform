@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
-import { api, timeAgo, type ErrorRow, type GameInfo, type QualityData, type RegisteredUser, type SessionRow } from "./api.ts";
+import { api, fetchAllSessions, timeAgo, type ErrorRow, type GameInfo, type QualityData, type RegisteredUser, type SessionRow } from "./api.ts";
 import { ErrorBox, Loading } from "./Overview.tsx";
 
 interface OpsData {
@@ -31,7 +31,7 @@ export function Ops({ navigate }: { navigate: (h: string) => void }) {
 
   useEffect(() => {
     Promise.all([
-      api<{ sessions: SessionRow[] }>("/api/sessions"),
+      fetchAllSessions(),
       api<{ users: RegisteredUser[] }>("/api/allusers"),
       api<GameInfo[]>("/api/status"),
       api<QualityData>("/api/quality").catch(() => ({ timestamp: "", games: [] })),
@@ -42,7 +42,7 @@ export function Ops({ navigate }: { navigate: (h: string) => void }) {
     ])
       .then(([sessions, users, games, quality, errors, drift]) => {
         setData({
-          sessions: sessions.sessions ?? [],
+          sessions,
           users: users.users ?? [],
           games: games ?? [],
           quality: quality.games ?? [],

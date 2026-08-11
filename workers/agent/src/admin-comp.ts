@@ -12,7 +12,11 @@ import type { Env } from "./index";
 import { getConfig } from "./config";
 import { COMP_PROVIDERS, compKeyFor, grantComp, listComp, revokeComp } from "./keygrants";
 import { deleteUserKey, isValidProvider, saveUserKey } from "./keys";
-import { isOrgAdmin, listAllSessions, resolveUser } from "./sessions";
+import { isOrgAdmin, listSessionsPage, resolveUser } from "./sessions";
+
+/** Page size defaults for GET /v1/admin/sessions (#25). */
+const DEFAULT_SESSION_LIMIT = 20;
+const MAX_SESSION_LIMIT = 100;
 
 export async function handleAdminCompApi(request: Request, env: Env, cors: Record<string, string>, ctx?: ExecutionContext): Promise<Response | null> {
   const url = new URL(request.url);
@@ -117,7 +121,30 @@ export async function handleAdminCompApi(request: Request, env: Env, cors: Recor
   // GET /v1/admin/sessions — every user's VibeCode sessions (the admin console's
   // Sessions tab). Same data as the org-member-gated /admin/sessions.
   if (path === "/v1/admin/sessions" && request.method === "GET") {
-    return json({ sessions: await listAllSessions(env.DB) });
+    // Paginated (#25). `cursor` is an opaque offset; `limit` defaults to 20 and
+    // is clamped to 100 so a caller cannot ask for the whole table in one query.
+    const rawLimit = url.searchParams.get("limit");
+    const rawCursor = url.searchParams.get("cursor");
+    const parsedLimit = rawLimit === null ? DEFAULT_SESSION_LIMIT : Number(rawLimit);
+    if (!Number.isFinite(parsedLimit) || !Number.isInteger(parsedLimit) || parsedLimit < 1) {
+      return json({ error: "limit must be a positive integer" }, 400);
+    }
+    const limit = Math.min(parsedLimit, MAX_SESSION_LIMIT);
+    // A malformed cursor is rejected rather than silently treated as page 1 —
+    // quietly restarting would make a paging bug look like duplicate data.
+    const offset = rawCursor === null ? 0 : Number(rawCursor);
+    if (!Number.isFinite(offset) || !Number.isInteger(offset) || offset < 0) {
+      return json({ error: "bad cursor" }, 400);
+    }
+    const { sessions, total } = await listSessionsPage(env.DB, { limit, offset });
+    const nextOffset = offset + sessions.length;
+    return json({
+      sessions,
+      // null on the last page, so a caller can loop until it is null without
+      // needing to compare counts itself.
+      next_cursor: nextOffset < total ? String(nextOffset) : null,
+      total,
+    });
   }
 
   // POST /v1/admin/purge-game-sessions { gameId } — drop the session-index rows

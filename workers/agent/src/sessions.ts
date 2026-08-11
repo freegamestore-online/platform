@@ -236,6 +236,31 @@ export async function handleAdminSessionsApi(
   return json({ sessions: await listAllSessions(env.DB) });
 }
 
+/** One page of the admin session index, newest first (#25).
+ *
+ *  Offset-based rather than keyset: `updated_at` is not unique (bulk writes share
+ *  a timestamp) so a keyset cursor on it can skip or repeat rows. Offset is exact
+ *  for the page sizes this console uses, and `total` lets the UI show real page
+ *  counts. The trade-off — a row inserted mid-paging shifts later pages — is
+ *  acceptable for an operator view and is why the count is returned alongside.
+ *
+ *  Replaces the old flat `LIMIT 500`, which silently truncated the fleet with no
+ *  signal that anything was missing. */
+export async function listSessionsPage(
+  db: D1Database,
+  opts: { limit: number; offset: number },
+): Promise<{ sessions: Record<string, unknown>[]; total: number }> {
+  await ensureSchema(db);
+  const countRow = await db.prepare("SELECT COUNT(*) AS n FROM agent_sessions").first<{ n: number }>();
+  const total = Number(countRow?.n) || 0;
+  const { results } = await db.prepare(
+    `SELECT user_id, user_login, session_id, title, game_id, game_url, deployed,
+            input_tokens, output_tokens, activity_phase, activity_detail, activity_updated_at, created_at, updated_at
+     FROM agent_sessions ORDER BY updated_at DESC LIMIT ?1 OFFSET ?2`,
+  ).bind(opts.limit, opts.offset).all();
+  return { sessions: (results as Record<string, unknown>[]).map(shapeSessionRow), total };
+}
+
 /** Every user's session index rows, newest first — the admin view. */
 export async function listAllSessions(db: D1Database): Promise<Record<string, unknown>[]> {
   await ensureSchema(db);
@@ -244,7 +269,12 @@ export async function listAllSessions(db: D1Database): Promise<Record<string, un
             input_tokens, output_tokens, activity_phase, activity_detail, activity_updated_at, created_at, updated_at
      FROM agent_sessions ORDER BY updated_at DESC LIMIT 500`,
   ).all();
-  return (results as Record<string, unknown>[]).map((r) => ({
+  return (results as Record<string, unknown>[]).map(shapeSessionRow);
+}
+
+/** D1 row → the shape the admin console consumes. */
+function shapeSessionRow(r: Record<string, unknown>): Record<string, unknown> {
+  return {
     id: r.session_id,
     user: (r.user_login as string) || (r.user_id as string),
     userId: r.user_id,
@@ -256,7 +286,7 @@ export async function listAllSessions(db: D1Database): Promise<Record<string, un
     tokens: { input: Number(r.input_tokens) || 0, output: Number(r.output_tokens) || 0 },
     createdAt: r.created_at,
     updatedAt: r.updated_at,
-  }));
+  };
 }
 
 export async function resolveUser(

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, timeAgo, type SessionRow } from "./api.ts";
+import { api, fetchAllSessions, timeAgo, type SessionRow } from "./api.ts";
 import { ErrorBox, Loading } from "./Overview.tsx";
 
 /** Everything the detail page needs, from one round trip (`/api/games/:id/detail`). */
@@ -40,8 +40,8 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
     // Sessions are filtered client-side: the list endpoint already carries
     // gameId, so a per-game server query would be a second proxy hop for data
     // the page is fetching anyway.
-    api<{ sessions: SessionRow[] }>("/api/sessions")
-      .then((d) => setSessions((d.sessions ?? []).filter((s) => s.gameId === id)))
+    fetchAllSessions()
+      .then((all) => setSessions(all.filter((s) => s.gameId === id)))
       .catch(() => setSessions([]));
   }, [id]);
 

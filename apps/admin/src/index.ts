@@ -824,7 +824,10 @@ export default {
       const agentPath = url.pathname === "/api/allusers"
         ? "/v1/admin/users"
         : url.pathname === "/api/sessions"
-        ? "/v1/admin/sessions"
+        // url.search carries ?cursor=&limit= through to the agent (#25). Its
+        // absence here was why pagination could not be implemented admin-side:
+        // params were dropped before the hop, unlike the session-* paths below.
+        ? "/v1/admin/sessions" + url.search
         : url.pathname === "/api/sessionhistory"
         ? "/v1/admin/session-history" + url.search
         : url.pathname === "/api/sessionerrors"

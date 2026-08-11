@@ -754,3 +754,50 @@ describe("admin→agent grant proxy", () => {
     expect(seen).toHaveLength(0);
   });
 });
+
+// #25: the sessions proxy must forward ?cursor=&limit=. Its mapping was the one
+// entry in the chain that omitted `+ url.search`, so pagination params never
+// reached the agent no matter what the SPA sent.
+
+describe("sessions proxy forwards pagination params", () => {
+  function agentStub() {
+    const seen: string[] = [];
+    const AGENT = {
+      fetch: async (input: any) => {
+        const u = new URL(typeof input === "string" ? input : input.url);
+        seen.push(u.pathname + u.search);
+        return new Response(JSON.stringify({ sessions: [], next_cursor: null, total: 0 }), { status: 200 });
+      },
+    };
+    return { seen, AGENT };
+  }
+
+  const env = (AGENT: any) => ({
+    DB: makeDB([]).db,
+    AGENT,
+    INTERNAL_TOKEN: "secret",
+    AUTH: { fetch: async () => new Response(JSON.stringify({ email: "serge.the.dev@gmail.com" }), { status: 200 }) },
+    ADMIN_EMAILS: "serge.the.dev@gmail.com",
+  } as unknown as Parameters<typeof worker.fetch>[1]);
+
+  it("passes cursor and limit through to the agent", async () => {
+    vi.stubGlobal("fetch", registryFetch([]));
+    const { seen, AGENT } = agentStub();
+    const res = await worker.fetch(
+      new Request("https://admin.freegamestore.online/api/sessions?cursor=40&limit=20", { headers: { "X-FGS-Token": "t" } }),
+      env(AGENT),
+    );
+    expect(res.status).toBe(200);
+    expect(seen[0]).toBe("/v1/admin/sessions?cursor=40&limit=20");
+  });
+
+  it("still works with no params (first page)", async () => {
+    vi.stubGlobal("fetch", registryFetch([]));
+    const { seen, AGENT } = agentStub();
+    await worker.fetch(
+      new Request("https://admin.freegamestore.online/api/sessions", { headers: { "X-FGS-Token": "t" } }),
+      env(AGENT),
+    );
+    expect(seen[0]).toBe("/v1/admin/sessions");
+  });
+});

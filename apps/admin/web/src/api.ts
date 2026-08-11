@@ -88,6 +88,40 @@ export interface CompGrant {
   expiresAt: string | null;
 }
 
+/** One page of the admin session index (#25). */
+export interface SessionsPage {
+  sessions: SessionRow[];
+  next_cursor: string | null;
+  total: number;
+}
+
+/** Fetch one page of sessions. */
+export function fetchSessionsPage(cursor: string | null, limit = 20): Promise<SessionsPage> {
+  const qs = new URLSearchParams({ limit: String(limit) });
+  if (cursor) qs.set("cursor", cursor);
+  return api<SessionsPage>(`/api/sessions?${qs}`);
+}
+
+/** Walk every page.
+ *
+ *  For the views that AGGREGATE over all sessions — the Ops agent queue, and the
+ *  per-game / per-user lists that filter client-side. Before #25 they relied on
+ *  one unparameterised call returning everything; with a default page size of 20
+ *  that would have silently truncated them to the newest 20 rows. Paging through
+ *  at the max size keeps them correct at any fleet size, and is bounded by
+ *  `total`, so it cannot spin if the server misreports `next_cursor`. */
+export async function fetchAllSessions(): Promise<SessionRow[]> {
+  const out: SessionRow[] = [];
+  let cursor: string | null = null;
+  for (let guard = 0; guard < 100; guard++) {
+    const page: SessionsPage = await fetchSessionsPage(cursor, 100);
+    out.push(...(page.sessions ?? []));
+    if (!page.next_cursor || page.sessions.length === 0) break;
+    cursor = page.next_cursor;
+  }
+  return out;
+}
+
 export interface SessionRow {
   id: string;
   user: string;
