@@ -51,11 +51,19 @@ export function Create() {
   const keySignature = [...keys.providers].sort().join("|");
   const { id: urlKey } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  // The key whose resolution the routing effect has already started — re-entry
+  // protection, so an unrelated re-render can't fire a second openGame for it.
   const resolvedKeyRef = useRef<string | null>(null);
-  // The urlKey seen on the previous run of the path-routing effect, so it can tell
-  // an actual URL change (navigate / My Games link / back button) apart from an
-  // internal re-fire (the open session changed). See the effect below + issue #6.
-  const lastUrlKeyRef = useRef<string | undefined>(undefined);
+  // A SELF-WRITE whose URL has not landed yet: `undefined` = none pending,
+  // `null` = navigating to the empty state, a string = navigating to that key.
+  //
+  // The picker no longer changes currentProjectId (#16), but delete and fresh-chat
+  // still must — deleteProject promotes a survivor, startFreshChat mints a
+  // session — and then catch the URL up. Between those two updates urlKey still
+  // names the OLD game while the open session is already the new one, and this
+  // effect depends on both. Without this guard it "resolves" that stale key and
+  // re-imports the game the user just deleted.
+  const pendingSelfNavRef = useRef<string | null | undefined>(undefined);
   const [resolvingUrl, setResolvingUrl] = useState(false);
   const currentProject = agent.projects.find((p) => p.id === agent.currentProjectId);
   const legacyGameParam = searchParams.get("game");
@@ -63,36 +71,64 @@ export function Create() {
 
   const routeKeyForProject = useCallback((project: { id: string; appId?: string } | undefined | null) => project?.appId || project?.id || null, []);
 
-  const navigateToProject = useCallback((project: { id: string; appId?: string } | undefined | null, replace = false) => {
+  /** Point the address bar at a project.
+   *
+   *  `alreadyOpen` distinguishes the two kinds of caller, which used to be
+   *  conflated (#16):
+   *   - SELF-WRITE (`alreadyOpen: true`) — the session is already the open one
+   *     and we are only catching the URL up (delete picked a survivor,
+   *     startFreshChat minted a session). Pre-marking the key as resolved tells
+   *     the routing effect there is nothing to open.
+   *   - USER INTENT (default) — the user asked for a different game. We write
+   *     ONLY the URL and let the routing effect do the opening, so there is
+   *     exactly one code path that opens a game. Pre-marking here would suppress
+   *     that open entirely. */
+  const navigateToProject = useCallback((
+    project: { id: string; appId?: string } | undefined | null,
+    opts: { replace?: boolean; alreadyOpen?: boolean } = {},
+  ) => {
+    const { replace = false, alreadyOpen = false } = opts;
     const key = routeKeyForProject(project);
     if (!key) {
-      resolvedKeyRef.current = null;
+      if (alreadyOpen) { resolvedKeyRef.current = null; pendingSelfNavRef.current = null; }
       navigate("/create", { replace });
       return;
     }
-    resolvedKeyRef.current = key;
+    if (alreadyOpen) { resolvedKeyRef.current = key; pendingSelfNavRef.current = key; }
     navigate(`/create/${key}`, { replace });
   }, [navigate, routeKeyForProject]);
 
   // Path routing: /create/<key> opens that game or session — the key is the
   // game id once deployed (/create/tetris), or the session id for a draft.
-  // Runs once per key; canonical URL writes below pre-mark their key resolved
-  // so switching games in the picker doesn't bounce back through here.
+  //
+  // THE URL IS THE SINGLE AUTHORITATIVE TRIGGER for opening a game (#16). This is
+  // the ONLY place that opens one. Everything that wants to change which game is
+  // open — the picker, a My Games link, the back button — writes the URL and
+  // lets this effect resolve it.
+  //
+  // #3/#4/#5/#6 were all the same root cause: the picker imperatively did BOTH
+  // switchProject (currentProjectId) AND navigateToProject (the URL) in one
+  // non-batched callback, so there was a transient render where currentProjectId
+  // was already the NEW game while urlKey still named the OLD one — and this
+  // effect, which depends on both, treated the stale urlKey as "needs opening"
+  // and re-opened the previous game. The picker no longer touches
+  // currentProjectId, so that transient cannot occur and lastUrlKeyRef (which
+  // existed only to detect it) is gone.
+  //
+  // resolvedKeyRef remains, doing one job: latching the key whose resolution has
+  // already been STARTED. Re-entry protection, not race arbitration — without it
+  // an unrelated re-render (projects updating, an import settling) would fire a
+  // second openGame for the same key.
   useEffect(() => {
-    if (!urlKey || loading || !user || agent.projectsLoading || agent.isStreaming) return;
-    // Only resolve when the URL ITSELF changed — not when this effect re-fires
-    // because the open session changed. A picker switch calls switchProject
-    // (updates currentProjectId) then navigateToProject (updates the URL); those
-    // two updates don't batch, so there is a transient render where
-    // currentProjectId is already the NEW game while urlKey still names the OLD
-    // one. currentProjectId is a dependency here, so the effect re-fires in that
-    // transient; without this gate it treats the stale urlKey as "needs opening"
-    // and re-opens the PREVIOUS game, reverting the switch (the flick-to-previous
-    // bug). Recording lastUrlKeyRef only after the readiness guards above ensures
-    // a run that bailed on projectsLoading doesn't mark the key as seen. See #6.
-    const urlKeyChanged = urlKey !== lastUrlKeyRef.current;
-    lastUrlKeyRef.current = urlKey;
-    if (resolvedKeyRef.current === urlKey || !urlKeyChanged) return;
+    if (loading || !user || agent.projectsLoading || agent.isStreaming) return;
+    // A self-write is in flight — ignore every run until the URL actually lands,
+    // because until then urlKey names the PREVIOUS game.
+    if (pendingSelfNavRef.current !== undefined) {
+      if (pendingSelfNavRef.current !== (urlKey ?? null)) return;
+      pendingSelfNavRef.current = undefined;
+    }
+    if (!urlKey) return;
+    if (resolvedKeyRef.current === urlKey) return;
     resolvedKeyRef.current = urlKey;
     const project = agent.projects.find((p) => p.appId === urlKey || p.id === urlKey);
     if (project?.id === agent.currentProjectId) return; // already open
@@ -125,8 +161,8 @@ export function Create() {
       // failed game later still RETRIES.
       if (openedId) return;
       // Guard against reverting a superseded open: if the user switched to a
-      // different game while this openGame was in flight, resolvedKeyRef has
-      // already been updated by navigateToProject to the new key. Don't clobber
+      // different game while this openGame was in flight, this effect has since
+      // re-run for the new key and re-latched resolvedKeyRef to it. Don't clobber
       // the URL the user deliberately landed on. Only revert for genuine failures
       // where this effect is still the active resolution. See issue #5.
       if (resolvedKeyRef.current !== urlKey) return;
@@ -136,11 +172,16 @@ export function Create() {
 
   // Canonical URL: keep the address bar on the open game's unique URL. Same
   // project (bare /create on load, or a draft URL right after deploy) is a
-  // rewrite — replace. A different project (picker switch) is a navigation —
-  // push, so Back returns to the previous game.
+  // rewrite — replace. A different project is a navigation — push, so Back
+  // returns to the previous game.
+  //
+  // Since #16 this is a FEEDBACK loop only — it reports which session is open
+  // (chiefly the draft→deployed promotion, /create/<sessionId> → /create/<gameId>)
+  // and never opens anything. The routing effect above is the sole opener.
   useEffect(() => {
     if (loading || !user || agent.projectsLoading || resolvingUrl) return;
     if (searchParams.get("game") || searchParams.get("session")) return; // legacy deep-link still resolving
+    if (pendingSelfNavRef.current !== undefined) return; // an earlier self-write hasn't landed
     if (urlKey && resolvedKeyRef.current !== urlKey) return; // path still resolving
     const current = agent.projects.find((p) => p.id === agent.currentProjectId);
     if (urlKey) {
@@ -149,10 +190,17 @@ export function Create() {
     }
     const canonical = current?.appId || agent.currentProjectId;
     if (canonical === (urlKey ?? null)) return;
-    if (!canonical) { navigate("/create", { replace: true }); return; }
+    if (!canonical) {
+      resolvedKeyRef.current = null;
+      pendingSelfNavRef.current = null;
+      navigate("/create", { replace: true });
+      return;
+    }
     const urlProject = urlKey ? agent.projects.find((p) => p.appId === urlKey || p.id === urlKey) : undefined;
     const sameProject = !urlKey || urlProject?.id === agent.currentProjectId;
-    resolvedKeyRef.current = canonical; // our own write — nothing to re-open
+    // Our own write — nothing to re-open, and urlKey stays stale until it lands.
+    resolvedKeyRef.current = canonical;
+    pendingSelfNavRef.current = canonical;
     navigate(`/create/${canonical}`, { replace: sameProject });
   }, [urlKey, loading, user, agent.projectsLoading, resolvingUrl, agent.projects, agent.currentProjectId, searchParams, navigate]);
 
@@ -594,9 +642,11 @@ export function Create() {
           loadError={agent.projectsError}
           onRetry={agent.reloadProjects}
           onSelect={(id) => {
+            // URL ONLY. The routing effect opens it — the same path a My Games
+            // link or the back button takes. Calling switchProject here too was
+            // the dual-write that caused #3/#4/#5/#6 (see the routing effect).
             if (agent.isStreaming) return;
             const project = agent.projects.find((p) => p.id === id);
-            agent.switchProject(id);
             navigateToProject(project ?? { id });
           }}
           // Unified: "new" from the picker opens the one template picker, not a
@@ -605,14 +655,18 @@ export function Create() {
           onDelete={(id) => {
             const deletingCurrent = id === agent.currentProjectId;
             const next = agent.projects.find((p) => p.id !== id) ?? null;
+            // deleteProject already promotes the survivor to current, so this is
+            // a self-write catching the URL up — not a request to open it.
             agent.deleteProject(id);
-            if (deletingCurrent) navigateToProject(next, true);
+            if (deletingCurrent) navigateToProject(next, { replace: true, alreadyOpen: true });
           }}
           onFreshChat={(appId) => {
             if (agent.isStreaming) return;
             setPickerOpen(false);
             void agent.startFreshChat(appId).then((id) => {
-              if (id) navigateToProject({ id, appId });
+              // startFreshChat already made the new session current — self-write,
+              // so the routing effect must not re-import over it.
+              if (id) navigateToProject({ id, appId }, { alreadyOpen: true });
             });
           }}
           onClose={() => setPickerOpen(false)}
