@@ -111,3 +111,165 @@ describe("GET /api/reconcile is report-only", () => {
     expect(calls.filter((c) => /INSERT INTO routes|DELETE FROM routes/i.test(c.sql))).toHaveLength(0);
   });
 });
+
+// Build-status backstop (#22). The agent reports a CI outcome the moment it sees
+// one, but it is not the only publisher — the CLI and MCP provision without it,
+// and an agent run that dies mid-deploy never reports at all. Without this sweep
+// those games sit `pending` forever and are hidden from the store.
+
+/** Registry read/write + Actions stub. `runs` maps a game id to the conclusion
+ *  its latest deploy.yml run reports (undefined → nothing concluded yet). */
+function statusFetch(
+  games: unknown[],
+  runs: Record<string, "success" | "failure" | "cancelled" | undefined>,
+) {
+  const puts: Array<any[]> = [];
+  const actionsQueried: string[] = [];
+  const fetchFn = async (
+    input: unknown,
+    init?: { method?: string; body?: string; headers?: Record<string, string> },
+  ) => {
+    const url = typeof input === "string" ? input : (input as Request).url;
+    const method = init?.method ?? "GET";
+    const actions = /\/repos\/[^/]+\/([^/]+)\/actions\/workflows\/deploy\.yml\/runs/.exec(url);
+    if (actions) {
+      const id = actions[1]!;
+      actionsQueried.push(id);
+      const conclusion = runs[id];
+      return new Response(
+        JSON.stringify({
+          workflow_runs: conclusion ? [{ status: "completed", conclusion }] : [],
+        }),
+        { status: 200 },
+      );
+    }
+    if (url.includes("/contents/registry.json")) {
+      if (method === "GET") {
+        // Same URL, two shapes: fetchRegistryItems asks for the RAW body
+        // (Accept: …raw+json) while publish.ts's ghApi takes the default
+        // base64-wrapped contents payload. Answer whichever was asked for.
+        const raw = (init?.headers?.Accept ?? "").includes("raw");
+        return new Response(
+          raw
+            ? JSON.stringify({ games })
+            : JSON.stringify({ content: btoa(JSON.stringify({ games })), sha: "sha1" }),
+          { status: 200 },
+        );
+      }
+      puts.push(JSON.parse(atob(JSON.parse(init!.body!).content)).games);
+      return new Response(JSON.stringify({ content: { sha: "sha2" } }), { status: 200 });
+    }
+    if (url.includes("raw.githubusercontent")) {
+      return new Response(JSON.stringify({ games }), { status: 200 });
+    }
+    return new Response(JSON.stringify({}), { status: 200 });
+  };
+  return { puts, actionsQueried, fetchFn };
+}
+
+describe("reconcile build-status backstop", () => {
+  it("flips a pending game whose deploy concluded success to live", async () => {
+    const { puts, fetchFn } = statusFetch(
+      [{ id: "chess", status: "pending" }],
+      { chess: "success" },
+    );
+    vi.stubGlobal("fetch", fetchFn);
+    const { db } = makeDB(["chess"]);
+    await runScheduled({ GITHUB_TOKEN: "x", DB: db });
+
+    expect(puts).toHaveLength(1);
+    expect(puts[0]!.find((g: any) => g.id === "chess").status).toBe("live");
+  });
+
+  it("flips a pending game whose deploy failed to failed", async () => {
+    const { puts, fetchFn } = statusFetch(
+      [{ id: "chess", status: "pending" }],
+      { chess: "failure" },
+    );
+    vi.stubGlobal("fetch", fetchFn);
+    const { db } = makeDB(["chess"]);
+    await runScheduled({ GITHUB_TOKEN: "x", DB: db });
+
+    expect(puts[0]!.find((g: any) => g.id === "chess").status).toBe("failed");
+  });
+
+  it("leaves a pending game alone while nothing has concluded", async () => {
+    const { puts, fetchFn } = statusFetch([{ id: "chess", status: "pending" }], {});
+    vi.stubGlobal("fetch", fetchFn);
+    const { db } = makeDB(["chess"]);
+    await runScheduled({ GITHUB_TOKEN: "x", DB: db });
+
+    expect(puts).toHaveLength(0);
+  });
+
+  it("ignores a cancelled run — Path B cancels superseded runs by design", async () => {
+    const { puts, fetchFn } = statusFetch(
+      [{ id: "chess", status: "pending" }],
+      { chess: "cancelled" },
+    );
+    vi.stubGlobal("fetch", fetchFn);
+    const { db } = makeDB(["chess"]);
+    await runScheduled({ GITHUB_TOKEN: "x", DB: db });
+
+    expect(puts).toHaveLength(0);
+  });
+
+  it("never queries or rewrites a game that is already live or legacy", async () => {
+    const { puts, actionsQueried, fetchFn } = statusFetch(
+      [{ id: "chess", status: "live" }, { id: "tetris" }],
+      { chess: "failure", tetris: "failure" },
+    );
+    vi.stubGlobal("fetch", fetchFn);
+    const { db } = makeDB(["chess", "tetris"]);
+    await runScheduled({ GITHUB_TOKEN: "x", DB: db });
+
+    expect(actionsQueried).toHaveLength(0);
+    expect(puts).toHaveLength(0);
+  });
+
+  it("resolves several pending games in ONE registry commit", async () => {
+    const { puts, fetchFn } = statusFetch(
+      [
+        { id: "a", status: "pending" },
+        { id: "b", status: "pending" },
+        { id: "c", status: "pending" },
+      ],
+      { a: "success", b: "failure", c: undefined },
+    );
+    vi.stubGlobal("fetch", fetchFn);
+    const { db } = makeDB(["a", "b", "c"]);
+    await runScheduled({ GITHUB_TOKEN: "x", DB: db });
+
+    expect(puts).toHaveLength(1);
+    expect(puts[0]!.find((g: any) => g.id === "a").status).toBe("live");
+    expect(puts[0]!.find((g: any) => g.id === "b").status).toBe("failed");
+    expect(puts[0]!.find((g: any) => g.id === "c").status).toBe("pending");
+  });
+
+  it("GET /api/reconcile reports pending but flips nothing", async () => {
+    const { puts, actionsQueried, fetchFn } = statusFetch(
+      [{ id: "chess", status: "pending" }],
+      { chess: "success" },
+    );
+    vi.stubGlobal("fetch", fetchFn);
+    const { db } = makeDB(["chess"]);
+    const AUTH = {
+      fetch: async () => new Response(JSON.stringify({ email: "serge.the.dev@gmail.com" }), { status: 200 }),
+    };
+    const env = {
+      GITHUB_TOKEN: "x",
+      DB: db,
+      AUTH,
+      ADMIN_EMAILS: "serge.the.dev@gmail.com",
+    } as unknown as Parameters<typeof worker.fetch>[1];
+
+    const res = await worker.fetch(
+      new Request("https://admin.freegamestore.online/api/reconcile", { headers: { "X-FGS-Token": "t" } }),
+      env,
+    );
+    const body = (await res.json()) as { pending: string[] };
+    expect(body.pending).toEqual(["chess"]);
+    expect(actionsQueried).toHaveLength(0);
+    expect(puts).toHaveLength(0);
+  });
+});

@@ -1,4 +1,4 @@
-import { handleDeleteGame, handlePublish, handleUpdateGame, insertHostRoute } from "./publish";
+import { handleDeleteGame, handlePublish, handleUpdateGame, insertHostRoute, readGameStatus, setGameStatus, setGameStatuses } from "./publish";
 import { errorStats, listErrors, pruneErrors, recordError } from "./errlog";
 import { verifySession, handleAuthExchange, handleAuthMe } from "./auth";
 import { renderApiDocs } from "./dashboard";
@@ -363,6 +363,43 @@ function jsonResponse(data: unknown, status: number, request: Request): Response
   });
 }
 
+/** Latest CONCLUDED deploy.yml outcome for a game repo, or null when nothing has
+ *  concluded yet (no runs, still queued/in-progress, or the API call failed).
+ *
+ *  Filters to deploy.yml specifically: a game repo carries several workflows
+ *  (ci/compliance/deploy) and "latest run of any workflow" reads the wrong
+ *  conclusion. `cancelled` is skipped rather than treated as failure — Path B
+ *  provisioning lands several commits in quick succession and deploy.yml's
+ *  `concurrency: cancel-in-progress` cancels the earlier runs by design, so a
+ *  cancelled run says nothing about the build. Mirrors the agent's
+ *  waitForActionsDeploy. */
+async function latestDeployConclusion(env: Env, id: string): Promise<"success" | "failure" | null> {
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${ORG}/${id}/actions/workflows/deploy.yml/runs?per_page=5`,
+      {
+        headers: {
+          Accept: "application/vnd.github+json",
+          "User-Agent": "freegamestore-admin",
+          ...(env.GITHUB_TOKEN ? { Authorization: `Bearer ${env.GITHUB_TOKEN}` } : {}),
+        },
+      },
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      workflow_runs?: Array<{ status: string; conclusion: string | null }>;
+    };
+    for (const run of data.workflow_runs ?? []) {
+      if (run.status !== "completed" || run.conclusion === "cancelled") continue;
+      if (run.conclusion === "success") return "success";
+      if (run.conclusion === "failure" || run.conclusion === "timed_out") return "failure";
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 interface ReconcileReport {
   ts: string;
   registryCount: number;
@@ -375,8 +412,10 @@ interface ReconcileReport {
   /** True when the registry read FAILED (not merely empty). In this state the
    *  comparison is untrustworthy, so no drift is claimed and no healing runs. */
   registryError?: boolean;
+  /** Registry entries still `pending` — provisioned, first build not yet confirmed. */
+  pending?: string[];
   /** Populated only on the scheduled (heal=true) path: what was actually fixed. */
-  healed?: { insertedRoutes: string[]; deletedRoutes: string[] };
+  healed?: { insertedRoutes: string[]; deletedRoutes: string[]; statusFlips?: string[] };
 }
 
 /** Compare the storefront registry against the D1 `routes` table and surface —
@@ -427,6 +466,10 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
   const registryIds = new Set(items.map((g) => g.id).filter(Boolean));
   const missingRoute = [...registryIds].filter((id) => !routeSlugs.has(id)).sort();
   const orphanRoute = [...routeSlugs].filter((slug) => !registryIds.has(slug)).sort();
+  const pending = items
+    .filter((g) => g?.id && readGameStatus(g) === "pending")
+    .map((g) => g.id as string)
+    .sort();
 
   const report: ReconcileReport = {
     ts,
@@ -434,6 +477,10 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
     routeCount: routeSlugs.size,
     missingRoute,
     orphanRoute,
+    pending,
+    // A pending game is NOT drift — provisioning before the build is deliberate.
+    // It only becomes interesting if it never resolves, which the flip below
+    // handles rather than alarming about.
     drift: missingRoute.length > 0 || orphanRoute.length > 0,
   };
 
@@ -457,6 +504,40 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
       }
     }
     report.healed = { insertedRoutes, deletedRoutes };
+  }
+
+  // Backstop for the build-status field (#22). The agent reports the CI outcome
+  // the moment it sees it, but it is NOT the only publisher — `fgs publish` (CLI)
+  // and the MCP `create_game` tool provision without it, and any agent run that
+  // dies mid-deploy never reports at all. Without this sweep those games would
+  // sit `pending` forever and be hidden from the store — a worse bug than the one
+  // #22 fixes. One batched registry commit per run, and it only ever moves
+  // pending → live/failed.
+  if (heal && pending.length > 0) {
+    const flips: Array<{ id: string; status: "live" | "failed" }> = [];
+    for (const id of pending) {
+      const conclusion = await latestDeployConclusion(env, id);
+      if (conclusion === "success") flips.push({ id, status: "live" });
+      else if (conclusion === "failure") flips.push({ id, status: "failed" });
+      // null → nothing concluded yet; leave pending for the next run.
+    }
+    if (flips.length > 0) {
+      const res = await setGameStatuses(env as any, flips);
+      report.healed = {
+        ...(report.healed ?? { insertedRoutes: [], deletedRoutes: [] }),
+        statusFlips: res.updated,
+      };
+      if (!res.ok) {
+        console.error(`[reconcile] status flip FAILED: ${res.detail}`);
+        await recordError(env.DB, {
+          source: "admin/reconcile",
+          context: `heal=${heal}`,
+          message: `build-status flip failed: ${res.detail}`,
+        });
+      } else {
+        console.log(`[reconcile] status flips: ${res.updated.join(", ") || "none"}`);
+      }
+    }
   }
 
   if (report.drift) {
@@ -688,6 +769,35 @@ export default {
         await recordError(env.DB, { source: "admin/games.delete", user: login, context: `id=${gameMatch[1]}`, message: (e as Error)?.message ?? String(e), stack: (e as Error)?.stack });
         return jsonResponse({ error: String(e) }, 500, request);
       }
+    }
+
+    // POST /api/game-status — report a CONCLUDED build outcome for a game (#22).
+    // Fast path for the field the hourly reconcile also maintains: the agent sees
+    // the deploy.yml conclusion within seconds and calls this, so a creator's game
+    // goes live in the store immediately instead of waiting up to an hour.
+    //
+    // Internal token ONLY. The registry `status` decides whether a game is shown
+    // as live store-wide, so this is not something a user-authenticated caller
+    // should be able to set for themselves. Every non-agent publisher (CLI, MCP)
+    // is covered by reconcile's sweep instead — no extra auth surface needed.
+    if (url.pathname === "/api/game-status" && request.method === "POST") {
+      const internal = request.headers.get("X-Internal-Token");
+      if (!(internal && env.INTERNAL_TOKEN && safeEqual(internal, env.INTERNAL_TOKEN))) {
+        return jsonResponse({ error: "unauthorized" }, 401, request);
+      }
+      const body = (await request.json().catch(() => ({}))) as { id?: string; status?: string };
+      if (!body.id || (body.status !== "live" && body.status !== "failed")) {
+        return jsonResponse({ error: "id and status ('live'|'failed') are required" }, 400, request);
+      }
+      const step = await setGameStatus(env as any, body.id, body.status);
+      if (step.status === "fail") {
+        await recordError(env.DB, {
+          source: "admin/game-status",
+          context: `id=${body.id} status=${body.status}`,
+          message: step.detail,
+        });
+      }
+      return jsonResponse({ ok: step.status !== "fail", step }, step.status === "fail" ? 500 : 200, request);
     }
 
     if ((url.pathname === "/api/provision" || url.pathname === "/api/publish") && request.method === "POST") {

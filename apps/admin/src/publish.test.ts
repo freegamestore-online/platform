@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { verifySession } from "./auth";
-import { handleDeleteGame, handlePublish, handleUpdateGame } from "./publish";
+import { handleDeleteGame, handlePublish, handleUpdateGame, readGameStatus, setGameStatuses } from "./publish";
 
 // Regression guards for the admin authz fixes:
 //  - provision must not grant push on a repo it didn't just create
@@ -228,5 +228,193 @@ describe("handlePublish owner validation", () => {
     expect(res.steps[0]!.detail).toMatch(/invalid creatorgithub/i);
     // Nothing touched GitHub — no repo check, no generate, no registry write.
     expect(calls).toHaveLength(0);
+  });
+});
+
+// Build-status lifecycle (#22). Provisioning writes `pending` before the first
+// build, so nothing may report a game live until a deploy.yml run concludes
+// success. These guard the transition rules that make that safe.
+
+/** Registry read/write stub. Returns the games it was given on GET, and records
+ *  what a PUT would have committed. */
+function registryStub(games: unknown[], opts: { putStatus?: number } = {}) {
+  const puts: Array<{ games: any[]; message: string }> = [];
+  const fetchFn = async (input: unknown, init?: { method?: string; body?: string }) => {
+    const url = typeof input === "string" ? input : (input as Request).url;
+    const method = init?.method ?? "GET";
+    if (url.includes("/contents/registry.json")) {
+      if (method === "GET") {
+        return new Response(
+          JSON.stringify({ content: btoa(JSON.stringify({ games })), sha: "sha1" }),
+          { status: 200 },
+        );
+      }
+      const body = JSON.parse(init!.body!);
+      const status = opts.putStatus ?? 200;
+      if (status !== 200) return new Response(JSON.stringify({ message: "conflict" }), { status });
+      puts.push({ games: JSON.parse(atob(body.content)).games, message: body.message });
+      return new Response(JSON.stringify({ content: { sha: "sha2" } }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  };
+  return { puts, fetchFn };
+}
+
+const envWithToken = () => ({ GITHUB_TOKEN: "x", DB: undefined }) as unknown as Parameters<typeof setGameStatuses>[0];
+
+describe("readGameStatus", () => {
+  it("treats a missing status as live — every entry predating the field is genuinely live", () => {
+    expect(readGameStatus({})).toBe("live");
+    expect(readGameStatus(undefined)).toBe("live");
+  });
+
+  it("does not hide a game on an unrecognised status", () => {
+    expect(readGameStatus({ status: "wat" })).toBe("live");
+  });
+
+  it("reads the three real states", () => {
+    expect(readGameStatus({ status: "pending" })).toBe("pending");
+    expect(readGameStatus({ status: "failed" })).toBe("failed");
+    expect(readGameStatus({ status: "live" })).toBe("live");
+  });
+});
+
+describe("setGameStatuses", () => {
+  it("flips pending → live and commits it", async () => {
+    const { puts, fetchFn } = registryStub([{ id: "chess", status: "pending" }]);
+    vi.stubGlobal("fetch", fetchFn);
+    const res = await setGameStatuses(envWithToken(), [{ id: "chess", status: "live" }]);
+    expect(res.ok).toBe(true);
+    expect(res.updated).toEqual(["chess"]);
+    expect(puts).toHaveLength(1);
+    expect(puts[0]!.games[0].status).toBe("live");
+  });
+
+  it("flips pending → failed for a game that has never shipped", async () => {
+    const { puts, fetchFn } = registryStub([{ id: "chess", status: "pending" }]);
+    vi.stubGlobal("fetch", fetchFn);
+    const res = await setGameStatuses(envWithToken(), [{ id: "chess", status: "failed" }]);
+    expect(res.updated).toEqual(["chess"]);
+    expect(puts[0]!.games[0].status).toBe("failed");
+  });
+
+  it("REFUSES to move a live game to failed — R2 still serves its last good build", async () => {
+    const { puts, fetchFn } = registryStub([{ id: "chess", status: "live" }]);
+    vi.stubGlobal("fetch", fetchFn);
+    const res = await setGameStatuses(envWithToken(), [{ id: "chess", status: "failed" }]);
+    expect(res.ok).toBe(true);
+    expect(res.updated).toEqual([]);
+    expect(res.skipped[0]).toMatch(/live/);
+    // Nothing was committed at all — a shipped game is never delisted by a
+    // later red build.
+    expect(puts).toHaveLength(0);
+  });
+
+  it("REFUSES to downgrade a legacy entry with no status field", async () => {
+    const { puts, fetchFn } = registryStub([{ id: "chess" }]);
+    vi.stubGlobal("fetch", fetchFn);
+    const res = await setGameStatuses(envWithToken(), [{ id: "chess", status: "failed" }]);
+    expect(res.updated).toEqual([]);
+    expect(puts).toHaveLength(0);
+  });
+
+  it("batches several flips into ONE commit", async () => {
+    const { puts, fetchFn } = registryStub([
+      { id: "a", status: "pending" },
+      { id: "b", status: "pending" },
+      { id: "c", status: "live" },
+    ]);
+    vi.stubGlobal("fetch", fetchFn);
+    const res = await setGameStatuses(envWithToken(), [
+      { id: "a", status: "live" },
+      { id: "b", status: "failed" },
+    ]);
+    expect(res.updated).toEqual(["a", "b"]);
+    expect(puts).toHaveLength(1);
+    expect(puts[0]!.games.find((g: any) => g.id === "a").status).toBe("live");
+    expect(puts[0]!.games.find((g: any) => g.id === "b").status).toBe("failed");
+    // The untargeted entry is carried through untouched.
+    expect(puts[0]!.games.find((g: any) => g.id === "c").status).toBe("live");
+  });
+
+  it("skips an unknown id rather than failing the batch", async () => {
+    const { puts, fetchFn } = registryStub([{ id: "chess", status: "pending" }]);
+    vi.stubGlobal("fetch", fetchFn);
+    const res = await setGameStatuses(envWithToken(), [
+      { id: "ghost", status: "live" },
+      { id: "chess", status: "live" },
+    ]);
+    expect(res.ok).toBe(true);
+    expect(res.updated).toEqual(["chess"]);
+    expect(res.skipped.some((s) => s.includes("ghost"))).toBe(true);
+  });
+
+  it("writes nothing when there is no real transition", async () => {
+    const { puts, fetchFn } = registryStub([{ id: "chess", status: "live" }]);
+    vi.stubGlobal("fetch", fetchFn);
+    const res = await setGameStatuses(envWithToken(), [{ id: "chess", status: "live" }]);
+    expect(res.ok).toBe(true);
+    expect(puts).toHaveLength(0);
+  });
+
+  it("reports failure when the registry write stays contended", async () => {
+    const { fetchFn } = registryStub([{ id: "chess", status: "pending" }], { putStatus: 409 });
+    vi.stubGlobal("fetch", fetchFn);
+    const res = await setGameStatuses(envWithToken(), [{ id: "chess", status: "live" }]);
+    expect(res.ok).toBe(false);
+    expect(res.detail).toMatch(/contended/i);
+  });
+});
+
+describe("handlePublish build status", () => {
+  it("lists a NEW game as pending — provisioning runs before the first build", async () => {
+    // Awaits the registry PUT rather than the whole provision: later steps
+    // (placeholder substitution, route insert) retry against a stub that can
+    // never satisfy them, and the entry shape is settled by the time it commits.
+    let resolvePut: (games: any[]) => void;
+    const firstPut = new Promise<any[]>((r) => { resolvePut = r; });
+
+    vi.stubGlobal("fetch", async (input: unknown, init?: { method?: string; body?: string }) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      const method = init?.method ?? "GET";
+      if (url.includes("/contents/registry.json")) {
+        if (method === "GET") {
+          return new Response(
+            JSON.stringify({ content: btoa(JSON.stringify({ games: [] })), sha: "sha1" }),
+            { status: 200 },
+          );
+        }
+        resolvePut(JSON.parse(atob(JSON.parse(init!.body!).content)).games);
+        return new Response(JSON.stringify({ content: { sha: "sha2" } }), { status: 200 });
+      }
+      // Target repo does not exist yet → provision proceeds down the create path.
+      if (method === "GET" && url.endsWith("/repos/freegamestore-online/chess")) {
+        return new Response(JSON.stringify({ message: "Not Found" }), { status: 404 });
+      }
+      // The APPNAME substitution step polls for the generated repo's main ref
+      // (12 × 1.5s) before it commits. Answer it immediately so the run reaches
+      // the registry write inside the test timeout instead of spinning there.
+      if (url.includes("/git/ref/heads/main")) {
+        return new Response(JSON.stringify({ object: { sha: "headsha" } }), { status: 200 });
+      }
+      if (url.includes("/git/commits/")) {
+        return new Response(JSON.stringify({ tree: { sha: "treesha" } }), { status: 200 });
+      }
+      // Any other repo file read (the substitution targets) — a real contents
+      // payload, so the step completes rather than retrying on a decode failure.
+      if (method === "GET" && url.includes("/contents/")) {
+        return new Response(
+          JSON.stringify({ content: btoa("APPNAME"), sha: "s" }),
+          { status: 200 },
+        );
+      }
+      return new Response(JSON.stringify({ ok: true, id: 1 }), { status: 200 });
+    });
+
+    const env = { GITHUB_TOKEN: "x", DB: undefined } as unknown as Parameters<typeof handlePublish>[1];
+    void handlePublish({ id: "chess", name: "Chess", category: "arcade", creatorGithub: "someone" }, env);
+
+    const games = await firstPut;
+    expect(games.find((g: any) => g.id === "chess").status).toBe("pending");
   });
 });

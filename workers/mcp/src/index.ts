@@ -204,12 +204,40 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
         const repoUrl = `https://github.com/${org}/${game_id}`;
         const listingUrl = `https://${domain}/games/${game_id}`;
 
+        // Build status comes from the registry, NOT from probing the URL (#22).
+        // Provisioning writes the repo, host route and registry entry BEFORE the
+        // first build, and deploy.yml syncs the template scaffold to R2 — so the
+        // host answers a genuine 200 for a game whose code has never compiled.
+        // A HEAD probe cannot tell that apart from a shipped game, which is what
+        // reported candy-shop and squishy-swap as "Live (200)" for 30+ minutes
+        // while CI was red (2026-08-09).
+        //
+        // The probe is still worth running for a game the registry says HAS
+        // shipped — that is the case where it carries real information (the host
+        // is genuinely down) rather than fabricating liveness.
+        const games = await readRegistryGames(org, this.env.STORE_REPO, this.env.GITHUB_TOKEN);
+        const entry = games.find((g) => g.id === game_id);
+        // Absent entry → unlisted; absent status → predates the field, so live.
+        const buildStatus = !entry
+          ? "unlisted"
+          : entry.status === "pending" || entry.status === "failed"
+            ? entry.status
+            : "live";
+
         let status: string;
-        try {
-          const check = await withTimeout((signal) => fetch(liveUrl, { method: "HEAD", signal }));
-          status = check.ok ? "Live (200)" : `Down (${check.status})`;
-        } catch {
-          status = "Unreachable";
+        if (buildStatus === "unlisted") {
+          status = "Not listed in the store registry";
+        } else if (buildStatus === "pending") {
+          status = "Building — provisioned, but no successful build yet (not live)";
+        } else if (buildStatus === "failed") {
+          status = "Build failed — has never deployed successfully (not live)";
+        } else {
+          try {
+            const check = await withTimeout((signal) => fetch(liveUrl, { method: "HEAD", signal }));
+            status = check.ok ? "Live (200)" : `Down (${check.status})`;
+          } catch {
+            status = "Unreachable";
+          }
         }
 
         return {

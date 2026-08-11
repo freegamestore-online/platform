@@ -100,6 +100,28 @@ interface Step {
   detail: string;
 }
 
+/** Build lifecycle of a registry entry (#22).
+ *
+ *  - `pending` — provisioned, but no deploy.yml run has concluded success yet.
+ *    The repo, host route and registry entry all exist; the host serves the
+ *    template scaffold. NOT live, however cheerfully it answers 200.
+ *  - `live`    — at least one deploy.yml run concluded success. STICKY: a later
+ *    failed build does not un-ship a game, because R2 still serves the last good
+ *    artifact. Marking it `failed` would delist a working game.
+ *  - `failed`  — has never built successfully and the latest attempt failed.
+ *
+ *  An ABSENT status means the entry predates this field (added 2026-08-11). Every
+ *  such game is genuinely live, so readers treat missing as `live` and writers
+ *  never downgrade it. Do not backfill by probing — the probe is what lies. */
+export type GameStatus = "pending" | "live" | "failed";
+
+/** Missing → `live` (legacy entry). Anything unrecognised is treated as legacy
+ *  too rather than hiding a game on a typo. */
+export function readGameStatus(entry: { status?: unknown } | null | undefined): GameStatus {
+  const s = entry?.status;
+  return s === "pending" || s === "failed" || s === "live" ? s : "live";
+}
+
 const STORE_CONFIG = {
   org: "freegamestore-online",
   domain: "freegamestore.online",
@@ -204,6 +226,114 @@ export async function insertHostRoute(env: PublishEnv, slug: string): Promise<St
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Flip the build status of one or more registry entries (#22), in ONE commit.
+ *
+ *  Batched deliberately: the hourly reconcile can resolve several pending games
+ *  at once, and N separate read-modify-writes would both burn N commits and
+ *  contend with each other on the same file.
+ *
+ *  Transition rules (see GameStatus):
+ *    - → `live`   always applies.
+ *    - → `failed` applies ONLY to a game that has never succeeded. A `live` game
+ *      whose latest build failed is still serving its last good artifact from R2;
+ *      delisting it would take a working game off the store.
+ *    - Nothing here ever writes `pending` — only provisioning does.
+ *
+ *  Unknown ids and no-op transitions are skipped, not failed. Retry-once-on-409
+ *  mirrors the provision path's registry write (vendored, not shared). */
+export async function setGameStatuses(
+  env: PublishEnv,
+  updates: Array<{ id: string; status: "live" | "failed" }>,
+  org = STORE_CONFIG.org,
+  storeRepo = STORE_CONFIG.storeRepo,
+  key = STORE_CONFIG.registryKey,
+): Promise<{ ok: boolean; updated: string[]; skipped: string[]; detail: string }> {
+  if (updates.length === 0) return { ok: true, updated: [], skipped: [], detail: "no updates" };
+  const registryPath = `/repos/${org}/${storeRepo}/contents/registry.json`;
+
+  const attempt = async (): Promise<
+    { ok: boolean; updated: string[]; skipped: string[]; detail: string } | null
+  > => {
+    const registryFile = await ghApi(env, registryPath);
+    if (!registryFile.content) {
+      return { ok: false, updated: [], skipped: [], detail: "Could not read registry.json" };
+    }
+    const content = JSON.parse(decodeGhContent(registryFile.content));
+    const items: any[] = content[key] || [];
+
+    const updated: string[] = [];
+    const skipped: string[] = [];
+    for (const { id, status } of updates) {
+      const entry = items.find((a) => a?.id === id);
+      if (!entry) {
+        skipped.push(`${id} (not listed)`);
+        continue;
+      }
+      const current = readGameStatus(entry);
+      if (current === status) {
+        skipped.push(`${id} (already ${status})`);
+        continue;
+      }
+      if (status === "failed" && current === "live") {
+        // Shipped once, broken now — R2 still serves the last good build.
+        skipped.push(`${id} (live; failed build does not delist)`);
+        continue;
+      }
+      entry.status = status;
+      updated.push(id);
+    }
+
+    if (updated.length === 0) {
+      return { ok: true, updated, skipped, detail: skipped.join(", ") || "no change" };
+    }
+
+    content[key] = items;
+    const message =
+      updated.length === 1
+        ? `Mark ${updated[0]} ${updates.find((u) => u.id === updated[0])!.status}`
+        : `Update build status for ${updated.length} games`;
+    const res = await ghApi(env, registryPath, "PUT", {
+      message,
+      content: btoa(
+        Array.from(new TextEncoder().encode(JSON.stringify(content, null, 2)))
+          .map((b) => String.fromCharCode(b))
+          .join(""),
+      ),
+      sha: registryFile.sha,
+    });
+    if (res.content) {
+      return { ok: true, updated, skipped, detail: `${updated.join(", ")} updated` };
+    }
+    if (res.__status === 409) return null; // contended — caller retries once
+    return { ok: false, updated: [], skipped, detail: res.message || "Failed to update registry" };
+  };
+
+  return (
+    (await attempt()) ??
+    (await attempt()) ?? {
+      ok: false,
+      updated: [],
+      skipped: [],
+      detail: "Registry write contended twice",
+    }
+  );
+}
+
+/** Single-entry convenience wrapper over setGameStatuses, shaped as a Step. */
+export async function setGameStatus(
+  env: PublishEnv,
+  id: string,
+  status: "live" | "failed",
+): Promise<Step> {
+  const r = await setGameStatuses(env, [{ id, status }]);
+  if (!r.ok) return { name: "Build status", status: "fail", detail: r.detail };
+  return {
+    name: "Build status",
+    status: r.updated.length > 0 ? "ok" : "skip",
+    detail: r.updated.length > 0 ? `${id} → ${status}` : r.detail,
+  };
+}
 
 /** After a template `/generate`, GitHub copies files verbatim — so `APPNAME`
  *  placeholders survive. Rewrite them in ONE commit (slug for package names +
@@ -592,6 +722,12 @@ export async function handlePublish(
       ...(req.template && TEMPLATE_REPOS[req.template] ? { engine: req.template } : {}),
       // Set once, on first add. `me.ts` reads this for the game's createdAt.
       firstPublished: nowIso,
+      // Build lifecycle (#22). Provisioning deliberately runs BEFORE the first
+      // build — repo, route and this entry all exist while the creator's code has
+      // never compiled — so liveness cannot be inferred from "the host answers
+      // 200" (it answers 200 for the template scaffold). `pending` until a
+      // deploy.yml run concludes success; see setGameStatuses.
+      status: "pending" satisfies GameStatus,
     });
     content[key] = items;
 

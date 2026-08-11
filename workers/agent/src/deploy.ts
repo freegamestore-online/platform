@@ -311,6 +311,35 @@ async function registerViaAdmin(
   }
 }
 
+/** Report a CONCLUDED build outcome to admin, which flips the game's registry
+ *  `status` (#22). Provisioning writes `pending` before the build runs, so until
+ *  this lands the store must not claim the game is live — the host answers 200
+ *  for the template scaffold either way.
+ *
+ *  Strictly best-effort: a game's deploy is NOT failed by a failure to report it.
+ *  Admin's hourly reconcile re-derives the same outcome from deploy.yml, so the
+ *  worst case of a dropped call is that the flip is late, not lost. */
+export async function reportBuildStatus(
+  repoId: string,
+  status: "live" | "failed",
+  env: DeployEnv,
+  config: StoreConfig,
+): Promise<void> {
+  if (!env.ADMIN || !env.INTERNAL_TOKEN) return;
+  try {
+    const res = await env.ADMIN.fetch(`https://admin.${config.domain}/api/game-status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Internal-Token": env.INTERNAL_TOKEN },
+      body: JSON.stringify({ id: repoId, status }),
+    });
+    if (!res.ok) {
+      console.error(`[deploy] build-status report for ${repoId} → ${status}: HTTP ${res.status}`);
+    }
+  } catch (err) {
+    console.error(`[deploy] build-status report for ${repoId} → ${status} failed: ${String(err)}`);
+  }
+}
+
 /** Canonical APPNAME substitution (shared with infra-exec at deploy time):
  *  the id (slug) in package.json manifests, the display name everywhere else.
  *  Mutates `files` in place. Mirrors admin's `substituteTemplatePlaceholders`
@@ -461,6 +490,9 @@ export async function waitForActionsDeploy(
       const run = runs.workflow_runs?.[0];
       if (!run || run.status !== "completed") continue;
       if (run.conclusion === "success") {
+        // Flip the registry to live BEFORE reporting live upstream, so the store
+        // and game_info agree with what the creator is being shown.
+        await reportBuildStatus(repoId, "live", env, config);
         onStatus({ phase: "live", appUrl });
         return;
       }
@@ -480,6 +512,9 @@ export async function waitForActionsDeploy(
         } catch (err) {
           console.error(`[deploy] Actions job detail fetch failed for ${config.org}/${repoId}: ${String(err)}`);
         }
+        // Only downgrades a game that has never shipped — admin refuses to move a
+        // `live` game to `failed`, because R2 still serves its last good build.
+        await reportBuildStatus(repoId, "failed", env, config);
         onStatus({ phase: "error", error: `Deploy workflow ${run.conclusion}${detail ? `: ${detail}` : ""}. See ${run.html_url || "the repo's Actions tab"} for logs.` });
         return;
       }
