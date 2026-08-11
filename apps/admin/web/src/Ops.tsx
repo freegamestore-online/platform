@@ -9,6 +9,17 @@ interface OpsData {
   games: GameInfo[];
   quality: QualityData["games"];
   errors: ErrorRow[];
+  drift: DriftReport | null;
+}
+
+/** Stale-deploy canary (#10): main HEAD is past the last SUCCESSFUL deploy, so
+ *  users are being served an older build than the repo contains. */
+interface DriftReport {
+  ts: string;
+  checked: number;
+  drifted: { id: string; headSha: string | null; lastSuccessSha: string | null }[];
+  neverBuilt: string[];
+  unknown: string[];
 }
 
 const ACTIVE_PHASES = new Set(["writing", "provisioning", "pushing", "building"]);
@@ -25,14 +36,18 @@ export function Ops({ navigate }: { navigate: (h: string) => void }) {
       api<GameInfo[]>("/api/status"),
       api<QualityData>("/api/quality").catch(() => ({ timestamp: "", games: [] })),
       api<ErrorRow[]>("/api/errors?limit=50"),
+      // Fans out ~2 GitHub calls per game (server-side cached 5 min). Never let
+      // it fail the whole Ops page — the panel just reports it is unavailable.
+      api<DriftReport>("/api/drift").catch(() => null),
     ])
-      .then(([sessions, users, games, quality, errors]) => {
+      .then(([sessions, users, games, quality, errors, drift]) => {
         setData({
           sessions: sessions.sessions ?? [],
           users: users.users ?? [],
           games: games ?? [],
           quality: quality.games ?? [],
           errors: errors ?? [],
+          drift,
         });
       })
       .catch((e) => setError(e.message));
@@ -128,6 +143,33 @@ export function Ops({ navigate }: { navigate: (h: string) => void }) {
               </a>
             ))}
             {model.weakQuality.length === 0 && <Empty text="No low-quality games in the latest audit." />}
+          </div>
+        </Panel>
+
+        <Panel title="Stale Deploys">
+          <div className="space-y-2">
+            {data.drift === null && <Empty text="Drift check unavailable right now." />}
+            {data.drift?.drifted.map((d) => (
+              <div key={d.id} className="rounded-lg border px-3 py-2" style={{ borderColor: "var(--line)", background: "var(--paper)" }}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold" style={{ color: "var(--error)" }}>{d.id}</span>
+                  <span className="text-[11px] whitespace-nowrap" style={{ color: "var(--muted)" }}>
+                    serving {d.lastSuccessSha ?? "?"} · head {d.headSha ?? "?"}
+                  </span>
+                </div>
+                <div className="text-xs mt-1" style={{ color: "var(--ink)" }}>
+                  Commits on main have never been built to R2 — players are on an older build.
+                </div>
+              </div>
+            ))}
+            {data.drift && data.drift.drifted.length === 0 && (
+              <Empty text={`No stale deploys — ${data.drift.checked} game(s) match their last successful build.`} />
+            )}
+            {data.drift && data.drift.unknown.length > 0 && (
+              <div className="text-[11px] pt-1" style={{ color: "var(--muted)" }}>
+                {data.drift.unknown.length} game(s) could not be checked: {data.drift.unknown.join(", ")}
+              </div>
+            )}
           </div>
         </Panel>
 

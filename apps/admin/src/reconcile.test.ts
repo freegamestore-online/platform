@@ -403,3 +403,84 @@ describe("GET /api/status carries build status", () => {
     expect(games[0]!.status).toBe("live");
   });
 });
+
+// GET /api/drift (#10 Part B) — the stale-deploy canary endpoint.
+
+describe("GET /api/drift", () => {
+  /** Registry read + the two per-game GitHub reads the canary makes. */
+  function driftFetch(games: unknown[] | null, shas: Record<string, { head: string; success: string | null }>) {
+    return async (input: unknown, init?: { headers?: Record<string, string> }) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.includes("/contents/registry.json") || url.includes("raw.githubusercontent")) {
+        if (games === null) return new Response("upstream down", { status: 500 });
+        const raw = (init?.headers?.Accept ?? "").includes("raw");
+        return new Response(
+          raw ? JSON.stringify({ games }) : JSON.stringify({ content: btoa(JSON.stringify({ games })), sha: "s" }),
+          { status: 200 },
+        );
+      }
+      const m = /\/repos\/[^/]+\/([^/]+)\//.exec(url);
+      const g = m ? shas[m[1]!] : undefined;
+      if (g && url.includes("/git/ref/heads/main")) {
+        return new Response(JSON.stringify({ object: { sha: g.head } }), { status: 200 });
+      }
+      if (g && url.includes("/actions/workflows/deploy.yml/runs")) {
+        return new Response(
+          JSON.stringify({ workflow_runs: g.success ? [{ head_sha: g.success }] : [] }),
+          { status: 200 },
+        );
+      }
+      return new Response("{}", { status: 200 });
+    };
+  }
+
+  const adminEnv = () => {
+    const { db } = makeDB([]);
+    return {
+      GITHUB_TOKEN: "x",
+      DB: db,
+      AUTH: { fetch: async () => new Response(JSON.stringify({ email: "serge.the.dev@gmail.com" }), { status: 200 }) },
+      ADMIN_EMAILS: "serge.the.dev@gmail.com",
+    } as unknown as Parameters<typeof worker.fetch>[1];
+  };
+
+  const get = (env: any, token = true) =>
+    worker.fetch(
+      new Request("https://admin.freegamestore.online/api/drift", {
+        headers: token ? { "X-FGS-Token": "t" } : {},
+      }),
+      env,
+    );
+
+  it("lists games whose HEAD is past their last successful build", async () => {
+    vi.stubGlobal("fetch", driftFetch(
+      [{ id: "candy-shop" }, { id: "chess" }],
+      { "candy-shop": { head: "aaaaaaa", success: "bbbbbbb" }, chess: { head: "ccccccc", success: "ccccccc" } },
+    ));
+    const res = await get(adminEnv());
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { drifted: { id: string }[]; checked: number };
+    expect(body.drifted.map((d) => d.id)).toEqual(["candy-shop"]);
+    expect(body.checked).toBe(2);
+  });
+
+  it("503s rather than reporting a false all-clear when the registry read fails", async () => {
+    // Zero games would otherwise mean zero drift — the same false-clear trap
+    // reconcile guards against.
+    vi.stubGlobal("fetch", driftFetch(null, {}));
+    const res = await get(adminEnv());
+    expect(res.status).toBe(503);
+  });
+
+  it("is admin-gated", async () => {
+    vi.stubGlobal("fetch", driftFetch([{ id: "chess" }], { chess: { head: "a", success: "a" } }));
+    const env = {
+      GITHUB_TOKEN: "x",
+      DB: makeDB([]).db,
+      AUTH: { fetch: async () => new Response(JSON.stringify({ email: "nobody@example.com" }), { status: 200 }) },
+      ADMIN_EMAILS: "serge.the.dev@gmail.com",
+    } as unknown as Parameters<typeof worker.fetch>[1];
+    const res = await get(env);
+    expect(res.status).not.toBe(200);
+  });
+});

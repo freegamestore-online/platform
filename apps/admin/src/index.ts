@@ -1,5 +1,6 @@
 import { handleDeleteGame, handlePublish, handleUpdateGame, insertHostRoute, readGameStatus, setGameStatus, setGameStatuses, type GameStatus } from "./publish";
 import { errorStats, listErrors, pruneErrors, recordError } from "./errlog";
+import { findDrift } from "./drift";
 import { verifySession, handleAuthExchange, handleAuthMe } from "./auth";
 import { renderApiDocs } from "./dashboard";
 
@@ -593,7 +594,7 @@ export default {
     // internal token). Without this, the whole console + crash log + creator
     // list were world-readable.
     const ADMIN_PATHS = new Set([
-      "/", "/docs", "/api/reconcile", "/api/status", "/api/status/game",
+      "/", "/docs", "/api/reconcile", "/api/drift", "/api/status", "/api/status/game",
       "/api/quality", "/api/errors", "/api/stats", "/api/users",
     ]);
     if (ADMIN_PATHS.has(url.pathname)) {
@@ -610,6 +611,43 @@ export default {
         }
         return jsonResponse({ error: "unauthorized" }, 401, request);
       }
+    }
+
+    // GET /api/drift — stale-deploy canary (#10 Part B): games whose main HEAD is
+    // newer than their last SUCCESSFUL deploy.yml run, i.e. commits that never
+    // reached R2. Distinct from /api/reconcile (registry ↔ route drift) and from
+    // #22's `status` (has this game ever built at all).
+    //
+    // Cached 5 minutes in the Worker cache because this is ~2 GitHub calls per
+    // registered game — around 250 for the current fleet. Uncached, a couple of
+    // dashboard refreshes would burn the hourly API budget. The cached copy is an
+    // internal key, never the client response, which stays no-store.
+    if (url.pathname === "/api/drift" && request.method === "GET") {
+      const cacheKey = new Request("https://admin.freegamestore.online/__cache/drift");
+      const cache = typeof caches !== "undefined" ? caches.default : null;
+      const hit = cache ? await cache.match(cacheKey).catch(() => null) : null;
+      if (hit) return jsonResponse(await hit.json(), 200, request);
+
+      const items = await fetchRegistryItems(env);
+      if (items === null) {
+        // Same rule as reconcile: a failed registry read must not read as "no
+        // games" and therefore "no drift" — that is a false all-clear.
+        return jsonResponse({ error: "registry read failed — drift not computed" }, 503, request);
+      }
+      const ids = items.map((g) => g?.id).filter((id): id is string => typeof id === "string" && !!id);
+      const report = await findDrift(env, ORG, ids);
+      if (cache) {
+        await cache.put(
+          cacheKey,
+          new Response(JSON.stringify(report), {
+            headers: { "Content-Type": "application/json", "Cache-Control": "max-age=300" },
+          }),
+        ).catch(() => { /* caching is best-effort */ });
+      }
+      if (report.drifted.length) {
+        console.warn(`[drift] ${report.drifted.length} game(s) serving stale builds: ${report.drifted.map((d) => d.id).join(", ")}`);
+      }
+      return jsonResponse(report, 200, request);
     }
 
     // GET /api/reconcile — on-demand drift report (same logic as the cron).
