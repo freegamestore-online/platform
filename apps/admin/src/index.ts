@@ -1,6 +1,6 @@
 import { handleDeleteGame, handlePublish, handleUpdateGame, insertHostRoute, readGameStatus, setGameStatus, setGameStatuses, type GameStatus } from "./publish";
 import { errorStats, listErrors, pruneErrors, recordError } from "./errlog";
-import { findDrift } from "./drift";
+import { driftReportFrom, findDrift, recentRuns, sweepFleet, type FleetRow } from "./drift";
 import { verifySession, handleAuthExchange, handleAuthMe } from "./auth";
 import { renderApiDocs } from "./dashboard";
 
@@ -406,6 +406,34 @@ async function latestDeployConclusion(env: Env, id: string): Promise<"success" |
   }
 }
 
+/** One cached fleet sweep shared by /api/drift and /api/status/deploys.
+ *
+ *  ~2 GitHub calls per game (~250 for the current fleet), so it is cached 5
+ *  minutes in the Worker cache. The cached copy lives under an INTERNAL key and
+ *  is never the client response — those stay no-store, so per-admin data is
+ *  never edge-cached. Returns null when the registry read failed, which callers
+ *  must surface rather than treating as an empty fleet. */
+async function cachedFleetSweep(env: Env): Promise<FleetRow[] | null> {
+  const cacheKey = new Request("https://admin.freegamestore.online/__cache/fleet");
+  const cache = typeof caches !== "undefined" ? caches.default : null;
+  const hit = cache ? await cache.match(cacheKey).catch(() => null) : null;
+  if (hit) return (await hit.json()) as FleetRow[];
+
+  const items = await fetchRegistryItems(env);
+  if (items === null) return null;
+  const ids = items.map((g) => g?.id).filter((id): id is string => typeof id === "string" && !!id);
+  const rows = await sweepFleet(env, ORG, ids);
+  if (cache) {
+    await cache.put(
+      cacheKey,
+      new Response(JSON.stringify(rows), {
+        headers: { "Content-Type": "application/json", "Cache-Control": "max-age=300" },
+      }),
+    ).catch(() => { /* caching is best-effort */ });
+  }
+  return rows;
+}
+
 interface ReconcileReport {
   ts: string;
   registryCount: number;
@@ -594,10 +622,13 @@ export default {
     // internal token). Without this, the whole console + crash log + creator
     // list were world-readable.
     const ADMIN_PATHS = new Set([
-      "/", "/docs", "/api/reconcile", "/api/drift", "/api/status", "/api/status/game",
+      "/", "/docs", "/api/reconcile", "/api/drift", "/api/status/deploys", "/api/ping", "/api/status", "/api/status/game",
       "/api/quality", "/api/errors", "/api/stats", "/api/users",
     ]);
-    if (ADMIN_PATHS.has(url.pathname)) {
+    // The Game Detail endpoint is a regex path, so it cannot live in the exact
+    // -match Set above — gate it explicitly rather than leaving it open.
+    const ADMIN_PATH_RE = /^\/api\/games\/[a-z0-9][a-z0-9-]*\/detail$/;
+    if (ADMIN_PATHS.has(url.pathname) || ADMIN_PATH_RE.test(url.pathname)) {
       const { email, isAdmin } = await authenticateAdmin(request, env);
       if (!isAdmin) {
         // Console pages get the sign-in / wrong-account page (200 — it IS a
@@ -622,32 +653,78 @@ export default {
     // registered game — around 250 for the current fleet. Uncached, a couple of
     // dashboard refreshes would burn the hourly API budget. The cached copy is an
     // internal key, never the client response, which stays no-store.
-    if (url.pathname === "/api/drift" && request.method === "GET") {
-      const cacheKey = new Request("https://admin.freegamestore.online/__cache/drift");
-      const cache = typeof caches !== "undefined" ? caches.default : null;
-      const hit = cache ? await cache.match(cacheKey).catch(() => null) : null;
-      if (hit) return jsonResponse(await hit.json(), 200, request);
-
-      const items = await fetchRegistryItems(env);
-      if (items === null) {
+    if ((url.pathname === "/api/drift" || url.pathname === "/api/status/deploys") && request.method === "GET") {
+      const rows = await cachedFleetSweep(env);
+      if (rows === null) {
         // Same rule as reconcile: a failed registry read must not read as "no
         // games" and therefore "no drift" — that is a false all-clear.
-        return jsonResponse({ error: "registry read failed — drift not computed" }, 503, request);
+        return jsonResponse({ error: "registry read failed — fleet not swept" }, 503, request);
       }
-      const ids = items.map((g) => g?.id).filter((id): id is string => typeof id === "string" && !!id);
-      const report = await findDrift(env, ORG, ids);
-      if (cache) {
-        await cache.put(
-          cacheKey,
-          new Response(JSON.stringify(report), {
-            headers: { "Content-Type": "application/json", "Cache-Control": "max-age=300" },
-          }),
-        ).catch(() => { /* caching is best-effort */ });
+      if (url.pathname === "/api/status/deploys") {
+        return jsonResponse(
+          { ts: new Date().toISOString(), games: rows.map((r) => ({ id: r.id, conclusion: r.conclusion, drifted: r.state === "drifted" })) },
+          200,
+          request,
+        );
       }
+      const report = driftReportFrom(rows);
       if (report.drifted.length) {
         console.warn(`[drift] ${report.drifted.length} game(s) serving stale builds: ${report.drifted.map((d) => d.id).join(", ")}`);
       }
       return jsonResponse(report, 200, request);
+    }
+
+    // GET /api/ping — liveness probe for the admin worker itself (#14 item 8).
+    // Admin-gated like every other observability endpoint: an unauthenticated
+    // probe would confirm the worker exists to anyone who asks.
+    if (url.pathname === "/api/ping" && request.method === "GET") {
+      return jsonResponse({ ok: true, worker: "freegamestore-admin" }, 200, request);
+    }
+
+    // GET /api/games/:id/detail — everything the Game Detail page needs in one
+    // round trip: live reachability, D1 route, registry listing + build status,
+    // and the last 5 deploy runs.
+    const detailMatch = url.pathname.match(/^\/api\/games\/([a-z0-9][a-z0-9-]*)\/detail$/);
+    if (detailMatch && request.method === "GET") {
+      const id = detailMatch[1]!;
+      const items = (await fetchRegistryItems(env)) ?? [];
+      const entry = items.find((g) => g?.id === id) ?? null;
+
+      const routeRow = env.DB
+        ? await env.DB.prepare("SELECT slug, r2_prefix, hosted_on FROM routes WHERE slug = ? AND zone = ?")
+            .bind(id, DOMAIN)
+            .first<{ slug: string; r2_prefix: string; hosted_on: string }>()
+            .catch(() => null)
+        : null;
+
+      // HEAD probe with a timeout — a hung origin must not hold the request open.
+      let http: { ok: boolean; status: number | null; error?: string } = { ok: false, status: null };
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 8000);
+        try {
+          const res = await fetch(`https://${id}.${DOMAIN}`, { method: "HEAD", signal: ctrl.signal });
+          http = { ok: res.ok, status: res.status };
+        } finally {
+          clearTimeout(timer);
+        }
+      } catch (e) {
+        http = { ok: false, status: null, error: String(e) };
+      }
+
+      return jsonResponse({
+        id,
+        listed: !!entry,
+        status: readGameStatus(entry),
+        name: entry?.name ?? id,
+        creatorGithub: entry?.creatorGithub ?? null,
+        hostedOn: entry?.hostedOn ?? (routeRow?.hosted_on || "unknown"),
+        route: routeRow ? { configured: true, r2Prefix: routeRow.r2_prefix } : { configured: false },
+        url: `https://${id}.${DOMAIN}`,
+        repo: `${ORG}/${id}`,
+        http,
+        runs: await recentRuns(env, ORG, id, 5),
+      }, 200, request);
     }
 
     // GET /api/reconcile — on-demand drift report (same logic as the cron).
@@ -802,11 +879,18 @@ export default {
     // + archive repo).
     if (gameMatch && request.method === "DELETE") {
       const login = await authenticateLogin(request, env);
-      if (!login) {
+      // Deprovision from the console (#14): an admin must be able to delete a
+      // game they did NOT create, otherwise the button only ever works on their
+      // own games. Gated on the ADMIN_EMAILS allowlist — the same gate as every
+      // observability endpoint — and logged inside handleDeleteGame, because
+      // this delists the game, drops its route and archives the repo.
+      const { email, isAdmin } = await authenticateAdmin(request, env);
+      const actor = login || (isAdmin ? email : null);
+      if (!actor) {
         return jsonResponse({ error: "unauthorized" }, 401, request);
       }
       try {
-        const result = await handleDeleteGame(gameMatch[1]!, login, env as any);
+        const result = await handleDeleteGame(gameMatch[1]!, actor, env as any, { adminOverride: isAdmin });
         return jsonResponse(result, result.error ? 400 : 200, request);
       } catch (e) {
         await recordError(env.DB, { source: "admin/games.delete", user: login, context: `id=${gameMatch[1]}`, message: (e as Error)?.message ?? String(e), stack: (e as Error)?.stack });

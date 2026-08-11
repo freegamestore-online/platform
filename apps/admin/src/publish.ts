@@ -878,7 +878,14 @@ export async function handleDeleteGame(
   gameId: string,
   login: string,
   env: PublishEnv,
-): Promise<{ ok?: boolean; error?: string }> {
+  /** ADMIN OVERRIDE — skips the creator-ownership check (#14, Deprovision).
+   *  Only ever set from an admin-allowlisted console session. This is a
+   *  destructive path: it delists the game, drops its route and archives the
+   *  repo, for a game the caller does NOT own. Without it the console's
+   *  Deprovision button could only ever delete the admin's own games, which is
+   *  not what an ops console is for. */
+  opts: { adminOverride?: boolean } = {},
+): Promise<{ ok?: boolean; error?: string; steps?: Step[] }> {
   const config = STORE_CONFIG;
   const registryPath = `/repos/${config.org}/${config.storeRepo}/contents/registry.json`;
   const registryFile = await ghApi(env, registryPath);
@@ -894,13 +901,18 @@ export async function handleDeleteGame(
 
   const game = items[idx]!;
   const owner = typeof game.creatorGithub === "string" ? game.creatorGithub : "";
-  if (!owner || owner.toLowerCase() !== login.toLowerCase()) {
+  if (opts.adminOverride) {
+    console.log(`[deprovision] ADMIN override by ${login} on ${gameId} (owner=${owner || "none"})`);
+  }
+  if (!opts.adminOverride && (!owner || owner.toLowerCase() !== login.toLowerCase())) {
     return {
       error: owner
         ? `Only the creator (${owner}) can delete this game`
         : `This game has no recorded owner and can't be deleted here`,
     };
   }
+
+  const steps: Step[] = [];
 
   // 1. Remove the registry entry (delists it from the store + the dashboard).
   items.splice(idx, 1);
@@ -914,21 +926,27 @@ export async function handleDeleteGame(
     ),
     sha: registryFile.sha,
   });
-  if (!updateResult.content) return { error: updateResult.message || "Failed to update registry" };
+  if (!updateResult.content) {
+    steps.push({ name: "Store registry", status: "fail", detail: updateResult.message || "Failed to update" });
+    return { error: updateResult.message || "Failed to update registry", steps };
+  }
+  steps.push({ name: "Store registry", status: "ok", detail: `${gameId} delisted` });
 
   // 2. Drop the D1 host route so <id>.<domain> stops resolving. Non-fatal: the
   //    registry delist already removes it everywhere user-facing.
   try {
     await env.DB?.prepare("DELETE FROM routes WHERE slug = ? AND zone = ?").bind(gameId, config.domain).run();
-  } catch {
-    /* route cleanup is best-effort */
+    steps.push({ name: "Hosting route", status: "ok", detail: `${gameId}.${config.domain} removed` });
+  } catch (e: any) {
+    steps.push({ name: "Hosting route", status: "fail", detail: e?.message ?? "route delete failed" });
   }
 
   // 3. Archive (never hard-delete) the repo. Non-fatal.
   try {
     await ghApi(env, `/repos/${config.org}/${gameId}`, "PATCH", { archived: true });
-  } catch {
-    /* archive is best-effort */
+    steps.push({ name: "Repo", status: "ok", detail: "archived (never hard-deleted)" });
+  } catch (e: any) {
+    steps.push({ name: "Repo", status: "fail", detail: e?.message ?? "archive failed" });
   }
 
   // 4. Purge the agent's session-index rows so the deleted game stops showing
@@ -941,12 +959,15 @@ export async function handleDeleteGame(
         headers: { "Content-Type": "application/json", "X-Internal-Token": env.INTERNAL_TOKEN },
         body: JSON.stringify({ gameId }),
       });
-    } catch {
-      /* session-index cleanup is best-effort */
+      steps.push({ name: "Session index", status: "ok", detail: "agent rows purged" });
+    } catch (e: any) {
+      steps.push({ name: "Session index", status: "fail", detail: e?.message ?? "purge failed" });
     }
+  } else {
+    steps.push({ name: "Session index", status: "skip", detail: "agent binding not configured" });
   }
 
-  return { ok: true };
+  return { ok: true, steps };
 }
 
 export function renderProvisionForm(): string {

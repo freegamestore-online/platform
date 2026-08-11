@@ -484,3 +484,187 @@ describe("GET /api/drift", () => {
     expect(res.status).not.toBe(200);
   });
 });
+
+// New admin routes from #14 Slice A/B.
+
+describe("GET /api/ping", () => {
+  const env = () => ({
+    DB: makeDB([]).db,
+    AUTH: { fetch: async () => new Response(JSON.stringify({ email: "serge.the.dev@gmail.com" }), { status: 200 }) },
+    ADMIN_EMAILS: "serge.the.dev@gmail.com",
+  } as unknown as Parameters<typeof worker.fetch>[1]);
+
+  it("reports the worker identity to an admin", async () => {
+    vi.stubGlobal("fetch", registryFetch([]));
+    const res = await worker.fetch(
+      new Request("https://admin.freegamestore.online/api/ping", { headers: { "X-FGS-Token": "t" } }),
+      env(),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, worker: "freegamestore-admin" });
+  });
+
+  it("is admin-gated — an unauthenticated probe must not confirm the worker", async () => {
+    vi.stubGlobal("fetch", registryFetch([]));
+    const anon = {
+      DB: makeDB([]).db,
+      AUTH: { fetch: async () => new Response(JSON.stringify({ email: "nobody@example.com" }), { status: 200 }) },
+      ADMIN_EMAILS: "serge.the.dev@gmail.com",
+    } as unknown as Parameters<typeof worker.fetch>[1];
+    const res = await worker.fetch(
+      new Request("https://admin.freegamestore.online/api/ping", { headers: { "X-FGS-Token": "t" } }),
+      anon,
+    );
+    expect(res.status).not.toBe(200);
+  });
+});
+
+describe("GET /api/status/deploys", () => {
+  function fleetFetch(games: unknown[], runs: Record<string, { head: string; conclusion: string | null }>) {
+    return async (input: unknown, init?: { headers?: Record<string, string> }) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.includes("/contents/registry.json") || url.includes("raw.githubusercontent")) {
+        const raw = (init?.headers?.Accept ?? "").includes("raw");
+        return new Response(
+          raw ? JSON.stringify({ games }) : JSON.stringify({ content: btoa(JSON.stringify({ games })), sha: "s" }),
+          { status: 200 },
+        );
+      }
+      const m = /\/repos\/[^/]+\/([^/]+)\//.exec(url);
+      const g = m ? runs[m[1]!] : undefined;
+      if (g && url.includes("/git/ref/heads/main")) {
+        return new Response(JSON.stringify({ object: { sha: g.head } }), { status: 200 });
+      }
+      if (g && url.includes("/actions/workflows/deploy.yml/runs")) {
+        return new Response(
+          JSON.stringify({
+            workflow_runs: g.conclusion
+              ? [{ status: "completed", conclusion: g.conclusion, head_sha: g.conclusion === "success" ? g.head : "othersha" }]
+              : [],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response("{}", { status: 200 });
+    };
+  }
+
+  const env = () => ({
+    GITHUB_TOKEN: "x",
+    DB: makeDB([]).db,
+    AUTH: { fetch: async () => new Response(JSON.stringify({ email: "serge.the.dev@gmail.com" }), { status: 200 }) },
+    ADMIN_EMAILS: "serge.the.dev@gmail.com",
+  } as unknown as Parameters<typeof worker.fetch>[1]);
+
+  it("reports the last conclusion and the drift flag per game", async () => {
+    vi.stubGlobal("fetch", fleetFetch(
+      [{ id: "green" }, { id: "red" }],
+      { green: { head: "aaaaaaa", conclusion: "success" }, red: { head: "bbbbbbb", conclusion: "failure" } },
+    ));
+    const res = await worker.fetch(
+      new Request("https://admin.freegamestore.online/api/status/deploys", { headers: { "X-FGS-Token": "t" } }),
+      env(),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { games: { id: string; conclusion: string | null; drifted: boolean }[] };
+    const green = body.games.find((g) => g.id === "green")!;
+    const red = body.games.find((g) => g.id === "red")!;
+    expect(green.conclusion).toBe("success");
+    expect(green.drifted).toBe(false);
+    // Its only run failed on a different sha, so main is past the last success.
+    expect(red.conclusion).toBe("failure");
+    expect(red.drifted).toBe(true);
+  });
+});
+
+describe("GET /api/games/:id/detail", () => {
+  function detailFetch(games: unknown[], opts: { headOk?: boolean } = {}) {
+    return async (input: unknown, init?: { method?: string; headers?: Record<string, string> }) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.includes("/contents/registry.json") || url.includes("raw.githubusercontent")) {
+        const raw = (init?.headers?.Accept ?? "").includes("raw");
+        return new Response(
+          raw ? JSON.stringify({ games }) : JSON.stringify({ content: btoa(JSON.stringify({ games })), sha: "s" }),
+          { status: 200 },
+        );
+      }
+      if (url.includes("/actions/workflows/deploy.yml/runs")) {
+        return new Response(JSON.stringify({
+          workflow_runs: [
+            { status: "completed", conclusion: "failure", head_sha: "abcdef1234", updated_at: "2026-08-09T06:00:00Z", html_url: "https://gh/run/1", head_commit: { message: "break it\nbody" } },
+          ],
+        }), { status: 200 });
+      }
+      if (init?.method === "HEAD") {
+        return new Response(null, { status: opts.headOk === false ? 502 : 200 });
+      }
+      return new Response("{}", { status: 200 });
+    };
+  }
+
+  const envWithRoute = (routeSlugs: string[]) => ({
+    GITHUB_TOKEN: "x",
+    DB: {
+      prepare: () => ({
+        bind: () => ({
+          first: async () => (routeSlugs.length ? { slug: routeSlugs[0], r2_prefix: `games/${routeSlugs[0]}`, hosted_on: "r2" } : null),
+          run: async () => ({}),
+          all: async () => ({ results: [] }),
+        }),
+      }),
+    },
+    AUTH: { fetch: async () => new Response(JSON.stringify({ email: "serge.the.dev@gmail.com" }), { status: 200 }) },
+    ADMIN_EMAILS: "serge.the.dev@gmail.com",
+  } as unknown as Parameters<typeof worker.fetch>[1]);
+
+  const get = (env: any, id = "candy-shop") =>
+    worker.fetch(
+      new Request(`https://admin.freegamestore.online/api/games/${id}/detail`, { headers: { "X-FGS-Token": "t" } }),
+      env,
+    );
+
+  it("returns reachability, route, registry and recent runs in one payload", async () => {
+    vi.stubGlobal("fetch", detailFetch([{ id: "candy-shop", name: "Candy Shop", status: "pending", creatorGithub: "alice" }]));
+    const res = await get(envWithRoute(["candy-shop"]));
+    expect(res.status).toBe(200);
+    const b = (await res.json()) as any;
+    expect(b.listed).toBe(true);
+    expect(b.status).toBe("pending");
+    expect(b.route.configured).toBe(true);
+    expect(b.http.status).toBe(200);
+    expect(b.runs[0].conclusion).toBe("failure");
+    expect(b.runs[0].sha).toBe("abcdef1");
+    // Only the commit subject, never the whole body.
+    expect(b.runs[0].message).toBe("break it");
+  });
+
+  it("reports an unlisted game with no route rather than 404ing", async () => {
+    // A half-provisioned game is exactly what an operator opens this page to
+    // investigate — refusing to render it would hide the problem.
+    vi.stubGlobal("fetch", detailFetch([]));
+    const res = await get(envWithRoute([]));
+    expect(res.status).toBe(200);
+    const b = (await res.json()) as any;
+    expect(b.listed).toBe(false);
+    expect(b.route.configured).toBe(false);
+    expect(b.status).toBe("live"); // absent entry → readGameStatus default
+  });
+
+  it("survives an unreachable host instead of failing the page", async () => {
+    vi.stubGlobal("fetch", detailFetch([{ id: "candy-shop", name: "Candy Shop" }], { headOk: false }));
+    const b = (await (await get(envWithRoute(["candy-shop"]))).json()) as any;
+    expect(b.http.ok).toBe(false);
+    expect(b.http.status).toBe(502);
+  });
+
+  it("is admin-gated", async () => {
+    vi.stubGlobal("fetch", detailFetch([{ id: "candy-shop" }]));
+    const anon = {
+      GITHUB_TOKEN: "x",
+      DB: makeDB([]).db,
+      AUTH: { fetch: async () => new Response(JSON.stringify({ email: "nobody@example.com" }), { status: 200 }) },
+      ADMIN_EMAILS: "serge.the.dev@gmail.com",
+    } as unknown as Parameters<typeof worker.fetch>[1];
+    expect((await get(anon)).status).not.toBe(200);
+  });
+});

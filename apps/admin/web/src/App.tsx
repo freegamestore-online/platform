@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ApiError, LOGIN_URL, api } from "./api.ts";
 import { Overview } from "./Overview.tsx";
 import { GamesList } from "./GamesList.tsx";
+import { GameDetail } from "./GameDetail.tsx";
 import { ErrorsPage } from "./Errors.tsx";
 import { UsersPage } from "./Users.tsx";
 import { UserDetail } from "./UserDetail.tsx";
@@ -13,6 +14,7 @@ import { Ops } from "./Ops.tsx";
 type View =
   | { page: "overview" }
   | { page: "games" }
+  | { page: "game"; id: string }
   | { page: "errors" }
   | { page: "ops" }
   | { page: "users" }
@@ -24,6 +26,8 @@ type View =
 function parseHash(): View {
   const hash = window.location.hash.slice(1);
   if (hash === "/games") return { page: "games" };
+  const game = hash.match(/^\/games\/(.+)$/);
+  if (game) return { page: "game", id: game[1]! };
   if (hash === "/errors") return { page: "errors" };
   if (hash === "/ops") return { page: "ops" };
   if (hash === "/users") return { page: "users" };
@@ -68,7 +72,8 @@ export default function App() {
         ) : (
           <>
             {view.page === "overview" && <Overview />}
-            {view.page === "games" && <GamesList />}
+            {view.page === "game" && <GameDetail id={view.id} navigate={navigate} />}
+            {view.page === "games" && <GamesList navigate={navigate} />}
             {view.page === "errors" && <ErrorsPage />}
             {view.page === "ops" && <Ops navigate={navigate} />}
             {view.page === "users" && <UsersPage navigate={navigate} />}
@@ -110,7 +115,7 @@ function Header({ navigate, view }: { navigate: (h: string) => void; view: View 
           <nav className="hidden sm:flex items-center gap-1">
             <NavLink label="Overview" hash="/" active={view.page === "overview"} navigate={navigate} />
             <NavLink label="Ops" hash="/ops" active={view.page === "ops"} navigate={navigate} />
-            <NavLink label="Games" hash="/games" active={view.page === "games"} navigate={navigate} />
+            <NavLink label="Games" hash="/games" active={view.page === "games" || view.page === "game"} navigate={navigate} />
             <NavLink label="Errors" hash="/errors" active={view.page === "errors"} navigate={navigate} />
             <NavLink label="Users" hash="/users" active={view.page === "users" || view.page === "user"} navigate={navigate} />
             <NavLink label="Sessions" hash="/sessions" active={view.page === "sessions" || view.page === "session"} navigate={navigate} />

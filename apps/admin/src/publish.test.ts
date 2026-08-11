@@ -418,3 +418,80 @@ describe("handlePublish build status", () => {
     expect(games.find((g: any) => g.id === "chess").status).toBe("pending");
   });
 });
+
+// Deprovision from the console (#14). handleDeleteGame gained an ADMIN OVERRIDE
+// because an ops console whose delete button only works on the admin's own games
+// is not an ops console. It is destructive — delist + route drop + repo archive —
+// so the ownership rule must still hold for everyone else.
+
+function deleteStub(registry: unknown[], opts: { putOk?: boolean } = {}) {
+  const calls: string[] = [];
+  const fetchFn = async (input: unknown, init?: { method?: string }) => {
+    const url = typeof input === "string" ? input : (input as Request).url;
+    const method = init?.method ?? "GET";
+    if (method !== "GET") calls.push(`${method} ${url}`);
+    if (url.includes("/contents/registry.json")) {
+      if (method === "GET") {
+        return new Response(
+          JSON.stringify({ content: btoa(JSON.stringify({ games: registry })), sha: "s" }),
+          { status: 200 },
+        );
+      }
+      return opts.putOk === false
+        ? new Response(JSON.stringify({ message: "conflict" }), { status: 409 })
+        : new Response(JSON.stringify({ content: { sha: "s2" } }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  };
+  return { calls, fetchFn };
+}
+
+const deleteEnv = () => ({
+  GITHUB_TOKEN: "x",
+  DB: { prepare: () => ({ bind: () => ({ run: async () => ({}) }) }) },
+}) as unknown as Parameters<typeof handleDeleteGame>[2];
+
+describe("handleDeleteGame admin override", () => {
+  it("lets an admin deprovision a game they do NOT own", async () => {
+    const { calls, fetchFn } = deleteStub([{ id: "chess", name: "Chess", creatorGithub: "someone-else" }]);
+    vi.stubGlobal("fetch", fetchFn);
+    const res = await handleDeleteGame("chess", "admin@example.com", deleteEnv(), { adminOverride: true });
+    expect(res.ok).toBe(true);
+    expect(calls.some((c) => c.startsWith("PUT") && c.includes("registry.json"))).toBe(true);
+  });
+
+  it("STILL refuses a non-owner without the override", async () => {
+    const { calls, fetchFn } = deleteStub([{ id: "chess", name: "Chess", creatorGithub: "someone-else" }]);
+    vi.stubGlobal("fetch", fetchFn);
+    const res = await handleDeleteGame("chess", "serge-the-dev", deleteEnv());
+    expect(res.error).toMatch(/only the creator/i);
+    expect(calls).toHaveLength(0); // nothing delisted, archived or route-dropped
+  });
+
+  it("lets the override delete a game with no recorded owner", async () => {
+    // Ownerless games are exactly the orphans an operator needs to clean up; the
+    // normal path refuses them outright.
+    const { fetchFn } = deleteStub([{ id: "orphan", name: "Orphan" }]);
+    vi.stubGlobal("fetch", fetchFn);
+    expect((await handleDeleteGame("orphan", "admin", deleteEnv(), { adminOverride: true })).ok).toBe(true);
+  });
+
+  it("reports a step-by-step result the console can render", async () => {
+    const { fetchFn } = deleteStub([{ id: "chess", name: "Chess", creatorGithub: "alice" }]);
+    vi.stubGlobal("fetch", fetchFn);
+    const res = await handleDeleteGame("chess", "alice", deleteEnv());
+    const names = (res.steps ?? []).map((s) => s.name);
+    expect(names).toContain("Store registry");
+    expect(names).toContain("Hosting route");
+    expect(names).toContain("Repo");
+    expect(res.steps!.every((s) => ["ok", "skip", "fail"].includes(s.status))).toBe(true);
+  });
+
+  it("returns the failing step when the registry write fails", async () => {
+    const { fetchFn } = deleteStub([{ id: "chess", name: "Chess", creatorGithub: "alice" }], { putOk: false });
+    vi.stubGlobal("fetch", fetchFn);
+    const res = await handleDeleteGame("chess", "alice", deleteEnv());
+    expect(res.error).toBeTruthy();
+    expect(res.steps?.[0]).toMatchObject({ name: "Store registry", status: "fail" });
+  });
+});
