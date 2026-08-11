@@ -801,3 +801,69 @@ describe("sessions proxy forwards pagination params", () => {
     expect(seen[0]).toBe("/v1/admin/sessions");
   });
 });
+
+// POST /api/games/:id/heal-route (#23, re-scoped). FGS has no per-game DNS to
+// fix — the host serves a wildcard route — so the only thing that can go missing
+// is the D1 routes row, which reconcile heals hourly. This is the manual path.
+
+describe("POST /api/games/:id/heal-route", () => {
+  const envWith = (games: unknown[] | null, admin = true) => {
+    vi.stubGlobal("fetch", registryFetch(games));
+    const { calls, db } = makeDB([]);
+    return {
+      calls,
+      env: {
+        GITHUB_TOKEN: "x",
+        DB: db,
+        AUTH: {
+          fetch: async () =>
+            new Response(JSON.stringify({ email: admin ? "serge.the.dev@gmail.com" : "nobody@example.com" }), { status: 200 }),
+        },
+        ADMIN_EMAILS: "serge.the.dev@gmail.com",
+      } as unknown as Parameters<typeof worker.fetch>[1],
+    };
+  };
+
+  const heal = (env: any, id = "chess") =>
+    worker.fetch(
+      new Request(`https://admin.freegamestore.online/api/games/${id}/heal-route`, {
+        method: "POST",
+        headers: { "X-FGS-Token": "t" },
+      }),
+      env,
+    );
+
+  it("re-inserts the route for a listed game", async () => {
+    const { calls, env } = envWith([{ id: "chess" }]);
+    const res = await heal(env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; step: { status: string } };
+    expect(body.ok).toBe(true);
+    const inserts = calls.filter((c) => /INSERT INTO routes/i.test(c.sql));
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]!.binds[0]).toBe("chess");
+  });
+
+  it("refuses a game that is not in the registry, without writing a route", async () => {
+    // Writing a route for an unlisted id recreates exactly the orphan-route
+    // drift reconcile deletes on its next pass — churn dressed up as a fix.
+    const { calls, env } = envWith([{ id: "chess" }]);
+    const res = await heal(env, "ghost");
+    expect(res.status).toBe(400);
+    expect(calls.filter((c) => /INSERT INTO routes/i.test(c.sql))).toHaveLength(0);
+  });
+
+  it("503s rather than healing blind when the registry read fails", async () => {
+    const { calls, env } = envWith(null);
+    const res = await heal(env);
+    expect(res.status).toBe(503);
+    expect(calls.filter((c) => /INSERT INTO routes/i.test(c.sql))).toHaveLength(0);
+  });
+
+  it("is admin-gated — a non-admin cannot write a hosting route", async () => {
+    const { calls, env } = envWith([{ id: "chess" }], false);
+    const res = await heal(env);
+    expect(res.status).not.toBe(200);
+    expect(calls.filter((c) => /INSERT INTO routes/i.test(c.sql))).toHaveLength(0);
+  });
+});

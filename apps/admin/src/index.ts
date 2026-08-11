@@ -937,6 +937,45 @@ export default {
       return jsonResponse({ ok: true }, 200, request);
     }
 
+    // POST /api/games/:id/heal-route — re-insert this game's D1 hosting route now
+    // (#23, re-scoped from "fix DNS").
+    //
+    // There is no per-game DNS to fix on FGS: the host serves a WILDCARD route
+    // (`*.freegamestore.online/*`, workers/host/wrangler.toml), so one zone-level
+    // record covers every game and nothing per-game can break. That requirement
+    // came from FAS, which gives each app its own CF Pages custom domain.
+    //
+    // What CAN go missing is the D1 `routes` row, and reconcile() already heals
+    // that hourly. This is purely the impatient path: an operator staring at a
+    // broken game should not wait up to an hour for the cron. Same idempotent
+    // insertHostRoute the cron and provisioning both use, so running it on a
+    // healthy game is a no-op rather than a risk.
+    const healMatch = url.pathname.match(/^\/api\/games\/([a-z0-9][a-z0-9-]*)\/heal-route$/);
+    if (healMatch && request.method === "POST") {
+      const { isAdmin } = await authenticateAdmin(request, env);
+      if (!isAdmin) return jsonResponse({ error: "unauthorized" }, 401, request);
+      const id = healMatch[1]!;
+      // Only heal a game the registry actually lists. Writing a route for an
+      // unlisted id would recreate exactly the orphan-route drift reconcile
+      // deletes on its next pass — churn that looks like a fix.
+      const items = await fetchRegistryItems(env);
+      if (items === null) {
+        return jsonResponse({ error: "registry read failed — not healing blind" }, 503, request);
+      }
+      if (!items.some((g) => g?.id === id)) {
+        return jsonResponse(
+          { ok: false, step: { name: "Hosting route", status: "fail", detail: `${id} is not in the store registry — provision or re-list it first` } },
+          400,
+          request,
+        );
+      }
+      const step = await insertHostRoute(env as any, id);
+      if (step.status === "fail") {
+        await recordError(env.DB, { source: "admin/heal-route", context: `id=${id}`, message: step.detail });
+      }
+      return jsonResponse({ ok: step.status !== "fail", step }, step.status === "fail" ? 500 : 200, request);
+    }
+
     // POST /api/game-status — report a CONCLUDED build outcome for a game (#22).
     // Fast path for the field the hourly reconcile also maintains: the agent sees
     // the deploy.yml conclusion within seconds and calls this, so a creator's game

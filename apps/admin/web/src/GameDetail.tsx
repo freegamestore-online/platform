@@ -32,6 +32,7 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [healing, setHealing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [result, setResult] = useState<DeleteResult | null>(null);
 
@@ -47,6 +48,22 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
 
   if (error) return <ErrorBox message={error} />;
   if (!detail) return <Loading />;
+
+  const healRoute = async () => {
+    setHealing(true);
+    try {
+      const res = await api<{ ok?: boolean; error?: string; step?: { name: string; status: "ok" | "skip" | "fail"; detail: string } }>(
+        `/api/games/${id}/heal-route`,
+        { method: "POST" },
+      );
+      setResult({ ok: res.ok, error: res.error, steps: res.step ? [res.step] : [] });
+      if (res.ok) setDetail((d) => (d ? { ...d, route: { configured: true } } : d));
+    } catch (e) {
+      setResult({ error: (e as Error).message });
+    } finally {
+      setHealing(false);
+    }
+  };
 
   const deprovision = async () => {
     setDeleting(true);
@@ -71,6 +88,16 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
         <h1 className="text-xl font-bold" style={{ color: "var(--ink)" }}>
           {detail.name} <span className="text-sm font-normal" style={{ color: "var(--muted)" }}>{detail.id}</span>
         </h1>
+        <div className="flex items-center gap-2">
+        <button
+          onClick={healRoute}
+          disabled={healing || !detail.listed}
+          title="Re-insert this game's D1 hosting route now instead of waiting for the hourly reconcile. Idempotent."
+          className="rounded-lg border px-3 py-1.5 text-sm font-semibold disabled:opacity-50"
+          style={{ borderColor: "var(--line)", color: "var(--accent)" }}
+        >
+          {healing ? "Healing…" : "Re-heal route"}
+        </button>
         <button
           onClick={() => setConfirming(true)}
           disabled={deleting || !detail.listed}
@@ -79,6 +106,7 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
         >
           {detail.listed ? "Deprovision" : "Deprovisioned"}
         </button>
+        </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-4">
@@ -98,7 +126,7 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
           label="Hosting route"
           value={detail.route.configured ? "configured" : "missing"}
           tone={detail.route.configured ? OK : BAD}
-          note={detail.route.configured ? (detail.route.r2Prefix ?? "") : "host will 404 / CF 1014"}
+          note={detail.route.configured ? (detail.route.r2Prefix ?? "") : "host will 404 — use Re-heal route"}
         />
         <Card
           label="Registry"
@@ -165,7 +193,7 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
       </Section>
 
       {result && (
-        <Section title="Deprovision result">
+        <Section title="Action result">
           {result.error && <div className="text-sm" style={{ color: BAD }}>{result.error}</div>}
           <div className="space-y-1">
             {(result.steps ?? []).map((st, i) => (
