@@ -42,6 +42,12 @@ export interface GameInfo {
   org: string;
   cfProject: string;
   domain: string;
+  /** Build lifecycle (#22): "live" once a deploy.yml run has concluded success,
+   *  "pending" while a provisioned game has never built, "failed" when its only
+   *  builds failed. Optional because a console build can outlive a worker that
+   *  predates the field — treat a missing value as "live", same rule the worker
+   *  applies to a registry entry with no status. */
+  status?: "pending" | "live" | "failed";
 }
 
 export interface QualityData {

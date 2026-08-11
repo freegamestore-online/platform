@@ -2,6 +2,30 @@ import { useEffect, useMemo, useState } from "react";
 import { api, type GameInfo, type QualityData } from "./api.ts";
 import { ErrorBox, Loading } from "./Overview.tsx";
 
+/** Build-status badge (#22). Shown ONLY when a game is not live — the list is
+ *  overwhelmingly live games, so badging every row would add noise and bury the
+ *  two states an operator needs to spot.
+ *
+ *  A missing status means the registry entry predates the field, which is
+ *  genuinely live; the worker already resolves that, and defaulting here too
+ *  keeps the badge correct if an older worker is still serving /api/status. */
+function StatusBadge({ status }: { status?: GameInfo["status"] }) {
+  if (status !== "pending" && status !== "failed") return null;
+  const color = status === "pending" ? "#d97706" : "#dc2626";
+  const title = status === "pending"
+    ? "Provisioned, but no deploy has succeeded yet — this game is not live"
+    : "Every deploy so far has failed — this game has never been live";
+  return (
+    <span
+      title={title}
+      className="ml-2 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold align-middle"
+      style={{ borderColor: color, color }}
+    >
+      {status}
+    </span>
+  );
+}
+
 export function GamesList() {
   const [games, setGames] = useState<GameInfo[] | null>(null);
   const [quality, setQuality] = useState<Map<string, QualityData["games"][number]>>(new Map());
@@ -49,7 +73,10 @@ export function GamesList() {
               const qColor = !q ? "var(--muted)" : q.score >= 95 ? "#059669" : q.score >= 80 ? "#d97706" : "#dc2626";
               return (
                 <tr key={g.id} className="border-t" style={{ borderColor: "var(--line)" }}>
-                  <td className="px-4 py-2.5"><span className="font-semibold" style={{ color: "var(--ink)" }}>{g.name}</span> <span className="text-xs" style={{ color: "var(--muted)" }}>{g.id}</span></td>
+                  <td className="px-4 py-2.5">
+                    <span className="font-semibold" style={{ color: "var(--ink)" }}>{g.name}</span> <span className="text-xs" style={{ color: "var(--muted)" }}>{g.id}</span>
+                    <StatusBadge status={g.status} />
+                  </td>
                   <td className="px-4 py-2.5 font-bold" style={{ color: qColor }}>{q ? q.score : "—"}</td>
                   <td className="px-4 py-2.5" style={{ color: "var(--muted)" }}>{q ? `${q.loadTimeMs}ms` : "—"}</td>
                   <td className="px-4 py-2.5"><a href={`https://${g.domain}`} target="_blank" rel="noopener" style={{ color: "var(--accent)" }}>{g.domain}</a></td>

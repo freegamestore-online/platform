@@ -1,4 +1,4 @@
-import { handleDeleteGame, handlePublish, handleUpdateGame, insertHostRoute, readGameStatus, setGameStatus, setGameStatuses } from "./publish";
+import { handleDeleteGame, handlePublish, handleUpdateGame, insertHostRoute, readGameStatus, setGameStatus, setGameStatuses, type GameStatus } from "./publish";
 import { errorStats, listErrors, pruneErrors, recordError } from "./errlog";
 import { verifySession, handleAuthExchange, handleAuthMe } from "./auth";
 import { renderApiDocs } from "./dashboard";
@@ -157,6 +157,10 @@ interface GameConfig {
   cfProject: string;
   domain: string;
   hostedOn: string;
+  /** Build lifecycle (#22). Always concrete here — readGameStatus resolves a
+   *  missing/unrecognised registry value to "live", so the console never has to
+   *  decide what an absent status means. */
+  status: GameStatus;
 }
 
 interface QualityGame {
@@ -229,6 +233,7 @@ async function fetchRegistry(env: Env): Promise<GameConfig[]> {
     cfProject: item.cfProject || `free${item.id}app`,
     domain: `${item.id}.${DOMAIN}`,
     hostedOn: item.hostedOn || "pages",
+    status: readGameStatus(item),
   }));
 }
 

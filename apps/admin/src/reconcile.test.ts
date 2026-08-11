@@ -355,3 +355,51 @@ describe("POST /api/internal/error", () => {
     expect(insert.binds[2]).toBeNull();
   });
 });
+
+// GET /api/status must carry the build status through to the console (#22).
+// fetchRegistry maps registry entries down to a narrow GameConfig, so a new
+// field is dropped unless it is explicitly mapped — which is exactly how the
+// Games list would silently show every game as live.
+
+describe("GET /api/status carries build status", () => {
+  const adminEnv = (games: unknown[]) => {
+    vi.stubGlobal("fetch", registryFetch(games));
+    const { db } = makeDB([]);
+    return {
+      GITHUB_TOKEN: "x",
+      DB: db,
+      AUTH: { fetch: async () => new Response(JSON.stringify({ email: "serge.the.dev@gmail.com" }), { status: 200 }) },
+      ADMIN_EMAILS: "serge.the.dev@gmail.com",
+    } as unknown as Parameters<typeof worker.fetch>[1];
+  };
+
+  const getStatus = (env: any) =>
+    worker.fetch(
+      new Request("https://admin.freegamestore.online/api/status", { headers: { "X-FGS-Token": "t" } }),
+      env,
+    );
+
+  it("passes pending and failed through unchanged", async () => {
+    const res = await getStatus(adminEnv([
+      { id: "a", name: "A", status: "pending" },
+      { id: "b", name: "B", status: "failed" },
+    ]));
+    const games = (await res.json()) as Array<{ id: string; status: string }>;
+    expect(games.find((g) => g.id === "a")!.status).toBe("pending");
+    expect(games.find((g) => g.id === "b")!.status).toBe("failed");
+  });
+
+  it("reports a legacy entry with no status as live, not undefined", async () => {
+    // The whole existing catalogue predates the field. Leaking `undefined` here
+    // would make the console decide what a missing status means.
+    const res = await getStatus(adminEnv([{ id: "chess", name: "Chess" }]));
+    const games = (await res.json()) as Array<{ id: string; status: string }>;
+    expect(games[0]!.status).toBe("live");
+  });
+
+  it("does not hide a game on an unrecognised status", async () => {
+    const res = await getStatus(adminEnv([{ id: "chess", name: "Chess", status: "wat" }]));
+    const games = (await res.json()) as Array<{ id: string; status: string }>;
+    expect(games[0]!.status).toBe("live");
+  });
+});
