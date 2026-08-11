@@ -771,6 +771,42 @@ export default {
       }
     }
 
+    // POST /api/internal/error — record a platform error into the shared
+    // error_log this console reads (#21).
+    //
+    // This exists because the agent CANNOT insert the row itself. The issue
+    // assumed both workers bind the same D1; they do not — the agent's `DB` is
+    // the `leaderboard` database (165c4cb7…) while error_log lives in admin's
+    // `freegamestore` database (a122751e…). A direct INSERT from the agent would
+    // silently create an error_log table in the WRONG database, where nothing
+    // reads it — the same invisibility this issue is fixing, only harder to spot.
+    //
+    // Internal token only: error_log backs the Errors view and the Overview
+    // counts, so an unauthenticated caller could flood or poison operator triage.
+    if (url.pathname === "/api/internal/error" && request.method === "POST") {
+      const internal = request.headers.get("X-Internal-Token");
+      if (!(internal && env.INTERNAL_TOKEN && safeEqual(internal, env.INTERNAL_TOKEN))) {
+        return jsonResponse({ error: "unauthorized" }, 401, request);
+      }
+      const body = (await request.json().catch(() => ({}))) as {
+        source?: unknown; user?: unknown; context?: unknown; message?: unknown; stack?: unknown;
+      };
+      const str = (v: unknown) => (typeof v === "string" && v.trim() ? v : null);
+      const source = str(body.source);
+      const message = str(body.message);
+      if (!source || !message) {
+        return jsonResponse({ error: "source and message are required" }, 400, request);
+      }
+      await recordError(env.DB, {
+        source,
+        user: str(body.user),
+        context: str(body.context),
+        message,
+        stack: str(body.stack),
+      });
+      return jsonResponse({ ok: true }, 200, request);
+    }
+
     // POST /api/game-status — report a CONCLUDED build outcome for a game (#22).
     // Fast path for the field the hourly reconcile also maintains: the agent sees
     // the deploy.yml conclusion within seconds and calls this, so a creator's game

@@ -27,7 +27,22 @@ export function Sessions({ navigate }: { navigate: (h: string) => void }) {
                 <td className="px-4 py-2.5 font-medium" style={{ color: "var(--ink)" }}>{s.user}</td>
                 <td className="px-4 py-2.5"><span style={{ color: "var(--ink)" }}>{s.name}</span><br /><span className="text-[10px]" style={{ color: "var(--muted)" }}>{s.id}</span></td>
                 <td className="px-4 py-2.5">{s.gameId ? <a href={s.gameUrl || `https://${s.gameId}.freegamestore.online`} target="_blank" rel="noopener" onClick={(e) => e.stopPropagation()} style={{ color: "var(--accent)" }}>{s.gameId}</a> : <span style={{ color: "var(--muted)" }}>—</span>}</td>
-                <td className="px-4 py-2.5"><ActivityBadge session={s} /></td>
+                {/* The failure reason is shown INLINE, not just as the badge's
+                    title tooltip — a tooltip is invisible on touch and unusable
+                    for scanning a wave of failures, which is the whole triage
+                    case this column exists for (#21). */}
+                <td className="px-4 py-2.5 max-w-xs">
+                  <ActivityBadge session={s} />
+                  {s.activity?.phase === "error" && s.activity.detail && (
+                    <div
+                      className="text-[10px] mt-1 leading-snug line-clamp-2 break-words"
+                      title={s.activity.detail}
+                      style={{ color: "var(--error)" }}
+                    >
+                      {s.activity.detail}
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-2.5 text-xs" style={{ color: "var(--muted)" }}>{s.tokens.input + s.tokens.output > 0 ? `${Math.round((s.tokens.input + s.tokens.output) / 1000)}k` : "—"}</td>
                 <td className="px-4 py-2.5 text-xs whitespace-nowrap" style={{ color: "var(--muted)" }}>{timeAgo(s.updatedAt || s.createdAt)}</td>
               </tr>

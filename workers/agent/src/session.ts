@@ -5,6 +5,7 @@ import { runAgentTurn } from "./agent";
 import type { StoreConfig } from "./config";
 import { getConfig } from "./config";
 import { fetchRepoFiles, fetchRepoHeadSha, fetchTemplateSeed, resolveSeedFiles, type DeployEnv, type DeployStatus } from "./deploy";
+import { reportPlatformError } from "./errlog";
 import { ENGINE_TEMPLATE_REPOS } from "./template";
 import type { Env } from "./index";
 import { executeInfraTool } from "./infra-exec";
@@ -895,6 +896,19 @@ export class AgentSession implements DurableObject {
                   } else if (status.phase === "error") {
                     this.appendAssistantError("deploy", status.error);
                     this.sendPush("Build failed");
+                    // Durable, centrally-discoverable record of the failure (#21).
+                    // Without this a deploy failure existed only in this DO's
+                    // errors[] array and Workers Logs, so the admin Errors view,
+                    // Ops panel and Overview counts all read ZERO during a wave of
+                    // failures — and triage required already knowing the session
+                    // id. Fire-and-forget: reporting a failure must never become a
+                    // second failure, and must not delay the user's error.
+                    reportPlatformError(this.env, config.domain, {
+                      source: "agent/deploy",
+                      user: userId || null,
+                      context: `gameId=${session.appId ?? "?"} sessionId=${sessionId}`,
+                      message: status.error,
+                    }).catch(() => {});
                     // KEEP appId/appName: in Path B the repo + host route +
                     // registry are already created (registerViaAdmin) before the
                     // Actions build can fail, so the game IS provisioned — it just

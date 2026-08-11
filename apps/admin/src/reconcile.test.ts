@@ -273,3 +273,85 @@ describe("reconcile build-status backstop", () => {
     expect(puts).toHaveLength(0);
   });
 });
+
+// POST /api/internal/error (#21) — the agent cannot INSERT into error_log itself
+// (its DB binding is the leaderboard database; error_log lives in admin's
+// freegamestore database), so it reports over the service binding instead.
+
+describe("POST /api/internal/error", () => {
+  function envWithDb() {
+    const inserts: { sql: string; binds: unknown[] }[] = [];
+    const mk = (sql: string) => {
+      let binds: unknown[] = [];
+      const stmt: any = {
+        bind: (...a: unknown[]) => { binds = a; return stmt; },
+        run: async () => { inserts.push({ sql, binds }); return {}; },
+        all: async () => ({ results: [] }),
+        first: async () => ({ c: 0 }),
+      };
+      return stmt;
+    };
+    return { inserts, env: { INTERNAL_TOKEN: "secret", DB: { prepare: (sql: string) => mk(sql) } } as any };
+  }
+
+  const post = (env: any, body: unknown, token?: string) =>
+    worker.fetch(
+      new Request("https://admin.freegamestore.online/api/internal/error", {
+        method: "POST",
+        headers: token ? { "X-Internal-Token": token, "Content-Type": "application/json" } : { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+      env,
+    );
+
+  it("writes an agent/deploy row into error_log", async () => {
+    const { inserts, env } = envWithDb();
+    const res = await post(env, {
+      source: "agent/deploy",
+      user: "u1",
+      context: "gameId=candy-shop sessionId=s1",
+      message: "Deploy workflow failure: deploy › Smoke test built game",
+    }, "secret");
+
+    expect(res.status).toBe(200);
+    const insert = inserts.find((i) => /INSERT INTO error_log/i.test(i.sql));
+    expect(insert).toBeDefined();
+    expect(insert!.binds[0]).toBe("agent/deploy");
+    expect(insert!.binds[1]).toBe("u1");
+    expect(insert!.binds[2]).toContain("gameId=candy-shop");
+    expect(String(insert!.binds[3])).toContain("Smoke test built game");
+  });
+
+  it("rejects a caller without the internal token", async () => {
+    const { inserts, env } = envWithDb();
+    const res = await post(env, { source: "agent/deploy", message: "x" });
+    expect(res.status).toBe(401);
+    // error_log backs operator triage — an unauthenticated caller must not be
+    // able to write into it at all.
+    expect(inserts.filter((i) => /INSERT INTO error_log/i.test(i.sql))).toHaveLength(0);
+  });
+
+  it("rejects a wrong internal token", async () => {
+    const { inserts, env } = envWithDb();
+    const res = await post(env, { source: "agent/deploy", message: "x" }, "not-the-token");
+    expect(res.status).toBe(401);
+    expect(inserts.filter((i) => /INSERT INTO error_log/i.test(i.sql))).toHaveLength(0);
+  });
+
+  it("requires both source and message", async () => {
+    const { inserts, env } = envWithDb();
+    expect((await post(env, { message: "x" }, "secret")).status).toBe(400);
+    expect((await post(env, { source: "agent/deploy" }, "secret")).status).toBe(400);
+    expect((await post(env, { source: "  ", message: "x" }, "secret")).status).toBe(400);
+    expect(inserts.filter((i) => /INSERT INTO error_log/i.test(i.sql))).toHaveLength(0);
+  });
+
+  it("normalises non-string optional fields to null instead of persisting junk", async () => {
+    const { inserts, env } = envWithDb();
+    const res = await post(env, { source: "agent/deploy", message: "boom", user: 42, context: {} }, "secret");
+    expect(res.status).toBe(200);
+    const insert = inserts.find((i) => /INSERT INTO error_log/i.test(i.sql))!;
+    expect(insert.binds[1]).toBeNull();
+    expect(insert.binds[2]).toBeNull();
+  });
+});
