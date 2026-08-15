@@ -8,15 +8,17 @@
  * app. So the MCP needs no GitHub app of its own and nothing to register.
  *
  * Flow:
- *   /authorize  → parse the MCP client's request, stash it, bounce to the auth
- *                 worker's /login?redirect=<our /callback>
+ *   /authorize  → parse the MCP client's request, stash it, set a nonce cookie
+ *                 bound to it, bounce to the auth worker's /login?redirect=<our
+ *                 /callback>
  *   auth worker → GitHub → sets the fgs_token cookie on .freegamestore.online,
  *                 redirects back to our /callback (a subdomain, so it gets the
  *                 cookie)
- *   /callback   → read fgs_token, completeAuthorization() with it as the props
+ *   /callback   → match the nonce cookie against the stashed request, read
+ *                 fgs_token, completeAuthorization() with it as the props
  *                 token, redirect the client back with its code
  */
-import type { OAuthHelpers } from "@cloudflare/workers-oauth-provider";
+import type { AuthRequest, OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 
 interface Env {
   OAUTH_PROVIDER: OAuthHelpers;
@@ -30,6 +32,51 @@ function getCookie(request: Request, name: string): string | null {
   if (!header) return null;
   const m = header.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
   return m ? decodeURIComponent(m[1]) : null;
+}
+
+/**
+ * SECURITY: bind /callback to the browser that started /authorize.
+ *
+ * The reqId travels in the URL only, so without this cookie anyone can drive the
+ * callback: an attacker registers a client, starts /authorize, takes their own
+ * reqId, and gets a victim to open /callback?reqId=<theirs>. The victim's
+ * fgs_token rides along on the top-level navigation, /me verifies it (it is a
+ * genuine token), and completeAuthorization mints a grant for the VICTIM's
+ * identity delivered to the ATTACKER's redirect_uri. PKCE does not help — the
+ * attacker owns the client. @cloudflare/workers-oauth-provider does not bind
+ * anything here either: it sets no cookies, and the `state` it round-trips is
+ * the client's own, which the attacker chooses. Per its README the consent step
+ * is the application's job, and this is that step.
+ *
+ * Same shape as the auth worker's fgs_oauth_state cookie (workers/auth/src/index.ts).
+ * Two deliberate differences:
+ *
+ *  - `__Host-` prefix. FGS serves user-authored games on *.freegamestore.online,
+ *    so a malicious game could otherwise set a `Domain=.freegamestore.online`
+ *    cookie and forge this nonce from a sibling subdomain (cookie tossing).
+ *    Browsers reject a `__Host-` cookie that carries a Domain attribute, which
+ *    closes that. It also forces Secure + Path=/ (localhost is exempt from
+ *    Secure, so `wrangler dev` is unaffected).
+ *
+ *  - SameSite=Lax, not Strict. The return leg reaches us via a redirect chain
+ *    that passes through github.com, and Strict cookies are routinely dropped on
+ *    the way back from an external IdP — Lax is what the auth worker's own state
+ *    cookie uses today and is proven to survive this exact round trip. Lax costs
+ *    nothing here: the guarantee is that the attacker cannot SET the victim's
+ *    cookie, not that the cookie is withheld on cross-site navigation.
+ */
+const CSRF_COOKIE_PREFIX = "__Host-mcp_csrf_";
+
+/** reqId is echoed back to us in the URL and becomes part of a cookie name, so
+ *  keep it to the shape we mint (a v4 UUID) rather than trusting the query. */
+const REQ_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function setCsrfCookie(reqId: string, nonce: string): string {
+  return `${CSRF_COOKIE_PREFIX}${reqId}=${nonce}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`;
+}
+
+function clearCsrfCookie(reqId: string): string {
+  return `${CSRF_COOKIE_PREFIX}${reqId}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 }
 
 /** fgs_token is a JWT; its `login` claim is the GitHub username (sub is github:<id>). */
@@ -63,22 +110,42 @@ export default {
       if (!oauthReqInfo.clientId) return new Response("invalid_request", { status: 400 });
 
       const reqId = crypto.randomUUID();
-      await env.OAUTH_KV.put(`mcpauthreq:${reqId}`, JSON.stringify(oauthReqInfo), { expirationTtl: 600 });
+      const nonce = crypto.randomUUID();
+      await env.OAUTH_KV.put(`mcpauthreq:${reqId}`, JSON.stringify({ req: oauthReqInfo, nonce }), { expirationTtl: 600 });
 
       const callback = new URL("/callback", url.origin);
       callback.searchParams.set("reqId", reqId);
 
       const login = new URL("/login", env.AUTH_BASE);
       login.searchParams.set("redirect", callback.toString());
-      return Response.redirect(login.toString(), 302);
+      // Manual Response rather than Response.redirect() — the latter returns
+      // immutable headers, so Set-Cookie cannot be attached.
+      return new Response(null, {
+        status: 302,
+        headers: { Location: login.toString(), "Set-Cookie": setCsrfCookie(reqId, nonce) },
+      });
     }
 
     // Step 2 — back from the auth worker with the fgs_token cookie set.
     if (url.pathname === "/callback") {
       const reqId = url.searchParams.get("reqId");
-      const raw = reqId ? await env.OAUTH_KV.get(`mcpauthreq:${reqId}`) : null;
+      if (!reqId || !REQ_ID_RE.test(reqId)) return new Response("invalid or expired authorization request", { status: 400 });
+      const raw = await env.OAUTH_KV.get(`mcpauthreq:${reqId}`);
       if (!raw) return new Response("invalid or expired authorization request", { status: 400 });
+      // Consume the request before validating anything else: whatever happens
+      // next, this reqId must never be usable twice.
       await env.OAUTH_KV.delete(`mcpauthreq:${reqId}`);
+
+      // SECURITY: the nonce cookie proves this browser is the one that started
+      // /authorize. Without it, see the CSRF_COOKIE_PREFIX note above — a victim
+      // can be walked through someone else's authorization request. A stash
+      // written before this check shipped has no nonce, so it fails closed and
+      // the client simply reconnects.
+      const stash = JSON.parse(raw) as { req?: AuthRequest; nonce?: string };
+      const cookieNonce = getCookie(request, `${CSRF_COOKIE_PREFIX}${reqId}`);
+      if (!stash.nonce || !cookieNonce || cookieNonce !== stash.nonce) {
+        return new Response("authorization request could not be verified — please reconnect", { status: 400 });
+      }
 
       const fgsToken = getCookie(request, "fgs_token");
       if (!fgsToken) return new Response("sign-in did not complete (no session cookie)", { status: 401 });
@@ -91,7 +158,7 @@ export default {
       if (!verify.ok) return new Response("invalid or expired session token", { status: 401 });
       const login = decodeLogin(fgsToken);
 
-      const oauthReqInfo = JSON.parse(raw);
+      const oauthReqInfo = stash.req as AuthRequest;
       const { redirectTo } = await env.OAUTH_PROVIDER.completeAuthorization({
         request: oauthReqInfo,
         userId: login ?? "user",
@@ -100,7 +167,12 @@ export default {
         // props reach the MCP tools as this.props
         props: { token: fgsToken, userId: login },
       });
-      return Response.redirect(redirectTo, 302);
+      // The nonce has done its job — expire it rather than leaving one dead
+      // cookie per authorization behind in the browser.
+      return new Response(null, {
+        status: 302,
+        headers: { Location: redirectTo, "Set-Cookie": clearCsrfCookie(reqId) },
+      });
     }
 
     if (url.pathname === "/" || url.pathname === "") {
