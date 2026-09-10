@@ -75,9 +75,12 @@ jobs:
       - uses: actions/checkout@v4
 
       # Must precede setup-node: the pnpm cache resolution needs pnpm on PATH.
+      #
+      # No `version:` here on purpose. The root package.json declares
+      # packageManager "pnpm@10.30.3", and pnpm/action-setup@v4 hard-errors with
+      # "Multiple versions of pnpm specified" if a version is ALSO pinned in the
+      # step. ci.yml, quality.yml and publish.yml all omit it for this reason.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - uses: actions/setup-node@v4
         with:
