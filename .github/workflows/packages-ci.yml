@@ -1,0 +1,88 @@
+# Tests for the units OUTSIDE the pnpm workspace.
+#
+# pnpm-workspace.yaml covers `packages/*` only, so ci.yml's `pnpm -r test`
+# reaches compliance, fgs-cli and games-sdk and nothing else. Everything under
+# apps/, workers/ and jobs/ is self-contained with its own lockfile, and until
+# this workflow existed none of it ran on a pull request — workers/mcp's suite,
+# including the OAuth callback CSRF tests, was only ever executed by
+# deploy-mcp.yml on push to main, i.e. after the merge it was meant to gate.
+#
+# The isolation is deliberate (see CLAUDE.md): each unit is installed and tested
+# from its own directory against its own lockfile, exactly as its deploy-*.yml
+# workflow does it. Do NOT "fix" this by folding these into the root workspace —
+# that orphans nine lockfiles and breaks all seven deploy workflows at once.
+#
+# No path filters: every leg runs on every PR. The suites are seconds each, and
+# a leg that is skipped rather than run reports success, which is the failure
+# mode this workflow exists to remove.
+name: Packages CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: packages-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The seven pnpm units. workers/mcp is npm and is handled separately below.
+  test-pnpm-packages:
+    name: test ${{ matrix.dir }}
+    runs-on: ubuntu-latest
+    strategy:
+      # One red unit must not hide the state of the other six.
+      fail-fast: false
+      matrix:
+        dir:
+          - apps/admin
+          - apps/console
+          - workers/agent
+          - workers/auth
+          - workers/host
+          - workers/leaderboard
+          - jobs/auditor
+    defaults:
+      run:
+        working-directory: ${{ matrix.dir }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Must precede setup-node: the pnpm cache resolution needs pnpm on PATH.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ${{ matrix.dir }}/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  # workers/mcp is the one unit on npm (package-lock.json), so it needs neither
+  # pnpm/action-setup nor the pnpm cache.
+  test-mcp:
+    name: test workers/mcp
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workers/mcp
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: workers/mcp/package-lock.json
+
+      - run: npm ci
+      - run: npm test
