@@ -39,14 +39,35 @@ jobs:
       # One red unit must not hide the state of the other six.
       fail-fast: false
       matrix:
-        dir:
-          - apps/admin
-          - apps/console
-          - workers/agent
-          - workers/auth
-          - workers/host
-          - workers/leaderboard
-          - jobs/auditor
+        # `install` is per-unit and is NOT boilerplate. pnpm resolves a
+        # workspace by walking UP from the cwd, so inside this monorepo a plain
+        # `pnpm install` in e.g. workers/auth finds the ROOT pnpm-workspace.yaml,
+        # reports "Scope: all 4 workspace projects", installs packages/* instead,
+        # exits 0 — and never creates workers/auth/node_modules. The unit then
+        # fails at `pnpm test` with "vitest: command not found". A silent no-op
+        # that still exits 0 is exactly the failure this workflow must not have.
+        #
+        # --ignore-workspace pins the install to the unit's own package.json.
+        #
+        # apps/console is the deliberate exception: it has its OWN
+        # pnpm-workspace.yaml (packages: - web), so pnpm stops there and reports
+        # "Scope: all 2 workspace projects", which is right. Adding the flag
+        # would drop the `web` member that its `test:web` script depends on.
+        include:
+          - dir: apps/admin
+            install: pnpm install --frozen-lockfile --ignore-workspace
+          - dir: apps/console
+            install: pnpm install --frozen-lockfile
+          - dir: workers/agent
+            install: pnpm install --frozen-lockfile --ignore-workspace
+          - dir: workers/auth
+            install: pnpm install --frozen-lockfile --ignore-workspace
+          - dir: workers/host
+            install: pnpm install --frozen-lockfile --ignore-workspace
+          - dir: workers/leaderboard
+            install: pnpm install --frozen-lockfile --ignore-workspace
+          - dir: jobs/auditor
+            install: pnpm install --frozen-lockfile --ignore-workspace
     defaults:
       run:
         working-directory: ${{ matrix.dir }}
@@ -64,7 +85,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: ${{ matrix.dir }}/pnpm-lock.yaml
 
-      - run: pnpm install --frozen-lockfile
+      - run: ${{ matrix.install }}
       - run: pnpm test
 
   # workers/mcp is the one unit on npm (package-lock.json), so it needs neither
