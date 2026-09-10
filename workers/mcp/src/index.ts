@@ -1,11 +1,12 @@
 import { McpAgent } from "agents/mcp";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, type ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { listRepoFiles, pushFiles, readRegistryGames, readRepoFile, type RepoFile, textToB64 } from "./github.js";
 import { audit, dryRun, isReadOnly, listAuditEvents, requireConfirmation, requireWritable, type SafetyContext } from "./safety.js";
 import { OAuthProvider, type OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import { WorkerEntrypoint } from "cloudflare:workers";
 import authHandler from "./auth-handler.js";
+import { errMsg, fgsApi, fgsDelete, fgsPost, getDeployStatus, safeFetch, withTimeout } from "./http.js";
 
 interface Env {
   API_BASE: string;
@@ -20,90 +21,6 @@ interface Env {
   OAUTH_PROVIDER: OAuthHelpers;
   // "1" disables every write tool (safety layer read-only mode).
   MCP_READ_ONLY?: string;
-}
-
-// Wrap a fetch in an AbortController-backed timeout so a slow/edge-stalled
-// upstream (admin/agent/leaderboard/GitHub) can't hang the MCP request all the
-// way to the Worker wall-clock limit. fetchFn receives the abort signal.
-async function withTimeout<T>(fetchFn: (signal: AbortSignal) => Promise<T>, ms = 10_000): Promise<T> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), ms);
-  try {
-    return await fetchFn(ctrl.signal);
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-// GitHub Actions API (public repos, no auth needed)
-async function getDeployStatus(org: string, gameId: string) {
-  const res = await withTimeout((signal) => fetch(
-    `https://api.github.com/repos/${org}/${gameId}/actions/runs?per_page=5`,
-    { headers: { Accept: "application/vnd.github+json", "User-Agent": "freegamestore-mcp" }, signal }
-  ));
-  if (!res.ok) return { error: `GitHub API ${res.status}` };
-  let data: { workflow_runs?: Array<{ name: string; conclusion: string | null; status: string; updated_at: string; html_url: string; head_sha: string }> };
-  try {
-    data = (await res.json()) as typeof data;
-  } catch {
-    return { error: "GitHub API returned invalid JSON" };
-  }
-  return (data.workflow_runs ?? []).map((r) => ({
-    name: r.name,
-    status: r.conclusion ?? r.status,
-    updatedAt: r.updated_at,
-    url: r.html_url,
-    sha: r.head_sha?.slice(0, 7),
-  }));
-}
-
-// FGS admin API
-async function fgsApi(apiBase: string, path: string, token?: string) {
-  const headers: Record<string, string> = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await withTimeout((signal) => fetch(`${apiBase}${path}`, { headers, signal }));
-  if (!res.ok) return { error: `API ${res.status}: ${await res.text()}` };
-  // Handle 204 No Content (e.g. /api/quality when no audit data exists)
-  if (res.status === 204) return null;
-  const text = await res.text();
-  if (!text) return null;
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { error: `Invalid JSON from ${path}: ${text.slice(0, 200)}` };
-  }
-}
-
-// POST to the FGS admin
-async function fgsPost(apiBase: string, path: string, token: string, body: unknown) {
-  // X-FGS-Token survives worker-to-worker (Cloudflare strips Authorization on those hops).
-  const res = await withTimeout((signal) => fetch(`${apiBase}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-FGS-Token": token, Authorization: `Bearer ${token}` },
-    body: JSON.stringify(body),
-    signal,
-  }));
-  const text = await res.text();
-  let json: any = {};
-  try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
-  if (!res.ok) return { error: json.error ?? `API ${res.status}`, detail: json.detail ?? json.body ?? text, status: res.status };
-  return json;
-}
-
-// DELETE against an FGS worker (admin or agent). Same header trio as fgsPost —
-// X-FGS-Token survives worker-to-worker hops (CF strips Authorization there),
-// Authorization covers the direct path. Ownership is enforced server-side.
-async function fgsDelete(base: string, path: string, token: string) {
-  const res = await withTimeout((signal) => fetch(`${base}${path}`, {
-    method: "DELETE",
-    headers: { "X-FGS-Token": token, Authorization: `Bearer ${token}` },
-    signal,
-  }));
-  const text = await res.text();
-  let json: any = {};
-  try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
-  if (!res.ok) return { error: json.error ?? `API ${res.status}`, detail: json.detail ?? text, status: res.status };
-  return json;
 }
 
 const txt = (text: string) => ({ content: [{ type: "text" as const, text }] });
@@ -155,17 +72,55 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
     return { env: this.env, subject: this.props.userId };
   }
 
+  /**
+   * Register a tool whose handler can never throw past us.
+   *
+   * The targeted fixes above give a specific message for each upstream hop, but
+   * this is a 23-tool surface that will grow new call sites, and any uncaught
+   * throw renders as the opaque "Tool error: MCP tool call failed" (#29) with
+   * no clue which one broke. This is the backstop: whatever escapes, the caller
+   * gets the tool name and the real message, flagged isError so an agent can
+   * detect the failure without parsing prose.
+   *
+   * The signature mirrors McpServer.tool() and reuses the SDK's own
+   * ToolCallback, so each handler keeps the argument types inferred from its
+   * Zod schema. Do not loosen this to `unknown[]` — that silently turns every
+   * destructured handler parameter into `any`.
+   *
+   * NOTE: test/safety.test.mjs discovers the registered tool set by matching
+   * this call by name. Renaming it means updating that regex too.
+   */
+  private safeTool<Args extends z.ZodRawShape>(
+    name: string,
+    description: string,
+    paramsSchema: Args,
+    cb: ToolCallback<Args>,
+  ): void {
+    const guarded = (async (...callArgs: Parameters<ToolCallback<Args>>) => {
+      try {
+        return await (cb as (...a: unknown[]) => Promise<unknown>)(...callArgs);
+      } catch (err: unknown) {
+        return errText(`${name} failed: ${errMsg(err)}`);
+      }
+    }) as ToolCallback<Args>;
+    this.server.tool(name, description, paramsSchema, guarded);
+  }
+
   async init() {
     // -- list_games --
-    this.server.tool(
+    this.safeTool(
       "list_games",
       "List all published games on FreeGameStore (from the store registry). No auth needed.",
       {},
       async () => {
         const data = (await fgsApi(this.env.API_BASE, "/api/status")) as
           | Array<{ id: string; name: string; domain: string; org: string }>
-          | { error: string };
-        if (!Array.isArray(data)) return errText(`Error: ${(data as { error: string }).error ?? "unexpected response"}`);
+          | { error: string }
+          | null;
+        // null is a real fgsApi return (204 / empty body); reading .error off it
+        // would throw and resurface as the opaque wrapper this tool just fixed.
+        if (data === null) return errText("No game data returned from /api/status (empty response)");
+        if (!Array.isArray(data)) return errText(`Error: ${(data as { error?: string }).error ?? "unexpected response"}`);
         const games = data as Array<{ id: string; name: string; domain: string; org: string }>;
         if (games.length === 0) return txt("No games published yet.");
         const lines = games.map(
@@ -176,7 +131,7 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
     );
 
     // -- deploy_status --
-    this.server.tool(
+    this.safeTool(
       "deploy_status",
       "Check the deploy status of a game (last 5 GitHub Actions runs). No auth needed for public repos.",
       { game_id: z.string().describe("Game ID (e.g. 'chess', 'tetris')") },
@@ -193,7 +148,7 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
     );
 
     // -- game_info --
-    this.server.tool(
+    this.safeTool(
       "game_info",
       "Get info about any game on FreeGameStore — live URL, repo, store listing.",
       { game_id: z.string().describe("Game ID (e.g. 'chess', 'tetris')") },
@@ -257,7 +212,7 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
     );
 
     // -- game_quality --
-    this.server.tool(
+    this.safeTool(
       "game_quality",
       "Get quality audit results for games (scores, load times, console errors). No auth needed.",
       { game_id: z.string().optional().describe("Game ID to filter (omit for all games)") },
@@ -283,7 +238,7 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
     );
 
     // -- leaderboard --
-    this.server.tool(
+    this.safeTool(
       "leaderboard",
       "Query the leaderboard for a game — top scores and recent scores.",
       {
@@ -292,10 +247,12 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
       },
       async ({ game_id, limit }) => {
         const n = limit ?? 10;
-        const res = await withTimeout((signal) => fetch(
+        const r = await safeFetch("the leaderboard API", (signal) => fetch(
           `${this.env.LEADERBOARD_BASE}/api/leaderboard/${game_id}?limit=${n}`,
           { headers: { "User-Agent": "freegamestore-mcp" }, signal }
         ));
+        if ("error" in r) return errText(r.error);
+        const res = r.res;
         if (!res.ok) return errText(`Leaderboard API error: ${res.status}`);
         // The worker returns rows keyed `player_name` (not `name`); keep `name`
         // as a fallback so this doesn't render "**undefined**".
@@ -315,7 +272,7 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
     );
 
     // -- platform_guide --
-    this.server.tool(
+    this.safeTool(
       "platform_guide",
       "Get the FreeGameStore platform guide for AI-assisted game development.",
       {},
@@ -330,7 +287,7 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
     );
 
     // -- sdk_reference --
-    this.server.tool(
+    this.safeTool(
       "sdk_reference",
       "Quick reference for @freegamestore/games SDK — imports, features, and usage patterns for auth, leaderboard, sound, and UI components.",
       { feature: z.enum(["all", "shell", "auth", "leaderboard", "sound", "ui"]).optional().describe("Specific feature, or 'all'") },
@@ -425,7 +382,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     );
 
     // -- create_game (provision + scaffold + go live) --
-    this.server.tool(
+    this.safeTool(
       "create_game",
       "Create AND publish a brand-new game on FreeGameStore, end to end. Provisions the GitHub repo + R2 hosting + store listing, scaffolds the chosen template, and pushes it so the game deploys live at <game_id>.freegamestore.online (~1-2 min). Then use read_file/update_files to build it out. Requires authentication.",
       {
@@ -496,7 +453,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     );
 
     // -- list_files --
-    this.server.tool(
+    this.safeTool(
       "list_files",
       "List the files in a game's repo (so you know what to read/edit).",
       { game_id: z.string().describe("Game ID") },
@@ -508,7 +465,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     );
 
     // -- read_file --
-    this.server.tool(
+    this.safeTool(
       "read_file",
       "Read one file's contents from a game's repo (e.g. web/src/App.tsx).",
       { game_id: z.string().describe("Game ID"), path: z.string().describe("File path relative to repo root") },
@@ -521,7 +478,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     );
 
     // -- update_files --
-    this.server.tool(
+    this.safeTool(
       "update_files",
       "Improve a game: write/overwrite one or more files in its repo with full new contents. The push auto-deploys to <game_id>.freegamestore.online in ~30-60s. Requires authentication.",
       {
@@ -560,7 +517,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     );
 
     // -- agent_build (delegate code-gen to the platform's VibeCode agent) --
-    this.server.tool(
+    this.safeTool(
       "agent_build",
       "Hand a natural-language prompt to the FreeGameStore VibeCode AGENT — the platform's own AI writes the code AND deploys it. By default it uses the AI key saved for your account (the platform's encrypted key vault); pass api_key only to override with a different key. Long-running; builds in the background. Returns session_id — poll agent_status for progress.",
       {
@@ -679,7 +636,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     );
 
     // -- edit_game (open an EXISTING game in VibeCode; always re-syncs the repo) --
-    this.server.tool(
+    this.safeTool(
       "edit_game",
       "Open one of YOUR existing games in VibeCode and (optionally) tell the agent what to change. Imports the game's CURRENT repo files into a session — so it ALWAYS picks up changes made directly (update_files / git / the web console) since last time — then, if you pass a prompt + api_key, the platform's agent edits and redeploys via push_update (files it doesn't touch are preserved). Direct editing (update_files) and VibeCode are two ways to work on the SAME game; this is the VibeCode entry point for an existing one. Ownership-gated. Returns a session_id — poll agent_status.",
       {
@@ -781,7 +738,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     );
 
     // -- agent_status --
-    this.server.tool(
+    this.safeTool(
       "agent_status",
       "Check a VibeCode agent build session (started with agent_build): the game id, deploy phase, and live URL.",
       { session_id: z.string().describe("The session_id returned by agent_build") },
@@ -812,7 +769,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     );
 
     // -- whoami (the authenticated user, straight from the OAuth props) --
-    this.server.tool(
+    this.safeTool(
       "whoami",
       "Show who you're authenticated as on the FreeGameStore MCP — your GitHub login and token identity.",
       {},
@@ -835,7 +792,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     );
 
     // -- list_sessions (your VibeCode sessions from the web console) --
-    this.server.tool(
+    this.safeTool(
       "list_sessions",
       "List YOUR VibeCode sessions from the web console — title, game, last updated. These are the chats where you built games with the platform's AI. Use session_history to read a transcript.",
       {},
@@ -858,7 +815,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     );
 
     // -- session_history (read a VibeCode chat transcript) --
-    this.server.tool(
+    this.safeTool(
       "session_history",
       "Read the full chat transcript of a VibeCode session by id (from list_sessions, or a console.freegamestore.online/create/<id> URL) — the conversation between you and the platform's AI game builder.",
       { session_id: z.string().describe("VibeCode session id") },
@@ -890,7 +847,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     );
 
     // -- admin_list_sessions (org admins: every user's sessions) --
-    this.server.tool(
+    this.safeTool(
       "admin_list_sessions",
       "PLATFORM ADMINS (org members) ONLY: list EVERY user's VibeCode sessions across the platform — who built what, token spend, last activity. Pair with admin_session_history to read any transcript. Non-admins get 403.",
       {},
@@ -914,7 +871,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     );
 
     // -- admin_session_history (org admins: read anyone's transcript) --
-    this.server.tool(
+    this.safeTool(
       "admin_session_history",
       "PLATFORM ADMINS (org members) ONLY: read the full chat transcript of ANY user's VibeCode session by id (from admin_list_sessions). Read-only. Non-admins get 403.",
       { session_id: z.string().describe("VibeCode session id (any user's)") },
@@ -948,7 +905,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     );
 
     // -- admin_send_prompt (org admins: chat into any user's session as them) --
-    this.server.tool(
+    this.safeTool(
       "admin_send_prompt",
       "PLATFORM ADMINS (org members) ONLY: send a prompt INTO any user's VibeCode session ON THEIR BEHALF — the platform agent runs the turn in their session with their key (auto-picked server-side), and the message lands in their transcript as if they typed it. Streams up to ~110s of progress, then the turn continues server-side; follow with admin_session_history. Non-admins get 403.",
       {
@@ -1019,7 +976,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     );
 
     // -- delete_game (delete a live game you own) --
-    this.server.tool(
+    this.safeTool(
       "delete_game",
       "Delete a LIVE game you own: delists it from the store, drops its host route (stops serving at <game_id>.freegamestore.online), and archives its GitHub repo. Frees a creator slot. Ownership is enforced server-side (registry creatorGithub). Irreversible from here. For an in-progress VibeCode draft that never deployed, use discard_session instead.",
       {
@@ -1055,7 +1012,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     );
 
     // -- discard_session (remove an in-progress VibeCode draft) --
-    this.server.tool(
+    this.safeTool(
       "discard_session",
       "Discard an in-progress VibeCode session (a DRAFT that never deployed to a live game). Removes it from your session list. Use list_sessions to find the id. This does NOT delete a published game — for that use delete_game.",
       {
@@ -1083,7 +1040,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
     );
 
     // -- mcp_audit_log (read your own audit trail) --
-    this.server.tool(
+    this.safeTool(
       "mcp_audit_log",
       "Read your recent MCP audit events for this account — every write, dry-run, and denied tool action, newest first. Secrets are redacted; entries expire after 90 days. Requires an authenticated FGS session.",
       { limit: z.number().int().min(1).max(200).optional().describe("Max events to return (default 50)") },

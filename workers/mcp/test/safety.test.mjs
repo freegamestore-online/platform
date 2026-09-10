@@ -170,7 +170,7 @@ test("errText carries isError, and mcp_audit_log is exposed", async () => {
 test("server.json tool set exactly matches the tools registered in index.ts", async () => {
   const manifest = JSON.parse(await read("server.json"));
   const src = await read("src/index.ts");
-  const registered = [...src.matchAll(/this\.server\.tool\(\s*"([a-z_]+)"/g)].map((m) => m[1]).sort();
+  const registered = [...src.matchAll(/this\.safeTool\(\s*"([a-z_]+)"/g)].map((m) => m[1]).sort();
   const declared = manifest.tools.map((t) => t.name).sort();
   assert.deepEqual(declared, registered);
   assert.ok(declared.includes("mcp_audit_log"), "mcp_audit_log must be advertised");
