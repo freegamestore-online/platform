@@ -31,11 +31,15 @@ export {
   type GameTopbarProps,
   type GameTopbarStat,
 } from './GameTopbar.js';
-export { Leaderboard, type LeaderboardProps } from './Leaderboard.js';
+// Hidden: leaderboard not currently surfaced to users (issue #31) — remove the
+// comment markers to re-enable. Leaderboard.tsx and useLeaderboard.ts are left
+// intact on purpose, as is the workers/leaderboard API and its data.
+// export { Leaderboard, type LeaderboardProps } from './Leaderboard.js';
 export { useSound } from './SoundContext.js';
 export { type User, useAuth } from './useAuth.js';
 export { useGameSounds } from './useGameSounds.js';
-export {
-  type LeaderboardEntry,
-  useLeaderboard,
-} from './useLeaderboard.js';
+// Hidden: see the note on Leaderboard above (issue #31).
+// export {
+//   type LeaderboardEntry,
+//   useLeaderboard,
+// } from './useLeaderboard.js';

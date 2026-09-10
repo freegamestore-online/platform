@@ -31,10 +31,6 @@
       "description": "Quality audit results for games (scores, load times, console errors)"
     },
     {
-      "name": "leaderboard",
-      "description": "Query a game's leaderboard — top and recent scores"
-    },
-    {
       "name": "platform_guide",
       "description": "Fetch the full SKILLS.md platform guide"
     },

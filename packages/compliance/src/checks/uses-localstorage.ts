@@ -37,7 +37,10 @@ export async function checkUsesLocalStorage(source: FileSource): Promise<CheckRe
     detail: 'no localStorage usage found in web/src/',
     suggestions: [
       'Consider saving high scores or progress with localStorage so returning players feel rewarded.',
-      'To also publish scores to the global leaderboard, use useLeaderboard() from @freegamestore/games — it complements a local save rather than replacing it.',
+      // Hidden: the global leaderboard is not surfaced to users right now (issue
+      // #31), so stop recommending useLeaderboard(). Restore alongside the
+      // games-sdk export when the leaderboard is re-enabled.
+      // 'To also publish scores to the global leaderboard, use useLeaderboard() from @freegamestore/games — it complements a local save rather than replacing it.',
     ],
   };
 }

@@ -744,7 +744,7 @@ This game has NO game-engine dependency — you own the loop, rendering and phys
 The template (already loaded — read it first with read_file / list_files):
 - web/src/App.tsx — your entry point. It imports from the SDK:
   import { GameShell, GameTopbar, GameAuth } from "@freegamestore/games";
-  GameShell = root full-viewport layout (a 'topbar' prop + the game area as children); GameTopbar = title + score bar; GameAuth = optional sign-in (for leaderboards).
+  GameShell = root full-viewport layout (a 'topbar' prop + the game area as children); GameTopbar = title + score bar; GameAuth = optional sign-in.
 - web/src/hooks/ — reusable local hooks, USE THESE, don't reinvent:
   - useControls(): { keys, mouse:{x,y,down}, touch:{x,y,active} } — keyboard+mouse+touch, ref-based (no re-renders).
   - useGameLoop(cb:(dt:number)=>void, paused?): requestAnimationFrame loop, dt in seconds, capped at 100ms. Use this for the loop — never setInterval.

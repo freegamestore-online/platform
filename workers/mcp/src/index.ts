@@ -237,39 +237,45 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
       }
     );
 
-    // -- leaderboard --
-    this.safeTool(
-      "leaderboard",
-      "Query the leaderboard for a game — top scores and recent scores.",
-      {
-        game_id: z.string().describe("Game ID"),
-        limit: z.number().optional().describe("Max entries (default 10)"),
-      },
-      async ({ game_id, limit }) => {
-        const n = limit ?? 10;
-        const r = await safeFetch("the leaderboard API", (signal) => fetch(
-          `${this.env.LEADERBOARD_BASE}/api/leaderboard/${game_id}?limit=${n}`,
-          { headers: { "User-Agent": "freegamestore-mcp" }, signal }
-        ));
-        if ("error" in r) return errText(r.error);
-        const res = r.res;
-        if (!res.ok) return errText(`Leaderboard API error: ${res.status}`);
-        // The worker returns rows keyed `player_name` (not `name`); keep `name`
-        // as a fallback so this doesn't render "**undefined**".
-        let data: { scores?: Array<{ player_name?: string; name?: string; score: number; created_at: string }> };
-        try {
-          data = (await res.json()) as typeof data;
-        } catch {
-          return errText(`Leaderboard API returned invalid JSON.`);
-        }
-        const scores = data.scores ?? [];
-        if (scores.length === 0) return txt(`No leaderboard entries for ${game_id}.`);
-        const lines = scores.map(
-          (s, i) => `${i + 1}. **${s.player_name ?? s.name ?? "Anonymous"}** — ${s.score} (${new Date(s.created_at).toLocaleDateString()})`
-        );
-        return txt(`Leaderboard for **${game_id}** (top ${scores.length}):\n\n${lines.join("\n")}`);
-      }
-    );
+    // -- leaderboard: HIDDEN (issue #31) --
+    // Not surfaced to users for now. The tool body and the workers/leaderboard
+    // API behind it are intentionally left intact — uncomment to re-enable, and
+    // add "leaderboard" back to server.json (safety.test.mjs holds the two in
+    // sync). Line comments rather than a block comment on purpose: that test
+    // discovers tools by scanning the raw source for the registration call, and
+    // only a `//` between the paren and the quote stops it matching.
+    // this.safeTool(
+    // "leaderboard",
+    // "Query the leaderboard for a game — top scores and recent scores.",
+    // {
+    // game_id: z.string().describe("Game ID"),
+    // limit: z.number().optional().describe("Max entries (default 10)"),
+    // },
+    // async ({ game_id, limit }) => {
+    // const n = limit ?? 10;
+    // const r = await safeFetch("the leaderboard API", (signal) => fetch(
+    // `${this.env.LEADERBOARD_BASE}/api/leaderboard/${game_id}?limit=${n}`,
+    // { headers: { "User-Agent": "freegamestore-mcp" }, signal }
+    // ));
+    // if ("error" in r) return errText(r.error);
+    // const res = r.res;
+    // if (!res.ok) return errText(`Leaderboard API error: ${res.status}`);
+    // // The worker returns rows keyed `player_name` (not `name`); keep `name`
+    // // as a fallback so this doesn't render "**undefined**".
+    // let data: { scores?: Array<{ player_name?: string; name?: string; score: number; created_at: string }> };
+    // try {
+    // data = (await res.json()) as typeof data;
+    // } catch {
+    // return errText(`Leaderboard API returned invalid JSON.`);
+    // }
+    // const scores = data.scores ?? [];
+    // if (scores.length === 0) return txt(`No leaderboard entries for ${game_id}.`);
+    // const lines = scores.map(
+    // (s, i) => `${i + 1}. **${s.player_name ?? s.name ?? "Anonymous"}** — ${s.score} (${new Date(s.created_at).toLocaleDateString()})`
+    // );
+    // return txt(`Leaderboard for **${game_id}** (top ${scores.length}):\n\n${lines.join("\n")}`);
+    // }
+    // );
 
     // -- platform_guide --
     this.safeTool(
@@ -290,7 +296,7 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
     this.safeTool(
       "sdk_reference",
       "Quick reference for @freegamestore/games SDK — imports, features, and usage patterns for auth, leaderboard, sound, and UI components.",
-      { feature: z.enum(["all", "shell", "auth", "leaderboard", "sound", "ui"]).optional().describe("Specific feature, or 'all'") },
+      { feature: z.enum(["all", "shell", "auth", "sound", "ui"]).optional().describe("Specific feature, or 'all'") },
       async ({ feature }) => {
         const sections: Record<string, string> = {
           shell: `## GameShell + GameTopbar (required wrapper)
@@ -324,16 +330,6 @@ import { GameAuth, useAuth } from '@freegamestore/games'
 const { user, loading, signIn, signOut } = useAuth()
 // user: { id: string, name: string, avatar: string } | null
 // signIn() redirects to auth.freegamestore.online (GitHub OAuth)
-\`\`\``,
-          leaderboard: `## Leaderboard
-\`\`\`tsx
-import { useLeaderboard, Leaderboard } from '@freegamestore/games'
-
-const { topScores, recentScores, submitScore, loading, refresh } = useLeaderboard('my-game')
-await submitScore(1500)  // signed-in users get their name from the auth cookie
-
-// Drop-in board UI:
-<Leaderboard topScores={topScores} recentScores={recentScores} loading={loading} />
 \`\`\``,
           sound: `## Sound
 \`\`\`tsx
