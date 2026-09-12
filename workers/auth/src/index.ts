@@ -342,7 +342,7 @@ async function handleGitHubLogin(request: Request, env: Env): Promise<Response> 
   });
 }
 
-async function handleGitHubCallback(request: Request, env: Env): Promise<Response> {
+export async function handleGitHubCallback(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const stateParam = url.searchParams.get("state");

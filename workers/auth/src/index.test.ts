@@ -19,6 +19,7 @@ import worker, {
   handleMe,
   handleCallback,
   handleGitHubTokenExchange,
+  handleGitHubCallback,
 } from "./index";
 
 // --- base64url (real helpers, imported) ---
@@ -211,6 +212,62 @@ test("handleCallback 403s on OAuth nonce mismatch (login-CSRF guard)", async () 
   const env = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<typeof handleCallback>[1];
   const res = await handleCallback(req, env);
   assert.equal(res.status, 403);
+});
+
+// --- handleGitHubCallback: CSRF-nonce enforcement ---
+//
+// GitHub is the login path the MCP's OAuth flow actually traverses (the Google
+// callback above is the legacy player-auth path), so its nonce check is the one
+// standing between a signed-in user and an attacker-driven sign-in. It was
+// enforced but untested — these cover it directly.
+
+test("handleGitHubCallback 403s when the cookie nonce does not match state", async () => {
+  const { state } = oauthState("https://freegamestore.online");
+  const req = new Request(
+    "https://auth.freegamestore.online/callback/github?code=abc&state=" + encodeURIComponent(state),
+    { headers: { Cookie: "fgs_oauth_state=WRONG-nonce" } },
+  );
+  const env = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<typeof handleGitHubCallback>[1];
+  const res = await handleGitHubCallback(req, env);
+  assert.equal(res.status, 403);
+});
+
+test("handleGitHubCallback 403s when the nonce cookie is absent entirely", async () => {
+  // Fails CLOSED: no cookie must never be read as "nothing to compare, proceed".
+  const { state } = oauthState("https://freegamestore.online");
+  const req = new Request(
+    "https://auth.freegamestore.online/callback/github?code=abc&state=" + encodeURIComponent(state),
+  );
+  const env = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<typeof handleGitHubCallback>[1];
+  const res = await handleGitHubCallback(req, env);
+  assert.equal(res.status, 403);
+});
+
+test("handleGitHubCallback 403s when state carries no nonce at all", async () => {
+  // A state blob without a nonce must not satisfy the check by being "equal" to
+  // an absent cookie value.
+  const state = base64urlEncode(JSON.stringify({ redirect: "https://freegamestore.online" }));
+  const req = new Request(
+    "https://auth.freegamestore.online/callback/github?code=abc&state=" + encodeURIComponent(state),
+    { headers: { Cookie: "fgs_oauth_state=some-nonce" } },
+  );
+  const env = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<typeof handleGitHubCallback>[1];
+  const res = await handleGitHubCallback(req, env);
+  assert.equal(res.status, 403);
+});
+
+test("handleGitHubCallback 400s before any nonce work when code or state is missing", async () => {
+  const env = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<typeof handleGitHubCallback>[1];
+  const noState = await handleGitHubCallback(
+    new Request("https://auth.freegamestore.online/callback/github?code=abc"),
+    env,
+  );
+  assert.equal(noState.status, 400);
+  const noCode = await handleGitHubCallback(
+    new Request("https://auth.freegamestore.online/callback/github?state=abc"),
+    env,
+  );
+  assert.equal(noCode.status, 400);
 });
 
 test("handleCallback carries a null email claim when Google reports email_verified:false", async () => {

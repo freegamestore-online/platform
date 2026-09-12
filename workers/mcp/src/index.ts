@@ -641,14 +641,27 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
         api_key: z.string().optional().describe("Override key. Optional — defaults to the key saved for your account in the vault."),
         provider: z.enum(["anthropic", "openai", "google", "github"]).optional().describe("AI provider (default anthropic). Must match the saved/override key."),
         model: z.string().optional().describe("Model id"),
+        dry_run: z.boolean().optional().describe("Preview only: report what would be imported/edited without touching the session or the repo."),
       },
-      async ({ game_id, prompt, api_key, provider, model }) => {
+      async ({ game_id, prompt, api_key, provider, model, dry_run = false }) => {
         const token = this.props.token;
         if (!token) return errText("Not authenticated. Connect with a FGS session token.");
         const roBlock = await requireWritable(this.safety(), "edit_game", { game_id });
         if (roBlock) return roBlock;
         const gid = game_id.trim().toLowerCase();
         if (!/^[a-z0-9](?:[a-z0-9-]{0,56}[a-z0-9])?$/.test(gid)) return errText(`Invalid game id: \`${game_id}\`.`);
+        // Preview BEFORE the import: edit_game re-syncs the session from repo
+        // HEAD, and with a prompt it also has the agent edit and redeploy via
+        // push_update. Both are writes, so a dry run has to stop short of the
+        // import rather than merely short of the prompt.
+        if (dry_run) {
+          return dryRun(this.safety(), "edit_game", prompt ? "edit" : "import", { game_id: gid, hasPrompt: !!prompt }, {
+            game_id: gid,
+            wouldDo: prompt
+              ? ["re-import the game's current repo files into your VibeCode session", "run the agent with your prompt", "redeploy via push_update (untouched files preserved)"]
+              : ["re-import the game's current repo files into your VibeCode session"],
+          });
+        }
 
         // Deterministic session per (user, game): reopening continues the same
         // VibeCode conversation. Kept ≤64 chars (agent route cap) and prefixed so
@@ -908,12 +921,32 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
         session_id: z.string().describe("VibeCode session id (any user's, from admin_list_sessions)"),
         prompt: z.string().describe("What to ask the agent to do, in plain English"),
         provider: z.enum(["anthropic", "openai", "google", "github"]).optional().describe("Override provider — default: whatever the session owner can use (vault key → grant → free tier)"),
+        confirm: z.string().optional().describe("Must equal the session_id. Required: this writes into ANOTHER user's session and spends their key."),
+        dry_run: z.boolean().optional().describe("Preview only: report whose session would be written to, without sending anything (no confirm needed)."),
       },
-      async ({ session_id, prompt, provider }) => {
+      async ({ session_id, prompt, provider, confirm, dry_run = false }) => {
         const token = this.props.token;
         if (!token) return errText("Not authenticated. Connect with a FGS session token.");
         const roBlock = await requireWritable(this.safety(), "admin_send_prompt", { session_id });
         if (roBlock) return roBlock;
+        // This is the most consequential write on the server: it runs an agent
+        // turn inside SOMEONE ELSE'S session, spends their key, and the message
+        // lands in their transcript as if they typed it. delete_game requires a
+        // confirm token to archive a repo the caller already owns; acting as
+        // another user warrants at least the same. Both gates sit ahead of the
+        // fetch so neither a preview nor an unconfirmed call reaches the agent.
+        if (dry_run) {
+          return dryRun(this.safety(), "admin_send_prompt", "send", { session_id, hasPrompt: !!prompt }, {
+            session_id,
+            wouldDo: [
+              "run an agent turn inside this user's session, as them",
+              "spend the session owner's AI key",
+              "append the prompt + reply to their transcript",
+            ],
+          });
+        }
+        const confirmBlock = await requireConfirmation(this.safety(), "admin_send_prompt", confirm, session_id, { session_id });
+        if (confirmBlock) return confirmBlock;
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 110_000);
         const trace: string[] = [];

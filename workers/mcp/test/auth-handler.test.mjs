@@ -58,6 +58,13 @@ function fakeProvider({ parseThrows = false, parsed } = {}) {
           redirectUri: 'http://localhost:6274/callback',
           scope: [],
           state: 'xyz',
+          // The real parseAuthRequest ALWAYS returns a codeChallengeMethod —
+          // it defaults the absent case to "plain" rather than undefined — so
+          // the stub models that rather than omitting the field. Default to a
+          // well-formed S256 request; the PKCE-rejection tests pass their own
+          // `parsed` to model a client that omits or downgrades it.
+          codeChallenge: 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM',
+          codeChallengeMethod: 'S256',
         }
       );
     },
@@ -193,6 +200,51 @@ test('/authorize 400s when the request carries no client_id', async () => {
   assert.equal(res.status, 400);
   assert.match(await res.text(), /invalid_request/);
   assert.equal(env.OAUTH_KV._store.size, 0);
+});
+
+// PKCE (S256) is mandatory. The library only VERIFIES a code_challenge when one
+// is PRESENT, so an omitted challenge degrades silently to redirect_uri matching
+// rather than erroring — these tests are what keeps that absence loud.
+
+const parsedWith = (extra) =>
+  fakeProvider({
+    parsed: {
+      clientId: 'client-abc',
+      redirectUri: 'http://localhost:6274/callback',
+      scope: [],
+      state: 'xyz',
+      ...extra,
+    },
+  });
+
+test('/authorize rejects a request carrying no code_challenge', async () => {
+  // parseAuthRequest defaults an absent method to "plain", so that is what a
+  // challenge-less client actually looks like by the time we see it.
+  const env = makeEnv({ OAUTH_PROVIDER: parsedWith({ codeChallengeMethod: 'plain' }) });
+  const res = await handler.fetch(get('/authorize?client_id=client-abc'), env);
+  assert.equal(res.status, 400);
+  assert.match(await res.text(), /code_challenge required/);
+  // Rejected before anything is stashed, so no KV entry is left to expire.
+  assert.equal(env.OAUTH_KV._store.size, 0);
+  assert.equal(res.headers.get('set-cookie'), null);
+});
+
+test('/authorize rejects the plain PKCE method even with a challenge present', async () => {
+  const env = makeEnv({
+    OAUTH_PROVIDER: parsedWith({ codeChallenge: 'a-challenge', codeChallengeMethod: 'plain' }),
+  });
+  const res = await handler.fetch(get('/authorize?client_id=client-abc'), env);
+  assert.equal(res.status, 400);
+  assert.match(await res.text(), /must be S256/);
+  assert.equal(env.OAUTH_KV._store.size, 0);
+});
+
+test('/authorize accepts a well-formed S256 request', async () => {
+  const env = makeEnv();
+  const res = await handler.fetch(get('/authorize?client_id=client-abc'), env);
+  assert.equal(res.status, 302);
+  assert.ok(res.headers.get('set-cookie')?.startsWith('__Host-mcp_csrf_'));
+  assert.equal(env.OAUTH_KV._store.size, 1);
 });
 
 // -- /callback: CSRF binding --
@@ -422,7 +474,15 @@ test('/callback falls back to the sub claim, then to a placeholder, when login i
     get(`/callback?reqId=${flow.reqId}`, { Cookie: cookies(flow.csrf, `fgs_token=${subOnly}`) }),
     env,
   );
-  assert.equal(env.OAUTH_PROVIDER.calls.completeAuthorization[0].userId, 'github:7');
+  // The library packs tokens as `userId:grantId:secret`, so the colon in
+  // GitHub's `github:<id>` sub must not reach it — unwrapToken() would reject
+  // every token minted for this grant. Sanitized for the library...
+  assert.equal(env.OAUTH_PROVIDER.calls.completeAuthorization[0].userId, 'github_7');
+  // ...while props keeps the REAL identity, which is what the tools' ownership
+  // gate compares against the registry's creatorGithub, and metadata.label is
+  // display text. Sanitizing either would be a behaviour change.
+  assert.equal(env.OAUTH_PROVIDER.calls.completeAuthorization[0].props.userId, 'github:7');
+  assert.equal(env.OAUTH_PROVIDER.calls.completeAuthorization[0].metadata.label, 'github:7');
 
   // An undecodable payload must not throw — the token is still verified, so the
   // grant is real; only the display identity is unknown.

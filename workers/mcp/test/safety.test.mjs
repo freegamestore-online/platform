@@ -137,8 +137,15 @@ test("safety.ts exports the full primitive set with redaction + 90-day TTL", asy
 // -- surface: index.ts wiring --
 
 const WRITE_TOOLS = ["create_game", "update_files", "agent_build", "edit_game", "admin_send_prompt", "delete_game", "discard_session"];
-const DESTRUCTIVE_TOOLS = ["delete_game", "discard_session"];
-const DRY_RUN_TOOLS = ["create_game", "update_files", "agent_build", "delete_game", "discard_session"];
+// Tools that must refuse to act without an exact `confirm` token. Named for the
+// GATE, not for deletion: admin_send_prompt destroys nothing, but it acts as
+// another user and spends their key, which warrants the same explicit consent.
+const CONFIRM_TOOLS = ["delete_game", "discard_session", "admin_send_prompt"];
+// Every write tool now offers a preview, so this is WRITE_TOOLS rather than a
+// hand-maintained subset. Deriving it means a newly-added write tool is required
+// to have a dry_run by default — the previous literal list let edit_game and
+// admin_send_prompt sit outside it unnoticed.
+const DRY_RUN_TOOLS = WRITE_TOOLS;
 
 test("every write + destructive tool is gated by requireWritable", async () => {
   const src = await read("src/index.ts");
@@ -147,9 +154,9 @@ test("every write + destructive tool is gated by requireWritable", async () => {
   }
 });
 
-test("destructive tools require confirmation; dry-run tools offer dry_run", async () => {
+test("confirm-gated tools require confirmation; every write tool offers dry_run", async () => {
   const src = await read("src/index.ts");
-  for (const tool of DESTRUCTIVE_TOOLS) {
+  for (const tool of CONFIRM_TOOLS) {
     assert.match(src, new RegExp(`requireConfirmation\\(this\\.safety\\(\\), "${tool}"`), `${tool} missing confirmation`);
   }
   for (const tool of DRY_RUN_TOOLS) {

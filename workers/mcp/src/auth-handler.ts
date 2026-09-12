@@ -109,6 +109,31 @@ export default {
       }
       if (!oauthReqInfo.clientId) return new Response('invalid_request', { status: 400 });
 
+      // SECURITY: PKCE (S256) is mandatory.
+      //
+      // @cloudflare/workers-oauth-provider only RUNS PKCE verification when a
+      // code_challenge is present, so a client that omits one silently falls back
+      // to registered-redirect_uri matching as the only protection on the
+      // authorization code. That is an absence rather than an error, so nothing
+      // upstream reports it. Reject here, before anything is stashed, so the 400
+      // costs no cleanup. PAGS and PAS both hard-400 the same way.
+      //
+      // Note the method check covers the ABSENT case too: parseAuthRequest
+      // defaults code_challenge_method to "plain" (never undefined), and plain
+      // lets anyone who observes the authorization URL replay the verifier.
+      // Checking `!== 'S256'` therefore rejects both `plain` and omitted.
+      //
+      // Done here rather than via the provider's own `allowPlainPKCE: false`
+      // option: that makes parseAuthRequest THROW, and the catch above turns any
+      // throw into "invalid_client: please reconnect to re-register" — a
+      // misleading message for what is actually a malformed PKCE request.
+      if (!oauthReqInfo.codeChallenge) {
+        return new Response('code_challenge required (PKCE S256)', { status: 400 });
+      }
+      if (oauthReqInfo.codeChallengeMethod !== 'S256') {
+        return new Response('code_challenge_method must be S256', { status: 400 });
+      }
+
       const reqId = crypto.randomUUID();
       const nonce = crypto.randomUUID();
       await env.OAUTH_KV.put(`mcpauthreq:${reqId}`, JSON.stringify({ req: oauthReqInfo, nonce }), {
@@ -169,7 +194,23 @@ export default {
       const oauthReqInfo = stash.req as AuthRequest;
       const { redirectTo } = await env.OAUTH_PROVIDER.completeAuthorization({
         request: oauthReqInfo,
-        userId: login ?? 'user',
+        // SECURITY/CORRECTNESS: the library packs tokens as
+        // `userId:grantId:secret` and unwrapToken() rejects anything that does
+        // not split into exactly 3 parts — so a colon here makes EVERY token
+        // minted for this grant unparseable, not merely malformed. Every MCP
+        // call then 401s with nothing pointing at the cause.
+        //
+        // decodeLogin() falls back to the JWT `sub`, and GitHub's sub is
+        // `github:<id>`. Currently shadowed (the GitHub mint always sets a
+        // `login` claim, and Google's sub is numeric), so this is latent rather
+        // than live — but the fallback is deliberately retained and pinned by
+        // test, so sanitize defensively as PAGS does.
+        //
+        // Only the library-facing userId is sanitized. `metadata.label` is
+        // display text and `props.userId` is what the tools' ownership gate
+        // compares against the registry's creatorGithub — rewriting either
+        // would be a behaviour change.
+        userId: (login ?? 'user').replace(/:/g, '_'),
         scope: oauthReqInfo.scope ?? [],
         metadata: { label: login ?? 'FreeGameStore user' },
         // props reach the MCP tools as this.props
