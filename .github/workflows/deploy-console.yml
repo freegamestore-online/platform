@@ -23,14 +23,19 @@ jobs:
         working-directory: apps/console
     steps:
       - uses: actions/checkout@v4
+      # No `version:` here on purpose — same fix as e759e8a on packages-ci.yml.
+      # The root package.json declares packageManager "pnpm@10.30.3", and
+      # pnpm/action-setup@v4 hard-errors on "Multiple versions of pnpm specified"
+      # when a pin is also given, failing the job before it installs anything.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: apps/console/pnpm-lock.yaml
+      # NO --ignore-workspace here, unlike the other deploy workflows:
+      # apps/console has its own pnpm-workspace.yaml (console + web) that must
+      # stay intact so the web build resolves. See 9c82339 / issue #33.
       - run: pnpm install --frozen-lockfile
       - name: Build
         run: cd web && pnpm build

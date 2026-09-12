@@ -22,15 +22,21 @@ jobs:
         with:
           repository: freegamestore-online/freegamestore
           path: jobs/auditor/freegamestore
+      # No `version:` here on purpose — same fix as e759e8a on packages-ci.yml.
+      # The root package.json declares packageManager "pnpm@10.30.3", and
+      # pnpm/action-setup@v4 hard-errors on "Multiple versions of pnpm specified"
+      # when a pin is also given, failing the job before it installs anything.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: jobs/auditor/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
+      # --ignore-workspace, same fix as 9c82339 on packages-ci.yml: pnpm walks UP
+      # to the root pnpm-workspace.yaml (which covers packages/* only), resolves
+      # THAT workspace and silently skips jobs/auditor's own node_modules —
+      # exiting 0 while leaving tsx missing. Pin the install to this unit.
+      - run: pnpm install --frozen-lockfile --ignore-workspace
       - name: Run audit
         run: npx tsx audit.ts --all --output audit-results.json
       - name: Upload results
