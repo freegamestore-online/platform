@@ -10,18 +10,18 @@
 //
 // Imports the real auth-handler.ts (Node strips the types on import), with the
 // OAuthProvider helpers, the audit KV, and the AUTH service binding faked.
-import assert from "node:assert/strict";
-import { test } from "node:test";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import assert from 'node:assert/strict';
+import { dirname, resolve } from 'node:path';
+import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const root = resolve(here, "..");
+const root = resolve(here, '..');
 
-const { default: handler } = await import(resolve(root, "src/auth-handler.ts"));
+const { default: handler } = await import(resolve(root, 'src/auth-handler.ts'));
 
-const AUTH_BASE = "https://auth.freegamestore.online";
-const ORIGIN = "https://mcp.freegamestore.online";
+const AUTH_BASE = 'https://auth.freegamestore.online';
+const ORIGIN = 'https://mcp.freegamestore.online';
 
 // -- fakes --
 
@@ -29,9 +29,15 @@ function fakeKV() {
   const store = new Map();
   return {
     _store: store,
-    async put(key, val) { store.set(key, val); },
-    async get(key) { return store.has(key) ? store.get(key) : null; },
-    async delete(key) { store.delete(key); },
+    async put(key, val) {
+      store.set(key, val);
+    },
+    async get(key) {
+      return store.has(key) ? store.get(key) : null;
+    },
+    async delete(key) {
+      store.delete(key);
+    },
   };
 }
 
@@ -44,12 +50,20 @@ function fakeProvider({ parseThrows = false, parsed } = {}) {
     calls,
     async parseAuthRequest() {
       calls.parseAuthRequest++;
-      if (parseThrows) throw new Error("Invalid client. The clientId provided does not match to this client.");
-      return parsed ?? { clientId: "client-abc", redirectUri: "http://localhost:6274/callback", scope: [], state: "xyz" };
+      if (parseThrows)
+        throw new Error('Invalid client. The clientId provided does not match to this client.');
+      return (
+        parsed ?? {
+          clientId: 'client-abc',
+          redirectUri: 'http://localhost:6274/callback',
+          scope: [],
+          state: 'xyz',
+        }
+      );
     },
     async completeAuthorization(options) {
       calls.completeAuthorization.push(options);
-      return { redirectTo: "http://localhost:6274/callback?code=granted&state=xyz" };
+      return { redirectTo: 'http://localhost:6274/callback?code=granted&state=xyz' };
     },
   };
 }
@@ -63,8 +77,8 @@ function fakeAuth({ ok = true } = {}) {
     async fetch(url, init) {
       calls.push({ url: String(url), headers: init?.headers ?? {} });
       return ok
-        ? new Response(JSON.stringify({ id: "github:7", login: "grace" }), { status: 200 })
-        : new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401 });
+        ? new Response(JSON.stringify({ id: 'github:7', login: 'grace' }), { status: 200 })
+        : new Response(JSON.stringify({ error: 'Invalid or expired token' }), { status: 401 });
     },
   };
 }
@@ -82,14 +96,14 @@ function makeEnv(overrides = {}) {
 /** An fgs_token-shaped JWT. Only the payload is ever read here (decodeLogin is
  *  an unsigned best-effort read); the signature is the auth worker's job. */
 function jwtWithPayload(payload) {
-  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
   return `eyJhbGciOiJIUzI1NiJ9.${body}.c2ln`;
 }
 
-const GRACE = jwtWithPayload({ sub: "github:7", login: "grace", name: "Grace", exp: 2000000000 });
+const GRACE = jwtWithPayload({ sub: 'github:7', login: 'grace', name: 'Grace', exp: 2000000000 });
 
 const get = (path, headers = {}) => new Request(`${ORIGIN}${path}`, { headers });
-const cookies = (...pairs) => pairs.filter(Boolean).join("; ");
+const cookies = (...pairs) => pairs.filter(Boolean).join('; ');
 
 /**
  * Drive /authorize the way a browser would and keep what it hands back: the
@@ -97,48 +111,55 @@ const cookies = (...pairs) => pairs.filter(Boolean).join("; ");
  * Every /callback test starts here, because a callback that did not come from
  * an /authorize is exactly what the handler is supposed to reject.
  */
-async function startFlow(env, query = "client_id=client-abc") {
+async function startFlow(env, query = 'client_id=client-abc') {
   const res = await handler.fetch(get(`/authorize?${query}`), env);
-  const location = res.headers.get("location");
-  const callback = new URL(new URL(location).searchParams.get("redirect"));
-  const setCookie = res.headers.get("set-cookie") ?? "";
+  const location = res.headers.get('location');
+  const callback = new URL(new URL(location).searchParams.get('redirect'));
+  const setCookie = res.headers.get('set-cookie') ?? '';
   return {
     res,
     location,
-    reqId: callback.searchParams.get("reqId"),
+    reqId: callback.searchParams.get('reqId'),
     // "__Host-mcp_csrf_<reqId>=<nonce>" — what the browser would send back.
-    csrf: setCookie.split(";")[0],
+    csrf: setCookie.split(';')[0],
   };
 }
 
 // -- /authorize --
 
-test("/authorize stashes the client request and bounces to the auth worker", async () => {
+test('/authorize stashes the client request and bounces to the auth worker', async () => {
   const env = makeEnv();
   const { res, location, reqId } = await startFlow(env);
 
   assert.equal(res.status, 302);
-  assert.ok(location.startsWith(`${AUTH_BASE}/login?`), `expected a bounce to the auth worker, got ${location}`);
+  assert.ok(
+    location.startsWith(`${AUTH_BASE}/login?`),
+    `expected a bounce to the auth worker, got ${location}`,
+  );
 
   // The return address must be OUR /callback, carrying a reqId.
-  const callback = new URL(new URL(location).searchParams.get("redirect"));
+  const callback = new URL(new URL(location).searchParams.get('redirect'));
   assert.equal(callback.origin, ORIGIN);
-  assert.equal(callback.pathname, "/callback");
-  assert.ok(reqId, "expected a reqId on the callback URL");
+  assert.equal(callback.pathname, '/callback');
+  assert.ok(reqId, 'expected a reqId on the callback URL');
 
   // ...and the parsed request is what got stashed under it.
   const stashed = JSON.parse(await env.OAUTH_KV.get(`mcpauthreq:${reqId}`));
-  assert.equal(stashed.req.clientId, "client-abc");
-  assert.equal(stashed.req.state, "xyz");
+  assert.equal(stashed.req.clientId, 'client-abc');
+  assert.equal(stashed.req.state, 'xyz');
 });
 
-test("/authorize sets a __Host- nonce cookie bound to the reqId", async () => {
+test('/authorize sets a __Host- nonce cookie bound to the reqId', async () => {
   const env = makeEnv();
   const { res, reqId } = await startFlow(env);
-  const setCookie = res.headers.get("set-cookie");
+  const setCookie = res.headers.get('set-cookie');
 
-  assert.ok(setCookie, "expected a nonce cookie");
-  assert.match(setCookie, new RegExp(`^__Host-mcp_csrf_${reqId}=`), "cookie name must bind the reqId");
+  assert.ok(setCookie, 'expected a nonce cookie');
+  assert.match(
+    setCookie,
+    new RegExp(`^__Host-mcp_csrf_${reqId}=`),
+    'cookie name must bind the reqId',
+  );
   // __Host- forbids a Domain attribute, which is what stops a user-authored game
   // on a sibling *.freegamestore.online subdomain from forging this nonce.
   assert.doesNotMatch(setCookie, /Domain=/i);
@@ -148,26 +169,26 @@ test("/authorize sets a __Host- nonce cookie bound to the reqId", async () => {
   assert.match(setCookie, /Max-Age=600/);
 
   // The nonce must be the secret half — not the reqId, which is public.
-  const nonce = setCookie.split(";")[0].split("=")[1];
+  const nonce = setCookie.split(';')[0].split('=')[1];
   assert.notEqual(nonce, reqId);
   assert.equal(JSON.parse(await env.OAUTH_KV.get(`mcpauthreq:${reqId}`)).nonce, nonce);
 });
 
-test("/authorize 400s on an unknown or stale client registration", async () => {
+test('/authorize 400s on an unknown or stale client registration', async () => {
   // mcp-remote caches a client_id; when the registration is gone the client must
   // get a 400 it can recover from by re-registering, not a 500.
   const env = makeEnv({ OAUTH_PROVIDER: fakeProvider({ parseThrows: true }) });
-  const res = await handler.fetch(get("/authorize?client_id=stale"), env);
+  const res = await handler.fetch(get('/authorize?client_id=stale'), env);
 
   assert.equal(res.status, 400);
   assert.match(await res.text(), /invalid_client/);
-  assert.equal(env.OAUTH_KV._store.size, 0, "nothing should be stashed for a rejected client");
-  assert.equal(res.headers.get("set-cookie"), null, "no nonce for a rejected client");
+  assert.equal(env.OAUTH_KV._store.size, 0, 'nothing should be stashed for a rejected client');
+  assert.equal(res.headers.get('set-cookie'), null, 'no nonce for a rejected client');
 });
 
-test("/authorize 400s when the request carries no client_id", async () => {
-  const env = makeEnv({ OAUTH_PROVIDER: fakeProvider({ parsed: { clientId: "", scope: [] } }) });
-  const res = await handler.fetch(get("/authorize"), env);
+test('/authorize 400s when the request carries no client_id', async () => {
+  const env = makeEnv({ OAUTH_PROVIDER: fakeProvider({ parsed: { clientId: '', scope: [] } }) });
+  const res = await handler.fetch(get('/authorize'), env);
 
   assert.equal(res.status, 400);
   assert.match(await res.text(), /invalid_request/);
@@ -179,19 +200,22 @@ test("/authorize 400s when the request carries no client_id", async () => {
 // The reqId travels in the URL, so on its own it proves nothing about WHO is
 // completing the flow. These are the tests for the nonce cookie that does.
 
-test("/callback 400s when the nonce cookie is missing", async () => {
+test('/callback 400s when the nonce cookie is missing', async () => {
   const env = makeEnv();
   const { reqId } = await startFlow(env);
 
-  const res = await handler.fetch(get(`/callback?reqId=${reqId}`, { Cookie: `fgs_token=${GRACE}` }), env);
+  const res = await handler.fetch(
+    get(`/callback?reqId=${reqId}`, { Cookie: `fgs_token=${GRACE}` }),
+    env,
+  );
 
   assert.equal(res.status, 400);
   assert.match(await res.text(), /could not be verified/i);
   assert.equal(env.OAUTH_PROVIDER.calls.completeAuthorization.length, 0);
-  assert.equal(env.AUTH.calls.length, 0, "must fail before the token is even looked at");
+  assert.equal(env.AUTH.calls.length, 0, 'must fail before the token is even looked at');
 });
 
-test("/callback 400s when the nonce cookie does not match the stashed nonce", async () => {
+test('/callback 400s when the nonce cookie does not match the stashed nonce', async () => {
   const env = makeEnv();
   const { reqId } = await startFlow(env);
 
@@ -224,32 +248,44 @@ test("/callback refuses a victim walked through the attacker's authorization req
   );
 
   assert.equal(res.status, 400);
-  assert.equal(attacker.OAUTH_PROVIDER.calls.completeAuthorization.length, 0, "no grant for the victim's identity");
+  assert.equal(
+    attacker.OAUTH_PROVIDER.calls.completeAuthorization.length,
+    0,
+    "no grant for the victim's identity",
+  );
   // Sanity: the attacker's own nonce is the only thing that would have worked,
   // and it never leaves the attacker's own browser.
   assert.match(attackerCsrf, new RegExp(`^__Host-mcp_csrf_${attackerReqId}=`));
 });
 
-test("/callback 400s on a malformed reqId before touching KV", async () => {
+test('/callback 400s on a malformed reqId before touching KV', async () => {
   // reqId becomes part of a cookie name, so it is pinned to the UUID shape we
   // mint rather than trusted from the query string.
   const env = makeEnv();
-  for (const bad of ["../../etc", "abc", ".*", ""]) {
-    const res = await handler.fetch(get(`/callback?reqId=${encodeURIComponent(bad)}`, { Cookie: `fgs_token=${GRACE}` }), env);
+  for (const bad of ['../../etc', 'abc', '.*', '']) {
+    const res = await handler.fetch(
+      get(`/callback?reqId=${encodeURIComponent(bad)}`, { Cookie: `fgs_token=${GRACE}` }),
+      env,
+    );
     assert.equal(res.status, 400, `expected 400 for reqId=${bad}`);
   }
   assert.equal(env.OAUTH_PROVIDER.calls.completeAuthorization.length, 0);
 });
 
-test("/callback fails closed on a stash written before the nonce shipped", async () => {
+test('/callback fails closed on a stash written before the nonce shipped', async () => {
   // In-flight flows across the deploy have no nonce in KV. They must be rejected
   // rather than silently accepted; the client just reconnects.
   const env = makeEnv();
   const reqId = crypto.randomUUID();
-  await env.OAUTH_KV.put(`mcpauthreq:${reqId}`, JSON.stringify({ clientId: "client-abc", scope: [] }));
+  await env.OAUTH_KV.put(
+    `mcpauthreq:${reqId}`,
+    JSON.stringify({ clientId: 'client-abc', scope: [] }),
+  );
 
   const res = await handler.fetch(
-    get(`/callback?reqId=${reqId}`, { Cookie: cookies(`__Host-mcp_csrf_${reqId}=anything`, `fgs_token=${GRACE}`) }),
+    get(`/callback?reqId=${reqId}`, {
+      Cookie: cookies(`__Host-mcp_csrf_${reqId}=anything`, `fgs_token=${GRACE}`),
+    }),
     env,
   );
 
@@ -259,16 +295,16 @@ test("/callback fails closed on a stash written before the nonce shipped", async
 
 // -- /callback: request-state handling --
 
-test("/callback 400s with no reqId at all", async () => {
+test('/callback 400s with no reqId at all', async () => {
   const env = makeEnv();
-  const res = await handler.fetch(get("/callback", { Cookie: `fgs_token=${GRACE}` }), env);
+  const res = await handler.fetch(get('/callback', { Cookie: `fgs_token=${GRACE}` }), env);
 
   assert.equal(res.status, 400);
   assert.match(await res.text(), /invalid or expired/i);
   assert.equal(env.OAUTH_PROVIDER.calls.completeAuthorization.length, 0);
 });
 
-test("/callback 400s on an expired or forged reqId", async () => {
+test('/callback 400s on an expired or forged reqId', async () => {
   // A reqId that was never issued is indistinguishable from one whose 600s KV
   // TTL lapsed — both must fail closed before the cookie is even read.
   const env = makeEnv();
@@ -279,10 +315,10 @@ test("/callback 400s on an expired or forged reqId", async () => {
 
   assert.equal(res.status, 400);
   assert.equal(env.OAUTH_PROVIDER.calls.completeAuthorization.length, 0);
-  assert.equal(env.AUTH.calls.length, 0, "must not spend an auth-worker call on an unknown reqId");
+  assert.equal(env.AUTH.calls.length, 0, 'must not spend an auth-worker call on an unknown reqId');
 });
 
-test("/callback consumes the reqId — a replayed callback URL 400s", async () => {
+test('/callback consumes the reqId — a replayed callback URL 400s', async () => {
   const env = makeEnv();
   const { reqId, csrf } = await startFlow(env);
   const cookie = cookies(csrf, `fgs_token=${GRACE}`);
@@ -291,13 +327,17 @@ test("/callback consumes the reqId — a replayed callback URL 400s", async () =
   assert.equal(first.status, 302);
 
   const replay = await handler.fetch(get(`/callback?reqId=${reqId}`, { Cookie: cookie }), env);
-  assert.equal(replay.status, 400, "a reqId must be single-use even with a valid nonce");
-  assert.equal(env.OAUTH_PROVIDER.calls.completeAuthorization.length, 1, "replay must not mint a second grant");
+  assert.equal(replay.status, 400, 'a reqId must be single-use even with a valid nonce');
+  assert.equal(
+    env.OAUTH_PROVIDER.calls.completeAuthorization.length,
+    1,
+    'replay must not mint a second grant',
+  );
 });
 
 // -- /callback: session handling --
 
-test("/callback 401s when the browser arrives without the session cookie", async () => {
+test('/callback 401s when the browser arrives without the session cookie', async () => {
   const env = makeEnv();
   const { reqId, csrf } = await startFlow(env);
 
@@ -308,124 +348,153 @@ test("/callback 401s when the browser arrives without the session cookie", async
   assert.equal(env.OAUTH_PROVIDER.calls.completeAuthorization.length, 0);
 });
 
-test("/callback 401s when the auth worker rejects the token, and mints nothing", async () => {
+test('/callback 401s when the auth worker rejects the token, and mints nothing', async () => {
   // decodeLogin() is an UNSIGNED read, so a forged fgs_token would otherwise set
   // props.userId to any GitHub login and walk through the ownership gate. The
   // /me verification is the only thing standing between the two.
   const env = makeEnv({ AUTH: fakeAuth({ ok: false }) });
   const { reqId, csrf } = await startFlow(env);
 
-  const forged = jwtWithPayload({ sub: "github:1", login: "attacker", exp: 2000000000 });
-  const res = await handler.fetch(get(`/callback?reqId=${reqId}`, { Cookie: cookies(csrf, `fgs_token=${forged}`) }), env);
+  const forged = jwtWithPayload({ sub: 'github:1', login: 'attacker', exp: 2000000000 });
+  const res = await handler.fetch(
+    get(`/callback?reqId=${reqId}`, { Cookie: cookies(csrf, `fgs_token=${forged}`) }),
+    env,
+  );
 
   assert.equal(res.status, 401);
   assert.match(await res.text(), /invalid or expired session token/i);
-  assert.equal(env.OAUTH_PROVIDER.calls.completeAuthorization.length, 0, "a rejected token must not produce a grant");
+  assert.equal(
+    env.OAUTH_PROVIDER.calls.completeAuthorization.length,
+    0,
+    'a rejected token must not produce a grant',
+  );
 });
 
-test("/callback verifies via the AUTH service binding using the X-FGS-Token header", async () => {
+test('/callback verifies via the AUTH service binding using the X-FGS-Token header', async () => {
   // Cloudflare strips Authorization/Cookie on worker-to-worker hops, and a
   // same-zone public-hostname fetch returns CF 522 — hence the service binding
   // plus X-FGS-Token rather than a plain fetch to auth.freegamestore.online.
   const env = makeEnv();
   const { reqId, csrf } = await startFlow(env);
 
-  await handler.fetch(get(`/callback?reqId=${reqId}`, { Cookie: cookies(csrf, `fgs_token=${GRACE}`) }), env);
+  await handler.fetch(
+    get(`/callback?reqId=${reqId}`, { Cookie: cookies(csrf, `fgs_token=${GRACE}`) }),
+    env,
+  );
 
   assert.equal(env.AUTH.calls.length, 1);
   assert.match(env.AUTH.calls[0].url, /\/me$/);
-  assert.equal(env.AUTH.calls[0].headers["X-FGS-Token"], GRACE);
+  assert.equal(env.AUTH.calls[0].headers['X-FGS-Token'], GRACE);
 });
 
-test("/callback completes the authorization with the verified identity and token props", async () => {
+test('/callback completes the authorization with the verified identity and token props', async () => {
   const env = makeEnv();
   const { reqId, csrf } = await startFlow(env);
 
-  const res = await handler.fetch(get(`/callback?reqId=${reqId}`, { Cookie: cookies(csrf, `fgs_token=${GRACE}`) }), env);
+  const res = await handler.fetch(
+    get(`/callback?reqId=${reqId}`, { Cookie: cookies(csrf, `fgs_token=${GRACE}`) }),
+    env,
+  );
 
   assert.equal(res.status, 302);
-  assert.equal(res.headers.get("location"), "http://localhost:6274/callback?code=granted&state=xyz");
+  assert.equal(
+    res.headers.get('location'),
+    'http://localhost:6274/callback?code=granted&state=xyz',
+  );
   // The spent nonce is expired rather than left behind.
-  assert.match(res.headers.get("set-cookie"), new RegExp(`^__Host-mcp_csrf_${reqId}=;.*Max-Age=0`));
+  assert.match(res.headers.get('set-cookie'), new RegExp(`^__Host-mcp_csrf_${reqId}=;.*Max-Age=0`));
 
   const [completed] = env.OAUTH_PROVIDER.calls.completeAuthorization;
-  assert.equal(completed.userId, "grace", "userId must be the login claim, not the raw sub");
-  assert.equal(completed.request.clientId, "client-abc");
-  assert.equal(completed.request.state, "xyz", "the client's state must survive the round trip");
+  assert.equal(completed.userId, 'grace', 'userId must be the login claim, not the raw sub');
+  assert.equal(completed.request.clientId, 'client-abc');
+  assert.equal(completed.request.state, 'xyz', "the client's state must survive the round trip");
   // props are what reach the MCP tools as this.props.
   assert.equal(completed.props.token, GRACE);
-  assert.equal(completed.props.userId, "grace");
+  assert.equal(completed.props.userId, 'grace');
 });
 
-test("/callback falls back to the sub claim, then to a placeholder, when login is absent", async () => {
+test('/callback falls back to the sub claim, then to a placeholder, when login is absent', async () => {
   const env = makeEnv();
 
-  const subOnly = jwtWithPayload({ sub: "github:7", exp: 2000000000 });
+  const subOnly = jwtWithPayload({ sub: 'github:7', exp: 2000000000 });
   let flow = await startFlow(env);
-  await handler.fetch(get(`/callback?reqId=${flow.reqId}`, { Cookie: cookies(flow.csrf, `fgs_token=${subOnly}`) }), env);
-  assert.equal(env.OAUTH_PROVIDER.calls.completeAuthorization[0].userId, "github:7");
+  await handler.fetch(
+    get(`/callback?reqId=${flow.reqId}`, { Cookie: cookies(flow.csrf, `fgs_token=${subOnly}`) }),
+    env,
+  );
+  assert.equal(env.OAUTH_PROVIDER.calls.completeAuthorization[0].userId, 'github:7');
 
   // An undecodable payload must not throw — the token is still verified, so the
   // grant is real; only the display identity is unknown.
   flow = await startFlow(env);
   await handler.fetch(
-    get(`/callback?reqId=${flow.reqId}`, { Cookie: cookies(flow.csrf, "fgs_token=not.a-valid-payload.sig") }),
+    get(`/callback?reqId=${flow.reqId}`, {
+      Cookie: cookies(flow.csrf, 'fgs_token=not.a-valid-payload.sig'),
+    }),
     env,
   );
-  assert.equal(env.OAUTH_PROVIDER.calls.completeAuthorization[1].userId, "user");
+  assert.equal(env.OAUTH_PROVIDER.calls.completeAuthorization[1].userId, 'user');
 });
 
-test("/callback reads fgs_token from a multi-cookie header and ignores lookalike names", async () => {
+test('/callback reads fgs_token from a multi-cookie header and ignores lookalike names', async () => {
   const env = makeEnv();
   const { reqId, csrf } = await startFlow(env);
 
   const res = await handler.fetch(
-    get(`/callback?reqId=${reqId}`, { Cookie: cookies("theme=dark", csrf, `fgs_token=${GRACE}`, "cf_clearance=abc") }),
+    get(`/callback?reqId=${reqId}`, {
+      Cookie: cookies('theme=dark', csrf, `fgs_token=${GRACE}`, 'cf_clearance=abc'),
+    }),
     env,
   );
   assert.equal(res.status, 302);
   assert.equal(env.OAUTH_PROVIDER.calls.completeAuthorization[0].props.token, GRACE);
 });
 
-test("/callback does not accept a cookie whose name merely ends in fgs_token", async () => {
+test('/callback does not accept a cookie whose name merely ends in fgs_token', async () => {
   const env = makeEnv();
   const { reqId, csrf } = await startFlow(env);
 
-  const res = await handler.fetch(get(`/callback?reqId=${reqId}`, { Cookie: cookies(csrf, `x_fgs_token=${GRACE}`) }), env);
+  const res = await handler.fetch(
+    get(`/callback?reqId=${reqId}`, { Cookie: cookies(csrf, `x_fgs_token=${GRACE}`) }),
+    env,
+  );
   assert.equal(res.status, 401);
 });
 
 // -- root path: the reconnect / redial contract --
 
-test("GET / with an SSE Accept 405s instead of opening a dead stream", async () => {
+test('GET / with an SSE Accept 405s instead of opening a dead stream', async () => {
   // A 200 with a non-stream body reads to the client as "stream opened, then
   // dropped" and it redials ~1/sec forever. 405 is the wrong-number answer.
-  const res = await handler.fetch(get("/", { accept: "text/event-stream" }), makeEnv());
+  const res = await handler.fetch(get('/', { accept: 'text/event-stream' }), makeEnv());
 
   assert.equal(res.status, 405);
-  assert.equal(res.headers.get("allow"), "GET, HEAD");
+  assert.equal(res.headers.get('allow'), 'GET, HEAD');
   const body = await res.json();
-  assert.equal(body.jsonrpc, "2.0");
+  assert.equal(body.jsonrpc, '2.0');
   assert.equal(body.error.code, -32000);
   assert.match(body.error.message, /mcp\.freegamestore\.online\/mcp/);
 });
 
-test("POST / (JSON-RPC at the origin) 405s and points at the real endpoint", async () => {
-  const res = await handler.fetch(new Request(`${ORIGIN}/`, { method: "POST", body: "{}" }), makeEnv());
+test('POST / (JSON-RPC at the origin) 405s and points at the real endpoint', async () => {
+  const res = await handler.fetch(
+    new Request(`${ORIGIN}/`, { method: 'POST', body: '{}' }),
+    makeEnv(),
+  );
 
   assert.equal(res.status, 405);
   assert.match((await res.json()).error.message, /\/mcp$/);
 });
 
-test("GET / from a browser serves the plain-text connect instructions", async () => {
-  const res = await handler.fetch(get("/"), makeEnv());
+test('GET / from a browser serves the plain-text connect instructions', async () => {
+  const res = await handler.fetch(get('/'), makeEnv());
 
   assert.equal(res.status, 200);
-  assert.match(res.headers.get("content-type"), /text\/plain/);
+  assert.match(res.headers.get('content-type'), /text\/plain/);
   assert.match(await res.text(), /mcp-remote https:\/\/mcp\.freegamestore\.online\/mcp/);
 });
 
-test("an unrouted path 404s", async () => {
-  const res = await handler.fetch(get("/nope"), makeEnv());
+test('an unrouted path 404s', async () => {
+  const res = await handler.fetch(get('/nope'), makeEnv());
   assert.equal(res.status, 404);
 });
