@@ -9,6 +9,8 @@ interface GameDetail {
   listed: boolean;
   status: "pending" | "live" | "failed";
   creatorGithub: string | null;
+  /** Remix lineage (#35): source game id, or null when not a remix. */
+  forkedFrom: string | null;
   hostedOn: string;
   route: { configured: boolean; r2Prefix?: string };
   url: string;

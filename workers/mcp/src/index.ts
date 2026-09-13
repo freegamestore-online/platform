@@ -201,6 +201,8 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
             text: [
               `**${game_id}**`,
               `Status: ${status}`,
+              // Remix lineage (#35) — only for games whose code was copied from another.
+              ...(entry?.forkedFrom ? [`Remixed from: ${entry.forkedFrom}`] : []),
               `Live: ${liveUrl}`,
               `Repo: ${repoUrl}`,
               `Listing: ${listingUrl}`,

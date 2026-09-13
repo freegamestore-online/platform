@@ -459,6 +459,65 @@ describe("handlePublish build status", () => {
   });
 });
 
+// Remix lineage (#35). A remixed game records its source as `forkedFrom` — but
+// only when the source's code was actually copied in.
+describe("handlePublish remix lineage", () => {
+  /** Drive a fresh provision of `my-remix` and resolve with the registry entry
+   *  it commits. `overlayOk: false` makes the source tree unreadable, so the
+   *  Remix overlay fails and the game is left as the plain template. */
+  type Entry = { id: string } & Record<string, unknown>;
+  async function provisionEntry(req: { cloneFrom?: string }, opts: { overlayOk?: boolean } = {}) {
+    let resolvePut: (games: Entry[]) => void;
+    const firstPut = new Promise<Entry[]>((r) => { resolvePut = r; });
+
+    vi.stubGlobal("fetch", async (input: unknown, init?: { method?: string; body?: string }) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      const method = init?.method ?? "GET";
+      const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+      if (url.includes("/contents/registry.json")) {
+        if (method === "GET") return json({ content: btoa(JSON.stringify({ games: [] })), sha: "sha1" });
+        resolvePut(JSON.parse(atob(JSON.parse(init!.body!).content)).games);
+        return json({ content: { sha: "sha2" } });
+      }
+      if (method === "GET" && url.endsWith("/repos/freegamestore-online/my-remix")) return json({ message: "Not Found" }, 404);
+      if (method === "POST" && url.endsWith("/generate")) return json({ id: 1 });
+      // Source tree: one web/src file to copy, or unreadable to fail the overlay.
+      if (url.includes("/git/trees/") && url.includes("recursive=1")) {
+        return opts.overlayOk === false
+          ? json({ message: "Not Found" }, 404)
+          : json({ tree: [{ type: "blob", path: "web/src/App.tsx", sha: "srcblob" }] });
+      }
+      if (method === "GET" && url.includes("/git/blobs/")) return json({ content: btoa("x"), encoding: "base64" });
+      if (url.includes("/git/ref/heads/main")) return json({ object: { sha: "headsha" } });
+      if (method === "GET" && url.includes("/git/commits/")) return json({ tree: { sha: "treesha" } });
+      if (method === "POST" && (url.endsWith("/git/blobs") || url.endsWith("/git/trees") || url.endsWith("/git/commits"))) {
+        return json({ sha: "newsha" });
+      }
+      if (method === "PATCH" && url.includes("/git/refs/heads/main")) return json({ ref: "refs/heads/main" });
+      return json({ message: "Not Found" }, 404);
+    });
+
+    const env = { GITHUB_TOKEN: "x", DB: undefined } as unknown as Parameters<typeof handlePublish>[1];
+    void handlePublish({ id: "my-remix", name: "My Remix", category: "arcade", ...req }, env);
+    return (await firstPut).find((g) => g.id === "my-remix");
+  }
+
+  it("records forkedFrom when the source's code was copied in", async () => {
+    const entry = await provisionEntry({ cloneFrom: "Chess " });
+    expect(entry?.forkedFrom).toBe("chess"); // the normalised (trimmed, lowercased) id
+  });
+
+  it("does NOT record forkedFrom when the Remix overlay failed (plain template)", async () => {
+    const entry = await provisionEntry({ cloneFrom: "chess" }, { overlayOk: false });
+    expect(entry).not.toHaveProperty("forkedFrom");
+  });
+
+  it("does NOT record forkedFrom on a normal, non-remix provision", async () => {
+    const entry = await provisionEntry({});
+    expect(entry).not.toHaveProperty("forkedFrom");
+  });
+});
+
 // Deprovision from the console (#14). handleDeleteGame gained an ADMIN OVERRIDE
 // because an ops console whose delete button only works on the admin's own games
 // is not an ops console. It is destructive — delist + route drop + repo archive —

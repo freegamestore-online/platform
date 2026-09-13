@@ -48,6 +48,8 @@ export interface GameInfo {
    *  predates the field — treat a missing value as "live", same rule the worker
    *  applies to a registry entry with no status. */
   status?: "pending" | "live" | "failed";
+  /** Remix lineage (#35): the source game id, when this game is a remix. */
+  forkedFrom?: string;
 }
 
 export interface QualityData {

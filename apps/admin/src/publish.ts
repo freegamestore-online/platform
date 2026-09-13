@@ -582,6 +582,8 @@ export async function handlePublish(
     };
   }
   const repoExisted = repoCheck.__status === 200;
+  // True only when the source's code was actually copied in — gates `forkedFrom`.
+  let remixed = false;
   if (repoExisted) {
     steps.push({
       name: "GitHub repo",
@@ -632,7 +634,9 @@ export async function handlePublish(
       // Remix: overlay the source game's web/src onto the fresh, correctly-named
       // infra so the new game starts from the source's real code.
       if (cloneFrom) {
-        steps.push(await overlayGameSource(env, config.org, id, cloneFrom));
+        const remixStep = await overlayGameSource(env, config.org, id, cloneFrom);
+        steps.push(remixStep);
+        remixed = remixStep.status === "ok";
       }
     } else {
       steps.push({
@@ -736,6 +740,11 @@ export async function handlePublish(
       // key falls back to canvas at generate time, so writing it here would
       // claim an engine the source doesn't match.
       ...(req.template && TEMPLATE_REPOS[req.template] ? { engine: req.template } : {}),
+      // Remix lineage (#35): the source game id, recorded only when its code was
+      // really copied in. A failed overlay leaves the plain template, so claiming
+      // a source then would be false provenance. `cloneFrom` is format-validated
+      // above, so this is always a well-formed game id.
+      ...(remixed ? { forkedFrom: cloneFrom } : {}),
       // Set once, on first add. `me.ts` reads this for the game's createdAt.
       firstPublished: nowIso,
       // Build lifecycle (#22). Provisioning deliberately runs BEFORE the first

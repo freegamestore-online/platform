@@ -83,12 +83,12 @@ export async function readRegistryGames(
   org: string,
   storeRepo: string,
   token?: string,
-): Promise<Array<{ id: string; creatorGithub?: string; category?: string; description?: string; appUrl?: string; repo?: string; status?: string }>> {
+): Promise<Array<{ id: string; creatorGithub?: string; category?: string; description?: string; appUrl?: string; repo?: string; status?: string; forkedFrom?: string }>> {
   const raw = await readRepoFile(org, storeRepo, token, "registry.json");
   if (!raw) return [];
   try {
     const data = JSON.parse(raw) as { games?: Array<Record<string, unknown>> };
-    return (data.games ?? []) as Array<{ id: string; creatorGithub?: string; category?: string; description?: string; appUrl?: string; repo?: string }>;
+    return (data.games ?? []) as Array<{ id: string; creatorGithub?: string; category?: string; description?: string; appUrl?: string; repo?: string; status?: string; forkedFrom?: string }>;
   } catch {
     return [];
   }

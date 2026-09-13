@@ -285,3 +285,43 @@ describe("creator self-serve routes are NOT behind the admin gate", () => {
     expect(calls).toHaveLength(0); // aborted before any GitHub call
   });
 });
+
+// Remix lineage (#35). The registry list (/api/status) and the Game Detail read
+// both build their own response shapes, so `forkedFrom` must be carried through
+// explicitly — a field the mapper forgets is silently dropped.
+describe("forkedFrom in registry list/get responses", () => {
+  function stubRegistry(games: object[]) {
+    vi.stubGlobal("fetch", async (input: unknown) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      if (url.endsWith("/registry.json")) {
+        return new Response(JSON.stringify({ games }), { status: 200 });
+      }
+      // Live probe / deploy runs — not what these tests are about.
+      return new Response(JSON.stringify({ message: "Not Found" }), { status: 404 });
+    });
+  }
+  const games = [
+    { id: "my-remix", name: "My Remix", forkedFrom: "chess", status: "live" },
+    { id: "chess", name: "Chess", status: "live" },
+  ];
+  const adminEnv = () => makeEnv({ meEmail: ADMIN, adminEmails: ADMIN, DB: undefined });
+
+  it("/api/status includes forkedFrom on a remix and omits it otherwise", async () => {
+    stubRegistry(games);
+    const res = await worker.fetch(req("/api/status", { headers: { "X-FGS-Token": "t" } }), adminEnv());
+    expect(res.status).toBe(200);
+    const list = (await res.json()) as Array<{ id: string; forkedFrom?: string }>;
+    expect(list.find((g) => g.id === "my-remix")!.forkedFrom).toBe("chess");
+    expect(list.find((g) => g.id === "chess")).not.toHaveProperty("forkedFrom");
+  });
+
+  it("/api/games/:id/detail returns forkedFrom, or null for a non-remix", async () => {
+    stubRegistry(games);
+    const remix = await worker.fetch(req("/api/games/my-remix/detail", { headers: { "X-FGS-Token": "t" } }), adminEnv());
+    expect(remix.status).toBe(200);
+    expect(((await remix.json()) as { forkedFrom: unknown }).forkedFrom).toBe("chess");
+
+    const plain = await worker.fetch(req("/api/games/chess/detail", { headers: { "X-FGS-Token": "t" } }), adminEnv());
+    expect(((await plain.json()) as { forkedFrom: unknown }).forkedFrom).toBeNull();
+  });
+});

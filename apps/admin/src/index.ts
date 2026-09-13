@@ -174,6 +174,9 @@ interface GameConfig {
    *  missing/unrecognised registry value to "live", so the console never has to
    *  decide what an absent status means. */
   status: GameStatus;
+  /** Remix lineage (#35): the source game id. Absent on non-remixes and on
+   *  entries written before the field existed. */
+  forkedFrom?: string;
 }
 
 interface QualityGame {
@@ -247,6 +250,7 @@ async function fetchRegistry(env: Env): Promise<GameConfig[]> {
     domain: `${item.id}.${DOMAIN}`,
     hostedOn: item.hostedOn || "pages",
     status: readGameStatus(item),
+    ...(typeof item.forkedFrom === "string" && item.forkedFrom ? { forkedFrom: item.forkedFrom } : {}),
   }));
 }
 
@@ -730,6 +734,7 @@ export default {
         status: readGameStatus(entry),
         name: entry?.name ?? id,
         creatorGithub: entry?.creatorGithub ?? null,
+        forkedFrom: typeof entry?.forkedFrom === "string" && entry.forkedFrom ? entry.forkedFrom : null,
         hostedOn: entry?.hostedOn ?? (routeRow?.hosted_on || "unknown"),
         route: routeRow ? { configured: true, r2Prefix: routeRow.r2_prefix } : { configured: false },
         url: `https://${id}.${DOMAIN}`,
