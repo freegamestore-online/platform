@@ -173,11 +173,19 @@ const INFRA_REPOS = new Set([
   "brand", "ops", "sdk",
 ]);
 
-function validateId(id: string): string | null {
+/** Shape-only id check: safe to interpolate into a GitHub API path (no `/`,
+ *  `..`, `?`, etc.). Says nothing about whether the id may be claimed. */
+function validateIdFormat(id: string): string | null {
   if (!id) return "ID is required";
   if (id.length > 58) return "ID must be 58 characters or less";
   if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(id))
     return "ID must be lowercase letters, numbers, and dashes only. Cannot start/end with a dash.";
+  return null;
+}
+
+function validateId(id: string): string | null {
+  const formatError = validateIdFormat(id);
+  if (formatError) return formatError;
   if (id.startsWith("free") || id.startsWith("pro"))
     return "ID must not start with 'free' or 'pro'";
   // Reject any reserved infra id (exact match) plus every template-game-* variant
@@ -543,6 +551,14 @@ export async function handlePublish(
   // (workflows, deps, lockfile) matches the web/src we overlay after generate —
   // the picker's `template` is ignored when cloning.
   const cloneFrom = typeof req.cloneFrom === "string" ? req.cloneFrom.trim().toLowerCase() : "";
+  // The source id is interpolated into privileged GitHub API paths
+  // (resolveSourceEngine, overlayGameSource) — a `../` or `/` would escape the
+  // org and copy another repo's code. Check format only: the source is an
+  // existing game, so the new-id prefix/reserved rules don't apply to it.
+  const cloneFromError = cloneFrom ? validateIdFormat(cloneFrom) : null;
+  if (cloneFromError) {
+    return { steps: [{ name: "Validation", status: "fail", detail: `Invalid cloneFrom: ${cloneFromError}` }], success: false };
+  }
   if (cloneFrom) {
     const srcEngine = await resolveSourceEngine(env, config.org, cloneFrom);
     if (srcEngine) req.template = srcEngine;

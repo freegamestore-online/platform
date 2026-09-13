@@ -127,6 +127,46 @@ describe("handlePublish reserved-id guard", () => {
   });
 });
 
+describe("handlePublish cloneFrom validation", () => {
+  // #34: `cloneFrom` goes into privileged GitHub API paths, so a malformed
+  // source must be refused before any request is made.
+  function stub() {
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", async (input: unknown, init?: { method?: string }) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      calls.push(url);
+      // Make the target-repo existence check inconclusive so a request that
+      // passes validation stops right there instead of provisioning.
+      if ((init?.method ?? "GET") === "GET" && url.endsWith("/repos/freegamestore-online/my-remix")) {
+        return new Response(JSON.stringify({ message: "rate limited" }), { status: 403 });
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+    return calls;
+  }
+  const env = { GITHUB_TOKEN: "x", DB: undefined } as unknown as Parameters<typeof handlePublish>[1];
+
+  for (const cloneFrom of ["../../other-org/secret", "other-org/repo", "chess?ref=x"]) {
+    it(`rejects ${JSON.stringify(cloneFrom)} before touching GitHub`, async () => {
+      const calls = stub();
+      const res = await handlePublish({ id: "my-remix", name: "My Remix", category: "arcade", cloneFrom }, env);
+      expect(res.success).toBe(false);
+      expect(res.steps[0]!.detail).toMatch(/invalid cloneFrom/i);
+      expect(calls).toHaveLength(0);
+    });
+  }
+
+  it("accepts a well-formed source the new-id rules would refuse (free-snake)", async () => {
+    const calls = stub();
+    await handlePublish({ id: "my-remix", name: "My Remix", category: "arcade", cloneFrom: "free-snake" }, env);
+    expect(calls.length).toBeGreaterThan(0);
+    // It got as far as reading the source's engine.
+    expect(calls).toContain(
+      "https://api.github.com/repos/freegamestore-online/free-snake/contents/web/package.json",
+    );
+  });
+});
+
 describe("handlePublish repo-existence fail-safe", () => {
   it("aborts (no generate) when the existence check is inconclusive (403 rate-limit)", async () => {
     const calls: { url: string; method: string }[] = [];
