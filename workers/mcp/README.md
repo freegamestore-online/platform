@@ -35,7 +35,7 @@ standalone repo.
 Sign-in is delegated to the platform auth worker (`auth.freegamestore.online`),
 so this server holds no GitHub OAuth app of its own. It is the OAuth
 Authorization Server for MCP clients, via `@cloudflare/workers-oauth-provider`.
-Three application-level controls sit on top of the library, all in
+Four application-level controls sit on top of the library, all in
 `src/auth-handler.ts`:
 
 - **PKCE (S256) is mandatory.** `/authorize` rejects a missing `code_challenge`,
@@ -47,4 +47,12 @@ Three application-level controls sit on top of the library, all in
 - **`userId` is colon-sanitized** before it reaches the library, which packs
   tokens as `userId:grantId:secret`.
 
-Not yet implemented: an explicit consent page. See issue #32.
+- **An explicit consent page.** After sign-in, `GET /callback` renders a page
+  naming the client (via `lookupClient`) and the signed-in account, and mints
+  nothing. The grant is only created by `POST /callback` with `action=allow`;
+  `action=deny` sends the client `error=access_denied`. The form post is bound
+  to the same `__Host-` nonce cookie as the rest of the flow (SameSite=Lax, so
+  a cross-site post cannot carry it), and the stashed request is consumed
+  either way. The library's README leaves this step to the application; the
+  nonce alone does not cover a user *induced* to click an attacker's
+  `/authorize` link, and this page is what makes that an informed choice.
