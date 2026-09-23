@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 // (the class of failure that surfaced the "only my first message survives" bug).
 vi.mock("./providers/anthropic", () => ({
   AnthropicAdapter: class {
-    // eslint-disable-next-line require-yield
+    // biome-ignore lint/correctness/useYield: the mock must throw before yielding, like a failed provider stream.
     async *run(): AsyncGenerator<never> {
       throw new Error("upstream 503");
     }

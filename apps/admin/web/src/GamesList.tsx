@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, type GameInfo, type QualityData } from "./api.ts";
 import { ErrorBox, Loading } from "./Overview.tsx";
 
@@ -70,18 +70,18 @@ export function GamesList({ navigate }: { navigate: (h: string) => void }) {
       .catch(() => {});
   }, []);
 
-  const isFailing = (id: string) => {
+  const isFailing = useCallback((id: string) => {
     const d = deploys.get(id);
     // "Failing" = the last deploy concluded badly, OR the repo has moved past
     // its last successful build (drift). Both mean players are not on the code
     // in main; a badge that only showed the former would miss the stale-serving
     // case entirely.
     return !!d && (d.conclusion === "failure" || d.conclusion === "timed_out" || d.drifted);
-  };
+  }, [deploys]);
 
   const failingCount = useMemo(
     () => (games ?? []).filter((g) => isFailing(g.id)).length,
-    [games, deploys],
+    [games, isFailing],
   );
 
   const filtered = useMemo(() => {
@@ -89,7 +89,7 @@ export function GamesList({ navigate }: { navigate: (h: string) => void }) {
     const q = search.toLowerCase();
     const bySearch = q ? games.filter((g) => g.name.toLowerCase().includes(q) || g.id.includes(q)) : games;
     return failingOnly ? bySearch.filter((g) => isFailing(g.id)) : bySearch;
-  }, [games, search, failingOnly, deploys]);
+  }, [games, search, failingOnly, isFailing]);
 
   if (error) return <ErrorBox message={error} />;
   if (!games) return <Loading />;

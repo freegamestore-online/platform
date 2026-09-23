@@ -98,6 +98,7 @@ export function useProjects() {
     }
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on user.sub, not the user object — a new object for the same account must not refetch.
   useEffect(() => {
     if (authLoading) {
       setLoading(true);
@@ -273,7 +274,7 @@ export function useProjects() {
     const stale = new Set(projects.filter((p) => p.appId === gameId).map((p) => p.id));
     try {
       const server = await fetchSessions(new AbortController().signal);
-      server.filter((p) => p.appId === gameId).forEach((p) => stale.add(p.id));
+      for (const p of server) if (p.appId === gameId) stale.add(p.id);
     } catch {
       // Offline — drop just the local ones; the next reload reconciles.
     }

@@ -13,6 +13,7 @@ export function useKeys() {
   const [providers, setProviders] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on user.sub, not the user object — a new object for the same account must not refetch.
   const refresh = useCallback(async () => {
     if (!user) {
       setProviders(new Set());
@@ -54,6 +55,7 @@ export function useKeys() {
 
   // Initial load + one-time migration of any legacy localStorage keys into the
   // vault (then wipe them from the browser so plaintext no longer lingers).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on user.sub, not the user object — a new object for the same account must not refetch.
   useEffect(() => {
     let cancelled = false;
     (async () => {

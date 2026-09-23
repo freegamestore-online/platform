@@ -144,7 +144,7 @@ const WROTE_ACK_RE = /^\s*wrote\s+\S.*\(\s*[\d.,]+\s*(bytes|kb|mb)\s*\)\s*$/i;
 // The platform's own transcript elided-body marker (session-budget.elidedBodyMarker),
 // caught here too in case the model imitates it from history. Not length-gated —
 // these exact phrases never occur in real game source.
-const ELIDED_MARKER_RE = /already saved\b[^]*\bomitted|omitted here to save space|never write this note as file content/i;
+const ELIDED_MARKER_RE = /already saved\b[\s\S]*\bomitted|omitted here to save space|never write this note as file content/i;
 // Short elision stubs that stand in for real code and always break the build.
 const ELISION_RE =
   /(rest|remainder)\s+of\s+(the\s+)?(code|file|component|implementation)|existing\s+code\s+(here|unchanged|remains|goes)|full\s+(source|code|file)\s+(here|below|goes)|content\s+omitted|omitted\s+for\s+brevity|paste\s+.*\s+here|your\s+code\s+here|<\s*insert\b/i;

@@ -10,6 +10,7 @@ export function isSafeHref(url: string): boolean {
   // tab/CR/LF while parsing a URL, so `java\tscript:` parses as `javascript:` —
   // a hand-rolled "scheme-like prefix" regex is defeated by the embedded tab and
   // would wrongly pass it. Killing these chars up front closes that bypass.
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: matching control characters is the point — see above.
   if (/[\u0000-\u0020\u007F-\u009F]/.test(u) || /\s/.test(u)) return false;
   // Reject protocol-relative URLs (`//host`, `\\host`): they carry no scheme so
   // they'd fall through to the scheme-less "safe" branch, but the browser

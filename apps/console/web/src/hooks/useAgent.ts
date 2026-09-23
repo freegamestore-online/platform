@@ -426,7 +426,7 @@ export function useAgent() {
         return prev;
       });
     }
-  }, [sessionId, isStreaming, projectsMgr, pollDeployStatus]);
+  }, [sessionId, isStreaming, projectsMgr, pollDeployStatus, loadHistory]);
 
   const dismissError = useCallback(() => setError(null), []);
 

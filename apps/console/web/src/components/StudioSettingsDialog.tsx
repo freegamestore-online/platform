@@ -53,8 +53,8 @@ export function StudioSettingsDialog({ open, onClose, provider, setProvider, mod
           <button onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, lineHeight: 1, color: "var(--muted)" }}>×</button>
         </div>
 
-        <label className="block text-sm font-semibold mb-1">Provider</label>
-        <Select aria-label="AI provider" value={provider} onChange={(e) => { setProvider(e.target.value); setModel(firstModelFor(e.target.value)); setKeyInput(""); setMsg(null); }} className="w-full mb-3">
+        <label htmlFor="studio-ai-provider" className="block text-sm font-semibold mb-1">Provider</label>
+        <Select id="studio-ai-provider" aria-label="AI provider" value={provider} onChange={(e) => { setProvider(e.target.value); setModel(firstModelFor(e.target.value)); setKeyInput(""); setMsg(null); }} className="w-full mb-3">
           <option value="github">GitHub Models (free)</option>
           <option value="openrouter">OpenRouter</option>
           <option value="anthropic">Anthropic</option>
@@ -62,12 +62,12 @@ export function StudioSettingsDialog({ open, onClose, provider, setProvider, mod
           <option value="google">Google</option>
         </Select>
 
-        <label className="block text-sm font-semibold mb-1">Model</label>
-        <Select aria-label="AI model" value={model} onChange={(e) => setModel(e.target.value)} className="w-full mb-3">
+        <label htmlFor="studio-ai-model" className="block text-sm font-semibold mb-1">Model</label>
+        <Select id="studio-ai-model" aria-label="AI model" value={model} onChange={(e) => setModel(e.target.value)} className="w-full mb-3">
           {(MODEL_OPTIONS[provider] || []).map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
         </Select>
 
-        <label className="block text-sm font-semibold mb-1">API key</label>
+        <p className="block text-sm font-semibold mb-1">API key</p>
         {free ? (
           <p className="text-sm mb-3" style={{ color: "var(--success)" }}>GitHub Models is free — no API key needed.</p>
         ) : hasKey ? (
@@ -83,8 +83,8 @@ export function StudioSettingsDialog({ open, onClose, provider, setProvider, mod
         )}
         {msg && <p className="text-xs mb-2" style={{ color: "var(--success)" }}>{msg}</p>}
 
-        <label className="block text-sm font-semibold mb-1 mt-3">Creativity</label>
-        <Select aria-label="Temperature" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-full mb-4">
+        <label htmlFor="studio-ai-temperature" className="block text-sm font-semibold mb-1 mt-3">Creativity</label>
+        <Select id="studio-ai-temperature" aria-label="Temperature" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-full mb-4">
           <option value={0}>Precise (0)</option>
           <option value={0.3}>Balanced (0.3)</option>
           <option value={0.7}>Creative (0.7)</option>
