@@ -231,6 +231,23 @@ describe("handlePublish owner validation", () => {
   });
 });
 
+describe("handlePublish cloneFrom validation (#34)", () => {
+  it("rejects a malformed or reserved remix source before touching GitHub", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", async (input: unknown) => {
+      calls.push(typeof input === "string" ? input : (input as Request).url);
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+    const env = { GITHUB_TOKEN: "x", DB: undefined } as unknown as Parameters<typeof handlePublish>[1];
+    for (const cloneFrom of ["../../orgs/x", "chess/contents", "a?b=1", "ops", "template-game-canvas", "freegamestore"]) {
+      const res = await handlePublish({ id: "chess", name: "Chess", category: "arcade", cloneFrom }, env);
+      expect(res.success).toBe(false);
+      expect(res.steps[0]!.detail).toMatch(/invalid cloneFrom/i);
+    }
+    expect(calls).toHaveLength(0);
+  });
+});
+
 // Build-status lifecycle (#22). Provisioning writes `pending` before the first
 // build, so nothing may report a game live until a deploy.yml run concludes
 // success. These guard the transition rules that make that safe.

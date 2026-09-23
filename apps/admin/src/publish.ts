@@ -544,6 +544,13 @@ export async function handlePublish(
   // the picker's `template` is ignored when cloning.
   const cloneFrom = typeof req.cloneFrom === "string" ? req.cloneFrom.trim().toLowerCase() : "";
   if (cloneFrom) {
+    // `cloneFrom` is interpolated into privileged GitHub paths (engine lookup +
+    // source overlay), so it must pass the same grammar/reserved-id rules as `id`
+    // — otherwise a caller could read infra repos or path-traverse the API.
+    const cloneError = validateId(cloneFrom);
+    if (cloneError) {
+      return { steps: [{ name: "Validation", status: "fail", detail: `Invalid cloneFrom: ${cloneError}` }], success: false };
+    }
     const srcEngine = await resolveSourceEngine(env, config.org, cloneFrom);
     if (srcEngine) req.template = srcEngine;
   }
