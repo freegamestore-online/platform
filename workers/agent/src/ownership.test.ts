@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getConfig } from "./config";
-import { ownsGame } from "./ownership";
+import { OwnershipLookupError, ownsGame } from "./ownership";
 
 const games = getConfig("games");
 
@@ -120,5 +120,57 @@ describe("ownsGame — registry-primary ownership", () => {
     expect(res.game).toBeNull();
     // No membership/collaborator calls for a non-existent game.
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+// #40 — an upstream failure must never read as "no such game" / "not yours".
+describe("ownsGame — upstream failures surface as errors", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("throws when the contents API 401s and the raw fallback 500s (registry unreadable)", async () => {
+    globalThis.fetch = vi.fn(async (url: string) => {
+      if (url === CONTENTS_URL) return { ok: false, status: 401 } as any;
+      if (url === REGISTRY_URL) return { ok: false, status: 500 } as any;
+      throw new Error(`unexpected fetch: ${url}`);
+    }) as any;
+
+    await expect(ownsGame(games, "tok", "snake", "creator")).rejects.toThrow(OwnershipLookupError);
+    await expect(ownsGame(games, "tok", "snake", "creator")).rejects.toThrow(/401.*500/);
+  });
+
+  it("throws when both registry reads fail at the network level", async () => {
+    globalThis.fetch = vi.fn(async (url: string) => {
+      if (url === REGISTRY_URL) throw new TypeError("network down");
+      return { ok: false, status: 404 } as any;
+    }) as any;
+
+    await expect(ownsGame(games, "tok", "snake", "creator")).rejects.toThrow(/registry unavailable.*network down/);
+  });
+
+  it("throws when the org-membership probe returns 403 instead of denying ownership", async () => {
+    globalThis.fetch = vi.fn(async (url: string) => {
+      if (url === CONTENTS_URL) return registry([{ id: "snake", creatorGithub: "someone-else" }]);
+      if (url.includes("/orgs/") && url.includes("/members/")) return { ok: false, status: 403 } as any;
+      throw new Error(`unexpected fetch: ${url}`);
+    }) as any;
+
+    await expect(ownsGame(games, "tok", "snake", "intruder")).rejects.toThrow(/org membership check failed \(403\)/);
+  });
+
+  it("throws when the collaborator probe keeps returning 503 (after retries)", async () => {
+    vi.useFakeTimers();
+    globalThis.fetch = vi.fn(async (url: string) => {
+      if (url === CONTENTS_URL) return registry([{ id: "oldie" }]);
+      if (url.includes("/orgs/") && url.includes("/members/")) return { ok: false, status: 404 } as any;
+      if (url.includes("/collaborators/")) return { ok: false, status: 503, headers: new Headers() } as any;
+      throw new Error(`unexpected fetch: ${url}`);
+    }) as any;
+
+    const pending = ownsGame(games, "tok", "oldie", "legacy-owner");
+    const assertion = expect(pending).rejects.toThrow(/collaborator check failed \(503\)/);
+    await vi.advanceTimersByTimeAsync(20_000);
+    await assertion;
   });
 });
