@@ -16,8 +16,13 @@ function mockDb() {
               if (sql.includes("INSERT INTO complimentary_grants")) {
                 const [user_id, provider, model, granted_by, note, expires_at] = args;
                 rows.set(String(user_id), {
-                  user_id, provider, model, granted_by, note,
-                  created_at: "2026-07-05 00:00:00", expires_at,
+                  user_id,
+                  provider,
+                  model,
+                  granted_by,
+                  note,
+                  created_at: "2026-07-05 00:00:00",
+                  expires_at,
                 });
               } else if (sql.startsWith("DELETE")) {
                 rows.delete(String(args[0]));
@@ -33,7 +38,7 @@ function mockDb() {
   return db as unknown as D1Database;
 }
 
-const envWith = (extra: Record<string, unknown>): Env => ({ DB: mockDb(), ...extra } as unknown as Env);
+const envWith = (extra: Record<string, unknown>): Env => ({ DB: mockDb(), ...extra }) as unknown as Env;
 
 describe("compKeyFor", () => {
   it("reads the COMP_KEY_<PROVIDER> secret, trims, and treats blank as unset", () => {
@@ -59,13 +64,25 @@ describe("grant lifecycle", () => {
 
   it("treats an expired grant as absent (and does not resolve)", async () => {
     const env = envWith({});
-    await grantComp(env, { userId: "github:7", provider: "openai", model: "gpt-4o", grantedBy: "admin", expiresAt: "2000-01-01T00:00:00Z" });
+    await grantComp(env, {
+      userId: "github:7",
+      provider: "openai",
+      model: "gpt-4o",
+      grantedBy: "admin",
+      expiresAt: "2000-01-01T00:00:00Z",
+    });
     expect(await getActiveComp(env, "github:7")).toBeNull();
   });
 
   it("honors a future expiry", async () => {
     const env = envWith({});
-    await grantComp(env, { userId: "github:9", provider: "google", model: "gemini-2.5-pro", grantedBy: "admin", expiresAt: "2999-01-01T00:00:00Z" });
+    await grantComp(env, {
+      userId: "github:9",
+      provider: "google",
+      model: "gemini-2.5-pro",
+      grantedBy: "admin",
+      expiresAt: "2999-01-01T00:00:00Z",
+    });
     expect((await getActiveComp(env, "github:9"))?.provider).toBe("google");
   });
 });

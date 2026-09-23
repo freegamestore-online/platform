@@ -10,10 +10,7 @@ const env = { STORE: "games" } as unknown as Parameters<typeof worker.fetch>[1];
 
 describe("agent worker /session auth gate", () => {
   it("401s a /session request that carries no session token", async () => {
-    const res = await worker.fetch(
-      new Request("https://agent.freegamestore.online/session/abc/status"),
-      env,
-    );
+    const res = await worker.fetch(new Request("https://agent.freegamestore.online/session/abc/status"), env);
     expect(res.status).toBe(401);
   });
 });

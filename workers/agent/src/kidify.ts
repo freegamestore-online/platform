@@ -47,11 +47,7 @@ export function buildKidPrompt(age: string, vibe: string): string {
 
 /** Handle POST /kidify. Returns null when the path isn't ours (so the caller
  *  falls through to the next route). */
-export async function handleKidify(
-  request: Request,
-  env: Env,
-  cors: Record<string, string>,
-): Promise<Response | null> {
+export async function handleKidify(request: Request, env: Env, cors: Record<string, string>): Promise<Response | null> {
   if (new URL(request.url).pathname !== "/kidify") return null;
 
   const json = (body: unknown, status = 200) =>
@@ -76,7 +72,9 @@ export async function handleKidify(
     return json({ error: "bad json" }, 400);
   }
 
-  const text = String(body.text ?? "").slice(0, MAX_INPUT).trim();
+  const text = String(body.text ?? "")
+    .slice(0, MAX_INPUT)
+    .trim();
   if (!text) return json({ kid: "" });
 
   if (!env.GITHUB_TOKEN) return json({ error: "no platform token" }, 502);

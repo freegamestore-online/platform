@@ -72,9 +72,7 @@ export function healPoisonedHistory(messages: Message[]): Message[] {
     if (poisoned && m.toolCalls) {
       const paths = [
         ...new Set(
-          m.toolCalls
-            .filter((tc) => tc.name === "write_file")
-            .map((tc) => (typeof tc.input?.path === "string" ? tc.input.path : "a file")),
+          m.toolCalls.filter((tc) => tc.name === "write_file").map((tc) => (typeof tc.input?.path === "string" ? tc.input.path : "a file")),
         ),
       ];
       out.push({
@@ -90,7 +88,6 @@ export function healPoisonedHistory(messages: Message[]): Message[] {
   }
   return out;
 }
-
 
 /** Fit the LIVE turn context under a total char budget (free-tier request
  *  caps). Clone-safe like stripLargeToolCallBodies: array slots are replaced,

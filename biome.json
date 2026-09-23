@@ -8,7 +8,7 @@
       "!**/dist",
       "!**/node_modules",
       "!**/.vibe-check",
-      "!apps/admin/public/**",
+      "!apps/admin/public",
       "!**/*.min.js"
     ]
   },

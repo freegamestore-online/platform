@@ -177,7 +177,8 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
   }
   // TS narrows finalStatus to never inside the closure; read via a widened local.
   const last = finalStatus as DeployStatus | null;
-  if (last?.phase === "error") return `Deploy FAILED: ${last.error || "the build did not complete"}. Use get_build_logs to see why, fix the code, then push_update.`;
+  if (last?.phase === "error")
+    return `Deploy FAILED: ${last.error || "the build did not complete"}. Use get_build_logs to see why, fix the code, then push_update.`;
   if (last?.phase === "live") {
     // CI confirmed the build. Only now is the app genuinely deployed.
     ctx.onAppDeployed(appId, appName);
@@ -210,16 +211,25 @@ async function executePushUpdate(tc: ToolCall, ctx: ExecContext): Promise<string
   const appUrl = `https://${id}.${ctx.config.domain}`;
   ctx.onDeployStatus({ phase: "building", deployUrl: appUrl });
   let outcome: string | null = null;
-  await waitForActionsDeploy(id, ctx.env, ctx.config, (s) => {
-    ctx.onDeployStatus(s);
-    if (s.phase === "live") outcome = `Update deployed and LIVE at ${s.appUrl}.`;
-    else if (s.phase === "error") outcome = `Update pushed but the build FAILED: ${s.error}`;
-  }, appUrl).catch((err) => {
+  await waitForActionsDeploy(
+    id,
+    ctx.env,
+    ctx.config,
+    (s) => {
+      ctx.onDeployStatus(s);
+      if (s.phase === "live") outcome = `Update deployed and LIVE at ${s.appUrl}.`;
+      else if (s.phase === "error") outcome = `Update pushed but the build FAILED: ${s.error}`;
+    },
+    appUrl,
+  ).catch((err) => {
     outcome = `Update pushed; couldn't confirm the build status: ${String(err)}. Use check_deploy_status.`;
   });
   // Same rule as executeDeploy: reaching here means the waiter saw a run still in
   // progress at the ceiling, never a concluded failure.
-  return outcome || `${result} The CI run was STILL IN PROGRESS after ${ACTIONS_DEPLOY_CEILING_MS / 60_000} minutes — not failed, just unfinished. Use check_deploy_status for the final result.`;
+  return (
+    outcome ||
+    `${result} The CI run was STILL IN PROGRESS after ${ACTIONS_DEPLOY_CEILING_MS / 60_000} minutes — not failed, just unfinished. Use check_deploy_status for the final result.`
+  );
 }
 
 async function executeFetchUrl(tc: ToolCall, config: StoreConfig): Promise<string> {

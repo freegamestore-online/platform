@@ -1,10 +1,10 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Settings, Bot, ChevronDown, Copy, Check, Play } from "lucide-react";
-import { Button, buttonClass } from "./ui";
-import type { useAgent, Project } from "../hooks/useAgent";
-import type { useKeys } from "../hooks/useKeys";
-import { StudioSettingsDialog } from "./StudioSettingsDialog";
+import { Bot, Check, ChevronDown, Copy, Play, Settings } from 'lucide-react';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import type { Project, useAgent } from '../hooks/useAgent';
+import type { useKeys } from '../hooks/useKeys';
+import { StudioSettingsDialog } from './StudioSettingsDialog';
+import { Button, buttonClass } from './ui';
 
 interface StudioToolbarProps {
   agent: ReturnType<typeof useAgent>;
@@ -46,20 +46,39 @@ export function StudioToolbar({
             flight), currentProject still points at the PREVIOUS game — showing
             its name here would be stale. Swap in a spinner until the switch
             lands so the dropdown never names the wrong game. */}
-        <Button size="sm" onClick={() => setPickerOpen(true)} disabled={agent.isStreaming || switching} className="max-w-[190px] shrink-0" title={switching ? "Loading game…" : agent.isStreaming ? "Finish the current build to switch games" : "Switch game"}>
+        <Button
+          size="sm"
+          onClick={() => setPickerOpen(true)}
+          disabled={agent.isStreaming || switching}
+          className="max-w-[190px] shrink-0"
+          title={
+            switching
+              ? 'Loading game…'
+              : agent.isStreaming
+                ? 'Finish the current build to switch games'
+                : 'Switch game'
+          }
+        >
           {switching ? (
             <>
               <span
                 aria-hidden
                 className="shrink-0 rounded-full motion-safe:animate-spin"
-                style={{ width: 14, height: 14, border: "2px solid var(--accent)", borderTopColor: "transparent" }}
+                style={{
+                  width: 14,
+                  height: 14,
+                  border: '2px solid var(--accent)',
+                  borderTopColor: 'transparent',
+                }}
               />
               <span className="truncate">Loading…</span>
             </>
           ) : (
             <>
-              {currentProject?.deployed && <span className="w-2 h-2 rounded-full bg-[var(--accent)] shrink-0" />}
-              <span className="truncate">{currentProject?.name || "Select game"}</span>
+              {currentProject?.deployed && (
+                <span className="w-2 h-2 rounded-full bg-[var(--accent)] shrink-0" />
+              )}
+              <span className="truncate">{currentProject?.name || 'Select game'}</span>
               <ChevronDown className="w-4 h-4 shrink-0 opacity-60" />
             </>
           )}
@@ -72,7 +91,11 @@ export function StudioToolbar({
         {currentProject?.appId && (
           <span
             className="hidden sm:inline-flex items-center max-w-[220px] truncate shrink text-[0.7rem] font-mono px-1.5 py-0.5 rounded"
-            style={{ color: "var(--muted)", background: "var(--bg)", border: "1px solid var(--border)" }}
+            style={{
+              color: 'var(--muted)',
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+            }}
             title={`This chat edits the live game ${currentProject.appId}.freegamestore.online — a different game needs a New Game`}
           >
             {currentProject.appId}
@@ -87,10 +110,12 @@ export function StudioToolbar({
           <>
             {currentProject.appId && (
               <a
-                href={currentProject.appUrl || `https://${currentProject.appId}.freegamestore.online`}
+                href={
+                  currentProject.appUrl || `https://${currentProject.appId}.freegamestore.online`
+                }
                 target="_blank"
                 rel="noopener noreferrer"
-                className={buttonClass("secondary", "sm", "no-underline")}
+                className={buttonClass('secondary', 'sm', 'no-underline')}
                 title="Play the live game"
                 aria-label="Play the live game"
               >
@@ -99,7 +124,11 @@ export function StudioToolbar({
             )}
             <Link
               to={`/game/${currentProject.appId ?? currentProject.id}`}
-              className={buttonClass("secondary", "sm", "no-underline border-[var(--accent)] text-[var(--accent)]")}
+              className={buttonClass(
+                'secondary',
+                'sm',
+                'no-underline border-[var(--accent)] text-[var(--accent)]',
+              )}
               title={`Settings for ${currentProject.name}`}
               aria-label={`Settings for ${currentProject.name}`}
             >
@@ -109,15 +138,24 @@ export function StudioToolbar({
         )}
         {/* Stacked + tiny so the token counts never grow the toolbar height. */}
         <span className="ml-auto hidden sm:flex flex-col items-end leading-none text-[0.62rem] text-[var(--muted)] tabular-nums">
-          <span>In <strong className="text-[var(--ink)]">{agent.tokensIn.toLocaleString()}</strong></span>
-          <span className="mt-0.5">Out <strong className="text-[var(--ink)]">{agent.tokensOut.toLocaleString()}</strong></span>
+          <span>
+            In <strong className="text-[var(--ink)]">{agent.tokensIn.toLocaleString()}</strong>
+          </span>
+          <span className="mt-0.5">
+            Out <strong className="text-[var(--ink)]">{agent.tokensOut.toLocaleString()}</strong>
+          </span>
         </span>
         {/* Debug/export affordance — desktop only; hidden on mobile to keep the
             single studio bar from overflowing. */}
         <span className="hidden sm:inline-flex">
           <CopyLogButton agent={agent} provider={provider} model={model} />
         </span>
-        <Button size="sm" onClick={() => setSettingsOpen(!settingsOpen)} title="AI model & API key" aria-label="AI settings">
+        <Button
+          size="sm"
+          onClick={() => setSettingsOpen(!settingsOpen)}
+          title="AI model & API key"
+          aria-label="AI settings"
+        >
           <Bot className="w-4 h-4" />
         </Button>
       </div>
@@ -136,18 +174,31 @@ export function StudioToolbar({
   );
 }
 
-function CopyLogButton({ agent, provider, model }: { agent: ReturnType<typeof useAgent>; provider: string; model: string }) {
+function CopyLogButton({
+  agent,
+  provider,
+  model,
+}: {
+  agent: ReturnType<typeof useAgent>;
+  provider: string;
+  model: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
-    const json = JSON.stringify({
-      project: agent.projects.find((p) => p.id === agent.currentProjectId)?.name || "unknown",
-      sessionId: agent.currentProjectId,
-      provider, model,
-      tokens: { input: agent.tokensIn, output: agent.tokensOut },
-      messages: agent.messages,
-      exportedAt: new Date().toISOString(),
-    }, null, 2);
+    const json = JSON.stringify(
+      {
+        project: agent.projects.find((p) => p.id === agent.currentProjectId)?.name || 'unknown',
+        sessionId: agent.currentProjectId,
+        provider,
+        model,
+        tokens: { input: agent.tokensIn, output: agent.tokensOut },
+        messages: agent.messages,
+        exportedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    );
     try {
       await navigator.clipboard.writeText(json);
       setCopied(true);
@@ -158,7 +209,13 @@ function CopyLogButton({ agent, provider, model }: { agent: ReturnType<typeof us
   }
 
   return (
-    <Button size="sm" onClick={copy} title="Copy conversation as JSON" aria-label="Copy conversation as JSON" className={copied ? "text-[var(--success)] border-[var(--success)]" : "text-[var(--muted)]"}>
+    <Button
+      size="sm"
+      onClick={copy}
+      title="Copy conversation as JSON"
+      aria-label="Copy conversation as JSON"
+      className={copied ? 'text-[var(--success)] border-[var(--success)]' : 'text-[var(--muted)]'}
+    >
       {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
     </Button>
   );

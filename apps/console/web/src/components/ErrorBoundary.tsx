@@ -1,5 +1,5 @@
-import { Component, type ErrorInfo, type ReactNode } from "react";
-import { reportError } from "../lib/errorReporter";
+import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { reportError } from '../lib/errorReporter';
 
 interface Props {
   children: ReactNode;
@@ -18,7 +18,7 @@ interface State {
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, message: "" };
+    this.state = { hasError: false, message: '' };
   }
 
   static getDerivedStateFromError(error: unknown): State {
@@ -32,7 +32,9 @@ export class ErrorBoundary extends Component<Props, State> {
       route: location.pathname,
       message: err.message,
       stack: err.stack,
-      context: info.componentStack ? `componentStack:${info.componentStack.slice(0, 500)}` : undefined,
+      context: info.componentStack
+        ? `componentStack:${info.componentStack.slice(0, 500)}`
+        : undefined,
     });
   }
 

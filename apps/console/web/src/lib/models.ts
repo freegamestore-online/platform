@@ -8,37 +8,37 @@ export interface ModelOption {
 
 export const MODEL_OPTIONS: Record<string, ModelOption[]> = {
   github: [
-    { value: "openai/gpt-4.1", label: "GPT-4.1" },
-    { value: "openai/gpt-4.1-mini", label: "GPT-4.1 Mini" },
-    { value: "openai/gpt-4o", label: "GPT-4o" },
-    { value: "openai/gpt-4o-mini", label: "GPT-4o Mini" },
+    { value: 'openai/gpt-4.1', label: 'GPT-4.1' },
+    { value: 'openai/gpt-4.1-mini', label: 'GPT-4.1 Mini' },
+    { value: 'openai/gpt-4o', label: 'GPT-4o' },
+    { value: 'openai/gpt-4o-mini', label: 'GPT-4o Mini' },
   ],
   openrouter: [
-    { value: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4" },
-    { value: "anthropic/claude-opus-4", label: "Claude Opus 4" },
-    { value: "openai/gpt-4.1", label: "GPT-4.1" },
-    { value: "openai/gpt-4o", label: "GPT-4o" },
-    { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-    { value: "deepseek/deepseek-chat-v3-0324", label: "DeepSeek V3" },
+    { value: 'anthropic/claude-sonnet-4', label: 'Claude Sonnet 4' },
+    { value: 'anthropic/claude-opus-4', label: 'Claude Opus 4' },
+    { value: 'openai/gpt-4.1', label: 'GPT-4.1' },
+    { value: 'openai/gpt-4o', label: 'GPT-4o' },
+    { value: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+    { value: 'deepseek/deepseek-chat-v3-0324', label: 'DeepSeek V3' },
   ],
   anthropic: [
-    { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
-    { value: "claude-opus-4-8", label: "Claude Opus 4.8" },
+    { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+    { value: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
   ],
   openai: [
-    { value: "gpt-4o", label: "GPT-4o" },
-    { value: "gpt-4o-mini", label: "GPT-4o Mini" },
+    { value: 'gpt-4o', label: 'GPT-4o' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
   ],
   google: [
-    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-    { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
   ],
 };
 
 /** The default model for a provider — its first listed option, with a stable
  *  fallback so a typo'd/unknown provider never yields `undefined`. */
 export function firstModelFor(provider: string): string {
-  return MODEL_OPTIONS[provider]?.[0]?.value ?? "openai/gpt-4.1";
+  return MODEL_OPTIONS[provider]?.[0]?.value ?? 'openai/gpt-4.1';
 }
 
 /** Resolve the model to start on: the stored choice if it's valid for this

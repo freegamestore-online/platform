@@ -31,13 +31,7 @@ function ensure(db: D1Database): Promise<unknown> {
  * `limit`. `nowSec` is injected for testability. Returns true (allow) on any
  * error.
  */
-export async function allowRequest(
-  db: D1Database,
-  key: string,
-  limit: number,
-  windowSec: number,
-  nowSec: number,
-): Promise<boolean> {
+export async function allowRequest(db: D1Database, key: string, limit: number, windowSec: number, nowSec: number): Promise<boolean> {
   try {
     await ensure(db);
     const windowStart = Math.floor(nowSec / windowSec) * windowSec;

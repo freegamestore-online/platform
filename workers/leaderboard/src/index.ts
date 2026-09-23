@@ -26,27 +26,56 @@ const DEFAULT_MAX_SCORE = MAX_SCORE;
 const PER_GAME_MAX: Record<string, number> = {
   simon: 1000,
   whackamole: 100_000,
-  "2048": 5_000_000,
+  '2048': 5_000_000,
 };
 
 // Valid game IDs — update when adding new games
 const VALID_GAMES = new Set([
-  "chess", "puzzle", "tetris", "snake", "minesweeper", "2048",
-  "slither", "racing", "bowling", "spaceshooter", "breakout", "platformer", "sudoku",
-  "pacman", "pong", "flappy", "solitaire", "connect4", "wordle", "simon", "mahjong",
-  "checkers", "hangman", "memory", "frogger", "match3", "whackamole", "wordsearch", "asteroids",
+  'chess',
+  'puzzle',
+  'tetris',
+  'snake',
+  'minesweeper',
+  '2048',
+  'slither',
+  'racing',
+  'bowling',
+  'spaceshooter',
+  'breakout',
+  'platformer',
+  'sudoku',
+  'pacman',
+  'pong',
+  'flappy',
+  'solitaire',
+  'connect4',
+  'wordle',
+  'simon',
+  'mahjong',
+  'checkers',
+  'hangman',
+  'memory',
+  'frogger',
+  'match3',
+  'whackamole',
+  'wordsearch',
+  'asteroids',
 ]);
 
 // Exported so the test suite exercises the REAL allowlist (not a re-implemented
 // copy that could silently drift from this one).
 export function isAllowedOrigin(origin: string): boolean {
-  return ALLOWED_ORIGIN.test(origin) || origin === "https://freegamestore.online" || origin === "http://localhost:5173";
+  return (
+    ALLOWED_ORIGIN.test(origin) ||
+    origin === 'https://freegamestore.online' ||
+    origin === 'http://localhost:5173'
+  );
 }
 
 // True if a submitted score is a plausible, well-formed value (before the
 // per-game cap is applied). Exported for direct testing.
 export function isValidScore(score: unknown): score is number {
-  return typeof score === "number" && Number.isInteger(score) && score >= 0 && score <= MAX_SCORE;
+  return typeof score === 'number' && Number.isInteger(score) && score >= 0 && score <= MAX_SCORE;
 }
 
 // True if `score` is within the game's per-game sanity cap (falls back to the
@@ -58,8 +87,13 @@ export function withinCap(game: string, score: number): boolean {
 // Trim, length-cap, and strip HTML-special chars from a display name; blank or
 // non-string input falls back to "Anonymous". Exported for direct testing.
 export function sanitizeName(raw: unknown): string {
-  if (typeof raw !== "string") return "Anonymous";
-  return raw.trim().slice(0, MAX_NAME_LENGTH).replace(/[<>&"']/g, "") || "Anonymous";
+  if (typeof raw !== 'string') return 'Anonymous';
+  return (
+    raw
+      .trim()
+      .slice(0, MAX_NAME_LENGTH)
+      .replace(/[<>&"']/g, '') || 'Anonymous'
+  );
 }
 
 // First-party surfaces — the only origins trusted for CREDENTIALED requests
@@ -70,9 +104,9 @@ export function sanitizeName(raw: unknown): string {
 // and forge scores under their identity on OTHER games. Mirrors the auth
 // worker's isFirstParty / corsVault split.
 const FIRST_PARTY_ORIGINS = new Set([
-  "https://freegamestore.online",
-  "https://console.freegamestore.online",
-  "http://localhost:5173",
+  'https://freegamestore.online',
+  'https://console.freegamestore.online',
+  'http://localhost:5173',
 ]);
 
 export function isFirstParty(origin: string): boolean {
@@ -84,14 +118,14 @@ export function isFirstParty(origin: string): boolean {
 // public high-score data and carry no session cookie, so reflecting game
 // origins here is safe.
 function corsRead(request: Request): Record<string, string> {
-  const origin = request.headers.get("Origin") ?? "";
+  const origin = request.headers.get('Origin') ?? '';
   const allowed = isAllowedOrigin(origin);
   return {
-    "Access-Control-Allow-Origin": allowed ? origin : "",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Max-Age": "86400",
-    Vary: "Origin",
+    'Access-Control-Allow-Origin': allowed ? origin : '',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '86400',
+    Vary: 'Origin',
   };
 }
 
@@ -99,14 +133,14 @@ function corsRead(request: Request): Record<string, string> {
 // first-party origins are allowed; a game subdomain's preflight fails so the
 // browser never sends the cross-game submission.
 function corsSubmit(request: Request): Record<string, string> {
-  const origin = request.headers.get("Origin") ?? "";
+  const origin = request.headers.get('Origin') ?? '';
   return {
-    "Access-Control-Allow-Origin": isFirstParty(origin) ? origin : "",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Credentials": "true",
-    "Access-Control-Max-Age": "86400",
-    Vary: "Origin",
+    'Access-Control-Allow-Origin': isFirstParty(origin) ? origin : '',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Max-Age': '86400',
+    Vary: 'Origin',
   };
 }
 
@@ -118,20 +152,20 @@ function json(
 ): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json", ...corsFn(request) },
+    headers: { 'Content-Type': 'application/json', ...corsFn(request) },
   });
 }
 
 async function hashIP(ip: string): Promise<string> {
-  const data = new TextEncoder().encode(ip + "fgs-salt-2024");
-  const hash = await crypto.subtle.digest("SHA-256", data);
+  const data = new TextEncoder().encode(ip + 'fgs-salt-2024');
+  const hash = await crypto.subtle.digest('SHA-256', data);
   return Array.from(new Uint8Array(hash).slice(0, 8))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 function base64UrlDecode(str: string): Uint8Array {
-  const padded = str.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = str.replace(/-/g, '+').replace(/_/g, '/');
   const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
@@ -141,37 +175,37 @@ function base64UrlDecode(str: string): Uint8Array {
 }
 
 function getCookie(request: Request, name: string): string | null {
-  const header = request.headers.get("Cookie");
+  const header = request.headers.get('Cookie');
   if (!header) return null;
   const match = header.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
   return match ? decodeURIComponent(match[1]) : null;
 }
 
 async function verifyJWT(request: Request, secret: string): Promise<JWTPayload | null> {
-  const token = getCookie(request, "fgs_token");
+  const token = getCookie(request, 'fgs_token');
   if (!token) return null;
 
-  const parts = token.split(".");
+  const parts = token.split('.');
   if (parts.length !== 3) return null;
 
   try {
     // Verify header is HS256
     const header = JSON.parse(new TextDecoder().decode(base64UrlDecode(parts[0])));
-    if (header.alg !== "HS256") return null;
+    if (header.alg !== 'HS256') return null;
 
     // Verify signature
     const key = await crypto.subtle.importKey(
-      "raw",
+      'raw',
       new TextEncoder().encode(secret),
-      { name: "HMAC", hash: "SHA-256" },
+      { name: 'HMAC', hash: 'SHA-256' },
       false,
-      ["verify"],
+      ['verify'],
     );
 
     const signature = base64UrlDecode(parts[2]);
     const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
 
-    const valid = await crypto.subtle.verify("HMAC", key, signature, data);
+    const valid = await crypto.subtle.verify('HMAC', key, signature, data);
     if (!valid) return null;
 
     // Decode payload
@@ -179,7 +213,7 @@ async function verifyJWT(request: Request, secret: string): Promise<JWTPayload |
 
     // Check expiration (matches auth's jwtVerify — a token with a missing or
     // non-numeric exp must not be treated as non-expiring, so require a number).
-    if (typeof payload.exp !== "number" || payload.exp < Math.floor(Date.now() / 1000)) return null;
+    if (typeof payload.exp !== 'number' || payload.exp < Math.floor(Date.now() / 1000)) return null;
 
     return payload;
   } catch {
@@ -199,16 +233,16 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
   try {
     body = await request.json();
   } catch {
-    return j({ error: "Invalid JSON" }, 400);
+    return j({ error: 'Invalid JSON' }, 400);
   }
 
   const { game, score } = body as Record<string, unknown>;
 
-  if (typeof game !== "string" || !VALID_GAMES.has(game)) {
-    return j({ error: "Invalid game" }, 400);
+  if (typeof game !== 'string' || !VALID_GAMES.has(game)) {
+    return j({ error: 'Invalid game' }, 400);
   }
   if (!isValidScore(score)) {
-    return j({ error: "Invalid score" }, 400);
+    return j({ error: 'Invalid score' }, 400);
   }
 
   // Authentication is required to submit. Anonymous posts were trivially
@@ -216,17 +250,17 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
   // accept signed-in users now.
   const jwtPayload = await verifyJWT(request, env.JWT_SECRET);
   if (!jwtPayload) {
-    return j({ error: "Sign in to submit a score" }, 401);
+    return j({ error: 'Sign in to submit a score' }, 401);
   }
   const userId = jwtPayload.sub;
   const playerName = sanitizeName(jwtPayload.name);
 
   // Per-game sanity cap — reject implausibly high scores outright.
   if (!withinCap(game, score)) {
-    return j({ error: "Score exceeds the maximum for this game" }, 422);
+    return j({ error: 'Score exceeds the maximum for this game' }, 422);
   }
 
-  const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
   const ipHash = await hashIP(ip);
 
   // Rate limit: 1 submission per user per game per RATE_LIMIT_SECONDS.
@@ -241,7 +275,7 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
     .first<{ cnt: number }>();
 
   if (recent && recent.cnt > 0) {
-    return j({ error: "Too fast, wait a few seconds" }, 429);
+    return j({ error: 'Too fast, wait a few seconds' }, 429);
   }
 
   await env.DB.prepare(
@@ -264,13 +298,18 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
 }
 
 // GET /api/leaderboard/:game?limit=10
-async function getLeaderboard(game: string, url: URL, request: Request, env: Env): Promise<Response> {
+async function getLeaderboard(
+  game: string,
+  url: URL,
+  request: Request,
+  env: Env,
+): Promise<Response> {
   if (!VALID_GAMES.has(game)) {
-    return json({ error: "Invalid game" }, 400, request);
+    return json({ error: 'Invalid game' }, 400, request);
   }
 
-  const limitParam = url.searchParams.get("limit");
-  const limit = Math.min(Math.max(parseInt(limitParam ?? "10", 10) || 10, 1), LEADERBOARD_LIMIT);
+  const limitParam = url.searchParams.get('limit');
+  const limit = Math.min(Math.max(parseInt(limitParam ?? '10', 10) || 10, 1), LEADERBOARD_LIMIT);
 
   // One row per user (their personal best). GROUP BY user_id with MAX(score)
   // relies on SQLite's documented "bare columns take values from the max row"
@@ -286,7 +325,13 @@ async function getLeaderboard(game: string, url: URL, request: Request, env: Env
      ORDER BY score DESC LIMIT ?`,
   )
     .bind(game, limit)
-    .all<{ player_name: string; score: number; created_at: string; user_id: string; avatar_url: string | null }>();
+    .all<{
+      player_name: string;
+      score: number;
+      created_at: string;
+      user_id: string;
+      avatar_url: string | null;
+    }>();
 
   return json({ game, scores: results.results }, 200, request);
 }
@@ -294,11 +339,11 @@ async function getLeaderboard(game: string, url: URL, request: Request, env: Env
 // GET /api/leaderboard/:game/recent?limit=10
 async function getRecent(game: string, url: URL, request: Request, env: Env): Promise<Response> {
   if (!VALID_GAMES.has(game)) {
-    return json({ error: "Invalid game" }, 400, request);
+    return json({ error: 'Invalid game' }, 400, request);
   }
 
-  const limitParam = url.searchParams.get("limit");
-  const limit = Math.min(Math.max(parseInt(limitParam ?? "10", 10) || 10, 1), LEADERBOARD_LIMIT);
+  const limitParam = url.searchParams.get('limit');
+  const limit = Math.min(Math.max(parseInt(limitParam ?? '10', 10) || 10, 1), LEADERBOARD_LIMIT);
 
   const results = await env.DB.prepare(
     `SELECT s.player_name, s.score, s.created_at, s.user_id, u.avatar_url
@@ -307,15 +352,21 @@ async function getRecent(game: string, url: URL, request: Request, env: Env): Pr
      WHERE s.game_id = ? ORDER BY s.created_at DESC, s.id DESC LIMIT ?`,
   )
     .bind(game, limit)
-    .all<{ player_name: string; score: number; created_at: string; user_id: string | null; avatar_url: string | null }>();
+    .all<{
+      player_name: string;
+      score: number;
+      created_at: string;
+      user_id: string | null;
+      avatar_url: string | null;
+    }>();
 
   return json({ game, scores: results.results }, 200, request);
 }
 
 // GET /api/leaderboard/overall?limit=10
 async function getOverallLeaderboard(url: URL, request: Request, env: Env): Promise<Response> {
-  const limitParam = url.searchParams.get("limit");
-  const limit = Math.min(Math.max(parseInt(limitParam ?? "10", 10) || 10, 1), LEADERBOARD_LIMIT);
+  const limitParam = url.searchParams.get('limit');
+  const limit = Math.min(Math.max(parseInt(limitParam ?? '10', 10) || 10, 1), LEADERBOARD_LIMIT);
 
   // Sum each user's BEST score per game — not every submission. SUM(s.score)
   // over raw rows is farmable by resubmitting the same game, and contradicts the
@@ -335,15 +386,26 @@ async function getOverallLeaderboard(url: URL, request: Request, env: Env): Prom
      LIMIT ?`,
   )
     .bind(limit)
-    .all<{ user_id: string; name: string; avatar_url: string | null; total_score: number; games_played: number }>();
+    .all<{
+      user_id: string;
+      name: string;
+      avatar_url: string | null;
+      total_score: number;
+      games_played: number;
+    }>();
 
   return json({ scores: results.results }, 200, request);
 }
 
 // GET /api/leaderboard/:game/user/:userId
-async function getUserGameScore(game: string, userId: string, request: Request, env: Env): Promise<Response> {
+async function getUserGameScore(
+  game: string,
+  userId: string,
+  request: Request,
+  env: Env,
+): Promise<Response> {
   if (!VALID_GAMES.has(game)) {
-    return json({ error: "Invalid game" }, 400, request);
+    return json({ error: 'Invalid game' }, 400, request);
   }
 
   // Get user's best score
@@ -358,7 +420,7 @@ async function getUserGameScore(game: string, userId: string, request: Request, 
     .first<{ player_name: string; score: number; created_at: string; avatar_url: string | null }>();
 
   if (!best) {
-    return json({ error: "No scores found" }, 404, request);
+    return json({ error: 'No scores found' }, 404, request);
   }
 
   // Get rank (number of users with higher best scores)
@@ -370,15 +432,19 @@ async function getUserGameScore(game: string, userId: string, request: Request, 
     .bind(game, best.score)
     .first<{ rank: number }>();
 
-  return json({
-    game,
-    user_id: userId,
-    player_name: best.player_name,
-    score: best.score,
-    avatar_url: best.avatar_url,
-    created_at: best.created_at,
-    rank: (rank?.rank ?? 0) + 1,
-  }, 200, request);
+  return json(
+    {
+      game,
+      user_id: userId,
+      player_name: best.player_name,
+      score: best.score,
+      avatar_url: best.avatar_url,
+      created_at: best.created_at,
+      rank: (rank?.rank ?? 0) + 1,
+    },
+    200,
+    request,
+  );
 }
 
 export default {
@@ -387,44 +453,44 @@ export default {
     // Versioned alias: /v1/* maps to the same handlers as the unversioned
     // paths. Old game bundles call the unversioned routes; new ones use /v1.
     // Both must keep working — see platform/docs/API-CONTRACT.md (additive-only).
-    const path = url.pathname.startsWith("/v1/") ? url.pathname.slice(3) : url.pathname;
+    const path = url.pathname.startsWith('/v1/') ? url.pathname.slice(3) : url.pathname;
 
     // CORS preflight. The score-submission preflight uses the strict first-party
     // allowlist so a game subdomain's preflight fails and the browser never
     // sends the credentialed POST; all other (read) preflights use broad CORS.
-    if (request.method === "OPTIONS") {
-      const headers = path === "/api/scores" ? corsSubmit(request) : corsRead(request);
+    if (request.method === 'OPTIONS') {
+      const headers = path === '/api/scores' ? corsSubmit(request) : corsRead(request);
       return new Response(null, { status: 204, headers });
     }
 
     // POST /api/scores
-    if (request.method === "POST" && path === "/api/scores") {
+    if (request.method === 'POST' && path === '/api/scores') {
       return submitScore(request, env);
     }
 
     // GET /api/leaderboard/overall
-    if (request.method === "GET" && path === "/api/leaderboard/overall") {
+    if (request.method === 'GET' && path === '/api/leaderboard/overall') {
       return getOverallLeaderboard(url, request, env);
     }
 
     // GET /api/leaderboard/:game/user/:userId
     const userMatch = path.match(/^\/api\/leaderboard\/([\w-]+)\/user\/([\w-]+)$/);
-    if (request.method === "GET" && userMatch?.[1] && userMatch[2]) {
+    if (request.method === 'GET' && userMatch?.[1] && userMatch[2]) {
       return getUserGameScore(userMatch[1], userMatch[2], request, env);
     }
 
     // GET /api/leaderboard/:game/recent
     const recentMatch = path.match(/^\/api\/leaderboard\/([\w-]+)\/recent$/);
-    if (request.method === "GET" && recentMatch?.[1]) {
+    if (request.method === 'GET' && recentMatch?.[1]) {
       return getRecent(recentMatch[1], url, request, env);
     }
 
     // GET /api/leaderboard/:game
     const lbMatch = path.match(/^\/api\/leaderboard\/([\w-]+)$/);
-    if (request.method === "GET" && lbMatch?.[1]) {
+    if (request.method === 'GET' && lbMatch?.[1]) {
       return getLeaderboard(lbMatch[1], url, request, env);
     }
 
-    return json({ error: "Not found" }, 404, request);
+    return json({ error: 'Not found' }, 404, request);
   },
 };

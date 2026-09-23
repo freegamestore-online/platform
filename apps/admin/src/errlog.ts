@@ -30,18 +30,35 @@ const SCHEMA = `CREATE TABLE IF NOT EXISTS error_log (
 
 let ready: Promise<unknown> | null = null;
 function ensure(db: D1Database): Promise<unknown> {
-  if (!ready) ready = db.prepare(SCHEMA).run().catch((e) => { ready = null; throw e; });
+  if (!ready)
+    ready = db
+      .prepare(SCHEMA)
+      .run()
+      .catch((e) => {
+        ready = null;
+        throw e;
+      });
   return ready;
 }
 
 export async function recordError(db: D1Database | undefined, row: ErrLogRow): Promise<void> {
-  console.error(`[error] source=${row.source} ctx=${row.context ?? ""} user=${row.user ?? "?"} :: ${row.message}`);
+  console.error(
+    `[error] source=${row.source} ctx=${row.context ?? ''} user=${row.user ?? '?'} :: ${row.message}`,
+  );
   if (!db) return;
   try {
     await ensure(db);
     await db
-      .prepare("INSERT INTO error_log (source, user_github, context, message, stack) VALUES (?, ?, ?, ?, ?)")
-      .bind(row.source, row.user ?? null, row.context ?? null, row.message.slice(0, 2000), (row.stack ?? "").slice(0, 4000) || null)
+      .prepare(
+        'INSERT INTO error_log (source, user_github, context, message, stack) VALUES (?, ?, ?, ?, ?)',
+      )
+      .bind(
+        row.source,
+        row.user ?? null,
+        row.context ?? null,
+        row.message.slice(0, 2000),
+        (row.stack ?? '').slice(0, 4000) || null,
+      )
       .run();
   } catch (e) {
     console.error(`[error] failed to persist error_log: ${String(e)}`);
@@ -53,18 +70,30 @@ export interface ListErrorsOpts {
   source?: string;
 }
 
-export async function listErrors(db: D1Database | undefined, limit = 200, opts: ListErrorsOpts = {}): Promise<ErrLogEntry[]> {
+export async function listErrors(
+  db: D1Database | undefined,
+  limit = 200,
+  opts: ListErrorsOpts = {},
+): Promise<ErrLogEntry[]> {
   if (!db) return [];
   try {
     await ensure(db);
     const clauses: string[] = [];
     const bindings: unknown[] = [];
-    if (opts.user) { clauses.push("user_github = ?"); bindings.push(opts.user); }
-    if (opts.source) { clauses.push("source = ?"); bindings.push(opts.source); }
-    const where = clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "";
+    if (opts.user) {
+      clauses.push('user_github = ?');
+      bindings.push(opts.user);
+    }
+    if (opts.source) {
+      clauses.push('source = ?');
+      bindings.push(opts.source);
+    }
+    const where = clauses.length ? ` WHERE ${clauses.join(' AND ')}` : '';
     bindings.push(Math.min(limit, 500));
     const r = await db
-      .prepare(`SELECT id, ts, source, user_github, context, message, stack FROM error_log${where} ORDER BY id DESC LIMIT ?`)
+      .prepare(
+        `SELECT id, ts, source, user_github, context, message, stack FROM error_log${where} ORDER BY id DESC LIMIT ?`,
+      )
       .bind(...bindings)
       .all<ErrLogEntry>();
     return r.results ?? [];
@@ -80,7 +109,10 @@ export async function pruneErrors(db: D1Database | undefined, days = 30): Promis
   if (!db) return;
   try {
     await ensure(db);
-    await db.prepare(`DELETE FROM error_log WHERE ts < datetime('now', ?)`).bind(`-${days} days`).run();
+    await db
+      .prepare(`DELETE FROM error_log WHERE ts < datetime('now', ?)`)
+      .bind(`-${days} days`)
+      .run();
   } catch (e) {
     console.error(`[error] failed to prune error_log: ${String(e)}`);
   }
@@ -96,10 +128,14 @@ export async function errorStats(db: D1Database | undefined): Promise<ErrorStats
   if (!db) return { total: 0, last24h: 0, series: [] };
   try {
     await ensure(db);
-    const total = await db.prepare("SELECT COUNT(*) AS c FROM error_log").first<{ c: number }>();
-    const day = await db.prepare("SELECT COUNT(*) AS c FROM error_log WHERE ts >= datetime('now','-1 day')").first<{ c: number }>();
+    const total = await db.prepare('SELECT COUNT(*) AS c FROM error_log').first<{ c: number }>();
+    const day = await db
+      .prepare("SELECT COUNT(*) AS c FROM error_log WHERE ts >= datetime('now','-1 day')")
+      .first<{ c: number }>();
     const series = await db
-      .prepare("SELECT substr(ts,1,10) AS d, COUNT(*) AS c FROM error_log WHERE ts >= datetime('now','-14 day') GROUP BY d ORDER BY d")
+      .prepare(
+        "SELECT substr(ts,1,10) AS d, COUNT(*) AS c FROM error_log WHERE ts >= datetime('now','-14 day') GROUP BY d ORDER BY d",
+      )
       .all<{ d: string; c: number }>();
     return { total: total?.c ?? 0, last24h: day?.c ?? 0, series: series.results ?? [] };
   } catch {

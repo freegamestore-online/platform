@@ -8,8 +8,9 @@
  *   POST   /v1/admin/comp           → { login | userId, provider, model, note?, expiresAt? }
  *   DELETE /v1/admin/comp/:userId   → revoke (userId = github:<id>)
  */
-import type { Env } from "./index";
+
 import { getConfig } from "./config";
+import type { Env } from "./index";
 import { COMP_PROVIDERS, compKeyFor, grantComp, listComp, revokeComp } from "./keygrants";
 import { deleteUserKey, isValidProvider, saveUserKey } from "./keys";
 import { isOrgAdmin, listSessionsPage, resolveUser } from "./sessions";
@@ -18,7 +19,12 @@ import { isOrgAdmin, listSessionsPage, resolveUser } from "./sessions";
 const DEFAULT_SESSION_LIMIT = 20;
 const MAX_SESSION_LIMIT = 100;
 
-export async function handleAdminCompApi(request: Request, env: Env, cors: Record<string, string>, ctx?: ExecutionContext): Promise<Response | null> {
+export async function handleAdminCompApi(
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+  ctx?: ExecutionContext,
+): Promise<Response | null> {
   const url = new URL(request.url);
   const path = url.pathname;
   if (!path.startsWith("/v1/admin/")) return null;
@@ -213,7 +219,9 @@ export async function handleAdminCompApi(request: Request, env: Env, cors: Recor
           headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: "application/vnd.github+json", "User-Agent": "fgs-agent" },
         });
         if (res.ok) ownerLogin = ((await res.json()) as { login?: string }).login || "";
-      } catch { /* best-effort — deploy will surface a clear error if still empty */ }
+      } catch {
+        /* best-effort — deploy will surface a clear error if still empty */
+      }
     }
 
     let provider = body.provider ? String(body.provider).toLowerCase() : "";
@@ -266,7 +274,9 @@ export async function handleAdminCompApi(request: Request, env: Env, cors: Recor
               const { done } = await reader.read();
               if (done) break;
             }
-          } catch { /* stream errored — the turn's own error handling owns it */ }
+          } catch {
+            /* stream errored — the turn's own error handling owns it */
+          }
         })(),
       );
       return new Response(toCaller, { status: res.status, headers: sseHeaders });
@@ -282,7 +292,12 @@ export async function handleAdminCompApi(request: Request, env: Env, cors: Recor
 
   if (path === "/v1/admin/comp" && request.method === "POST") {
     const body = (await request.json().catch(() => ({}))) as {
-      login?: string; userId?: string; provider?: string; model?: string; note?: string; expiresAt?: string;
+      login?: string;
+      userId?: string;
+      provider?: string;
+      model?: string;
+      note?: string;
+      expiresAt?: string;
     };
     const provider = String(body.provider || "").toLowerCase();
     const model = String(body.model || "").trim();

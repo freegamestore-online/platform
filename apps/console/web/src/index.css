@@ -16,9 +16,9 @@
   --border: #2a2a2a;
   --line: #2a2a2a;
   --line-strong: #3a3a3a;
-  --glass: rgba(15,15,15,0.8);
+  --glass: rgba(15, 15, 15, 0.8);
   --radius: 1.25rem;
-  --shadow: 0 1px 3px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.3);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.3);
 
   /* Pro */
   --pro: #a78bfa;
@@ -32,17 +32,30 @@
   font-family: "Manrope", system-ui, sans-serif;
 }
 
-*, *::before, *::after { box-sizing: border-box; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
 /* Text-size preference (Profile → Text size). Scales the root font-size so all
    rem-based UI text grows/shrinks together. Set via html[data-text] by
    src/lib/textSize.ts; applied before first paint in main.tsx. */
-html { font-size: 16px; }
-html[data-text="sm"] { font-size: 14px; }
-html[data-text="lg"] { font-size: 18px; }
-html[data-text="xl"] { font-size: 20px; }
+html {
+  font-size: 16px;
+}
+html[data-text="sm"] {
+  font-size: 14px;
+}
+html[data-text="lg"] {
+  font-size: 18px;
+}
+html[data-text="xl"] {
+  font-size: 20px;
+}
 
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   background: var(--bg);
@@ -62,16 +75,18 @@ html, body {
 
 /* Inputs scale with the text-size preference but never below 16px, so iOS
    doesn't zoom the viewport on focus. */
-input, select, textarea {
+input,
+select,
+textarea {
   font-size: max(1rem, 16px);
 }
 
 /* Horizontal-scroll containers (e.g. the mobile studio toolbar) that should
    still scroll but without a visible scrollbar. */
 .no-scrollbar {
-  scrollbar-width: none;        /* Firefox */
-  -ms-overflow-style: none;     /* legacy Edge/IE */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge/IE */
 }
 .no-scrollbar::-webkit-scrollbar {
-  display: none;                /* Chrome/Safari */
+  display: none; /* Chrome/Safari */
 }

@@ -108,7 +108,11 @@ describe("executeInfraTool — missing id validation (no 'undefined' writes)", (
   it("rejects deploy with a blank/whitespace id", async () => {
     const ctx = makeCtx();
     const result = await executeInfraTool(
-      { id: "1", name: "deploy", input: { id: "   ", name: "Test", category: "utilities", icon: "x", iconBg: "#fff", description: "test" } },
+      {
+        id: "1",
+        name: "deploy",
+        input: { id: "   ", name: "Test", category: "utilities", icon: "x", iconBg: "#fff", description: "test" },
+      },
       ctx,
     );
     expect(result).toContain("requires a valid app id");

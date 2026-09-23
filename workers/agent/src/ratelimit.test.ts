@@ -50,7 +50,11 @@ describe("allowRequest", () => {
   });
 
   it("fails OPEN on a DB error (never takes down the guarded feature)", async () => {
-    const db = { prepare() { throw new Error("boom"); } } as unknown as D1Database;
+    const db = {
+      prepare() {
+        throw new Error("boom");
+      },
+    } as unknown as D1Database;
     expect(await allowRequest(db, "k", 1, 100, 0)).toBe(true);
   });
 });

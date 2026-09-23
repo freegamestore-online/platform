@@ -524,7 +524,7 @@ jobs:
             const errors = [];
             function isIgnoredBrowserNoise(text) {
               return /Failed to load resource: the server responded with a status of 404/.test(text) ||
-                /auth\.freegamestore\.online\/v1\/me/.test(text) ||
+                /auth.freegamestore.online/v1/me/.test(text) ||
                 /No 'Access-Control-Allow-Origin' header/.test(text) ||
                 /Failed to load resource: net::ERR_FAILED/.test(text);
             }

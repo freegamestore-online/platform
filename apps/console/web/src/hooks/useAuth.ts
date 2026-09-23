@@ -1,9 +1,9 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { clearLegacyLocalKeys } from "../lib/ai-keys";
-import { reportError } from "../lib/errorReporter";
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { clearLegacyLocalKeys } from '../lib/ai-keys';
+import { reportError } from '../lib/errorReporter';
 
 /** freegamestore-auth worker — the store-wide identity provider. */
-const AUTH_BASE = "https://auth.freegamestore.online";
+const AUTH_BASE = 'https://auth.freegamestore.online';
 
 /** A game published to FreeGameStore by this creator. */
 export interface GameRepo {
@@ -92,7 +92,7 @@ export function useAuthProvider(): AuthContextValue {
 
   const refetch = useCallback(async () => {
     try {
-      const meRes = await fetch("/auth/me");
+      const meRes = await fetch('/auth/me');
       const meData = (await meRes.json()) as {
         user: {
           github: string;
@@ -124,9 +124,12 @@ export function useAuthProvider(): AuthContextValue {
         createdAt: meData.user.createdAt ?? null,
       });
     } catch (e) {
-      console.error("[auth] error:", e);
-      reportError({ message: (e as Error).message || "Auth fetch failed", context: JSON.stringify({ op: "auth" }) });
-      setError("Failed to connect to server");
+      console.error('[auth] error:', e);
+      reportError({
+        message: (e as Error).message || 'Auth fetch failed',
+        context: JSON.stringify({ op: 'auth' }),
+      });
+      setError('Failed to connect to server');
     } finally {
       setLoading(false);
     }
@@ -142,7 +145,7 @@ export function useAuthProvider(): AuthContextValue {
   // in-session (the guard otherwise froze the game list until a full reload).
   const loadCreator = useCallback(async () => {
     try {
-      const creatorRes = await fetch("/api/me");
+      const creatorRes = await fetch('/api/me');
       if (creatorRes.ok) {
         const creatorData = (await creatorRes.json()) as { creator: CreatorRecord };
         setCreator(creatorData.creator);
@@ -176,11 +179,22 @@ export function useAuthProvider(): AuthContextValue {
 
   const signOut = useCallback(async () => {
     clearLegacyLocalKeys(user?.sub);
-    await fetch(`${AUTH_BASE}/logout`, { method: "POST", credentials: "include" }).catch(() => {});
+    await fetch(`${AUTH_BASE}/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
     setUser(null);
     setCreator(null);
-    window.location.href = "/";
+    window.location.href = '/';
   }, [user?.sub]);
 
-  return { user, creator, creatorError, loading, error, refetch, fetchCreator, reloadCreator, signIn, signOut };
+  return {
+    user,
+    creator,
+    creatorError,
+    loading,
+    error,
+    refetch,
+    fetchCreator,
+    reloadCreator,
+    signIn,
+    signOut,
+  };
 }

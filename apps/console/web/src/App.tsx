@@ -1,17 +1,17 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { useEffect } from "react";
-import { AuthContext, useAuthProvider } from "./hooks/useAuth";
-import { Dashboard } from "./pages/Dashboard";
-import { Profile } from "./pages/Profile";
-import { Create } from "./pages/Create";
-import { GameSettings } from "./pages/GameSettings";
-import { addBreadcrumb } from "./lib/breadcrumbs";
+import { useEffect } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { AuthContext, useAuthProvider } from './hooks/useAuth';
+import { addBreadcrumb } from './lib/breadcrumbs';
+import { Create } from './pages/Create';
+import { Dashboard } from './pages/Dashboard';
+import { GameSettings } from './pages/GameSettings';
+import { Profile } from './pages/Profile';
 
 /** Records a breadcrumb on every route change (pathname only — no PII). */
 function RouteTracker() {
   const { pathname } = useLocation();
   useEffect(() => {
-    addBreadcrumb("route", pathname);
+    addBreadcrumb('route', pathname);
   }, [pathname]);
   return null;
 }

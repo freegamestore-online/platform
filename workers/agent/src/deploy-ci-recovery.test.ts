@@ -1,11 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getConfig } from "./config";
-import {
-  ACTIONS_DEPLOY_CEILING_MS,
-  deadlineStatus,
-  filterLogErrorLines,
-  waitForActionsDeploy,
-} from "./deploy";
+import { ACTIONS_DEPLOY_CEILING_MS, deadlineStatus, filterLogErrorLines, waitForActionsDeploy } from "./deploy";
 
 // CI-recovery loop (#7). candy-shop and squishy-swap crashed at RUNTIME only —
 // tsc and vite build both passed, and the headless-Chrome smoke test in
@@ -96,12 +91,14 @@ function stubActions(runsFor: (poll: number) => unknown, log = SMOKE_FAILURE_LOG
     if (/\/actions\/runs\/\d+\/jobs/.test(url)) {
       return new Response(
         JSON.stringify({
-          jobs: [{
-            id: 555,
-            name: "deploy",
-            conclusion: "failure",
-            steps: [{ name: "Smoke test built game", conclusion: "failure" }],
-          }],
+          jobs: [
+            {
+              id: 555,
+              name: "deploy",
+              conclusion: "failure",
+              steps: [{ name: "Smoke test built game", conclusion: "failure" }],
+            },
+          ],
         }),
         { status: 200 },
       );
@@ -115,13 +112,7 @@ function stubActions(runsFor: (poll: number) => unknown, log = SMOKE_FAILURE_LOG
 
 async function runWaiter(advanceMs: number) {
   const statuses: any[] = [];
-  const done = waitForActionsDeploy(
-    "candy-shop",
-    { GITHUB_TOKEN: "t" } as any,
-    config,
-    (s) => statuses.push(s),
-    APP_URL,
-  );
+  const done = waitForActionsDeploy("candy-shop", { GITHUB_TOKEN: "t" } as any, config, (s) => statuses.push(s), APP_URL);
   await vi.advanceTimersByTimeAsync(advanceMs);
   await done;
   return statuses;
@@ -133,9 +124,7 @@ describe("waitForActionsDeploy reaches a verdict instead of timing out", () => {
     // In progress for ~4 minutes (30 polls × 8s = 240s), which the old 180s
     // wall-clock deadline would have abandoned as "still building".
     stubActions((poll) =>
-      poll < 30
-        ? { id: 1, status: "in_progress", conclusion: null }
-        : { id: 1, status: "completed", conclusion: "success" },
+      poll < 30 ? { id: 1, status: "in_progress", conclusion: null } : { id: 1, status: "completed", conclusion: "success" },
     );
     const statuses = await runWaiter(300_000);
     expect(statuses.at(-1).phase).toBe("live");
@@ -171,10 +160,9 @@ describe("waitForActionsDeploy reaches a verdict instead of timing out", () => {
       const url = typeof input === "string" ? input : input.url;
       if (url.includes("/actions/workflows/deploy.yml/runs")) {
         poll++;
-        return new Response(
-          JSON.stringify({ workflow_runs: [{ id: 1, status: "completed", conclusion: "failure", html_url: "u" }] }),
-          { status: 200 },
-        );
+        return new Response(JSON.stringify({ workflow_runs: [{ id: 1, status: "completed", conclusion: "failure", html_url: "u" }] }), {
+          status: 200,
+        });
       }
       if (/\/actions\/runs\/\d+\/jobs/.test(url)) {
         return new Response(JSON.stringify({ jobs: [{ id: 555, name: "deploy", conclusion: "failure", steps: [] }] }), { status: 200 });

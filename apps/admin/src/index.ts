@@ -1,8 +1,17 @@
-import { handleDeleteGame, handlePublish, handleUpdateGame, insertHostRoute, readGameStatus, setGameStatus, setGameStatuses, type GameStatus } from "./publish";
-import { errorStats, listErrors, pruneErrors, recordError } from "./errlog";
-import { driftReportFrom, findDrift, recentRuns, sweepFleet, type FleetRow } from "./drift";
-import { verifySession, handleAuthExchange, handleAuthMe } from "./auth";
-import { renderApiDocs } from "./dashboard";
+import { handleAuthExchange, handleAuthMe, verifySession } from './auth';
+import { renderApiDocs } from './dashboard';
+import { driftReportFrom, type FleetRow, findDrift, recentRuns, sweepFleet } from './drift';
+import { errorStats, listErrors, pruneErrors, recordError } from './errlog';
+import {
+  type GameStatus,
+  handleDeleteGame,
+  handlePublish,
+  handleUpdateGame,
+  insertHostRoute,
+  readGameStatus,
+  setGameStatus,
+  setGameStatuses,
+} from './publish';
 
 interface Env {
   CF_ACCOUNT_ID: string;
@@ -52,8 +61,8 @@ function safeEqual(a: string, b: string): boolean {
 /** The admin allowlist (verified Google emails). Defaults to the sole owner so
  *  the console is never accidentally left open if the var is unset. */
 function adminEmails(env: Env): string[] {
-  return (env.ADMIN_EMAILS || "serge.the.dev@gmail.com")
-    .split(",")
+  return (env.ADMIN_EMAILS || 'serge.the.dev@gmail.com')
+    .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
 }
@@ -61,16 +70,20 @@ function adminEmails(env: Env): string[] {
 /** Resolve the signed-in user's verified email via the auth worker, and whether
  *  they're an admin. Returns `email: null` when not signed in at all (so the
  *  sign-in page can tell "sign in" from "wrong account"). */
-async function authenticateAdmin(request: Request, env: Env): Promise<{ email: string | null; isAdmin: boolean }> {
-  const authz = request.headers.get("Authorization") ?? "";
-  const bearer = authz.startsWith("Bearer ") ? authz.slice(7).trim() : "";
-  const cookie = request.headers.get("Cookie") ?? "";
-  const fgsToken = request.headers.get("X-FGS-Token") || cookie.match(/fgs_token=([^;]*)/)?.[1] || bearer;
+async function authenticateAdmin(
+  request: Request,
+  env: Env,
+): Promise<{ email: string | null; isAdmin: boolean }> {
+  const authz = request.headers.get('Authorization') ?? '';
+  const bearer = authz.startsWith('Bearer ') ? authz.slice(7).trim() : '';
+  const cookie = request.headers.get('Cookie') ?? '';
+  const fgsToken =
+    request.headers.get('X-FGS-Token') || cookie.match(/fgs_token=([^;]*)/)?.[1] || bearer;
   if (!fgsToken) return { email: null, isAdmin: false };
   try {
     // X-FGS-Token so /me returns the email (it withholds it on other paths).
-    const meRes = await env.AUTH.fetch("https://auth.freegamestore.online/me", {
-      headers: { "X-FGS-Token": fgsToken },
+    const meRes = await env.AUTH.fetch('https://auth.freegamestore.online/me', {
+      headers: { 'X-FGS-Token': fgsToken },
     });
     if (!meRes.ok) return { email: null, isAdmin: false };
     const user = (await meRes.json()) as { email?: string | null };
@@ -87,11 +100,13 @@ async function authenticateAdmin(request: Request, env: Env): Promise<{ email: s
 function renderSignIn(signedInAs: string | null): string {
   // /login/google — NOT /login (that route is GitHub, which yields no email and
   // can never match the admin allowlist). Google carries the verified email.
-  const loginUrl = "https://auth.freegamestore.online/login/google?redirect=" + encodeURIComponent("https://admin.freegamestore.online/");
+  const loginUrl =
+    'https://auth.freegamestore.online/login/google?redirect=' +
+    encodeURIComponent('https://admin.freegamestore.online/');
   const wrong = signedInAs
     ? `<p class="note">Signed in as <strong>${escapeHtml(signedInAs)}</strong> — that account isn't an admin.</p>`
     : `<p class="note">This console is restricted to the store administrator.</p>`;
-  const cta = signedInAs ? "Use a different account" : "Sign in with Google";
+  const cta = signedInAs ? 'Use a different account' : 'Sign in with Google';
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
@@ -122,7 +137,10 @@ function renderSignIn(signedInAs: string | null): string {
 
 /** Minimal HTML-escape for values interpolated into the sign-in page. */
 function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
+  );
 }
 
 /** Extract the authenticated GitHub login from either credential the platform issues:
@@ -130,8 +148,8 @@ function escapeHtml(s: string): string {
  *  2. fgs_token — as an Authorization Bearer (MCP) OR an fgs_token cookie (console),
  *     verified by the auth worker's /me (single uniform identity, like the other stores). */
 async function authenticateLogin(request: Request, env: Env): Promise<string | null> {
-  const auth = request.headers.get("Authorization") ?? "";
-  const bearer = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+  const auth = request.headers.get('Authorization') ?? '';
+  const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
 
   // 1. Admin-minted session token (CLI).
   if (bearer) {
@@ -141,24 +159,30 @@ async function authenticateLogin(request: Request, env: Env): Promise<string | n
 
   // 2. fgs_token — via X-FGS-Token (MCP, worker-to-worker), cookie (console),
   //    or the Bearer fallback. The auth worker's /me verifies the signature.
-  const cookie = request.headers.get("Cookie") ?? "";
-  const fgsToken = request.headers.get("X-FGS-Token") || cookie.match(/fgs_token=([^;]*)/)?.[1] || bearer;
+  const cookie = request.headers.get('Cookie') ?? '';
+  const fgsToken =
+    request.headers.get('X-FGS-Token') || cookie.match(/fgs_token=([^;]*)/)?.[1] || bearer;
   if (fgsToken) {
     try {
       // Service binding (not a public-hostname fetch — that loops back, CF 522).
-      const meRes = await env.AUTH.fetch("https://auth.freegamestore.online/me", {
-        headers: { "X-FGS-Token": fgsToken },
+      const meRes = await env.AUTH.fetch('https://auth.freegamestore.online/me', {
+        headers: { 'X-FGS-Token': fgsToken },
       });
       if (meRes.ok) {
-        const user = await meRes.json() as { id?: string };
-        const parts = fgsToken.split(".");
+        const user = (await meRes.json()) as { id?: string };
+        const parts = fgsToken.split('.');
         if (parts.length === 3) {
-          const payload = JSON.parse(atob(parts[1]!.replace(/-/g, "+").replace(/_/g, "/"))) as { login?: string; sub?: string };
+          const payload = JSON.parse(atob(parts[1]!.replace(/-/g, '+').replace(/_/g, '/'))) as {
+            login?: string;
+            sub?: string;
+          };
           return payload.login ?? payload.sub ?? null;
         }
         return user.id ?? null;
       }
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
   }
   return null;
 }
@@ -188,10 +212,12 @@ interface QualityData {
   games: QualityGame[];
 }
 
-const REGISTRY_URL = "https://raw.githubusercontent.com/freegamestore-online/freegamestore/main/registry.json";
-const QUALITY_URL = "https://raw.githubusercontent.com/freegamestore-online/freegamestore/main/data/quality-results.json";
-const ORG = "freegamestore-online";
-const DOMAIN = "freegamestore.online";
+const REGISTRY_URL =
+  'https://raw.githubusercontent.com/freegamestore-online/freegamestore/main/registry.json';
+const QUALITY_URL =
+  'https://raw.githubusercontent.com/freegamestore-online/freegamestore/main/data/quality-results.json';
+const ORG = 'freegamestore-online';
+const DOMAIN = 'freegamestore.online';
 
 /** Fetch raw registry items (source of truth for games).
  *  Prefers the authenticated GitHub contents API — which is NOT CDN-cached, so a
@@ -212,8 +238,8 @@ async function fetchRegistryItems(env: Env): Promise<any[] | null> {
         {
           headers: {
             Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-            Accept: "application/vnd.github.raw+json",
-            "User-Agent": "freegamestore-admin",
+            Accept: 'application/vnd.github.raw+json',
+            'User-Agent': 'freegamestore-admin',
           },
         },
       );
@@ -226,7 +252,7 @@ async function fetchRegistryItems(env: Env): Promise<any[] | null> {
     }
   }
   try {
-    const res = await fetch(REGISTRY_URL, { headers: { "User-Agent": "freegamestore-admin" } });
+    const res = await fetch(REGISTRY_URL, { headers: { 'User-Agent': 'freegamestore-admin' } });
     if (res.ok) {
       const data = (await res.json()) as any;
       return data.games || [];
@@ -245,7 +271,7 @@ async function fetchRegistry(env: Env): Promise<GameConfig[]> {
     org: ORG,
     cfProject: item.cfProject || `free${item.id}app`,
     domain: `${item.id}.${DOMAIN}`,
-    hostedOn: item.hostedOn || "pages",
+    hostedOn: item.hostedOn || 'pages',
     status: readGameStatus(item),
   }));
 }
@@ -260,9 +286,9 @@ async function fetchRegistryRaw(env: Env): Promise<any[]> {
 
 async function fetchQuality(): Promise<QualityData | null> {
   try {
-    const res = await fetch(QUALITY_URL, { headers: { "User-Agent": "freegamestore-admin" } });
+    const res = await fetch(QUALITY_URL, { headers: { 'User-Agent': 'freegamestore-admin' } });
     if (!res.ok) return null;
-    return await res.json() as QualityData;
+    return (await res.json()) as QualityData;
   } catch {
     return null;
   }
@@ -272,11 +298,11 @@ async function fetchGameStatus(game: GameConfig, env: Env) {
   // Path B (R2) games have no CF Pages project — querying one always 404s and
   // reports a bogus "no_project" error. Every current FGS game is on Path B,
   // so without this short-circuit the whole dashboard reads as broken.
-  if (game.hostedOn === "r2") {
+  if (game.hostedOn === 'r2') {
     return {
       cf: {
-        deploy: { status: "r2", time: null, url: `https://${game.domain}`, error: null },
-        domain: { status: "active", cert: "active", error: null },
+        deploy: { status: 'r2', time: null, url: `https://${game.domain}`, error: null },
+        domain: { status: 'active', cert: 'active', error: null },
         source: null,
       },
     };
@@ -284,15 +310,20 @@ async function fetchGameStatus(game: GameConfig, env: Env) {
   try {
     const res = await fetch(
       `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/pages/projects/${game.cfProject}`,
-      { headers: { Authorization: `Bearer ${env.CF_API_TOKEN}` } }
+      { headers: { Authorization: `Bearer ${env.CF_API_TOKEN}` } },
     );
-    const data = await res.json() as any;
+    const data = (await res.json()) as any;
 
     if (!data.success) {
       return {
         cf: {
-          deploy: { status: "no_project", time: null, url: null, error: `Project "${game.cfProject}" not found` },
-          domain: { status: "unknown", cert: "unknown", error: null },
+          deploy: {
+            status: 'no_project',
+            time: null,
+            url: null,
+            error: `Project "${game.cfProject}" not found`,
+          },
+          domain: { status: 'unknown', cert: 'unknown', error: null },
           source: null,
         },
       };
@@ -305,33 +336,43 @@ async function fetchGameStatus(game: GameConfig, env: Env) {
     const customDomain = domains.find((d: string) => d === game.domain);
 
     let deployError: string | null = null;
-    if (lastDeploy?.latest_stage?.status === "failure") {
-      deployError = `${lastDeploy.latest_stage.name || "Build"} failed`;
+    if (lastDeploy?.latest_stage?.status === 'failure') {
+      deployError = `${lastDeploy.latest_stage.name || 'Build'} failed`;
     }
 
     return {
       cf: {
         deploy: lastDeploy
           ? {
-              status: lastDeploy.latest_stage?.status || "unknown",
+              status: lastDeploy.latest_stage?.status || 'unknown',
               time: lastDeploy.created_on,
               url: lastDeploy.url,
               error: deployError,
-              trigger: lastDeploy.deployment_trigger?.type || "unknown",
-              commitMsg: lastDeploy.deployment_trigger?.metadata?.commit_message?.slice(0, 60) || null,
+              trigger: lastDeploy.deployment_trigger?.type || 'unknown',
+              commitMsg:
+                lastDeploy.deployment_trigger?.metadata?.commit_message?.slice(0, 60) || null,
             }
-          : { status: "none", time: null, url: null, error: "No deployments yet" },
+          : { status: 'none', time: null, url: null, error: 'No deployments yet' },
         domain: customDomain
-          ? { status: "active", cert: "active", error: null }
-          : { status: "not_configured", cert: "none", error: "Custom domain not in project" },
+          ? { status: 'active', cert: 'active', error: null }
+          : { status: 'not_configured', cert: 'none', error: 'Custom domain not in project' },
         source: source
-          ? { type: source.type, owner: source.config?.owner, repo: source.config?.repo_name, enabled: source.config?.deployments_enabled }
+          ? {
+              type: source.type,
+              owner: source.config?.owner,
+              repo: source.config?.repo_name,
+              enabled: source.config?.deployments_enabled,
+            }
           : null,
       },
     };
   } catch (e) {
     return {
-      cf: { deploy: { status: "error", time: null, url: null, error: String(e) }, domain: { status: "error", cert: "error", error: String(e) }, source: null },
+      cf: {
+        deploy: { status: 'error', time: null, url: null, error: String(e) },
+        domain: { status: 'error', cert: 'error', error: String(e) },
+        source: null,
+      },
     };
   }
 }
@@ -342,11 +383,10 @@ async function fetchAllStatus(env: Env) {
     games.map(async (game) => {
       const status = await fetchGameStatus(game, env);
       return { ...game, ...status };
-    })
+    }),
   );
   return results;
 }
-
 
 // STRICT allowlist — the admin API must NOT reflect arbitrary game subdomains.
 // Games are untrusted content; with credentialed CORS, a malicious game the
@@ -354,20 +394,17 @@ async function fetchAllStatus(env: Env) {
 // provision/delete. The admin console is served same-origin from here, and the
 // creator publish flow reaches this worker server-to-server (no browser Origin),
 // so no *.freegamestore.online game origin ever needs cross-origin access.
-const CORS_ORIGINS = new Set([
-  "https://admin.freegamestore.online",
-  "http://localhost:5173",
-]);
+const CORS_ORIGINS = new Set(['https://admin.freegamestore.online', 'http://localhost:5173']);
 
 function corsHeaders(request: Request): Record<string, string> {
-  const origin = request.headers.get("Origin") ?? "";
+  const origin = request.headers.get('Origin') ?? '';
   const allowed = CORS_ORIGINS.has(origin);
   return {
-    "Access-Control-Allow-Origin": allowed ? origin : "",
-    "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Access-Control-Allow-Credentials": "true",
-    "Access-Control-Max-Age": "86400",
+    'Access-Control-Allow-Origin': allowed ? origin : '',
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Max-Age': '86400',
   };
 }
 
@@ -377,7 +414,11 @@ function jsonResponse(data: unknown, status: number, request: Request): Response
     // no-store: these carry per-admin / observability data — the edge must never
     // cache them (a stale public copy is exactly how the creator list + crash
     // log leaked before the gate landed).
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...corsHeaders(request) },
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+      ...corsHeaders(request),
+    },
   });
 }
 
@@ -391,14 +432,14 @@ function jsonResponse(data: unknown, status: number, request: Request): Response
  *  `concurrency: cancel-in-progress` cancels the earlier runs by design, so a
  *  cancelled run says nothing about the build. Mirrors the agent's
  *  waitForActionsDeploy. */
-async function latestDeployConclusion(env: Env, id: string): Promise<"success" | "failure" | null> {
+async function latestDeployConclusion(env: Env, id: string): Promise<'success' | 'failure' | null> {
   try {
     const res = await fetch(
       `https://api.github.com/repos/${ORG}/${id}/actions/workflows/deploy.yml/runs?per_page=5`,
       {
         headers: {
-          Accept: "application/vnd.github+json",
-          "User-Agent": "freegamestore-admin",
+          Accept: 'application/vnd.github+json',
+          'User-Agent': 'freegamestore-admin',
           ...(env.GITHUB_TOKEN ? { Authorization: `Bearer ${env.GITHUB_TOKEN}` } : {}),
         },
       },
@@ -408,9 +449,9 @@ async function latestDeployConclusion(env: Env, id: string): Promise<"success" |
       workflow_runs?: Array<{ status: string; conclusion: string | null }>;
     };
     for (const run of data.workflow_runs ?? []) {
-      if (run.status !== "completed" || run.conclusion === "cancelled") continue;
-      if (run.conclusion === "success") return "success";
-      if (run.conclusion === "failure" || run.conclusion === "timed_out") return "failure";
+      if (run.status !== 'completed' || run.conclusion === 'cancelled') continue;
+      if (run.conclusion === 'success') return 'success';
+      if (run.conclusion === 'failure' || run.conclusion === 'timed_out') return 'failure';
     }
     return null;
   } catch {
@@ -426,22 +467,26 @@ async function latestDeployConclusion(env: Env, id: string): Promise<"success" |
  *  never edge-cached. Returns null when the registry read failed, which callers
  *  must surface rather than treating as an empty fleet. */
 async function cachedFleetSweep(env: Env): Promise<FleetRow[] | null> {
-  const cacheKey = new Request("https://admin.freegamestore.online/__cache/fleet");
-  const cache = typeof caches !== "undefined" ? caches.default : null;
+  const cacheKey = new Request('https://admin.freegamestore.online/__cache/fleet');
+  const cache = typeof caches !== 'undefined' ? caches.default : null;
   const hit = cache ? await cache.match(cacheKey).catch(() => null) : null;
   if (hit) return (await hit.json()) as FleetRow[];
 
   const items = await fetchRegistryItems(env);
   if (items === null) return null;
-  const ids = items.map((g) => g?.id).filter((id): id is string => typeof id === "string" && !!id);
+  const ids = items.map((g) => g?.id).filter((id): id is string => typeof id === 'string' && !!id);
   const rows = await sweepFleet(env, ORG, ids);
   if (cache) {
-    await cache.put(
-      cacheKey,
-      new Response(JSON.stringify(rows), {
-        headers: { "Content-Type": "application/json", "Cache-Control": "max-age=300" },
-      }),
-    ).catch(() => { /* caching is best-effort */ });
+    await cache
+      .put(
+        cacheKey,
+        new Response(JSON.stringify(rows), {
+          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=300' },
+        }),
+      )
+      .catch(() => {
+        /* caching is best-effort */
+      });
   }
   return rows;
 }
@@ -480,8 +525,7 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
   const ts = new Date().toISOString();
 
   const routeRows = env.DB
-    ? await env.DB
-        .prepare(`SELECT slug FROM routes WHERE zone = ? AND hosted_on = 'r2'`)
+    ? await env.DB.prepare(`SELECT slug FROM routes WHERE zone = ? AND hosted_on = 'r2'`)
         .bind(DOMAIN)
         .all<{ slug: string }>()
     : { results: [] as { slug: string }[] };
@@ -502,9 +546,9 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
     };
     console.error(`[reconcile] registry read FAILED — skipping (no drift claimed, no heal)`);
     await recordError(env.DB, {
-      source: "admin/reconcile",
+      source: 'admin/reconcile',
       context: `heal=${heal}`,
-      message: "registry read failed — reconcile skipped to avoid false drift",
+      message: 'registry read failed — reconcile skipped to avoid false drift',
     });
     return report;
   }
@@ -513,7 +557,7 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
   const missingRoute = [...registryIds].filter((id) => !routeSlugs.has(id)).sort();
   const orphanRoute = [...routeSlugs].filter((slug) => !registryIds.has(slug)).sort();
   const pending = items
-    .filter((g) => g?.id && readGameStatus(g) === "pending")
+    .filter((g) => g?.id && readGameStatus(g) === 'pending')
     .map((g) => g.id as string)
     .sort();
 
@@ -537,13 +581,15 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
     // provision). registry is the source of truth for what SHOULD be served.
     for (const id of missingRoute) {
       const step = await insertHostRoute(env as any, id);
-      if (step.status === "ok") insertedRoutes.push(id);
+      if (step.status === 'ok') insertedRoutes.push(id);
     }
     // Delete routes with no registry entry — the game is delisted, so the route
     // should stop resolving. Repos are left untouched (archive is not automatic).
     for (const slug of orphanRoute) {
       try {
-        await env.DB.prepare("DELETE FROM routes WHERE slug = ? AND zone = ?").bind(slug, DOMAIN).run();
+        await env.DB.prepare('DELETE FROM routes WHERE slug = ? AND zone = ?')
+          .bind(slug, DOMAIN)
+          .run();
         deletedRoutes.push(slug);
       } catch {
         /* best-effort; next run retries */
@@ -560,11 +606,11 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
   // #22 fixes. One batched registry commit per run, and it only ever moves
   // pending → live/failed.
   if (heal && pending.length > 0) {
-    const flips: Array<{ id: string; status: "live" | "failed" }> = [];
+    const flips: Array<{ id: string; status: 'live' | 'failed' }> = [];
     for (const id of pending) {
       const conclusion = await latestDeployConclusion(env, id);
-      if (conclusion === "success") flips.push({ id, status: "live" });
-      else if (conclusion === "failure") flips.push({ id, status: "failed" });
+      if (conclusion === 'success') flips.push({ id, status: 'live' });
+      else if (conclusion === 'failure') flips.push({ id, status: 'failed' });
       // null → nothing concluded yet; leave pending for the next run.
     }
     if (flips.length > 0) {
@@ -576,12 +622,12 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
       if (!res.ok) {
         console.error(`[reconcile] status flip FAILED: ${res.detail}`);
         await recordError(env.DB, {
-          source: "admin/reconcile",
+          source: 'admin/reconcile',
           context: `heal=${heal}`,
           message: `build-status flip failed: ${res.detail}`,
         });
       } else {
-        console.log(`[reconcile] status flips: ${res.updated.join(", ") || "none"}`);
+        console.log(`[reconcile] status flips: ${res.updated.join(', ') || 'none'}`);
       }
     }
   }
@@ -589,7 +635,7 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
   if (report.drift) {
     console.error(`[reconcile] DRIFT detected: ${JSON.stringify(report)}`);
     await recordError(env.DB, {
-      source: "admin/reconcile",
+      source: 'admin/reconcile',
       context: `heal=${heal}`,
       message: `drift: ${missingRoute.length} missingRoute, ${orphanRoute.length} orphanRoute`,
       stack: JSON.stringify(report).slice(0, 1500),
@@ -611,17 +657,17 @@ export default {
     const url = new URL(request.url);
 
     // CORS preflight — unauthenticated (a preflight carries no cookies).
-    if (request.method === "OPTIONS") {
+    if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(request) });
     }
 
     // CLI login mechanism — must stay reachable before the admin gate.
     // Self-contained auth: exchange a GitHub token for an FGS admin session,
     // then verify it. `fgs login` calls /v1/auth/exchange.
-    if (url.pathname === "/v1/auth/exchange" && request.method === "POST") {
+    if (url.pathname === '/v1/auth/exchange' && request.method === 'POST') {
       return handleAuthExchange(request, env);
     }
-    if (url.pathname === "/v1/auth/me" && request.method === "GET") {
+    if (url.pathname === '/v1/auth/me' && request.method === 'GET') {
       return handleAuthMe(request, env);
     }
 
@@ -634,25 +680,39 @@ export default {
     // internal token). Without this, the whole console + crash log + creator
     // list were world-readable.
     const ADMIN_PATHS = new Set([
-      "/", "/docs", "/api/reconcile", "/api/drift", "/api/status/deploys", "/api/ping", "/api/status", "/api/status/game",
-      "/api/quality", "/api/errors", "/api/stats", "/api/users",
+      '/',
+      '/docs',
+      '/api/reconcile',
+      '/api/drift',
+      '/api/status/deploys',
+      '/api/ping',
+      '/api/status',
+      '/api/status/game',
+      '/api/quality',
+      '/api/errors',
+      '/api/stats',
+      '/api/users',
     ]);
     // The Game Detail endpoint is a regex path, so it cannot live in the exact
     // -match Set above — gate it explicitly rather than leaving it open.
     const ADMIN_PATH_RE = /^\/api\/games\/[a-z0-9][a-z0-9-]*\/(?:detail|traffic)$/;
-    if (ADMIN_PATHS.has(url.pathname) || ADMIN_PATH_RE.test(url.pathname) || (url.pathname === "/api/ci/test-report" && request.method === "GET")) {
+    if (
+      ADMIN_PATHS.has(url.pathname) ||
+      ADMIN_PATH_RE.test(url.pathname) ||
+      (url.pathname === '/api/ci/test-report' && request.method === 'GET')
+    ) {
       const { email, isAdmin } = await authenticateAdmin(request, env);
       if (!isAdmin) {
         // Console pages get the sign-in / wrong-account page (200 — it IS a
         // valid page, and a 401 status just spams the browser console); APIs
         // still return 401.
-        if (url.pathname === "/" || url.pathname === "/docs") {
+        if (url.pathname === '/' || url.pathname === '/docs') {
           return new Response(renderSignIn(email), {
             status: 200,
-            headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+            headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
           });
         }
-        return jsonResponse({ error: "unauthorized" }, 401, request);
+        return jsonResponse({ error: 'unauthorized' }, 401, request);
       }
     }
 
@@ -665,23 +725,35 @@ export default {
     // registered game — around 250 for the current fleet. Uncached, a couple of
     // dashboard refreshes would burn the hourly API budget. The cached copy is an
     // internal key, never the client response, which stays no-store.
-    if ((url.pathname === "/api/drift" || url.pathname === "/api/status/deploys") && request.method === "GET") {
+    if (
+      (url.pathname === '/api/drift' || url.pathname === '/api/status/deploys') &&
+      request.method === 'GET'
+    ) {
       const rows = await cachedFleetSweep(env);
       if (rows === null) {
         // Same rule as reconcile: a failed registry read must not read as "no
         // games" and therefore "no drift" — that is a false all-clear.
-        return jsonResponse({ error: "registry read failed — fleet not swept" }, 503, request);
+        return jsonResponse({ error: 'registry read failed — fleet not swept' }, 503, request);
       }
-      if (url.pathname === "/api/status/deploys") {
+      if (url.pathname === '/api/status/deploys') {
         return jsonResponse(
-          { ts: new Date().toISOString(), games: rows.map((r) => ({ id: r.id, conclusion: r.conclusion, drifted: r.state === "drifted" })) },
+          {
+            ts: new Date().toISOString(),
+            games: rows.map((r) => ({
+              id: r.id,
+              conclusion: r.conclusion,
+              drifted: r.state === 'drifted',
+            })),
+          },
           200,
           request,
         );
       }
       const report = driftReportFrom(rows);
       if (report.drifted.length) {
-        console.warn(`[drift] ${report.drifted.length} game(s) serving stale builds: ${report.drifted.map((d) => d.id).join(", ")}`);
+        console.warn(
+          `[drift] ${report.drifted.length} game(s) serving stale builds: ${report.drifted.map((d) => d.id).join(', ')}`,
+        );
       }
       return jsonResponse(report, 200, request);
     }
@@ -689,33 +761,41 @@ export default {
     // GET /api/ping — liveness probe for the admin worker itself (#14 item 8).
     // Admin-gated like every other observability endpoint: an unauthenticated
     // probe would confirm the worker exists to anyone who asks.
-    if (url.pathname === "/api/ping" && request.method === "GET") {
-      return jsonResponse({ ok: true, worker: "freegamestore-admin" }, 200, request);
+    if (url.pathname === '/api/ping' && request.method === 'GET') {
+      return jsonResponse({ ok: true, worker: 'freegamestore-admin' }, 200, request);
     }
 
     // GET /api/games/:id/detail — everything the Game Detail page needs in one
     // round trip: live reachability, D1 route, registry listing + build status,
     // and the last 5 deploy runs.
     const detailMatch = url.pathname.match(/^\/api\/games\/([a-z0-9][a-z0-9-]*)\/detail$/);
-    if (detailMatch && request.method === "GET") {
+    if (detailMatch && request.method === 'GET') {
       const id = detailMatch[1]!;
       const items = (await fetchRegistryItems(env)) ?? [];
       const entry = items.find((g) => g?.id === id) ?? null;
 
       const routeRow = env.DB
-        ? await env.DB.prepare("SELECT slug, r2_prefix, hosted_on FROM routes WHERE slug = ? AND zone = ?")
+        ? await env.DB.prepare(
+            'SELECT slug, r2_prefix, hosted_on FROM routes WHERE slug = ? AND zone = ?',
+          )
             .bind(id, DOMAIN)
             .first<{ slug: string; r2_prefix: string; hosted_on: string }>()
             .catch(() => null)
         : null;
 
       // HEAD probe with a timeout — a hung origin must not hold the request open.
-      let http: { ok: boolean; status: number | null; error?: string } = { ok: false, status: null };
+      let http: { ok: boolean; status: number | null; error?: string } = {
+        ok: false,
+        status: null,
+      };
       try {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 8000);
         try {
-          const res = await fetch(`https://${id}.${DOMAIN}`, { method: "HEAD", signal: ctrl.signal });
+          const res = await fetch(`https://${id}.${DOMAIN}`, {
+            method: 'HEAD',
+            signal: ctrl.signal,
+          });
           http = { ok: res.ok, status: res.status };
         } finally {
           clearTimeout(timer);
@@ -724,32 +804,40 @@ export default {
         http = { ok: false, status: null, error: String(e) };
       }
 
-      return jsonResponse({
-        id,
-        listed: !!entry,
-        status: readGameStatus(entry),
-        name: entry?.name ?? id,
-        creatorGithub: entry?.creatorGithub ?? null,
-        hostedOn: entry?.hostedOn ?? (routeRow?.hosted_on || "unknown"),
-        route: routeRow ? { configured: true, r2Prefix: routeRow.r2_prefix } : { configured: false },
-        url: `https://${id}.${DOMAIN}`,
-        repo: `${ORG}/${id}`,
-        http,
-        runs: await recentRuns(env, ORG, id, 5),
-      }, 200, request);
+      return jsonResponse(
+        {
+          id,
+          listed: !!entry,
+          status: readGameStatus(entry),
+          name: entry?.name ?? id,
+          creatorGithub: entry?.creatorGithub ?? null,
+          hostedOn: entry?.hostedOn ?? (routeRow?.hosted_on || 'unknown'),
+          route: routeRow
+            ? { configured: true, r2Prefix: routeRow.r2_prefix }
+            : { configured: false },
+          url: `https://${id}.${DOMAIN}`,
+          repo: `${ORG}/${id}`,
+          http,
+          runs: await recentRuns(env, ORG, id, 5),
+        },
+        200,
+        request,
+      );
     }
 
     // GET /api/reconcile — on-demand drift report (same logic as the cron).
-    if (url.pathname === "/api/reconcile" && request.method === "GET") {
+    if (url.pathname === '/api/reconcile' && request.method === 'GET') {
       return jsonResponse(await reconcile(env), 200, request);
     }
 
-    if (url.pathname === "/docs") {
-      return new Response(renderApiDocs(), { headers: { "Content-Type": "text/html", "Cache-Control": "no-store" } });
+    if (url.pathname === '/docs') {
+      return new Response(renderApiDocs(), {
+        headers: { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' },
+      });
     }
 
-    if (url.pathname === "/api/status") {
-      const detail = url.searchParams.get("detail") === "true";
+    if (url.pathname === '/api/status') {
+      const detail = url.searchParams.get('detail') === 'true';
       if (detail) {
         const data = await fetchAllStatus(env);
         return jsonResponse(data, 200, request);
@@ -758,21 +846,21 @@ export default {
       return jsonResponse(games, 200, request);
     }
 
-    if (url.pathname === "/api/status/game") {
-      const id = url.searchParams.get("id");
+    if (url.pathname === '/api/status/game') {
+      const id = url.searchParams.get('id');
       if (!id) {
-        return jsonResponse({ error: "id required" }, 400, request);
+        return jsonResponse({ error: 'id required' }, 400, request);
       }
       const games = await fetchRegistry(env);
-      const game = games.find(g => g.id === id);
+      const game = games.find((g) => g.id === id);
       if (!game) {
-        return jsonResponse({ error: "not found" }, 404, request);
+        return jsonResponse({ error: 'not found' }, 404, request);
       }
       const status = await fetchGameStatus(game, env);
       return jsonResponse({ ...game, ...status }, 200, request);
     }
 
-    if (url.pathname === "/api/quality") {
+    if (url.pathname === '/api/quality') {
       const data = await fetchQuality();
       if (!data) {
         return new Response(null, { status: 204, headers: corsHeaders(request) });
@@ -781,34 +869,41 @@ export default {
     }
 
     // Errors/crashes for the console (protected by CF Access, like /api/status).
-    if (url.pathname === "/api/errors") {
+    if (url.pathname === '/api/errors') {
       // Clamp: a negative limit is "unlimited" in SQLite (bypasses the 500 cap),
       // and NaN must fall back to the default.
-      const raw = parseInt(url.searchParams.get("limit") || "200", 10);
+      const raw = parseInt(url.searchParams.get('limit') || '200', 10);
       const limit = Math.max(1, Math.min(Number.isFinite(raw) ? raw : 200, 500));
-      const user = url.searchParams.get("user") || undefined;
-      const source = url.searchParams.get("source") || undefined;
+      const user = url.searchParams.get('user') || undefined;
+      const source = url.searchParams.get('source') || undefined;
       return jsonResponse(await listErrors(env.DB, limit, { user, source }), 200, request);
     }
 
     // Aggregate stats + the errors-per-day series for the Overview graph.
-    if (url.pathname === "/api/stats") {
+    if (url.pathname === '/api/stats') {
       const [games, errStats] = await Promise.all([fetchRegistry(env), errorStats(env.DB)]);
       const creators = new Set<string>();
-      for (const g of await fetchRegistryRaw(env)) if (g.creatorGithub) creators.add(String(g.creatorGithub).toLowerCase());
+      for (const g of await fetchRegistryRaw(env))
+        if (g.creatorGithub) creators.add(String(g.creatorGithub).toLowerCase());
       return jsonResponse(
-        { games: games.length, creators: creators.size, errorsTotal: errStats.total, errors24h: errStats.last24h, errorSeries: errStats.series },
+        {
+          games: games.length,
+          creators: creators.size,
+          errorsTotal: errStats.total,
+          errors24h: errStats.last24h,
+          errorSeries: errStats.series,
+        },
         200,
         request,
       );
     }
 
     // Creators derived from the registry (creatorGithub), with their game counts.
-    if (url.pathname === "/api/users") {
+    if (url.pathname === '/api/users') {
       const raw = await fetchRegistryRaw(env);
       const byUser = new Map<string, { login: string; games: string[] }>();
       for (const g of raw) {
-        const login = g.creatorGithub ? String(g.creatorGithub) : "(unknown)";
+        const login = g.creatorGithub ? String(g.creatorGithub) : '(unknown)';
         const key = login.toLowerCase();
         if (!byUser.has(key)) byUser.set(key, { login, games: [] });
         byUser.get(key)!.games.push(String(g.id));
@@ -824,75 +919,103 @@ export default {
     //   GET    /api/comp            → list grants + which providers are funded
     //   POST   /api/comp            → { login, provider, model, note?, expiresAt? }
     //   DELETE /api/comp/:userId    → revoke (userId = github:<id>)
-    if (url.pathname === "/api/comp" || url.pathname.startsWith("/api/comp/") || url.pathname === "/api/allusers" || url.pathname.startsWith("/api/userkey") || url.pathname === "/api/sessions" || url.pathname === "/api/sessionhistory" || url.pathname === "/api/sessionerrors" || url.pathname === "/api/sessionchat") {
+    if (
+      url.pathname === '/api/comp' ||
+      url.pathname.startsWith('/api/comp/') ||
+      url.pathname === '/api/allusers' ||
+      url.pathname.startsWith('/api/userkey') ||
+      url.pathname === '/api/sessions' ||
+      url.pathname === '/api/sessionhistory' ||
+      url.pathname === '/api/sessionerrors' ||
+      url.pathname === '/api/sessionchat'
+    ) {
       const { email, isAdmin } = await authenticateAdmin(request, env);
-      if (!isAdmin) return jsonResponse({ error: "unauthorized" }, 401, request);
+      if (!isAdmin) return jsonResponse({ error: 'unauthorized' }, 401, request);
       if (!env.AGENT || !env.INTERNAL_TOKEN) {
-        return jsonResponse({ error: "admin↔agent not wired (missing AGENT binding or INTERNAL_TOKEN)" }, 500, request);
+        return jsonResponse(
+          { error: 'admin↔agent not wired (missing AGENT binding or INTERNAL_TOKEN)' },
+          500,
+          request,
+        );
       }
       // Map admin paths → agent paths: /api/allusers → users listing,
       // /api/userkey* → vault key write, /api/comp* → complimentary grants,
       // /api/sessions + /api/sessionhistory → all-users VibeCode session views.
-      const agentPath = url.pathname === "/api/allusers"
-        ? "/v1/admin/users"
-        : url.pathname === "/api/sessions"
-        // url.search carries ?cursor=&limit= through to the agent (#25). Its
-        // absence here was why pagination could not be implemented admin-side:
-        // params were dropped before the hop, unlike the session-* paths below.
-        ? "/v1/admin/sessions" + url.search
-        : url.pathname === "/api/sessionhistory"
-        ? "/v1/admin/session-history" + url.search
-        : url.pathname === "/api/sessionerrors"
-        ? "/v1/admin/session-errors" + url.search
-        : url.pathname === "/api/sessionchat"
-        ? "/v1/admin/session-chat" + url.search
-        : url.pathname.startsWith("/api/userkey")
-        ? url.pathname.replace(/^\/api\/userkey/, "/v1/admin/userkey")
-        : url.pathname.replace(/^\/api\/comp/, "/v1/admin/comp");
-      const res = await env.AGENT.fetch("https://agent.freegamestore.online" + agentPath, {
+      const agentPath =
+        url.pathname === '/api/allusers'
+          ? '/v1/admin/users'
+          : url.pathname === '/api/sessions'
+            ? // url.search carries ?cursor=&limit= through to the agent (#25). Its
+              // absence here was why pagination could not be implemented admin-side:
+              // params were dropped before the hop, unlike the session-* paths below.
+              '/v1/admin/sessions' + url.search
+            : url.pathname === '/api/sessionhistory'
+              ? '/v1/admin/session-history' + url.search
+              : url.pathname === '/api/sessionerrors'
+                ? '/v1/admin/session-errors' + url.search
+                : url.pathname === '/api/sessionchat'
+                  ? '/v1/admin/session-chat' + url.search
+                  : url.pathname.startsWith('/api/userkey')
+                    ? url.pathname.replace(/^\/api\/userkey/, '/v1/admin/userkey')
+                    : url.pathname.replace(/^\/api\/comp/, '/v1/admin/comp');
+      const res = await env.AGENT.fetch('https://agent.freegamestore.online' + agentPath, {
         method: request.method,
         headers: {
-          "X-Internal-Token": env.INTERNAL_TOKEN,
-          "X-Admin-Actor": email || "admin",
-          ...(request.method === "POST" ? { "Content-Type": "application/json" } : {}),
+          'X-Internal-Token': env.INTERNAL_TOKEN,
+          'X-Admin-Actor': email || 'admin',
+          ...(request.method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
         },
-        body: request.method === "POST" ? await request.text() : undefined,
+        body: request.method === 'POST' ? await request.text() : undefined,
       });
       // session-chat streams SSE back from the DO turn — pass it through
       // untouched so the browser can hold it open while the agent works.
-      if (url.pathname === "/api/sessionchat") {
+      if (url.pathname === '/api/sessionchat') {
         return new Response(res.body, {
           status: res.status,
-          headers: { "Content-Type": res.headers.get("Content-Type") || "text/event-stream", "Cache-Control": "no-store", ...corsHeaders(request) },
+          headers: {
+            'Content-Type': res.headers.get('Content-Type') || 'text/event-stream',
+            'Cache-Control': 'no-store',
+            ...corsHeaders(request),
+          },
         });
       }
       const text = await res.text();
       return new Response(text, {
         status: res.status,
-        headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...corsHeaders(request) },
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store',
+          ...corsHeaders(request),
+        },
       });
     }
 
     // PATCH /api/games/:id — update game metadata (name, description, category)
     const gameMatch = url.pathname.match(/^\/api\/games\/([a-z0-9][a-z0-9-]*)$/);
-    if (gameMatch && request.method === "PATCH") {
+    if (gameMatch && request.method === 'PATCH') {
       const login = await authenticateLogin(request, env);
       if (!login) {
-        return jsonResponse({ error: "unauthorized" }, 401, request);
+        return jsonResponse({ error: 'unauthorized' }, 401, request);
       }
       try {
-        const body = await request.json() as Record<string, unknown>;
+        const body = (await request.json()) as Record<string, unknown>;
         const result = await handleUpdateGame(gameMatch[1]!, login, body, env as any);
         return jsonResponse(result, result.error ? 400 : 200, request);
       } catch (e) {
-        await recordError(env.DB, { source: "admin/games.patch", user: login, context: `id=${gameMatch[1]}`, message: (e as Error)?.message ?? String(e), stack: (e as Error)?.stack });
+        await recordError(env.DB, {
+          source: 'admin/games.patch',
+          user: login,
+          context: `id=${gameMatch[1]}`,
+          message: (e as Error)?.message ?? String(e),
+          stack: (e as Error)?.stack,
+        });
         return jsonResponse({ error: String(e) }, 500, request);
       }
     }
 
     // DELETE /api/games/:id — delete a game the caller owns (delist + drop route
     // + archive repo).
-    if (gameMatch && request.method === "DELETE") {
+    if (gameMatch && request.method === 'DELETE') {
       const login = await authenticateLogin(request, env);
       // Deprovision from the console (#14): an admin must be able to delete a
       // game they did NOT create, otherwise the button only ever works on their
@@ -902,13 +1025,21 @@ export default {
       const { email, isAdmin } = await authenticateAdmin(request, env);
       const actor = login || (isAdmin ? email : null);
       if (!actor) {
-        return jsonResponse({ error: "unauthorized" }, 401, request);
+        return jsonResponse({ error: 'unauthorized' }, 401, request);
       }
       try {
-        const result = await handleDeleteGame(gameMatch[1]!, actor, env as any, { adminOverride: isAdmin });
+        const result = await handleDeleteGame(gameMatch[1]!, actor, env as any, {
+          adminOverride: isAdmin,
+        });
         return jsonResponse(result, result.error ? 400 : 200, request);
       } catch (e) {
-        await recordError(env.DB, { source: "admin/games.delete", user: login, context: `id=${gameMatch[1]}`, message: (e as Error)?.message ?? String(e), stack: (e as Error)?.stack });
+        await recordError(env.DB, {
+          source: 'admin/games.delete',
+          user: login,
+          context: `id=${gameMatch[1]}`,
+          message: (e as Error)?.message ?? String(e),
+          stack: (e as Error)?.stack,
+        });
         return jsonResponse({ error: String(e) }, 500, request);
       }
     }
@@ -925,19 +1056,23 @@ export default {
     //
     // Internal token only: error_log backs the Errors view and the Overview
     // counts, so an unauthenticated caller could flood or poison operator triage.
-    if (url.pathname === "/api/internal/error" && request.method === "POST") {
-      const internal = request.headers.get("X-Internal-Token");
+    if (url.pathname === '/api/internal/error' && request.method === 'POST') {
+      const internal = request.headers.get('X-Internal-Token');
       if (!(internal && env.INTERNAL_TOKEN && safeEqual(internal, env.INTERNAL_TOKEN))) {
-        return jsonResponse({ error: "unauthorized" }, 401, request);
+        return jsonResponse({ error: 'unauthorized' }, 401, request);
       }
       const body = (await request.json().catch(() => ({}))) as {
-        source?: unknown; user?: unknown; context?: unknown; message?: unknown; stack?: unknown;
+        source?: unknown;
+        user?: unknown;
+        context?: unknown;
+        message?: unknown;
+        stack?: unknown;
       };
-      const str = (v: unknown) => (typeof v === "string" && v.trim() ? v : null);
+      const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v : null);
       const source = str(body.source);
       const message = str(body.message);
       if (!source || !message) {
-        return jsonResponse({ error: "source and message are required" }, 400, request);
+        return jsonResponse({ error: 'source and message are required' }, 400, request);
       }
       await recordError(env.DB, {
         source,
@@ -953,16 +1088,16 @@ export default {
     // Both endpoints are inert until `fgs-admin-kv` exists and is bound; see the
     // commented block in wrangler.toml. A 503 here means "not provisioned", not
     // "broken" — it is the correct state today, not a failure to handle.
-    const CI_REPORT_KEY = "latest-test-report";
+    const CI_REPORT_KEY = 'latest-test-report';
     const MAX_REPORT_BYTES = 512 * 1024;
 
     // PUT /api/ci/test-report — CI uploads the report. Machine-authenticated via
     // X-CI-Token, NOT the admin session: the caller is a workflow, not a human.
-    if (url.pathname === "/api/ci/test-report" && request.method === "PUT") {
-      if (!env.CI_KV) return jsonResponse({ error: "CI_KV not bound" }, 503, request);
-      const tok = request.headers.get("X-CI-Token") || "";
+    if (url.pathname === '/api/ci/test-report' && request.method === 'PUT') {
+      if (!env.CI_KV) return jsonResponse({ error: 'CI_KV not bound' }, 503, request);
+      const tok = request.headers.get('X-CI-Token') || '';
       if (!(env.CI_TOKEN && safeEqual(tok, env.CI_TOKEN))) {
-        return jsonResponse({ error: "unauthorized" }, 401, request);
+        return jsonResponse({ error: 'unauthorized' }, 401, request);
       }
       const html = await request.text();
       // Cap enforced HERE, not just in the caller — a client-side limit is not a
@@ -970,7 +1105,11 @@ export default {
       // well before its character count does.
       const bytes = new TextEncoder().encode(html).length;
       if (bytes > MAX_REPORT_BYTES) {
-        return jsonResponse({ error: `report too large (${bytes} bytes, max ${MAX_REPORT_BYTES})` }, 413, request);
+        return jsonResponse(
+          { error: `report too large (${bytes} bytes, max ${MAX_REPORT_BYTES})` },
+          413,
+          request,
+        );
       }
       await env.CI_KV.put(CI_REPORT_KEY, html);
       return jsonResponse({ ok: true, bytes }, 200, request);
@@ -980,13 +1119,17 @@ export default {
     // ADMIN-GATED deliberately (#24 left this open): a CI report can name
     // internal hostnames, failing test paths and stack traces, so it is treated
     // as observability data like every other endpoint here, not as public.
-    if (url.pathname === "/api/ci/test-report" && request.method === "GET") {
-      if (!env.CI_KV) return jsonResponse({ error: "CI_KV not bound" }, 503, request);
+    if (url.pathname === '/api/ci/test-report' && request.method === 'GET') {
+      if (!env.CI_KV) return jsonResponse({ error: 'CI_KV not bound' }, 503, request);
       const html = await env.CI_KV.get(CI_REPORT_KEY);
-      if (html === null) return jsonResponse({ error: "no report stored yet" }, 404, request);
+      if (html === null) return jsonResponse({ error: 'no report stored yet' }, 404, request);
       return new Response(html, {
         status: 200,
-        headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", ...corsHeaders(request) },
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store',
+          ...corsHeaders(request),
+        },
       });
     }
 
@@ -995,9 +1138,9 @@ export default {
     // set: the zone id is the prerequisite this issue originally missed, since
     // only `zone_name` exists in config and the GraphQL API keys on `zoneTag`.
     const trafficMatch = url.pathname.match(/^\/api\/games\/([a-z0-9][a-z0-9-]*)\/traffic$/);
-    if (trafficMatch && request.method === "GET") {
+    if (trafficMatch && request.method === 'GET') {
       if (!env.CF_API_TOKEN || !env.CF_ZONE_ID) {
-        return jsonResponse({ error: "CF_API_TOKEN or CF_ZONE_ID not configured" }, 503, request);
+        return jsonResponse({ error: 'CF_API_TOKEN or CF_ZONE_ID not configured' }, 503, request);
       }
       const id = trafficMatch[1]!;
       const host = `${id}.${DOMAIN}`;
@@ -1019,19 +1162,30 @@ export default {
   }
 }`;
       try {
-        const res = await fetch("https://api.cloudflare.com/client/v4/graphql", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${env.CF_API_TOKEN}`, "Content-Type": "application/json" },
+        const res = await fetch('https://api.cloudflare.com/client/v4/graphql', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${env.CF_API_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({ query, variables: { zone: env.CF_ZONE_ID, since, until, host } }),
         });
         if (!res.ok) {
-          return jsonResponse({ error: `Cloudflare Analytics returned ${res.status}` }, 502, request);
+          return jsonResponse(
+            { error: `Cloudflare Analytics returned ${res.status}` },
+            502,
+            request,
+          );
         }
         const data = (await res.json()) as any;
         // GraphQL reports errors with HTTP 200 — surface them rather than
         // rendering an empty chart that looks like "no traffic".
         if (Array.isArray(data?.errors) && data.errors.length) {
-          return jsonResponse({ error: data.errors[0]?.message || "Analytics query failed" }, 502, request);
+          return jsonResponse(
+            { error: data.errors[0]?.message || 'Analytics query failed' },
+            502,
+            request,
+          );
         }
         const groups: any[] = data?.data?.viewer?.zones?.[0]?.httpRequests1dGroups ?? [];
         const days = groups.map((g) => ({
@@ -1040,17 +1194,21 @@ export default {
           pageViews: Number(g?.sum?.pageViews) || 0,
           visitors: Number(g?.uniq?.uniques) || 0,
         }));
-        return jsonResponse({
-          host,
-          since,
-          until,
-          days,
-          totals: {
-            requests: days.reduce((n, d) => n + d.requests, 0),
-            pageViews: days.reduce((n, d) => n + d.pageViews, 0),
-            visitors: days.reduce((n, d) => n + d.visitors, 0),
+        return jsonResponse(
+          {
+            host,
+            since,
+            until,
+            days,
+            totals: {
+              requests: days.reduce((n, d) => n + d.requests, 0),
+              pageViews: days.reduce((n, d) => n + d.pageViews, 0),
+              visitors: days.reduce((n, d) => n + d.visitors, 0),
+            },
           },
-        }, 200, request);
+          200,
+          request,
+        );
       } catch (e) {
         return jsonResponse({ error: `Analytics request failed: ${String(e)}` }, 502, request);
       }
@@ -1070,29 +1228,44 @@ export default {
     // insertHostRoute the cron and provisioning both use, so running it on a
     // healthy game is a no-op rather than a risk.
     const healMatch = url.pathname.match(/^\/api\/games\/([a-z0-9][a-z0-9-]*)\/heal-route$/);
-    if (healMatch && request.method === "POST") {
+    if (healMatch && request.method === 'POST') {
       const { isAdmin } = await authenticateAdmin(request, env);
-      if (!isAdmin) return jsonResponse({ error: "unauthorized" }, 401, request);
+      if (!isAdmin) return jsonResponse({ error: 'unauthorized' }, 401, request);
       const id = healMatch[1]!;
       // Only heal a game the registry actually lists. Writing a route for an
       // unlisted id would recreate exactly the orphan-route drift reconcile
       // deletes on its next pass — churn that looks like a fix.
       const items = await fetchRegistryItems(env);
       if (items === null) {
-        return jsonResponse({ error: "registry read failed — not healing blind" }, 503, request);
+        return jsonResponse({ error: 'registry read failed — not healing blind' }, 503, request);
       }
       if (!items.some((g) => g?.id === id)) {
         return jsonResponse(
-          { ok: false, step: { name: "Hosting route", status: "fail", detail: `${id} is not in the store registry — provision or re-list it first` } },
+          {
+            ok: false,
+            step: {
+              name: 'Hosting route',
+              status: 'fail',
+              detail: `${id} is not in the store registry — provision or re-list it first`,
+            },
+          },
           400,
           request,
         );
       }
       const step = await insertHostRoute(env as any, id);
-      if (step.status === "fail") {
-        await recordError(env.DB, { source: "admin/heal-route", context: `id=${id}`, message: step.detail });
+      if (step.status === 'fail') {
+        await recordError(env.DB, {
+          source: 'admin/heal-route',
+          context: `id=${id}`,
+          message: step.detail,
+        });
       }
-      return jsonResponse({ ok: step.status !== "fail", step }, step.status === "fail" ? 500 : 200, request);
+      return jsonResponse(
+        { ok: step.status !== 'fail', step },
+        step.status === 'fail' ? 500 : 200,
+        request,
+      );
     }
 
     // POST /api/game-status — report a CONCLUDED build outcome for a game (#22).
@@ -1104,27 +1277,38 @@ export default {
     // as live store-wide, so this is not something a user-authenticated caller
     // should be able to set for themselves. Every non-agent publisher (CLI, MCP)
     // is covered by reconcile's sweep instead — no extra auth surface needed.
-    if (url.pathname === "/api/game-status" && request.method === "POST") {
-      const internal = request.headers.get("X-Internal-Token");
+    if (url.pathname === '/api/game-status' && request.method === 'POST') {
+      const internal = request.headers.get('X-Internal-Token');
       if (!(internal && env.INTERNAL_TOKEN && safeEqual(internal, env.INTERNAL_TOKEN))) {
-        return jsonResponse({ error: "unauthorized" }, 401, request);
+        return jsonResponse({ error: 'unauthorized' }, 401, request);
       }
       const body = (await request.json().catch(() => ({}))) as { id?: string; status?: string };
-      if (!body.id || (body.status !== "live" && body.status !== "failed")) {
-        return jsonResponse({ error: "id and status ('live'|'failed') are required" }, 400, request);
+      if (!body.id || (body.status !== 'live' && body.status !== 'failed')) {
+        return jsonResponse(
+          { error: "id and status ('live'|'failed') are required" },
+          400,
+          request,
+        );
       }
       const step = await setGameStatus(env as any, body.id, body.status);
-      if (step.status === "fail") {
+      if (step.status === 'fail') {
         await recordError(env.DB, {
-          source: "admin/game-status",
+          source: 'admin/game-status',
           context: `id=${body.id} status=${body.status}`,
           message: step.detail,
         });
       }
-      return jsonResponse({ ok: step.status !== "fail", step }, step.status === "fail" ? 500 : 200, request);
+      return jsonResponse(
+        { ok: step.status !== 'fail', step },
+        step.status === 'fail' ? 500 : 200,
+        request,
+      );
     }
 
-    if ((url.pathname === "/api/provision" || url.pathname === "/api/publish") && request.method === "POST") {
+    if (
+      (url.pathname === '/api/provision' || url.pathname === '/api/publish') &&
+      request.method === 'POST'
+    ) {
       // Auth required (admin session, or fgs_token from MCP/console). Without this,
       // anyone reachable to admin.freegamestore.online can provision repos in
       // freegamestore-online and mint CF resources. CF Access adds defense-in-depth.
@@ -1133,17 +1317,17 @@ export default {
       // fgs_token at deploy time, so it presents the shared INTERNAL_TOKEN via
       // X-Internal-Token. In that case the owner comes from the request body's
       // creatorGithub (validated downstream against GitHub's username grammar).
-      const internal = request.headers.get("X-Internal-Token");
+      const internal = request.headers.get('X-Internal-Token');
       const trusted = !!(internal && env.INTERNAL_TOKEN && safeEqual(internal, env.INTERNAL_TOKEN));
       const login = trusted ? null : await authenticateLogin(request, env);
       if (!trusted && !login) {
-        return jsonResponse({ error: "unauthorized" }, 401, request);
+        return jsonResponse({ error: 'unauthorized' }, 401, request);
       }
       const t0 = Date.now();
       let ownerForLog: string | undefined;
       let idForLog: string | undefined;
       try {
-        const body = await request.json() as any;
+        const body = (await request.json()) as any;
         idForLog = body?.id;
         // Ownership is caller-derived for user-authenticated calls: a normal
         // authenticated caller must NOT be able to register a game owned by an
@@ -1154,7 +1338,11 @@ export default {
         const owner = trusted ? body.creatorGithub : login;
         ownerForLog = owner;
         if (trusted && !owner) {
-          return jsonResponse({ error: "creatorGithub required for internal provision" }, 400, request);
+          return jsonResponse(
+            { error: 'creatorGithub required for internal provision' },
+            400,
+            request,
+          );
         }
         console.log(`[provision] id=${body?.id} owner=${owner} trusted=${trusted}`);
         const result = await handlePublish({ ...body, creatorGithub: owner }, env as any);
@@ -1165,15 +1353,28 @@ export default {
         if (!result.success) {
           // handlePublish reports failures per-step (no top-level `error`), so
           // build the message from the failed step(s).
-          const failMsg = (result.steps || [])
-            .filter((s) => s.status === "fail")
-            .map((s) => `${s.name}: ${s.detail}`)
-            .join("; ") || "provision returned success:false";
-          await recordError(env.DB, { source: "admin/provision", user: owner, context: `id=${body?.id} +${Date.now() - t0}ms`, message: failMsg, stack: JSON.stringify(result).slice(0, 1500) });
+          const failMsg =
+            (result.steps || [])
+              .filter((s) => s.status === 'fail')
+              .map((s) => `${s.name}: ${s.detail}`)
+              .join('; ') || 'provision returned success:false';
+          await recordError(env.DB, {
+            source: 'admin/provision',
+            user: owner,
+            context: `id=${body?.id} +${Date.now() - t0}ms`,
+            message: failMsg,
+            stack: JSON.stringify(result).slice(0, 1500),
+          });
         }
         return jsonResponse(result, result.success ? 200 : 400, request);
       } catch (e) {
-        await recordError(env.DB, { source: "admin/provision", user: ownerForLog, context: `id=${idForLog} threwAfter=${Date.now() - t0}ms`, message: (e as Error)?.message ?? String(e), stack: (e as Error)?.stack });
+        await recordError(env.DB, {
+          source: 'admin/provision',
+          user: ownerForLog,
+          context: `id=${idForLog} threwAfter=${Date.now() - t0}ms`,
+          message: (e as Error)?.message ?? String(e),
+          stack: (e as Error)?.stack,
+        });
         return jsonResponse({ error: String(e) }, 500, request);
       }
     }
@@ -1187,7 +1388,7 @@ export default {
     if (!isAdmin) {
       return new Response(renderSignIn(email), {
         status: 200,
-        headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
       });
     }
     // Serve the built React app (Workers Static Assets; hash routing, so any
@@ -1195,8 +1396,10 @@ export default {
     if (env.ASSETS) {
       const assetRes = await env.ASSETS.fetch(request);
       if (assetRes.status !== 404) return assetRes;
-      return env.ASSETS.fetch(new Request(new URL("/", request.url).toString(), { headers: request.headers }));
+      return env.ASSETS.fetch(
+        new Request(new URL('/', request.url).toString(), { headers: request.headers }),
+      );
     }
-    return new Response("admin app assets missing (build web/)", { status: 500 });
+    return new Response('admin app assets missing (build web/)', { status: 500 });
   },
 };

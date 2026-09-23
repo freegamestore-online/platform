@@ -1,15 +1,16 @@
-import type { DeployState } from "../types";
+import type { DeployState } from '../types';
 
 /** The org every FGS game repo lives in (same hardcoded assumption as the
  *  `<id>.freegamestore.online` preview URL in Create.tsx). */
-const ORG = "freegamestore-online";
+const ORG = 'freegamestore-online';
 
 /**
  * The prompt the "Fix & retry" button sends. A bare re-deploy of unchanged code
  * fails CI identically, so the retry has to ask the agent to DIAGNOSE first —
  * it has get_build_logs / get_ci_results for exactly this.
  */
-export const RETRY_DEPLOY_PROMPT = "The deploy failed. Check the build logs, fix the problem, then deploy again.";
+export const RETRY_DEPLOY_PROMPT =
+  'The deploy failed. Check the build logs, fix the problem, then deploy again.';
 
 export interface DeployErrorInfo {
   /** Always non-empty — the real error, or an actionable fallback. */

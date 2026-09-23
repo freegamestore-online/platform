@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AnthropicAdapter } from "./anthropic";
-import { OpenAIAdapter } from "./openai";
 import { GoogleAdapter } from "./google";
+import { OpenAIAdapter } from "./openai";
 import type { StreamEvent } from "./types";
 
 // Build a fetch Response whose body streams the given SSE `data:` lines, so we
@@ -30,7 +30,11 @@ async function collect(gen: AsyncGenerator<StreamEvent>): Promise<StreamEvent[]>
   return out;
 }
 
-const texts = (events: StreamEvent[]) => events.filter((e) => e.type === "text").map((e) => e.data).join("");
+const texts = (events: StreamEvent[]) =>
+  events
+    .filter((e) => e.type === "text")
+    .map((e) => e.data)
+    .join("");
 
 afterEach(() => vi.unstubAllGlobals());
 

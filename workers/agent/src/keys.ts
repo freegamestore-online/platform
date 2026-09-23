@@ -8,9 +8,10 @@
  * localStorage-on-the-console model, where an XSS on the console could read the
  * raw keys.
  */
+
+import { openSecret, sealSecret } from "./crypto";
 import type { Env } from "./index";
 import { resolveUser } from "./sessions";
-import { sealSecret, openSecret } from "./crypto";
 
 const VALID_PROVIDERS = new Set(["github", "openrouter", "anthropic", "openai", "google"]);
 const KEK_VERSION = 1;
@@ -74,11 +75,12 @@ export async function deleteUserKey(env: Env, userId: string, provider: string):
 }
 
 /** Providers the user has a key for — metadata only, never the key itself. */
-export async function keyStatus(env: Env, userId: string): Promise<Array<{ provider: string; updatedAt: string; lastUsedAt: string | null }>> {
+export async function keyStatus(
+  env: Env,
+  userId: string,
+): Promise<Array<{ provider: string; updatedAt: string; lastUsedAt: string | null }>> {
   await ensureSchema(env.DB);
-  const { results } = await env.DB.prepare(
-    "SELECT provider, updated_at, last_used_at FROM user_api_keys WHERE user_id = ?",
-  )
+  const { results } = await env.DB.prepare("SELECT provider, updated_at, last_used_at FROM user_api_keys WHERE user_id = ?")
     .bind(userId)
     .all();
   return (results as Record<string, unknown>[]).map((r) => ({
@@ -93,9 +95,7 @@ export async function keyStatus(env: Env, userId: string): Promise<Array<{ provi
 export async function resolveUserKey(env: Env, userId: string, provider: string): Promise<string | null> {
   if (!env.AI_KEYS_KEK || !env.DB) return null;
   await ensureSchema(env.DB);
-  const row = await env.DB.prepare(
-    "SELECT key_ciphertext, dek_wrapped, iv FROM user_api_keys WHERE user_id = ? AND provider = ?",
-  )
+  const row = await env.DB.prepare("SELECT key_ciphertext, dek_wrapped, iv FROM user_api_keys WHERE user_id = ? AND provider = ?")
     .bind(userId, provider)
     .first<{ key_ciphertext: unknown; dek_wrapped: unknown; iv: unknown }>();
   if (!row) return null;

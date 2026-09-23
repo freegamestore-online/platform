@@ -29,14 +29,14 @@ export interface DriftRow {
 
 /** Latest CONCLUDED deploy.yml outcome. `null` when nothing has concluded yet
  *  (queued/in-progress only, or no runs at all). */
-export type DeployConclusion = "success" | "failure" | "timed_out" | "cancelled" | "other" | null;
+export type DeployConclusion = 'success' | 'failure' | 'timed_out' | 'cancelled' | 'other' | null;
 
 export interface FleetRow {
   id: string;
   headSha: string | null;
   lastSuccessSha: string | null;
   conclusion: DeployConclusion;
-  state: "drifted" | "current" | "neverBuilt" | "unknown";
+  state: 'drifted' | 'current' | 'neverBuilt' | 'unknown';
 }
 
 export interface DriftReport {
@@ -57,7 +57,11 @@ interface DriftEnv {
 
 /** Run `work` over `items` with at most `limit` in flight. ~127 games × 2 calls
  *  would otherwise open 254 sockets at once and trip GitHub's abuse detection. */
-async function mapPool<T, R>(items: T[], limit: number, work: (item: T) => Promise<R>): Promise<R[]> {
+async function mapPool<T, R>(
+  items: T[],
+  limit: number,
+  work: (item: T) => Promise<R>,
+): Promise<R[]> {
   const out = new Array<R>(items.length);
   let next = 0;
   const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
@@ -75,9 +79,9 @@ async function gh(env: DriftEnv, path: string): Promise<any | null> {
   try {
     const res = await fetch(`https://api.github.com${path}`, {
       headers: {
-        Accept: "application/vnd.github+json",
-        "User-Agent": "freegamestore-admin",
-        "X-GitHub-Api-Version": "2022-11-28",
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'freegamestore-admin',
+        'X-GitHub-Api-Version': '2022-11-28',
         ...(env.GITHUB_TOKEN ? { Authorization: `Bearer ${env.GITHUB_TOKEN}` } : {}),
       },
     });
@@ -88,9 +92,9 @@ async function gh(env: DriftEnv, path: string): Promise<any | null> {
   }
 }
 
-const short = (sha: unknown) => (typeof sha === "string" && sha ? sha.slice(0, 7) : null);
+const short = (sha: unknown) => (typeof sha === 'string' && sha ? sha.slice(0, 7) : null);
 
-const CONCLUSIONS = new Set(["success", "failure", "timed_out", "cancelled"]);
+const CONCLUSIONS = new Set(['success', 'failure', 'timed_out', 'cancelled']);
 
 /** Inspect one game: HEAD vs last successful build, plus the latest concluded
  *  deploy outcome.
@@ -109,23 +113,36 @@ export async function checkGameDrift(env: DriftEnv, org: string, id: string): Pr
 
   const headSha = short(ref?.object?.sha);
   const list: any[] = Array.isArray(runs?.workflow_runs) ? runs.workflow_runs : [];
-  const concluded = list.filter((r) => r?.status === "completed" && r?.conclusion);
+  const concluded = list.filter((r) => r?.status === 'completed' && r?.conclusion);
 
   const raw = concluded[0]?.conclusion as string | undefined;
-  const conclusion: DeployConclusion = raw ? (CONCLUSIONS.has(raw) ? (raw as DeployConclusion) : "other") : null;
+  const conclusion: DeployConclusion = raw
+    ? CONCLUSIONS.has(raw)
+      ? (raw as DeployConclusion)
+      : 'other'
+    : null;
 
-  let lastSuccessSha = short(concluded.find((r) => r.conclusion === "success")?.head_sha);
+  let lastSuccessSha = short(concluded.find((r) => r.conclusion === 'success')?.head_sha);
   if (!lastSuccessSha && runs !== null) {
-    const older = await gh(env, `/repos/${org}/${id}/actions/workflows/deploy.yml/runs?status=success&per_page=1`);
+    const older = await gh(
+      env,
+      `/repos/${org}/${id}/actions/workflows/deploy.yml/runs?status=success&per_page=1`,
+    );
     lastSuccessSha = short(older?.workflow_runs?.[0]?.head_sha);
   }
 
   // A missing HEAD means the repo is unreadable — say so rather than inferring
   // drift from an API failure (the false-orphan trap reconcile already guards).
-  if (!headSha) return { id, headSha, lastSuccessSha, conclusion, state: "unknown" };
-  if (runs === null) return { id, headSha, lastSuccessSha, conclusion, state: "unknown" };
-  if (!lastSuccessSha) return { id, headSha, lastSuccessSha, conclusion, state: "neverBuilt" };
-  return { id, headSha, lastSuccessSha, conclusion, state: headSha === lastSuccessSha ? "current" : "drifted" };
+  if (!headSha) return { id, headSha, lastSuccessSha, conclusion, state: 'unknown' };
+  if (runs === null) return { id, headSha, lastSuccessSha, conclusion, state: 'unknown' };
+  if (!lastSuccessSha) return { id, headSha, lastSuccessSha, conclusion, state: 'neverBuilt' };
+  return {
+    id,
+    headSha,
+    lastSuccessSha,
+    conclusion,
+    state: headSha === lastSuccessSha ? 'current' : 'drifted',
+  };
 }
 
 /** One sweep of the whole fleet. Both /api/drift and /api/status/deploys are
@@ -142,10 +159,17 @@ export function driftReportFrom(rows: FleetRow[]): DriftReport {
   const unknown: string[] = [];
   let checked = 0;
   for (const r of rows) {
-    if (r.state === "unknown") { unknown.push(r.id); continue; }
-    if (r.state === "neverBuilt") { neverBuilt.push(r.id); continue; }
+    if (r.state === 'unknown') {
+      unknown.push(r.id);
+      continue;
+    }
+    if (r.state === 'neverBuilt') {
+      neverBuilt.push(r.id);
+      continue;
+    }
     checked++;
-    if (r.state === "drifted") drifted.push({ id: r.id, headSha: r.headSha, lastSuccessSha: r.lastSuccessSha });
+    if (r.state === 'drifted')
+      drifted.push({ id: r.id, headSha: r.headSha, lastSuccessSha: r.lastSuccessSha });
   }
   return {
     ts: new Date().toISOString(),
@@ -178,10 +202,13 @@ export async function recentRuns(env: DriftEnv, org: string, id: string, n = 5):
   return list.slice(0, n).map((r) => ({
     // An in-flight run has no conclusion yet — report its status instead of an
     // empty badge.
-    conclusion: (r?.status === "completed" ? r?.conclusion : r?.status) || "unknown",
+    conclusion: (r?.status === 'completed' ? r?.conclusion : r?.status) || 'unknown',
     sha: short(r?.head_sha),
-    message: typeof r?.head_commit?.message === "string" ? r.head_commit.message.split("\n")[0]!.slice(0, 120) : "",
-    updatedAt: typeof r?.updated_at === "string" ? r.updated_at : null,
-    url: typeof r?.html_url === "string" ? r.html_url : null,
+    message:
+      typeof r?.head_commit?.message === 'string'
+        ? r.head_commit.message.split('\n')[0]!.slice(0, 120)
+        : '',
+    updatedAt: typeof r?.updated_at === 'string' ? r.updated_at : null,
+    url: typeof r?.html_url === 'string' ? r.html_url : null,
   }));
 }

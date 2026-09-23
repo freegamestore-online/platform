@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
-import { ApiError } from "./api.ts";
-import { Loading } from "./Overview.tsx";
+import { useEffect, useState } from 'react';
+import { ApiError } from './api.ts';
+import { Loading } from './Overview.tsx';
 
 type State =
-  | { kind: "loading" }
-  | { kind: "report"; html: string }
-  | { kind: "unprovisioned" }
-  | { kind: "empty" }
-  | { kind: "error"; message: string };
+  | { kind: 'loading' }
+  | { kind: 'report'; html: string }
+  | { kind: 'unprovisioned' }
+  | { kind: 'empty' }
+  | { kind: 'error'; message: string };
 
 /** Latest CI test report (#24).
  *
@@ -18,69 +18,91 @@ type State =
  *  XSS vector against the console. `sandbox` with no `allow-same-origin` keeps it
  *  inert and unable to touch admin cookies. */
 export function CiReport() {
-  const [state, setState] = useState<State>({ kind: "loading" });
+  const [state, setState] = useState<State>({ kind: 'loading' });
 
   useEffect(() => {
-    fetch("/api/ci/test-report", { credentials: "include" })
+    fetch('/api/ci/test-report', { credentials: 'include' })
       .then(async (res) => {
-        if (res.status === 503) return setState({ kind: "unprovisioned" });
-        if (res.status === 404) return setState({ kind: "empty" });
+        if (res.status === 503) return setState({ kind: 'unprovisioned' });
+        if (res.status === 404) return setState({ kind: 'empty' });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}) as { error?: string });
-          throw new ApiError(res.status, (body as { error?: string }).error ?? `HTTP ${res.status}`);
+          throw new ApiError(
+            res.status,
+            (body as { error?: string }).error ?? `HTTP ${res.status}`,
+          );
         }
-        setState({ kind: "report", html: await res.text() });
+        setState({ kind: 'report', html: await res.text() });
       })
-      .catch((e) => setState({ kind: "error", message: (e as Error).message }));
+      .catch((e) => setState({ kind: 'error', message: (e as Error).message }));
   }, []);
 
-  if (state.kind === "loading") return <Loading />;
+  if (state.kind === 'loading') return <Loading />;
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-1" style={{ color: "var(--ink)" }}>CI test report</h1>
-      <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
-        The most recent report uploaded by CI. Rendered sandboxed — it is generated output, not trusted markup.
+      <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--ink)' }}>
+        CI test report
+      </h1>
+      <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
+        The most recent report uploaded by CI. Rendered sandboxed — it is generated output, not
+        trusted markup.
       </p>
 
-      {state.kind === "unprovisioned" && (
+      {state.kind === 'unprovisioned' && (
         <Notice tone="var(--warning, #d97706)" title="Not provisioned yet">
-          The <code>CI_KV</code> namespace is not bound, so there is nowhere to store a report. Create it with{" "}
-          <code>wrangler kv namespace create fgs-admin-kv</code>, uncomment the binding in{" "}
-          <code>apps/admin/wrangler.toml</code>, and set <code>CI_TOKEN</code> so CI can upload.
+          The <code>CI_KV</code> namespace is not bound, so there is nowhere to store a report.
+          Create it with <code>wrangler kv namespace create fgs-admin-kv</code>, uncomment the
+          binding in <code>apps/admin/wrangler.toml</code>, and set <code>CI_TOKEN</code> so CI can
+          upload.
         </Notice>
       )}
 
-      {state.kind === "empty" && (
+      {state.kind === 'empty' && (
         <Notice tone="var(--muted)" title="No report uploaded yet">
           KV is bound but empty — CI has not yet <code>PUT /api/ci/test-report</code>.
         </Notice>
       )}
 
-      {state.kind === "error" && (
+      {state.kind === 'error' && (
         <Notice tone="var(--error, #dc2626)" title="Could not load the report">
           {state.message}
         </Notice>
       )}
 
-      {state.kind === "report" && (
+      {state.kind === 'report' && (
         <iframe
           title="CI test report"
           sandbox=""
           srcDoc={state.html}
           className="w-full rounded-xl border"
-          style={{ borderColor: "var(--line)", background: "#fff", height: "75vh" }}
+          style={{ borderColor: 'var(--line)', background: '#fff', height: '75vh' }}
         />
       )}
     </div>
   );
 }
 
-function Notice({ tone, title, children }: { tone: string; title: string; children: React.ReactNode }) {
+function Notice({
+  tone,
+  title,
+  children,
+}: {
+  tone: string;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="rounded-xl border p-4" style={{ borderColor: "var(--line)", background: "var(--panel)" }}>
-      <div className="text-sm font-semibold mb-1" style={{ color: tone }}>{title}</div>
-      <div className="text-sm" style={{ color: "var(--muted)" }}>{children}</div>
+    <div
+      className="rounded-xl border p-4"
+      style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
+    >
+      <div className="text-sm font-semibold mb-1" style={{ color: tone }}>
+        {title}
+      </div>
+      <div className="text-sm" style={{ color: 'var(--muted)' }}>
+        {children}
+      </div>
     </div>
   );
 }

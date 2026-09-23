@@ -1,4 +1,4 @@
-const CURRENT_KEY = "fgs_current_project";
+const CURRENT_KEY = 'fgs_current_project';
 
 export function currentProjectStorageKey(userSub: string | null | undefined): string {
   return userSub ? `${CURRENT_KEY}:${userSub}` : CURRENT_KEY;

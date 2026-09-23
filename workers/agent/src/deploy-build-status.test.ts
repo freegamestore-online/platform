@@ -57,17 +57,17 @@ describe("reportBuildStatus", () => {
   });
 
   it("swallows a thrown admin call — a deploy is not failed by a failed report", async () => {
-    const ADMIN = { fetch: async () => { throw new Error("admin down"); } };
-    await expect(
-      reportBuildStatus("chess", "live", { ADMIN, INTERNAL_TOKEN: "s" } as any, config),
-    ).resolves.toBeUndefined();
+    const ADMIN = {
+      fetch: async () => {
+        throw new Error("admin down");
+      },
+    };
+    await expect(reportBuildStatus("chess", "live", { ADMIN, INTERNAL_TOKEN: "s" } as any, config)).resolves.toBeUndefined();
   });
 
   it("swallows a non-OK admin response", async () => {
     const { ADMIN } = makeAdmin(() => new Response("nope", { status: 500 }));
-    await expect(
-      reportBuildStatus("chess", "live", { ADMIN, INTERNAL_TOKEN: "s" } as any, config),
-    ).resolves.toBeUndefined();
+    await expect(reportBuildStatus("chess", "live", { ADMIN, INTERNAL_TOKEN: "s" } as any, config)).resolves.toBeUndefined();
   });
 });
 
@@ -77,12 +77,12 @@ describe("waitForActionsDeploy reports the CI outcome", () => {
     vi.useFakeTimers();
     // A real Response: makeGhApi reads the body with res.text(), so a bare
     // { json } stub parses as {} and the poll loop never sees a run at all.
-    globalThis.fetch = vi.fn().mockImplementation(async () =>
-      new Response(
-        JSON.stringify({ workflow_runs: [{ status: "completed", conclusion, id: 1, html_url: "u" }] }),
-        { status: 200 },
-      ),
-    ) as any;
+    globalThis.fetch = vi
+      .fn()
+      .mockImplementation(
+        async () =>
+          new Response(JSON.stringify({ workflow_runs: [{ status: "completed", conclusion, id: 1, html_url: "u" }] }), { status: 200 }),
+      ) as any;
 
     const statuses: any[] = [];
     const done = waitForActionsDeploy(
@@ -117,12 +117,11 @@ describe("waitForActionsDeploy reports the CI outcome", () => {
   it("reports NOTHING for a cancelled run — Path B cancels superseded runs by design", async () => {
     const admin = makeAdmin();
     vi.useFakeTimers();
-    globalThis.fetch = vi.fn().mockImplementation(async () =>
-      new Response(
-        JSON.stringify({ workflow_runs: [{ status: "completed", conclusion: "cancelled" }] }),
-        { status: 200 },
-      ),
-    ) as any;
+    globalThis.fetch = vi
+      .fn()
+      .mockImplementation(
+        async () => new Response(JSON.stringify({ workflow_runs: [{ status: "completed", conclusion: "cancelled" }] }), { status: 200 }),
+      ) as any;
 
     const statuses: any[] = [];
     const done = waitForActionsDeploy(

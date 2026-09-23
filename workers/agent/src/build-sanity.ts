@@ -60,35 +60,102 @@ export function stripToSkeleton(src: string): string {
     const c2 = i + 1 < n ? src[i + 1] : "";
     switch (mode) {
       case "code":
-        if (c === "/" && c2 === "/") { mode = "line"; blank(c); i++; break; }
-        if (c === "/" && c2 === "*") { mode = "block"; blank(c); i++; break; }
-        if (c === '"') { mode = "dq"; out.push(c); i++; break; }
-        if (c === "'") { mode = "sq"; out.push(c); i++; break; }
-        if (c === "`") { mode = "tpl"; out.push(c); i++; break; }
-        out.push(c); i++; break;
+        if (c === "/" && c2 === "/") {
+          mode = "line";
+          blank(c);
+          i++;
+          break;
+        }
+        if (c === "/" && c2 === "*") {
+          mode = "block";
+          blank(c);
+          i++;
+          break;
+        }
+        if (c === '"') {
+          mode = "dq";
+          out.push(c);
+          i++;
+          break;
+        }
+        if (c === "'") {
+          mode = "sq";
+          out.push(c);
+          i++;
+          break;
+        }
+        if (c === "`") {
+          mode = "tpl";
+          out.push(c);
+          i++;
+          break;
+        }
+        out.push(c);
+        i++;
+        break;
 
       case "line":
-        if (c === "\n") { mode = "code"; out.push("\n"); } else blank(c);
-        i++; break;
+        if (c === "\n") {
+          mode = "code";
+          out.push("\n");
+        } else blank(c);
+        i++;
+        break;
 
       case "block":
-        if (c === "*" && c2 === "/") { mode = "code"; blank(c); out.push(" "); i += 2; }
-        else { blank(c); i++; }
+        if (c === "*" && c2 === "/") {
+          mode = "code";
+          blank(c);
+          out.push(" ");
+          i += 2;
+        } else {
+          blank(c);
+          i++;
+        }
         break;
 
       case "sq":
       case "dq": {
         const q = mode === "sq" ? "'" : '"';
-        if (c === "\n") { mode = "code"; out.push("\n"); i++; break; } // unterminated → close at line end
-        if (c === "\\") { blank(c); if (i + 1 < n) blank(src[i + 1]); i += 2; break; }
-        if (c === q) { mode = "code"; out.push(c); i++; break; }
-        blank(c); i++; break;
+        if (c === "\n") {
+          mode = "code";
+          out.push("\n");
+          i++;
+          break;
+        } // unterminated → close at line end
+        if (c === "\\") {
+          blank(c);
+          if (i + 1 < n) blank(src[i + 1]);
+          i += 2;
+          break;
+        }
+        if (c === q) {
+          mode = "code";
+          out.push(c);
+          i++;
+          break;
+        }
+        blank(c);
+        i++;
+        break;
       }
 
       case "tpl":
-        if (c === "\\") { blank(c); if (i + 1 < n) blank(src[i + 1]); i += 2; break; }
-        if (c === "`") { mode = "code"; out.push(c); i++; break; }
-        blank(c); i++; break; // blank the whole template body (incl. ${…}) — we only need top-level decls
+        if (c === "\\") {
+          blank(c);
+          if (i + 1 < n) blank(src[i + 1]);
+          i += 2;
+          break;
+        }
+        if (c === "`") {
+          mode = "code";
+          out.push(c);
+          i++;
+          break;
+        }
+        blank(c);
+        i++;
+        break; // blank the whole template body (incl. ${…}) — we only need top-level decls
     }
   }
   return out.join("");
@@ -110,7 +177,10 @@ function duplicateDeclarations(skeleton: string): string[] {
     if (line === "" || /^\s/.test(line)) continue; // top-level only (column 0)
     for (const re of DECL_PATTERNS) {
       const m = re.exec(line);
-      if (m) { seen.set(m[1], (seen.get(m[1]) || 0) + 1); break; }
+      if (m) {
+        seen.set(m[1], (seen.get(m[1]) || 0) + 1);
+        break;
+      }
     }
   }
   return [...seen.entries()].filter(([, count]) => count >= 2).map(([name]) => name);
@@ -286,8 +356,7 @@ function findKaplayStyledTextIssues(content: string): { line: number; tags: stri
 function findPackedPixiColors(content: string): { line: number; literal: string }[] {
   const findings: { line: number; literal: string }[] = [];
   const seen = new Set<string>();
-  const dangerousUse =
-    /\.(?:fill|stroke)\s*\([^;\n]*0x[0-9a-fA-F]{7,}[^;\n]*\)|(?:fill|color|tint)\s*:\s*0x[0-9a-fA-F]{7,}/g;
+  const dangerousUse = /\.(?:fill|stroke)\s*\([^;\n]*0x[0-9a-fA-F]{7,}[^;\n]*\)|(?:fill|color|tint)\s*:\s*0x[0-9a-fA-F]{7,}/g;
   let use: RegExpExecArray | null;
   while ((use = dangerousUse.exec(content))) {
     const segment = use[0];
@@ -320,7 +389,8 @@ export function checkBuildSanity(files: Map<string, string>): SanityFinding[] {
     if (dups.length) {
       findings.push({
         file: path,
-        problem: `duplicate top-level declaration(s): ${dups.join(", ")}. ` +
+        problem:
+          `duplicate top-level declaration(s): ${dups.join(", ")}. ` +
           `Each name is defined more than once at the top of the file — esbuild fails with ` +
           `"The symbol has already been declared". You likely appended a new version of the ` +
           `code instead of replacing the old one. Remove the duplicate block so each is defined once.`,

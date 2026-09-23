@@ -1,6 +1,6 @@
-import { Nav } from "./Nav";
+import { Nav } from './Nav';
 
-const centerStyle = { minHeight: "calc(100dvh - 60px)" };
+const centerStyle = { minHeight: 'calc(100dvh - 60px)' };
 
 /** Full-page loading spinner with Nav. */
 export function LoadingShell() {
@@ -21,17 +21,19 @@ export function SignInShell({ onSignIn, message }: { onSignIn: () => void; messa
       <Nav />
       <div className="flex items-center justify-center px-4" style={centerStyle}>
         <div className="text-center max-w-md">
-          <p className="mb-4" style={{ color: "var(--muted)" }}>{message}</p>
+          <p className="mb-4" style={{ color: 'var(--muted)' }}>
+            {message}
+          </p>
           <button
             onClick={onSignIn}
             className="px-6 font-semibold rounded-xl"
             style={{
               minHeight: 44,
-              background: "var(--accent)",
-              color: "#000",
-              border: "none",
-              cursor: "pointer",
-              fontFamily: "inherit",
+              background: 'var(--accent)',
+              color: '#000',
+              border: 'none',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
             }}
           >
             Sign in with GitHub
@@ -51,12 +53,21 @@ export function ErrorShell({ message, onRetry }: { message: string; onRetry?: ()
       <Nav />
       <div className="flex items-center justify-center px-4" style={centerStyle}>
         <div className="text-center max-w-md">
-          <p className="text-lg font-semibold mb-4" style={{ color: "var(--error)" }}>{message}</p>
+          <p className="text-lg font-semibold mb-4" style={{ color: 'var(--error)' }}>
+            {message}
+          </p>
           {onRetry && (
             <button
               onClick={onRetry}
               className="px-6 font-semibold rounded-xl"
-              style={{ minHeight: 44, background: "var(--accent)", color: "#000", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+              style={{
+                minHeight: 44,
+                background: 'var(--accent)',
+                color: '#000',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
             >
               Try again
             </button>

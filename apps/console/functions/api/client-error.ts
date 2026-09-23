@@ -1,5 +1,5 @@
-import { resolveCreator, corsHeaders } from "./_auth";
-import { recordError } from "./_errlog";
+import { corsHeaders, resolveCreator } from './_auth';
+import { recordError } from './_errlog';
 
 interface Env {
   SESSIONS: KVNamespace;
@@ -39,20 +39,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const json = (v: unknown, status = 200) =>
     new Response(JSON.stringify(v), {
       status,
-      headers: { "Content-Type": "application/json", ...corsHeaders(request) },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders(request) },
     });
 
   // Rate-limit by CF-connecting IP (best effort; CF always sets this header).
-  const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
   if (isRateLimited(ip)) {
-    return json({ error: "Too many error reports" }, 429);
+    return json({ error: 'Too many error reports' }, 429);
   }
 
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;
   } catch {
-    return json({ error: "Invalid JSON body" }, 400);
+    return json({ error: 'Invalid JSON body' }, 400);
   }
 
   // Cap all string fields before insert — message/stack can be large.
@@ -60,18 +60,21 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const MAX_STACK = 4_000;
   const MAX_CONTEXT = 1_000;
 
-  const route = typeof body.route === "string" ? body.route.slice(0, 200) : null;
-  const message = typeof body.message === "string" ? body.message.slice(0, MAX_MESSAGE) : "unknown error";
-  const stack = typeof body.stack === "string" ? body.stack.slice(0, MAX_STACK) || null : null;
-  const clientContext = typeof body.context === "string" ? body.context.slice(0, MAX_CONTEXT) : null;
+  const route = typeof body.route === 'string' ? body.route.slice(0, 200) : null;
+  const message =
+    typeof body.message === 'string' ? body.message.slice(0, MAX_MESSAGE) : 'unknown error';
+  const stack = typeof body.stack === 'string' ? body.stack.slice(0, MAX_STACK) || null : null;
+  const clientContext =
+    typeof body.context === 'string' ? body.context.slice(0, MAX_CONTEXT) : null;
 
   // Resolve the signed-in GitHub login server-side — never trust the client.
   const userLogin = await resolveCreator(request, env);
 
-  const context_str = [route ? `route=${route}` : null, clientContext].filter(Boolean).join(" ") || null;
+  const context_str =
+    [route ? `route=${route}` : null, clientContext].filter(Boolean).join(' ') || null;
 
   await recordError(env.DB, {
-    source: "console/web",
+    source: 'console/web',
     user: userLogin,
     context: context_str,
     message,
