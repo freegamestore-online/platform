@@ -32,6 +32,7 @@ export function GameSettings() {
 
   // Seed the form once the live game loads. (No-op for drafts — they render a
   // separate, lighter settings view below.)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: seed once per game id; re-seeding on every reload of the game object would wipe unsaved edits.
   useEffect(() => {
     if (!game) return;
     setName(game.name);

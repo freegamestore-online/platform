@@ -48,6 +48,7 @@ export function ChatMessage({
   // Fetch (or recall) the kid rewrite whenever the message text or the chosen
   // age/vibe changes. reqRef guards against a stale response overwriting a newer
   // one (content can change as a streamed message settles).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on kid.age/vibe, not the kid object — its identity can change every render, which would refetch the rewrite in a loop.
   useEffect(() => {
     if (!kidEligible || !kid) {
       setKidText(null);
@@ -62,6 +63,7 @@ export function ChatMessage({
   }, [kidEligible, content, kid?.age, kid?.vibe]);
 
   // A fresh message / mode change starts on the kid view again.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: content and kid.enabled are reset triggers, not values the effect reads.
   useEffect(() => { setShowOriginal(false); }, [content, kid?.enabled]);
 
   const canToggle = kidEligible && !!kidText;

@@ -72,6 +72,7 @@ export function KidModeSetting() {
         <div className="mt-5 flex flex-col gap-4">
           <div>
             <p className="text-xs font-semibold mb-2" style={{ color: "var(--muted)" }}>AGE</p>
+            {/* biome-ignore lint/a11y/useSemanticElements: a toggle-button group, not a form; <fieldset>'s min-inline-size: min-content would stop the flex-wrap. */}
             <div role="group" aria-label="Age" className="flex flex-wrap gap-2">
               {KID_AGES.map((a) => (
                 <button key={a.value} onClick={() => update({ age: a.value })} aria-pressed={mode.age === a.value} style={chip(mode.age === a.value)}>
@@ -82,6 +83,7 @@ export function KidModeSetting() {
           </div>
           <div>
             <p className="text-xs font-semibold mb-2" style={{ color: "var(--muted)" }}>VIBE</p>
+            {/* biome-ignore lint/a11y/useSemanticElements: a toggle-button group, not a form; <fieldset>'s min-inline-size: min-content would stop the flex-wrap. */}
             <div role="group" aria-label="Vibe" className="flex flex-wrap gap-2">
               {KID_VIBES.map((v) => (
                 <button key={v.value} onClick={() => update({ vibe: v.value })} aria-pressed={mode.vibe === v.value} style={chip(mode.vibe === v.value)}>

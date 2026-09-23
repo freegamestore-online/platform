@@ -23,6 +23,7 @@ export function useUsage() {
   const [games, setGames] = useState<UsageGame[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on user.sub, not the user object — a new object for the same account must not refetch.
   useEffect(() => {
     if (!user) {
       setTotals(null);

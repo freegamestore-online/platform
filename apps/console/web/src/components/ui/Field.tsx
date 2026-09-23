@@ -25,6 +25,7 @@ export function Select({ className, children, ...props }: SelectHTMLAttributes<H
 
 export function Label({ className, children, ...props }: LabelHTMLAttributes<HTMLLabelElement>) {
   return (
+    // biome-ignore lint/a11y/noLabelWithoutControl: htmlFor arrives via ...props from each caller (see Field).
     <label className={cn("block text-sm font-medium text-[var(--muted)] mb-1.5", className)} {...props}>
       {children}
     </label>

@@ -96,6 +96,7 @@ export function filterLogErrorLines(text: string): string[] {
   const interesting = text
     .split("\n")
     .filter((l: string) => /error TS\d|[Ee]rror:|Could not resolve|is not exported|Build failed|ELIFECYCLE|✗/.test(l))
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: strips ANSI colour codes, which start with ESC (\u001b).
     .map((l: string) => l.replace(/^[0-9T:.Z-]+\s*/, "").replace(/\u001b\[[0-9;]*m/g, ""))
     .slice(-25);
   if (interesting.length) return interesting;
