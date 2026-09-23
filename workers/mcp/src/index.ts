@@ -467,7 +467,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       { game_id: z.string().describe("Game ID"), path: z.string().describe("File path relative to repo root") },
       async ({ game_id, path }) => {
         const content = await readRepoFile(this.env.GITHUB_ORG, game_id, this.env.GITHUB_TOKEN, path);
-        if (content === null) return errText(`Could not read ${path} from ${game_id} (not found?).`);
+        if (content === null) return errText(`${path} not found in ${game_id}.`);
         const ext = path.split(".").pop() ?? "";
         return txt(`\`\`\`${ext}\n${content}\n\`\`\``);
       },

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ownsGame } from "./ownership";
+import { OwnershipLookupError, ownsGame } from "./ownership";
 import { AgentSession } from "./session";
 
 // Regression guard for the game-open (import) contract the console relies on.
@@ -81,5 +81,15 @@ describe("AgentSession /import gate", () => {
     const s = new AgentSession(mockState({ session: {} }), doEnv);
     const res = await s.fetch(importReq({ id: "beat-star2" }, AUTH));
     expect(res.status).toBe(403);
+  });
+
+  // #40 — a registry/GitHub outage is not "not found" and not "no access".
+  it("502s (not 404/403) when the ownership lookup fails upstream", async () => {
+    owns.mockRejectedValueOnce(new OwnershipLookupError("store registry unavailable (contents API 503; raw 503)"));
+    const s = new AgentSession(mockState({ session: {} }), doEnv);
+    const res = await s.fetch(importReq({ id: "beat-star2" }, AUTH));
+    expect(res.status).toBe(502);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toMatch(/registry unavailable/);
   });
 });

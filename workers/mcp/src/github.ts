@@ -6,6 +6,24 @@
 const UA = "freegamestore-mcp";
 const TEXT_RE = /\.(ts|tsx|js|jsx|mjs|cjs|json|html|css|md|txt|svg|yml|yaml|toml)$/i;
 
+/** A GitHub request that failed for a reason other than confirmed absence —
+ *  outage, rate limit, auth, malformed body. Callers must surface it, never
+ *  report it as "not found" (#40). */
+export class GitHubError extends Error {
+  readonly status?: number;
+  // No parameter property: node --test strips types and rejects that syntax.
+  constructor(message: string, status?: number) {
+    super(message);
+    this.status = status;
+    this.name = "GitHubError";
+  }
+}
+
+function ghFail(what: string, res: any): GitHubError {
+  const status = res?.__status as number | undefined;
+  return new GitHubError(`GitHub ${what} failed (${status ?? "no status"}${res?.message ? `: ${res.message}` : ""})`, status);
+}
+
 async function gh(token: string | undefined, url: string, method = "GET", body?: unknown): Promise<any> {
   const res = await fetch(url, {
     method,
@@ -84,14 +102,17 @@ export async function readRegistryGames(
   storeRepo: string,
   token?: string,
 ): Promise<Array<{ id: string; creatorGithub?: string; category?: string; description?: string; appUrl?: string; repo?: string; status?: string }>> {
+  // readRepoFile throws on anything but a confirmed 404, so an outage never
+  // reads as an empty registry (which every caller would take as "no games").
   const raw = await readRepoFile(org, storeRepo, token, "registry.json");
-  if (!raw) return [];
+  if (raw === null) return [];
+  let data: { games?: Array<Record<string, unknown>> };
   try {
-    const data = JSON.parse(raw) as { games?: Array<Record<string, unknown>> };
-    return (data.games ?? []) as Array<{ id: string; creatorGithub?: string; category?: string; description?: string; appUrl?: string; repo?: string }>;
+    data = JSON.parse(raw);
   } catch {
-    return [];
+    throw new GitHubError(`registry.json in ${org}/${storeRepo} is not valid JSON`);
   }
+  return (data.games ?? []) as Array<{ id: string; creatorGithub?: string; category?: string; description?: string; appUrl?: string; repo?: string }>;
 }
 
 async function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
@@ -175,22 +196,28 @@ async function pushFilesOnce(
   return commit.sha;
 }
 
-/** List file paths in a repo (recursive). Read-only; works on public repos. */
+/** List file paths in a repo (recursive). Read-only; works on public repos.
+ *  Returns [] only for confirmed absence — no repo/main ref (404) or an empty
+ *  repo (409). Any other failure throws GitHubError. */
 export async function listRepoFiles(org: string, repo: string, token?: string): Promise<string[]> {
   const base = `https://api.github.com/repos/${org}/${repo}`;
   const ref = await gh(token, `${base}/git/ref/heads/main`);
+  if (ref.__status === 404 || ref.__status === 409) return [];
   const headSha = ref?.object?.sha;
-  if (!headSha) return [];
+  if (!headSha) throw ghFail(`ref lookup for ${org}/${repo}`, ref);
   const tree = await gh(token, `${base}/git/trees/${headSha}?recursive=1`);
-  if (!Array.isArray(tree?.tree)) return [];
+  if (!Array.isArray(tree?.tree)) throw ghFail(`tree fetch for ${org}/${repo}`, tree);
   return tree.tree.filter((i: any) => i.type === "blob" && !i.path.startsWith(".git/")).map((i: any) => i.path);
 }
 
-/** Read one file's text content from a repo. */
+/** Read one file's text content from a repo. Null only on a confirmed 404;
+ *  any other failure (or a non-file, e.g. a directory) throws GitHubError. */
 export async function readRepoFile(org: string, repo: string, token: string | undefined, path: string): Promise<string | null> {
   const base = `https://api.github.com/repos/${org}/${repo}`;
   const res = await gh(token, `${base}/contents/${path.split("/").map(encodeURIComponent).join("/")}`);
-  if (typeof res?.content !== "string") return null;
+  if (res.__status === 404) return null;
+  if (res.__status) throw ghFail(`read of ${path} in ${org}/${repo}`, res);
+  if (typeof res?.content !== "string") throw new GitHubError(`${path} in ${org}/${repo} is not a readable file`);
   return b64ToText(res.content);
 }
 

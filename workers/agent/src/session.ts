@@ -10,7 +10,7 @@ import { ENGINE_TEMPLATE_REPOS } from "./template";
 import type { Env } from "./index";
 import { executeInfraTool } from "./infra-exec";
 import { clampToolResultForHistory } from "./tools";
-import { ownsGame } from "./ownership";
+import { OwnershipLookupError, ownsGame } from "./ownership";
 import type { AIConfig, Message, TokenUsage } from "./providers/types";
 import { type PushSubscription, sendWebPush } from "./push";
 import { keyStatus, resolveUserKey } from "./keys";
@@ -1164,7 +1164,16 @@ export class AgentSession implements DurableObject {
       return json({ error: `this session is already bound to "${session.appId}"` }, 409, request, this.config.domain);
     }
 
-    const { owns, game } = await ownsGame(this.config, this.env.GITHUB_TOKEN, id, login);
+    // An unreadable registry or failed ownership probe is an upstream outage,
+    // not "not found" / "no access" — report it as such (#40).
+    let ownership: Awaited<ReturnType<typeof ownsGame>>;
+    try {
+      ownership = await ownsGame(this.config, this.env.GITHUB_TOKEN, id, login);
+    } catch (e) {
+      if (!(e instanceof OwnershipLookupError)) throw e;
+      return json({ error: `could not verify "${id}": ${e.message} — try again shortly` }, 502, request, this.config.domain);
+    }
+    const { owns, game } = ownership;
     if (!game) return json({ error: `game "${id}" not found` }, 404, request, this.config.domain);
     if (!owns) return json({ error: `you don't have access to "${id}"` }, 403, request, this.config.domain);
 

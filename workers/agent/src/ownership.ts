@@ -31,14 +31,25 @@ function gh(path: string, token: string, agentName: string, accept = "applicatio
   });
 }
 
+/** The registry or a GitHub ownership probe could not be read. Distinct from
+ *  "no such game" / "not yours": callers must surface it as an upstream
+ *  failure, never as an authoritative denial (#40). */
+export class OwnershipLookupError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OwnershipLookupError";
+  }
+}
+
 /** Fetch the store registry games array (source of truth).
  *  Prefers the authenticated GitHub contents API, which is NOT CDN-cached, so a
  *  game provisioned seconds ago appears immediately. `raw.githubusercontent.com`
  *  (the fallback) is edge-cached ~5min, which made a just-provisioned game look
  *  "not found" and un-editable by its own creator for minutes. Mirrors the
  *  publisher's `_games.ts getRegistry` (vendored copy, kept in sync by hand).
- *  Returns null only when EVERY attempt failed. */
-async function fetchRegistry(config: StoreConfig, token: string): Promise<RegistryGame[] | null> {
+ *  Throws OwnershipLookupError when EVERY attempt failed. */
+async function fetchRegistry(config: StoreConfig, token: string): Promise<RegistryGame[]> {
+  const failures: string[] = [];
   // Authenticated contents API — uncached. Accept: raw returns the file body
   // directly (not the base64-wrapped metadata envelope).
   try {
@@ -52,8 +63,9 @@ async function fetchRegistry(config: StoreConfig, token: string): Promise<Regist
       const reg = (await res.json()) as Record<string, RegistryGame[] | undefined>;
       return reg[config.nounPlural] ?? [];
     }
-  } catch {
-    /* fall through to the raw CDN URL */
+    failures.push(`contents API ${res.status}`);
+  } catch (e) {
+    failures.push(`contents API ${e instanceof Error ? e.message : String(e)}`);
   }
   // Fallback: the CDN-cached raw URL (no token needed).
   try {
@@ -63,17 +75,33 @@ async function fetchRegistry(config: StoreConfig, token: string): Promise<Regist
       const reg = (await res.json()) as Record<string, RegistryGame[] | undefined>;
       return reg[config.nounPlural] ?? [];
     }
-  } catch {
-    /* both attempts failed */
+    failures.push(`raw ${res.status}`);
+  } catch (e) {
+    failures.push(`raw ${e instanceof Error ? e.message : String(e)}`);
   }
-  return null;
+  throw new OwnershipLookupError(`store registry unavailable (${failures.join("; ")})`);
 }
 
-/** Look up a single game in the store registry by id. Null on miss/error. */
+/** Look up a single game in the store registry by id. Null only when the
+ *  registry was read and has no such game; throws OwnershipLookupError when
+ *  the registry could not be read. */
 export async function fetchRegistryGame(config: StoreConfig, token: string, id: string): Promise<RegistryGame | null> {
   const games = await fetchRegistry(config, token);
-  if (!games) return null;
   return games.find((g) => g.id === id) ?? null;
+}
+
+/** 204 → yes, 404 → no; anything else (auth, outage, network) throws, so a
+ *  failed probe is never read as "not a member / not a collaborator". */
+async function probe(path: string, token: string, agentName: string, what: string): Promise<boolean> {
+  let res: Response;
+  try {
+    res = await gh(path, token, agentName);
+  } catch (e) {
+    throw new OwnershipLookupError(`${what} check failed (${e instanceof Error ? e.message : String(e)})`);
+  }
+  if (res.status === 204) return true;
+  if (res.status === 404) return false;
+  throw new OwnershipLookupError(`${what} check failed (${res.status})`);
 }
 
 /**
@@ -83,7 +111,8 @@ export async function fetchRegistryGame(config: StoreConfig, token: string, id: 
  *   - `login` is an org member (admin-all view), OR
  *   - the game has NO recorded `creatorGithub` (legacy) AND `login` is an
  *     accepted collaborator on the repo.
- * Returns the registry entry too (null → game not found).
+ * Returns the registry entry too (null → game confirmed absent from the
+ * registry). Throws OwnershipLookupError if the registry or a probe failed.
  */
 export async function ownsGame(
   config: StoreConfig,
@@ -100,20 +129,14 @@ export async function ownsGame(
   }
 
   // Org member → admin-all.
-  try {
-    const m = await gh(`/orgs/${config.org}/members/${login}`, token, config.agentName);
-    if (m.status === 204) return { owns: true, game };
-  } catch {
-    /* ignore — fall through */
+  if (await probe(`/orgs/${config.org}/members/${login}`, token, config.agentName, "org membership")) {
+    return { owns: true, game };
   }
 
   // Legacy games with no recorded creator: accepted-collaborator check.
   if (!game.creatorGithub) {
-    try {
-      const c = await gh(`/repos/${config.org}/${id}/collaborators/${login}`, token, config.agentName);
-      if (c.status === 204) return { owns: true, game };
-    } catch {
-      /* ignore */
+    if (await probe(`/repos/${config.org}/${id}/collaborators/${login}`, token, config.agentName, "collaborator")) {
+      return { owns: true, game };
     }
   }
 
