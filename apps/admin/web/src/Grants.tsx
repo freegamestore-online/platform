@@ -272,6 +272,7 @@ function GrantForm({ users, funded, onSaved }: { users: RegisteredUser[]; funded
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
+    // biome-ignore lint/a11y/noLabelWithoutControl: children is always the form control, so the label wraps it.
     <label className="flex flex-col gap-1">
       <span className="text-[11px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>{label}</span>
       {children}

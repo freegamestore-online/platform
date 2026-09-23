@@ -258,6 +258,7 @@ export function Create() {
     currentProject?.appId,
     currentProject?.id,
   ]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll only when messages change; re-running when isStreaming flips would jump a reader who has scrolled up.
   useEffect(() => {
     // While a build is streaming, only stick to the bottom when the user is
     // already near it — don't yank them back down after they've scrolled up to
@@ -282,6 +283,7 @@ export function Create() {
 
   const autoPickedRef = useRef(false);
   const lastKeySignatureRef = useRef("");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: user.sub is the trigger — reset provider auto-pick when the account changes.
   useEffect(() => {
     autoPickedRef.current = false;
     lastKeySignatureRef.current = "";
@@ -291,6 +293,7 @@ export function Create() {
   // Once the vault's key state loads, use whatever provider the user actually
   // has a key for. If no paid provider is usable, fall back to the free GitHub
   // Models tier so a first build is not blocked by a stale paid preference.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: user.sub re-runs provider resolution for a newly signed-in account.
   useEffect(() => {
     if (keys.loading) {
       setProviderResolved(false);

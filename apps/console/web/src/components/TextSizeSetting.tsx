@@ -19,6 +19,7 @@ export function TextSizeSetting() {
       <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
         Make text across the studio larger or smaller. Applies everywhere and is remembered.
       </p>
+      {/* biome-ignore lint/a11y/useSemanticElements: a toggle-button group, not a form; <fieldset>'s min-inline-size: min-content would stop the flex-wrap. */}
       <div role="group" aria-label="Text size" className="flex flex-wrap gap-2">
         {TEXT_SIZES.map((t) => {
           const active = size === t.value;
