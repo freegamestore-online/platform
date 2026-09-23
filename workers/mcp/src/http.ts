@@ -14,7 +14,10 @@
 // Wrap a fetch in an AbortController-backed timeout so a slow/edge-stalled
 // upstream (admin/agent/leaderboard/GitHub) can't hang the MCP request all the
 // way to the Worker wall-clock limit. fetchFn receives the abort signal.
-export async function withTimeout<T>(fetchFn: (signal: AbortSignal) => Promise<T>, ms = 10_000): Promise<T> {
+export async function withTimeout<T>(
+  fetchFn: (signal: AbortSignal) => Promise<T>,
+  ms = 10_000,
+): Promise<T> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
   try {
@@ -61,18 +64,29 @@ export async function readBody(res: Response): Promise<{ text: string } | { erro
 
 // GitHub Actions API (public repos, no auth needed)
 export async function getDeployStatus(org: string, gameId: string) {
-  const r = await safeFetch("the GitHub Actions API", (signal) => fetch(
-    `https://api.github.com/repos/${org}/${gameId}/actions/runs?per_page=5`,
-    { headers: { Accept: "application/vnd.github+json", "User-Agent": "freegamestore-mcp" }, signal }
-  ));
-  if ("error" in r) return r;
+  const r = await safeFetch('the GitHub Actions API', (signal) =>
+    fetch(`https://api.github.com/repos/${org}/${gameId}/actions/runs?per_page=5`, {
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'freegamestore-mcp' },
+      signal,
+    }),
+  );
+  if ('error' in r) return r;
   const res = r.res;
   if (!res.ok) return { error: `GitHub API ${res.status}` };
-  let data: { workflow_runs?: Array<{ name: string; conclusion: string | null; status: string; updated_at: string; html_url: string; head_sha: string }> };
+  let data: {
+    workflow_runs?: Array<{
+      name: string;
+      conclusion: string | null;
+      status: string;
+      updated_at: string;
+      html_url: string;
+      head_sha: string;
+    }>;
+  };
   try {
     data = (await res.json()) as typeof data;
   } catch {
-    return { error: "GitHub API returned invalid JSON" };
+    return { error: 'GitHub API returned invalid JSON' };
   }
   return (data.workflow_runs ?? []).map((r) => ({
     name: r.name,
@@ -93,17 +107,17 @@ export async function fgsApi(apiBase: string, path: string, token?: string) {
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   const r = await safeFetch(path, (signal) => fetch(`${apiBase}${path}`, { headers, signal }));
-  if ("error" in r) return r;
+  if ('error' in r) return r;
   const res = r.res;
   if (!res.ok) {
     // Best-effort: an unreadable body must not mask the status we already have.
     const b = await readBody(res);
-    return { error: `API ${res.status}: ${"text" in b ? b.text : ""}` };
+    return { error: `API ${res.status}: ${'text' in b ? b.text : ''}` };
   }
   // Handle 204 No Content (e.g. /api/quality when no audit data exists)
   if (res.status === 204) return null;
   const body = await readBody(res);
-  if ("error" in body) return { error: `Failed to read response body from ${path}: ${body.error}` };
+  if ('error' in body) return { error: `Failed to read response body from ${path}: ${body.error}` };
   const text = body.text;
   if (!text) return null;
   try {
@@ -116,20 +130,35 @@ export async function fgsApi(apiBase: string, path: string, token?: string) {
 // POST to the FGS admin
 export async function fgsPost(apiBase: string, path: string, token: string, body: unknown) {
   // X-FGS-Token survives worker-to-worker (Cloudflare strips Authorization on those hops).
-  const r = await safeFetch(path, (signal) => fetch(`${apiBase}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-FGS-Token": token, Authorization: `Bearer ${token}` },
-    body: JSON.stringify(body),
-    signal,
-  }));
-  if ("error" in r) return r;
+  const r = await safeFetch(path, (signal) =>
+    fetch(`${apiBase}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-FGS-Token': token,
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+      signal,
+    }),
+  );
+  if ('error' in r) return r;
   const res = r.res;
   const b = await readBody(res);
-  if ("error" in b) return { error: `Failed to read response body from ${path}: ${b.error}` };
+  if ('error' in b) return { error: `Failed to read response body from ${path}: ${b.error}` };
   const text = b.text;
   let json: any = {};
-  try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
-  if (!res.ok) return { error: json.error ?? `API ${res.status}`, detail: json.detail ?? json.body ?? text, status: res.status };
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    json = { raw: text };
+  }
+  if (!res.ok)
+    return {
+      error: json.error ?? `API ${res.status}`,
+      detail: json.detail ?? json.body ?? text,
+      status: res.status,
+    };
   return json;
 }
 
@@ -137,19 +166,29 @@ export async function fgsPost(apiBase: string, path: string, token: string, body
 // X-FGS-Token survives worker-to-worker hops (CF strips Authorization there),
 // Authorization covers the direct path. Ownership is enforced server-side.
 export async function fgsDelete(base: string, path: string, token: string) {
-  const r = await safeFetch(path, (signal) => fetch(`${base}${path}`, {
-    method: "DELETE",
-    headers: { "X-FGS-Token": token, Authorization: `Bearer ${token}` },
-    signal,
-  }));
-  if ("error" in r) return r;
+  const r = await safeFetch(path, (signal) =>
+    fetch(`${base}${path}`, {
+      method: 'DELETE',
+      headers: { 'X-FGS-Token': token, Authorization: `Bearer ${token}` },
+      signal,
+    }),
+  );
+  if ('error' in r) return r;
   const res = r.res;
   const b = await readBody(res);
-  if ("error" in b) return { error: `Failed to read response body from ${path}: ${b.error}` };
+  if ('error' in b) return { error: `Failed to read response body from ${path}: ${b.error}` };
   const text = b.text;
   let json: any = {};
-  try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
-  if (!res.ok) return { error: json.error ?? `API ${res.status}`, detail: json.detail ?? text, status: res.status };
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    json = { raw: text };
+  }
+  if (!res.ok)
+    return {
+      error: json.error ?? `API ${res.status}`,
+      detail: json.detail ?? text,
+      status: res.status,
+    };
   return json;
 }
-

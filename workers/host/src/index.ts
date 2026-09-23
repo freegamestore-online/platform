@@ -12,7 +12,17 @@
  * PLATFORM_SUBDOMAINS is just www → apex redirect + future hooks.
  */
 
-import { type Env, type Route, buildSyntheticVersion, contentType, etagsMatch, r2KeyFor, resolveRouteCached, securityHeaders, shouldRevalidate } from "./host";
+import {
+  buildSyntheticVersion,
+  contentType,
+  type Env,
+  etagsMatch,
+  type Route,
+  r2KeyFor,
+  resolveRouteCached,
+  securityHeaders,
+  shouldRevalidate,
+} from "./host";
 
 type PlatformDispatch =
   | { type: "service"; binding: keyof Env }
@@ -71,7 +81,7 @@ export default {
       // hasOwnProperty, not `in`: `slug in obj` walks the prototype chain, so a
       // game published at constructor./toString./__proto__.freegamestore.online
       // would falsely match and never reach its real R2 route.
-      if (Object.prototype.hasOwnProperty.call(PLATFORM_SUBDOMAINS, slug)) {
+      if (Object.hasOwn(PLATFORM_SUBDOMAINS, slug)) {
         return await dispatchPlatform(req, env, slug, host);
       }
 
@@ -142,9 +152,7 @@ async function analyticsLoaderResponse(url: URL, env: Env, ctx: ExecutionContext
   const hit = await cache.match(cacheUrl);
   if (hit) return hit;
 
-  const body = valid
-    ? buildAnalyticsLoader(appId, env.CF_BEACON_TOKEN ?? null)
-    : "/* fgs analytics: invalid app id */\n";
+  const body = valid ? buildAnalyticsLoader(appId, env.CF_BEACON_TOKEN ?? null) : "/* fgs analytics: invalid app id */\n";
   const res = new Response(body, {
     status: 200,
     headers: {
@@ -271,9 +279,7 @@ function respond(obj: R2ObjectBody, ct: string, req: Request, revalidate: boolea
 }
 
 function notFound(domain: string, path?: string): Response {
-  const body = path
-    ? `Not Found: ${domain} has no asset at ${path}\n`
-    : `Not Found: no game registered at ${domain}.\n`;
+  const body = path ? `Not Found: ${domain} has no asset at ${path}\n` : `Not Found: no game registered at ${domain}.\n`;
   return new Response(body, {
     status: 404,
     headers: { "content-type": "text/plain; charset=utf-8" },

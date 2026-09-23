@@ -1,15 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useAuth } from "./useAuth";
-import { mapServerSession, type Project, type ServerSession } from "../lib/sessions";
-import { clearLegacyCurrentProjectId, readCurrentProjectId, readLegacyCurrentProjectId, writeCurrentProjectId } from "../lib/currentProjectStorage";
-import { reportError } from "../lib/errorReporter";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  clearLegacyCurrentProjectId,
+  readCurrentProjectId,
+  readLegacyCurrentProjectId,
+  writeCurrentProjectId,
+} from '../lib/currentProjectStorage';
+import { reportError } from '../lib/errorReporter';
+import { mapServerSession, type Project, type ServerSession } from '../lib/sessions';
+import { useAuth } from './useAuth';
 
 // Thrown when an in-flight openGame / startFreshChat is superseded by a newer
 // user intent (picker switch or direct navigation). Callers that catch ALL
 // errors (like useAgent.openGame) should check for this name and silently
 // discard rather than surfacing it to the user.
 export class OpenSupersededError extends Error {
-  override readonly name = "OpenSupersededError";
+  override readonly name = 'OpenSupersededError';
 }
 
 export type { Project };
@@ -19,9 +24,9 @@ export type { Project };
 // the same origin it already uses for chat + /history — rather than a separate
 // registry store, which forks the project list away from where the real
 // sessions live (and leaves the picker empty while transcripts sit orphaned).
-const AGENT_URL = "https://agent.freegamestore.online";
+const AGENT_URL = 'https://agent.freegamestore.online';
 
-function placeholderProject(id: string, name = "Current game"): Project {
+function placeholderProject(id: string, name = 'Current game'): Project {
   return {
     id,
     name,
@@ -32,7 +37,7 @@ function placeholderProject(id: string, name = "Current game"): Project {
 }
 
 async function fetchSessions(signal: AbortSignal): Promise<Project[]> {
-  const res = await fetch(`${AGENT_URL}/sessions`, { signal, credentials: "include" });
+  const res = await fetch(`${AGENT_URL}/sessions`, { signal, credentials: 'include' });
   if (!res.ok) throw new Error(`fetch sessions failed: ${res.status}`);
   const data = (await res.json()) as { sessions: ServerSession[] };
   const now = Date.now();
@@ -47,9 +52,9 @@ async function putSession(project: Project, attempt = 0): Promise<void> {
   // game looking like an unfinished draft until the next manual index write.
   try {
     const res = await fetch(`${AGENT_URL}/sessions/${project.id}`, {
-      method: "PUT",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: project.name,
         gameId: project.appId,
@@ -84,15 +89,18 @@ export function useProjects() {
 
   const reload = useCallback(() => setReloadNonce((n) => n + 1), []);
 
-  const setCurrentId = useCallback((id: string | null) => {
-    openTokenRef.current += 1;
-    setCurrentIdState(id);
-    writeCurrentProjectId(user?.sub, id);
-  }, [user?.sub]);
+  const setCurrentId = useCallback(
+    (id: string | null) => {
+      openTokenRef.current += 1;
+      setCurrentIdState(id);
+      writeCurrentProjectId(user?.sub, id);
+    },
+    [user?.sub],
+  );
 
   useEffect(() => {
     try {
-      localStorage.removeItem("fgs_projects");
+      localStorage.removeItem('fgs_projects');
     } catch {
       // harmless
     }
@@ -124,7 +132,8 @@ export function useProjects() {
         // look like chat had vanished when switching between them.
         const scopedStored = readCurrentProjectId(user.sub);
         const legacyStored = readLegacyCurrentProjectId();
-        const legacyInList = !!legacyStored && server.some((project) => project.id === legacyStored);
+        const legacyInList =
+          !!legacyStored && server.some((project) => project.id === legacyStored);
         if (legacyStored && !legacyInList) clearLegacyCurrentProjectId();
         const stored = scopedStored || (legacyInList ? legacyStored : null);
         const storedInList = !!stored && server.some((project) => project.id === stored);
@@ -154,9 +163,12 @@ export function useProjects() {
         setCurrentId(storedInList ? stored : null);
       })
       .catch((err) => {
-        if ((err as Error).name !== "AbortError") {
-          console.error("Failed to load projects:", err);
-          reportError({ message: (err as Error).message || "Failed to load projects", context: JSON.stringify({ op: "loadProjects" }) });
+        if ((err as Error).name !== 'AbortError') {
+          console.error('Failed to load projects:', err);
+          reportError({
+            message: (err as Error).message || 'Failed to load projects',
+            context: JSON.stringify({ op: 'loadProjects' }),
+          });
           setLoadError(true);
         }
       })
@@ -165,97 +177,109 @@ export function useProjects() {
     return () => ctrl.abort();
   }, [authLoading, user?.sub, reloadNonce, setCurrentId]);
 
-  const create = useCallback((name: string, appId?: string) => {
-    const id = crypto.randomUUID();
-    const project: Project = {
-      id,
-      name,
-      createdAt: new Date().toISOString(),
-      updatedAt: Date.now(),
-      deployed: !!appId,
-      appId,
-      appUrl: appId ? `https://${appId}.freegamestore.online` : undefined,
-    };
-    setProjects((prev) => [project, ...prev]);
-    setCurrentId(id);
-    putSession(project);
-    return id;
-  }, [setCurrentId]);
+  const create = useCallback(
+    (name: string, appId?: string) => {
+      const id = crypto.randomUUID();
+      const project: Project = {
+        id,
+        name,
+        createdAt: new Date().toISOString(),
+        updatedAt: Date.now(),
+        deployed: !!appId,
+        appId,
+        appUrl: appId ? `https://${appId}.freegamestore.online` : undefined,
+      };
+      setProjects((prev) => [project, ...prev]);
+      setCurrentId(id);
+      putSession(project);
+      return id;
+    },
+    [setCurrentId],
+  );
 
-  const switchTo = useCallback((id: string) => {
-    setProjects((prev) => prev.some((project) => project.id === id) ? prev : [placeholderProject(id), ...prev]);
-    setCurrentId(id);
-  }, [setCurrentId]);
+  const switchTo = useCallback(
+    (id: string) => {
+      setProjects((prev) =>
+        prev.some((project) => project.id === id) ? prev : [placeholderProject(id), ...prev],
+      );
+      setCurrentId(id);
+    },
+    [setCurrentId],
+  );
 
   // Open an EXISTING game in the studio. If a local session is already bound to
   // it, switch to that. Otherwise create a fresh session and IMPORT the game's
   // real repo files into it (so a later edit + push_update updates the game
   // rather than overwriting it with a blank scaffold — the bug the old picker's
   // "create empty session linked to repo" path caused). Returns the session id.
-  const openGame = useCallback(async (gameId: string): Promise<string> => {
-    // Capture the token BEFORE the first await so we can detect a user switching
-    // away mid-flight. If the token advances after any await it means switchTo /
-    // setCurrentId was called with a DIFFERENT intent and we must not clobber it.
-    // (Same guard pattern as loadHistory / sendMessage in useAgent.)
-    const token = openTokenRef.current;
+  const openGame = useCallback(
+    async (gameId: string): Promise<string> => {
+      // Capture the token BEFORE the first await so we can detect a user switching
+      // away mid-flight. If the token advances after any await it means switchTo /
+      // setCurrentId was called with a DIFFERENT intent and we must not clobber it.
+      // (Same guard pattern as loadHistory / sendMessage in useAgent.)
+      const token = openTokenRef.current;
 
-    // Resolve the session that already owns this game so we reuse it (and its
-    // chat transcript) instead of minting a duplicate. Check the local list
-    // first (fast path), then fall back to the AUTHORITATIVE server index: the
-    // local list can be stale, empty (another browser / a cache clear), or miss
-    // a session that a deploy — not a prior open — bound to this game. Deduping
-    // against the server here is what enforces one game ↔ one session; without
-    // it, every open of an already-built game spawned a second session and a
-    // duplicate picker row.
-    let existing = projects.find((p) => p.appId === gameId);
-    if (!existing) {
-      try {
-        const server = await fetchSessions(new AbortController().signal);
-        existing = server.find((p) => p.appId === gameId);
-      } catch {
-        // If the authoritative index is unreachable and we have no local match,
-        // do not mint a second session for a live game. Let the user retry.
-        throw new Error(`Couldn't load your sessions before opening "${gameId}". Please retry.`);
+      // Resolve the session that already owns this game so we reuse it (and its
+      // chat transcript) instead of minting a duplicate. Check the local list
+      // first (fast path), then fall back to the AUTHORITATIVE server index: the
+      // local list can be stale, empty (another browser / a cache clear), or miss
+      // a session that a deploy — not a prior open — bound to this game. Deduping
+      // against the server here is what enforces one game ↔ one session; without
+      // it, every open of an already-built game spawned a second session and a
+      // duplicate picker row.
+      let existing = projects.find((p) => p.appId === gameId);
+      if (!existing) {
+        try {
+          const server = await fetchSessions(new AbortController().signal);
+          existing = server.find((p) => p.appId === gameId);
+        } catch {
+          // If the authoritative index is unreachable and we have no local match,
+          // do not mint a second session for a live game. Let the user retry.
+          throw new Error(`Couldn't load your sessions before opening "${gameId}". Please retry.`);
+        }
       }
-    }
-    // If the user switched away while we were fetching sessions, discard.
-    if (openTokenRef.current !== token) throw new OpenSupersededError(`openGame("${gameId}") superseded by a newer selection`);
+      // If the user switched away while we were fetching sessions, discard.
+      if (openTokenRef.current !== token)
+        throw new OpenSupersededError(`openGame("${gameId}") superseded by a newer selection`);
 
-    // Always re-import: the endpoint re-syncs the session's files from the repo
-    // HEAD, so changes made directly (update_files / git / another session)
-    // since you last opened it are picked up. Import is cheap when the repo
-    // hasn't moved (it short-circuits server-side).
-    const id = existing?.id ?? crypto.randomUUID();
-    const res = await fetch(`${AGENT_URL}/session/${id}/import`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: gameId }),
-    });
-    if (!res.ok) {
-      const msg = ((await res.json().catch(() => ({}))) as { error?: string }).error;
-      throw new Error(msg || `Couldn't open "${gameId}" (${res.status}).`);
-    }
-    const data = (await res.json()) as { name?: string; appUrl?: string };
-    const project: Project = {
-      id,
-      name: data.name || gameId,
-      createdAt: existing?.createdAt ?? new Date().toISOString(),
-      updatedAt: Date.now(),
-      deployed: true,
-      appId: gameId,
-      appUrl: data.appUrl || `https://${gameId}.freegamestore.online`,
-    };
-    // Always update the project row (keeps the local list in sync with the import
-    // result), but only switch the active session if the user hasn't already moved
-    // on to a different game in the time the async import was in flight.
-    setProjects((prev) => [project, ...prev.filter((p) => p.id !== id)]);
-    if (openTokenRef.current === token) {
-      setCurrentId(id);
-    }
-    putSession(project);
-    return id;
-  }, [projects, setCurrentId]);
+      // Always re-import: the endpoint re-syncs the session's files from the repo
+      // HEAD, so changes made directly (update_files / git / another session)
+      // since you last opened it are picked up. Import is cheap when the repo
+      // hasn't moved (it short-circuits server-side).
+      const id = existing?.id ?? crypto.randomUUID();
+      const res = await fetch(`${AGENT_URL}/session/${id}/import`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: gameId }),
+      });
+      if (!res.ok) {
+        const msg = ((await res.json().catch(() => ({}))) as { error?: string }).error;
+        throw new Error(msg || `Couldn't open "${gameId}" (${res.status}).`);
+      }
+      const data = (await res.json()) as { name?: string; appUrl?: string };
+      const project: Project = {
+        id,
+        name: data.name || gameId,
+        createdAt: existing?.createdAt ?? new Date().toISOString(),
+        updatedAt: Date.now(),
+        deployed: true,
+        appId: gameId,
+        appUrl: data.appUrl || `https://${gameId}.freegamestore.online`,
+      };
+      // Always update the project row (keeps the local list in sync with the import
+      // result), but only switch the active session if the user hasn't already moved
+      // on to a different game in the time the async import was in flight.
+      setProjects((prev) => [project, ...prev.filter((p) => p.id !== id)]);
+      if (openTokenRef.current === token) {
+        setCurrentId(id);
+      }
+      putSession(project);
+      return id;
+    },
+    [projects, setCurrentId],
+  );
 
   // Start a FRESH chat for an already-built game: mint a brand-new session id
   // (a new Durable Object = a clean, empty transcript) and IMPORT the game's real
@@ -264,63 +288,73 @@ export function useProjects() {
   // the deployed game and its code, and just start the chat over. `openGame`
   // deliberately REUSES an existing session (to preserve history), so it can't
   // escape a poisoned one; this is the deliberate opposite. Returns the new id.
-  const startFreshChat = useCallback(async (gameId: string): Promise<string> => {
-    // Capture token before first await (same race-guard as openGame).
-    const token = openTokenRef.current;
+  const startFreshChat = useCallback(
+    async (gameId: string): Promise<string> => {
+      // Capture token before first await (same race-guard as openGame).
+      const token = openTokenRef.current;
 
-    // Every session currently bound to this game — local list + authoritative
-    // server index — so we can drop them all (a game may have accreted more than
-    // one session across browsers/deploys).
-    const stale = new Set(projects.filter((p) => p.appId === gameId).map((p) => p.id));
-    try {
-      const server = await fetchSessions(new AbortController().signal);
-      for (const p of server) if (p.appId === gameId) stale.add(p.id);
-    } catch {
-      // Offline — drop just the local ones; the next reload reconciles.
-    }
-    if (openTokenRef.current !== token) throw new OpenSupersededError(`startFreshChat("${gameId}") superseded by a newer selection`);
+      // Every session currently bound to this game — local list + authoritative
+      // server index — so we can drop them all (a game may have accreted more than
+      // one session across browsers/deploys).
+      const stale = new Set(projects.filter((p) => p.appId === gameId).map((p) => p.id));
+      try {
+        const server = await fetchSessions(new AbortController().signal);
+        for (const p of server) if (p.appId === gameId) stale.add(p.id);
+      } catch {
+        // Offline — drop just the local ones; the next reload reconciles.
+      }
+      if (openTokenRef.current !== token)
+        throw new OpenSupersededError(
+          `startFreshChat("${gameId}") superseded by a newer selection`,
+        );
 
-    const id = crypto.randomUUID();
-    const res = await fetch(`${AGENT_URL}/session/${id}/import`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: gameId }),
-    });
-    if (!res.ok) {
-      const msg = ((await res.json().catch(() => ({}))) as { error?: string }).error;
-      throw new Error(msg || `Couldn't start a fresh chat for "${gameId}" (${res.status}).`);
-    }
-    const data = (await res.json()) as { name?: string; appUrl?: string };
-    const project: Project = {
-      id,
-      name: data.name || gameId,
-      createdAt: new Date().toISOString(),
-      updatedAt: Date.now(),
-      deployed: true,
-      appId: gameId,
-      appUrl: data.appUrl || `https://${gameId}.freegamestore.online`,
-    };
-    // Swap in the fresh session and drop every stale one for this game.
-    setProjects((prev) => [project, ...prev.filter((p) => !stale.has(p.id))]);
-    if (openTokenRef.current === token) {
-      setCurrentId(id);
-    }
-    putSession(project);
-    // Best-effort: remove the stale index rows server-side (their DO transcripts
-    // become orphaned + unreachable, which is fine — nothing references them).
-    for (const oldId of stale) {
-      fetch(`${AGENT_URL}/sessions/${oldId}`, { method: "DELETE", credentials: "include" }).catch(() => {});
-    }
-    return id;
-  }, [projects, setCurrentId]);
+      const id = crypto.randomUUID();
+      const res = await fetch(`${AGENT_URL}/session/${id}/import`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: gameId }),
+      });
+      if (!res.ok) {
+        const msg = ((await res.json().catch(() => ({}))) as { error?: string }).error;
+        throw new Error(msg || `Couldn't start a fresh chat for "${gameId}" (${res.status}).`);
+      }
+      const data = (await res.json()) as { name?: string; appUrl?: string };
+      const project: Project = {
+        id,
+        name: data.name || gameId,
+        createdAt: new Date().toISOString(),
+        updatedAt: Date.now(),
+        deployed: true,
+        appId: gameId,
+        appUrl: data.appUrl || `https://${gameId}.freegamestore.online`,
+      };
+      // Swap in the fresh session and drop every stale one for this game.
+      setProjects((prev) => [project, ...prev.filter((p) => !stale.has(p.id))]);
+      if (openTokenRef.current === token) {
+        setCurrentId(id);
+      }
+      putSession(project);
+      // Best-effort: remove the stale index rows server-side (their DO transcripts
+      // become orphaned + unreachable, which is fine — nothing references them).
+      for (const oldId of stale) {
+        fetch(`${AGENT_URL}/sessions/${oldId}`, { method: 'DELETE', credentials: 'include' }).catch(
+          () => {},
+        );
+      }
+      return id;
+    },
+    [projects, setCurrentId],
+  );
 
   const rename = useCallback((id: string, name: string) => {
     setProjects((prev) => {
       const existing = prev.find((project) => project.id === id);
       if (!existing) return [placeholderProject(id, name), ...prev];
       if (existing.name === name) return prev;
-      const updated = prev.map((project) => (project.id === id ? { ...project, name, updatedAt: Date.now() } : project));
+      const updated = prev.map((project) =>
+        project.id === id ? { ...project, name, updatedAt: Date.now() } : project,
+      );
       const project = updated.find((candidate) => candidate.id === id);
       if (project) putSession(project);
       return updated;
@@ -331,16 +365,21 @@ export function useProjects() {
   // Deletes the D1 index row; the DO transcript is left orphaned but unreachable.
   // Moves you to the next session (or the empty state) so the studio never sits
   // pointed at a session that no longer exists.
-  const deleteProject = useCallback((id: string) => {
-    setProjects((prev) => {
-      const remaining = prev.filter((p) => p.id !== id);
-      if (currentId === id) setCurrentId(remaining[0]?.id ?? null);
-      return remaining;
-    });
-    fetch(`${AGENT_URL}/sessions/${id}`, { method: "DELETE", credentials: "include" }).catch(() => {
-      // Best-effort; the next reload reconciles from the server.
-    });
-  }, [currentId, setCurrentId]);
+  const deleteProject = useCallback(
+    (id: string) => {
+      setProjects((prev) => {
+        const remaining = prev.filter((p) => p.id !== id);
+        if (currentId === id) setCurrentId(remaining[0]?.id ?? null);
+        return remaining;
+      });
+      fetch(`${AGENT_URL}/sessions/${id}`, { method: 'DELETE', credentials: 'include' }).catch(
+        () => {
+          // Best-effort; the next reload reconciles from the server.
+        },
+      );
+    },
+    [currentId, setCurrentId],
+  );
 
   const markDeployed = useCallback((sessionId: string, appId: string, appUrl: string) => {
     setProjects((prev) => {
@@ -360,7 +399,9 @@ export function useProjects() {
       }
       // Keep the user's chosen project name — don't overwrite it with the repo id.
       const updated = prev.map((project) =>
-        project.id === sessionId ? { ...project, appId, appUrl, deployed: true, updatedAt: Date.now() } : project,
+        project.id === sessionId
+          ? { ...project, appId, appUrl, deployed: true, updatedAt: Date.now() }
+          : project,
       );
       const project = updated.find((candidate) => candidate.id === sessionId);
       if (project) putSession(project);
@@ -368,5 +409,18 @@ export function useProjects() {
     });
   }, []);
 
-  return { projects, currentId, loading, loadError, reload, create, switchTo, openGame, startFreshChat, rename, markDeployed, deleteProject };
+  return {
+    projects,
+    currentId,
+    loading,
+    loadError,
+    reload,
+    create,
+    switchTo,
+    openGame,
+    startFreshChat,
+    rename,
+    markDeployed,
+    deleteProject,
+  };
 }

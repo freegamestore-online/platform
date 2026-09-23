@@ -11,7 +11,7 @@
 
 const CAPACITY = 20;
 
-export type BreadcrumbKind = "route" | "game_open" | "game_switch" | "deploy";
+export type BreadcrumbKind = 'route' | 'game_open' | 'game_switch' | 'deploy';
 
 export interface Breadcrumb {
   /** Unix ms timestamp. */
@@ -51,11 +51,11 @@ export function serializeBreadcrumbs(maxLen = 900): string {
   for (let i = crumbs.length - 1; i >= 0; i--) {
     const c = crumbs[i]!;
     parts.unshift(`${c.t},${c.kind},${c.detail}`);
-    const candidate = parts.join("|");
+    const candidate = parts.join('|');
     if (candidate.length > maxLen) {
       parts.shift(); // too long — drop the oldest we just added
       break;
     }
   }
-  return parts.join("|");
+  return parts.join('|');
 }

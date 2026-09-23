@@ -2,11 +2,11 @@ interface Env {
   SESSIONS: KVNamespace;
 }
 
-const COOKIE_NAME = "fgs_pub_session";
-const COOKIE_DOMAIN = ".freegamestore.online";
+const COOKIE_NAME = 'fgs_pub_session';
+const COOKIE_DOMAIN = '.freegamestore.online';
 
 function parseCookie(request: Request): string | null {
-  const cookie = request.headers.get("Cookie");
+  const cookie = request.headers.get('Cookie');
   if (!cookie) return null;
   const match = cookie.match(new RegExp(`${COOKIE_NAME}=([^;]+)`));
   return match?.[1] ?? null;
@@ -20,8 +20,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   return new Response(JSON.stringify({ ok: true }), {
     headers: {
-      "Content-Type": "application/json",
-      "Set-Cookie": `${COOKIE_NAME}=; Domain=${COOKIE_DOMAIN}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
+      'Content-Type': 'application/json',
+      'Set-Cookie': `${COOKIE_NAME}=; Domain=${COOKIE_DOMAIN}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
     },
   });
 };

@@ -10,7 +10,12 @@ export interface PushSubscription {
  * predefined message when it receives the push event.
  * Returns true on success (HTTP 201), false on failure.
  */
-export async function sendWebPush(subscription: PushSubscription, vapidPublicKey: string, vapidPrivateKey: string, contactDomain: string): Promise<boolean> {
+export async function sendWebPush(
+  subscription: PushSubscription,
+  vapidPublicKey: string,
+  vapidPrivateKey: string,
+  contactDomain: string,
+): Promise<boolean> {
   const url = new URL(subscription.endpoint);
   const audience = `${url.protocol}//${url.host}`;
   const jwt = await createVapidJWT(audience, vapidPublicKey, vapidPrivateKey, contactDomain);

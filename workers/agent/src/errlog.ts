@@ -34,11 +34,7 @@ export interface ErrorReportEnv {
   INTERNAL_TOKEN?: string;
 }
 
-export async function reportPlatformError(
-  env: ErrorReportEnv,
-  domain: string,
-  row: AgentErrorRow,
-): Promise<void> {
+export async function reportPlatformError(env: ErrorReportEnv, domain: string, row: AgentErrorRow): Promise<void> {
   if (!env.ADMIN || !env.INTERNAL_TOKEN) return;
   if (!row.source || !row.message) return;
   try {

@@ -1,5 +1,5 @@
-import { resolveCreatorUser, type SessionEnv } from "./_auth";
-import { listUserGames, type GameRepo } from "./_games";
+import { resolveCreatorUser, type SessionEnv } from './_auth';
+import { type GameRepo, listUserGames } from './_games';
 
 interface Env extends SessionEnv {
   GITHUB_TOKEN: string;
@@ -22,9 +22,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   // for /auth/me but got 401 here — surfacing as "Sign in to publish."
   const cu = await resolveCreatorUser(context.request, context.env);
   if (!cu) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: { "Content-Type": "application/json" },
+      headers: { 'Content-Type': 'application/json' },
     });
   }
   const user = cu.github;
@@ -40,10 +40,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   } catch (e) {
     // A registry fetch failure must NOT masquerade as "you have no games" —
     // that reads as data loss and hands out phantom free slots. Surface it.
-    if ((e as Error).message === "registry_unavailable") {
+    if ((e as Error).message === 'registry_unavailable') {
       return new Response(
-        JSON.stringify({ error: "The game registry is temporarily unavailable. Please retry in a moment." }),
-        { status: 503, headers: { "Content-Type": "application/json" } },
+        JSON.stringify({
+          error: 'The game registry is temporarily unavailable. Please retry in a moment.',
+        }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } },
       );
     }
     throw e;
@@ -53,7 +55,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const raw = await context.env.CREATORS.get(user);
   const kvRecord = raw ? JSON.parse(raw) : null;
   const banned = kvRecord?.banned ?? false;
-  const maxGames = parseInt(context.env.MAX_APPS_PER_USER || "10");
+  const maxGames = parseInt(context.env.MAX_APPS_PER_USER || '10');
 
   const creator: CreatorInfo = {
     github: user,
@@ -64,6 +66,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   };
 
   return new Response(JSON.stringify({ user, creator }), {
-    headers: { "Content-Type": "application/json" },
+    headers: { 'Content-Type': 'application/json' },
   });
 };

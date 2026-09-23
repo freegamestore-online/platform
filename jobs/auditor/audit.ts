@@ -1,24 +1,108 @@
-import { chromium } from "playwright";
-import { existsSync, readFileSync, writeFileSync } from "fs";
-import { resolve } from "path";
+import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { resolve } from 'path';
+import { chromium } from 'playwright';
 
 // ---------------------------------------------------------------------------
 // Reference viewports — mirrors quality.js REFERENCE exactly
 // ---------------------------------------------------------------------------
 
 export const REFERENCE = [
-  { id: "p-320",  label: "320x568 iPhone SE",       width: 320,  height: 568,  orientation: "portrait"  as const, share: 99 },
-  { id: "p-360",  label: "360x800 Android",          width: 360,  height: 800,  orientation: "portrait"  as const, share: 96 },
-  { id: "p-393",  label: "393x852 iPhone 15",        width: 393,  height: 852,  orientation: "portrait"  as const, share: 92 },
-  { id: "p-414",  label: "414x896 iPhone 11 PM",     width: 414,  height: 896,  orientation: "portrait"  as const, share: 88 },
-  { id: "p-600",  label: "600x800 Tablet",           width: 600,  height: 800,  orientation: "portrait"  as const, share: 60 },
-  { id: "p-768",  label: "768x1024 iPad",            width: 768,  height: 1024, orientation: "portrait"  as const, share: 35 },
-  { id: "p-1024", label: "1024x1366 iPad Pro",       width: 1024, height: 1366, orientation: "portrait"  as const, share: 20 },
-  { id: "l-568",  label: "568x320 iPhone SE land.",  width: 568,  height: 320,  orientation: "landscape" as const, share: 99 },
-  { id: "l-667",  label: "667x375 iPhone 8 land.",   width: 667,  height: 375,  orientation: "landscape" as const, share: 96 },
-  { id: "l-736",  label: "736x414 iPhone+ land.",    width: 736,  height: 414,  orientation: "landscape" as const, share: 88 },
-  { id: "l-1024", label: "1024x768 iPad land.",      width: 1024, height: 768,  orientation: "landscape" as const, share: 35 },
-  { id: "l-1366", label: "1366x1024 iPad Pro land.", width: 1366, height: 1024, orientation: "landscape" as const, share: 20 },
+  {
+    id: 'p-320',
+    label: '320x568 iPhone SE',
+    width: 320,
+    height: 568,
+    orientation: 'portrait' as const,
+    share: 99,
+  },
+  {
+    id: 'p-360',
+    label: '360x800 Android',
+    width: 360,
+    height: 800,
+    orientation: 'portrait' as const,
+    share: 96,
+  },
+  {
+    id: 'p-393',
+    label: '393x852 iPhone 15',
+    width: 393,
+    height: 852,
+    orientation: 'portrait' as const,
+    share: 92,
+  },
+  {
+    id: 'p-414',
+    label: '414x896 iPhone 11 PM',
+    width: 414,
+    height: 896,
+    orientation: 'portrait' as const,
+    share: 88,
+  },
+  {
+    id: 'p-600',
+    label: '600x800 Tablet',
+    width: 600,
+    height: 800,
+    orientation: 'portrait' as const,
+    share: 60,
+  },
+  {
+    id: 'p-768',
+    label: '768x1024 iPad',
+    width: 768,
+    height: 1024,
+    orientation: 'portrait' as const,
+    share: 35,
+  },
+  {
+    id: 'p-1024',
+    label: '1024x1366 iPad Pro',
+    width: 1024,
+    height: 1366,
+    orientation: 'portrait' as const,
+    share: 20,
+  },
+  {
+    id: 'l-568',
+    label: '568x320 iPhone SE land.',
+    width: 568,
+    height: 320,
+    orientation: 'landscape' as const,
+    share: 99,
+  },
+  {
+    id: 'l-667',
+    label: '667x375 iPhone 8 land.',
+    width: 667,
+    height: 375,
+    orientation: 'landscape' as const,
+    share: 96,
+  },
+  {
+    id: 'l-736',
+    label: '736x414 iPhone+ land.',
+    width: 736,
+    height: 414,
+    orientation: 'landscape' as const,
+    share: 88,
+  },
+  {
+    id: 'l-1024',
+    label: '1024x768 iPad land.',
+    width: 1024,
+    height: 768,
+    orientation: 'landscape' as const,
+    share: 35,
+  },
+  {
+    id: 'l-1366',
+    label: '1366x1024 iPad Pro land.',
+    width: 1366,
+    height: 1024,
+    orientation: 'landscape' as const,
+    share: 20,
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -32,7 +116,7 @@ export function computeIndex(passing: Set<string>): number {
   let landscapeSeen = false;
   for (const r of REFERENCE) {
     const seen = passing.has(r.id);
-    if (r.orientation === "portrait") {
+    if (r.orientation === 'portrait') {
       portraitSeen = true;
       if (seen) portraitScore = Math.max(portraitScore, r.share);
     } else {
@@ -115,17 +199,17 @@ async function auditUrl(url: string): Promise<AuditResult> {
 
     // Capture console errors
     const errors: string[] = [];
-    page.on("console", (msg) => {
-      if (msg.type() === "error") {
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') {
         errors.push(msg.text());
       }
     });
 
     // Navigate and measure load time
     const start = Date.now();
-    await page.goto(url, { waitUntil: "load", timeout: 30_000 });
+    await page.goto(url, { waitUntil: 'load', timeout: 30_000 });
     try {
-      await page.waitForLoadState("networkidle", { timeout: 10_000 });
+      await page.waitForLoadState('networkidle', { timeout: 10_000 });
     } catch {
       // networkidle may time out for long-polling games — that's fine
     }
@@ -148,13 +232,15 @@ async function auditUrl(url: string): Promise<AuditResult> {
       const vh = window.innerHeight;
 
       // Check for interactive elements clipped outside the viewport
-      const interactive = document.querySelectorAll('button, a, input, select, textarea, [role="button"], [tabindex]');
+      const interactive = document.querySelectorAll(
+        'button, a, input, select, textarea, [role="button"], [tabindex]',
+      );
       let clippedCount = 0;
       let smallTouchTargets = 0;
       for (const el of interactive) {
         const rect = el.getBoundingClientRect();
         const style = getComputedStyle(el);
-        const visible = style.display !== "none" && rect.width > 0 && rect.height > 0;
+        const visible = style.display !== 'none' && rect.width > 0 && rect.height > 0;
 
         // Element is clipped if its center is outside the viewport
         const cx = rect.left + rect.width / 2;
@@ -166,13 +252,13 @@ async function auditUrl(url: string): Promise<AuditResult> {
         // Touch target size check — only UI action buttons, not game board cells
         // Skip: platform chrome (bottom bar), game grids (many small cells are fine),
         // and elements inside the main game area that are part of the board
-        const isChrome = el.closest('[style*="safe-area-inset"]') !== null
-          || (el instanceof HTMLAnchorElement && el.href.includes('freegamestore.online'));
+        const isChrome =
+          el.closest('[style*="safe-area-inset"]') !== null ||
+          (el instanceof HTMLAnchorElement && el.href.includes('freegamestore.online'));
         // Heuristic: if there are 10+ siblings of the same tag at the same level,
         // it's a game grid/board, not UI controls
         const parent = el.parentElement;
-        const isGridCell = parent !== null
-          && parent.querySelectorAll(el.tagName).length >= 10;
+        const isGridCell = parent !== null && parent.querySelectorAll(el.tagName).length >= 10;
         if (visible && !isChrome && !isGridCell && (rect.width < 44 || rect.height < 44)) {
           smallTouchTargets++;
         }
@@ -187,8 +273,9 @@ async function auditUrl(url: string): Promise<AuditResult> {
         // Element extends significantly beyond viewport (more than 10px margin)
         if (rect.right > vw + 10 || rect.bottom > vh + 10 || rect.left < -10 || rect.top < -10) {
           // Skip small overflows and elements that are mostly visible
-          const visibleArea = Math.max(0, Math.min(rect.right, vw) - Math.max(rect.left, 0)) *
-                              Math.max(0, Math.min(rect.bottom, vh) - Math.max(rect.top, 0));
+          const visibleArea =
+            Math.max(0, Math.min(rect.right, vw) - Math.max(rect.left, 0)) *
+            Math.max(0, Math.min(rect.bottom, vh) - Math.max(rect.top, 0));
           const totalArea = rect.width * rect.height;
           if (totalArea > 0 && visibleArea / totalArea < 0.9) {
             overflowCount++;
@@ -239,27 +326,39 @@ async function auditUrl(url: string): Promise<AuditResult> {
     viewport: { width: REFERENCE[0].width, height: REFERENCE[0].height },
   });
   const checkPage = await checkContext.newPage();
-  await checkPage.goto(url, { waitUntil: "load", timeout: 30_000 });
+  await checkPage.goto(url, { waitUntil: 'load', timeout: 30_000 });
   try {
-    await checkPage.waitForLoadState("networkidle", { timeout: 10_000 });
+    await checkPage.waitForLoadState('networkidle', { timeout: 10_000 });
   } catch {
     // ok
   }
   await checkPage.waitForTimeout(1500);
 
   const compliance = await checkPage.evaluate(() => {
-    const hasGameShell = document.querySelector('[style*="position: fixed"][style*="100svh"]') !== null;
+    const hasGameShell =
+      document.querySelector('[style*="position: fixed"][style*="100svh"]') !== null;
     const bodyStyle = getComputedStyle(document.body);
-    const hasNoSelect = bodyStyle.userSelect === "none" || bodyStyle.webkitUserSelect === "none";
+    const hasNoSelect = bodyStyle.userSelect === 'none' || bodyStyle.webkitUserSelect === 'none';
 
     // Double topbar detection — check for nav/header/appbar elements inside the game content
     // The SDK topbar is the first child of the fixed wrapper. Any additional nav/header is a violation.
     const suspectSelectors = [
-      'nav', 'header', '[role="banner"]', '[role="navigation"]',
-      '[class*="navbar"]', '[class*="nav-bar"]', '[class*="top-bar"]', '[class*="topbar"]',
-      '[class*="header"]', '[class*="app-bar"]', '[class*="appbar"]', '[class*="AppBar"]',
-      '[class*="toolbar"]', '[class*="Toolbar"]',
-      '[class*="MuiAppBar"]', '[class*="MuiToolbar"]',
+      'nav',
+      'header',
+      '[role="banner"]',
+      '[role="navigation"]',
+      '[class*="navbar"]',
+      '[class*="nav-bar"]',
+      '[class*="top-bar"]',
+      '[class*="topbar"]',
+      '[class*="header"]',
+      '[class*="app-bar"]',
+      '[class*="appbar"]',
+      '[class*="AppBar"]',
+      '[class*="toolbar"]',
+      '[class*="Toolbar"]',
+      '[class*="MuiAppBar"]',
+      '[class*="MuiToolbar"]',
     ];
     // Count nav/header elements that are NOT inside the SDK's topbar wrapper
     let extraNavbars = 0;
@@ -271,7 +370,8 @@ async function auditUrl(url: string): Promise<AuditResult> {
         // SDK topbar is always at top, height ~32px. Anything else is a custom bar.
         // Check if this element is NOT the SDK topbar (which is a direct child of the fixed wrapper)
         const parent = el.parentElement;
-        const isSDKTopbar = parent?.style.cssText?.includes('flex-shrink: 0') &&
+        const isSDKTopbar =
+          parent?.style.cssText?.includes('flex-shrink: 0') &&
           parent?.parentElement?.style.cssText?.includes('position: fixed');
         if (!isSDKTopbar && rect.height > 20 && rect.height < 200) {
           extraNavbars++;
@@ -290,12 +390,18 @@ async function auditUrl(url: string): Promise<AuditResult> {
     }
     const classStr = [...classSet].join(' ');
     if (/\bMui[A-Z]/.test(classStr)) bannedLibs.push('MUI/Material UI');
-    if (/\bbootstrap\b/i.test(classStr) || classSet.has('btn-primary') || classSet.has('container-fluid')) bannedLibs.push('Bootstrap');
+    if (
+      /\bbootstrap\b/i.test(classStr) ||
+      classSet.has('btn-primary') ||
+      classSet.has('container-fluid')
+    )
+      bannedLibs.push('Bootstrap');
     if (/\bchakra-/.test(classStr)) bannedLibs.push('Chakra UI');
     if (/\bant-[a-z]/.test(classStr)) bannedLibs.push('Ant Design');
 
     // Also check CSS frameworks via stylesheets and more class patterns
-    if (/\bbtn-outline-/.test(classStr) || classSet.has('form-control')) bannedLibs.push('Bootstrap');
+    if (/\bbtn-outline-/.test(classStr) || classSet.has('form-control'))
+      bannedLibs.push('Bootstrap');
     if (/\bcss-[a-z0-9]{6,}/.test(classStr)) bannedLibs.push('Emotion/Styled (MUI dep)');
     if (classSet.has('v-application') || /\bvuetify\b/i.test(classStr)) bannedLibs.push('Vuetify');
 
@@ -329,10 +435,27 @@ async function auditUrl(url: string): Promise<AuditResult> {
 
     // 2. Tracking / analytics SDKs
     const trackers = [
-      'google-analytics', 'googletagmanager', 'gtag', 'ga.js', 'analytics.js',
-      'amplitude', 'mixpanel', 'segment', 'hotjar', 'plausible', 'posthog',
-      'facebook.net', 'fbevents', 'pixel', 'clarity.ms', 'sentry',
-      'newrelic', 'datadog', 'logrocket', 'fullstory', 'heap',
+      'google-analytics',
+      'googletagmanager',
+      'gtag',
+      'ga.js',
+      'analytics.js',
+      'amplitude',
+      'mixpanel',
+      'segment',
+      'hotjar',
+      'plausible',
+      'posthog',
+      'facebook.net',
+      'fbevents',
+      'pixel',
+      'clarity.ms',
+      'sentry',
+      'newrelic',
+      'datadog',
+      'logrocket',
+      'fullstory',
+      'heap',
     ];
     for (const t of trackers) {
       if (html.includes(t)) securityIssues.push(`Tracking/analytics: ${t}`);
@@ -340,7 +463,7 @@ async function auditUrl(url: string): Promise<AuditResult> {
 
     // 3. Inline event handlers (XSS vector)
     const inlineHandlers = document.querySelectorAll(
-      '[onload], [onerror], [onmouseover], [onfocus], [onblur], [onsubmit]'
+      '[onload], [onerror], [onmouseover], [onfocus], [onblur], [onsubmit]',
     );
     if (inlineHandlers.length > 0) {
       securityIssues.push(`${inlineHandlers.length} inline event handlers (XSS risk)`);
@@ -371,13 +494,17 @@ async function auditUrl(url: string): Promise<AuditResult> {
     }
 
     // 7. Data exfiltration patterns
-    const exfil = ['navigator.sendBeacon', 'XMLHttpRequest', 'fetch('].filter(p => {
+    const exfil = ['navigator.sendBeacon', 'XMLHttpRequest', 'fetch('].filter((p) => {
       // Only flag if pointing to external domains in inline scripts
       for (const s of scripts) {
         if (!s.src && s.textContent?.includes(p)) {
           // Check if it's calling an external URL
           const match = s.textContent.match(new RegExp(p + '\\s*\\(\\s*[\'"`]https?://([^/]+)'));
-          if (match && !match[1].includes('freegamestore.online') && !match[1].includes('localhost')) {
+          if (
+            match &&
+            !match[1].includes('freegamestore.online') &&
+            !match[1].includes('localhost')
+          ) {
             return true;
           }
         }
@@ -388,7 +515,9 @@ async function auditUrl(url: string): Promise<AuditResult> {
 
     // 8. localStorage/cookie abuse — check for excessive storage
     let storageKeys = 0;
-    try { storageKeys = localStorage.length; } catch {}
+    try {
+      storageKeys = localStorage.length;
+    } catch {}
     if (storageKeys > 20) securityIssues.push(`Excessive localStorage: ${storageKeys} keys`);
 
     // 9. Eval usage (code injection risk)
@@ -409,9 +538,11 @@ async function auditUrl(url: string): Promise<AuditResult> {
       if (!src) continue;
       try {
         const u = new URL(src);
-        if (u.origin !== location.origin &&
-            !u.hostname.includes('googleapis.com') &&
-            (img.width <= 2 || img.height <= 2 || img.naturalWidth <= 2)) {
+        if (
+          u.origin !== location.origin &&
+          !u.hostname.includes('googleapis.com') &&
+          (img.width <= 2 || img.height <= 2 || img.naturalWidth <= 2)
+        ) {
           securityIssues.push(`Tracking pixel: ${u.hostname}`);
         }
       } catch {}
@@ -442,7 +573,17 @@ async function auditUrl(url: string): Promise<AuditResult> {
   }
   const score = computeIndex(passing);
 
-  return { score, loadTimeMs, consoleErrors, viewports, usesSDK, hasNoSelect, extraNavbars, bannedLibs, securityIssues };
+  return {
+    score,
+    loadTimeMs,
+    consoleErrors,
+    viewports,
+    usesSDK,
+    hasNoSelect,
+    extraNavbars,
+    bannedLibs,
+    securityIssues,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -464,10 +605,15 @@ function printResults(url: string, result: Awaited<ReturnType<typeof auditUrl>>)
       const reasons: string[] = [];
       if (vp.scrollsX) reasons.push(`scrolls horizontally (${vp.scrollWidth}px > ${vp.width}px)`);
       if (vp.scrollsY) reasons.push(`scrolls vertically (${vp.scrollHeight}px > ${vp.height}px)`);
-      if (vp.clippedInteractive > 0) reasons.push(`${vp.clippedInteractive}/${vp.totalInteractive} interactive elements clipped off-screen`);
-      if (vp.smallTouchTargets > 0) reasons.push(`${vp.smallTouchTargets} touch targets smaller than 44px`);
-      if (vp.contentOverflow > 0) reasons.push(`${vp.contentOverflow} elements render outside viewport`);
-      console.log(`  ${id} ${label} \x1b[31m\u2717 ${reasons.join(", ")}\x1b[0m`);
+      if (vp.clippedInteractive > 0)
+        reasons.push(
+          `${vp.clippedInteractive}/${vp.totalInteractive} interactive elements clipped off-screen`,
+        );
+      if (vp.smallTouchTargets > 0)
+        reasons.push(`${vp.smallTouchTargets} touch targets smaller than 44px`);
+      if (vp.contentOverflow > 0)
+        reasons.push(`${vp.contentOverflow} elements render outside viewport`);
+      console.log(`  ${id} ${label} \x1b[31m\u2717 ${reasons.join(', ')}\x1b[0m`);
     }
   }
 
@@ -501,8 +647,10 @@ function printResults(url: string, result: Awaited<ReturnType<typeof auditUrl>>)
     console.log(`Touch targets: \x1b[32m\u2713 all \u226544px\x1b[0m`);
   } else {
     const totalSmall = failingVps.reduce((sum, vp) => sum + vp.smallTouchTargets, 0);
-    const vpIds = failingVps.map((vp) => vp.id).join(", ");
-    console.log(`Touch targets: \x1b[31m\u2717 ${totalSmall} elements below 44px at ${vpIds}\x1b[0m`);
+    const vpIds = failingVps.map((vp) => vp.id).join(', ');
+    console.log(
+      `Touch targets: \x1b[31m\u2717 ${totalSmall} elements below 44px at ${vpIds}\x1b[0m`,
+    );
   }
 
   // Content overflow summary
@@ -511,8 +659,10 @@ function printResults(url: string, result: Awaited<ReturnType<typeof auditUrl>>)
     console.log(`Content overflow: \x1b[32m\u2713 all content within viewport\x1b[0m`);
   } else {
     const totalOverflow = overflowVps.reduce((sum, vp) => sum + vp.contentOverflow, 0);
-    const vpIds = overflowVps.map((vp) => vp.id).join(", ");
-    console.log(`Content overflow: \x1b[31m\u2717 ${totalOverflow} elements render outside viewport at ${vpIds}\x1b[0m`);
+    const vpIds = overflowVps.map((vp) => vp.id).join(', ');
+    console.log(
+      `Content overflow: \x1b[31m\u2717 ${totalOverflow} elements render outside viewport at ${vpIds}\x1b[0m`,
+    );
   }
 
   // Security check
@@ -529,17 +679,21 @@ function printResults(url: string, result: Awaited<ReturnType<typeof auditUrl>>)
   if (result.extraNavbars === 0) {
     console.log(`Double topbar: \x1b[32m\u2713 no extra nav/header detected\x1b[0m`);
   } else {
-    console.log(`Double topbar: \x1b[31m\u2717 ${result.extraNavbars} extra nav/header elements found — use SDK topbar only\x1b[0m`);
+    console.log(
+      `Double topbar: \x1b[31m\u2717 ${result.extraNavbars} extra nav/header elements found — use SDK topbar only\x1b[0m`,
+    );
   }
 
   // Banned CSS libraries check
   if (result.bannedLibs.length === 0) {
     console.log(`CSS libraries: \x1b[32m\u2713 none detected (Tailwind only)\x1b[0m`);
   } else {
-    console.log(`CSS libraries: \x1b[31m\u2717 banned: ${result.bannedLibs.join(", ")} — use Tailwind CSS only\x1b[0m`);
+    console.log(
+      `CSS libraries: \x1b[31m\u2717 banned: ${result.bannedLibs.join(', ')} — use Tailwind CSS only\x1b[0m`,
+    );
   }
 
-  console.log("");
+  console.log('');
 }
 
 // ---------------------------------------------------------------------------
@@ -549,8 +703,8 @@ function printResults(url: string, result: Awaited<ReturnType<typeof auditUrl>>)
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
 
-  const allMode = args.includes("--all");
-  const outputIdx = args.indexOf("--output");
+  const allMode = args.includes('--all');
+  const outputIdx = args.indexOf('--output');
   const outputPath = outputIdx !== -1 ? args[outputIdx + 1] : undefined;
 
   if (allMode) {
@@ -561,18 +715,18 @@ async function main(): Promise<void> {
     // (./freegamestore) but as a SIBLING locally (../freegamestore) — try both.
     const here = import.meta.dirname;
     const registryPath = [
-      resolve(here, "freegamestore/registry.json"),
-      resolve(here, "../freegamestore/registry.json"),
+      resolve(here, 'freegamestore/registry.json'),
+      resolve(here, '../freegamestore/registry.json'),
     ].find(existsSync);
     if (!registryPath) {
-      console.error("registry.json not found (looked in ./freegamestore and ../freegamestore)");
+      console.error('registry.json not found (looked in ./freegamestore and ../freegamestore)');
       process.exit(1);
     }
-    const registry = JSON.parse(readFileSync(registryPath, "utf-8"));
+    const registry = JSON.parse(readFileSync(registryPath, 'utf-8'));
     const games: { id: string; name: string; appUrl: string }[] = registry.games || [];
 
     if (games.length === 0) {
-      console.log("No games found in registry.");
+      console.log('No games found in registry.');
       process.exit(1);
     }
 
@@ -620,16 +774,16 @@ async function main(): Promise<void> {
       games: results,
     };
 
-    const outFile = outputPath || "quality-results.json";
+    const outFile = outputPath || 'quality-results.json';
     writeFileSync(outFile, JSON.stringify(output, null, 2));
     console.log(`\nResults written to ${outFile}`);
   } else {
     // Dev mode — single URL
-    const url = args.find((a) => !a.startsWith("--"));
+    const url = args.find((a) => !a.startsWith('--'));
     if (!url) {
-      console.error("Usage:");
-      console.error("  npx tsx audit.ts <url>                          # dev mode");
-      console.error("  npx tsx audit.ts --all --output results.json    # platform mode");
+      console.error('Usage:');
+      console.error('  npx tsx audit.ts <url>                          # dev mode');
+      console.error('  npx tsx audit.ts --all --output results.json    # platform mode');
       process.exit(1);
     }
 
@@ -645,7 +799,7 @@ async function main(): Promise<void> {
 }
 
 // Only run main when executed directly (not imported by tests)
-const isDirectRun = process.argv[1]?.endsWith("audit.ts");
+const isDirectRun = process.argv[1]?.endsWith('audit.ts');
 if (isDirectRun) {
   main().catch((err) => {
     console.error(err);

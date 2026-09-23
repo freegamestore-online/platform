@@ -28,7 +28,7 @@ class MemoryStorage implements Storage {
 }
 
 function install(): void {
-  Object.defineProperty(globalThis, "localStorage", {
+  Object.defineProperty(globalThis, 'localStorage', {
     value: new MemoryStorage(),
     configurable: true,
     writable: true,
@@ -41,8 +41,8 @@ try {
   if (!ls) {
     install();
   } else {
-    ls.setItem("__probe__", "1");
-    ls.removeItem("__probe__");
+    ls.setItem('__probe__', '1');
+    ls.removeItem('__probe__');
   }
 } catch {
   install();
@@ -51,6 +51,6 @@ try {
 // jsdom doesn't implement scrollIntoView; the studio's auto-scroll effect calls
 // it on a timer, which would otherwise throw as an unhandled exception in
 // component tests. Provide a no-op.
-if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }

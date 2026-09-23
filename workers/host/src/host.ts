@@ -146,8 +146,10 @@ export function securityHeaders(opts: { revalidate: boolean }): Headers {
   // carry a blanket `https:`, so a malicious game can't inject arbitrary
   // external JS or exfiltrate data to an attacker host. Platform calls go to
   // *.freegamestore.online (auth, leaderboard, rooms).
-  const analyticsScript = "https://static.cloudflareinsights.com https://api.freegamestore.online https://www.googletagmanager.com https://plausible.io";
-  const analyticsConnect = "https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io";
+  const analyticsScript =
+    "https://static.cloudflareinsights.com https://api.freegamestore.online https://www.googletagmanager.com https://plausible.io";
+  const analyticsConnect =
+    "https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io";
   const csp = [
     "default-src 'self' https: data: blob:",
     `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${analyticsScript}`,

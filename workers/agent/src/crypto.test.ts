@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { sealSecret, openSecret } from "./crypto";
+import { describe, expect, it } from "vitest";
+import { openSecret, sealSecret } from "./crypto";
 
 /** A deterministic 32-byte base64 KEK for tests (seeded so it's stable). */
 function kekFrom(seed: number): string {

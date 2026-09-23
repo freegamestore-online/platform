@@ -30,7 +30,10 @@ function makeDB(rowCount: number) {
     prepare(sql: string) {
       let bound: unknown[] = [];
       const stmt: any = {
-        bind: (...a: unknown[]) => { bound = a; return stmt; },
+        bind: (...a: unknown[]) => {
+          bound = a;
+          return stmt;
+        },
         run: async () => ({}),
         first: async () => (/COUNT\(\*\)/i.test(sql) ? { n: rowCount } : null),
         all: async () => {

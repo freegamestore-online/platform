@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { activityFromDeployStatus, bumpSessionTokens, updateSessionActivity, upsertSessionIndex } from "./sessions";
 
 /** Minimal D1 stub that records prepare/bind/run calls. */
@@ -8,17 +8,24 @@ function mockDb() {
     prepare(sql: string) {
       return {
         bind(...args: unknown[]) {
-          return { run: async () => { calls.push({ sql, args }); return { success: true }; } };
+          return {
+            run: async () => {
+              calls.push({ sql, args });
+              return { success: true };
+            },
+          };
         },
-        run: async () => { calls.push({ sql, args: [] }); return { success: true }; },
+        run: async () => {
+          calls.push({ sql, args: [] });
+          return { success: true };
+        },
       };
     },
   };
   return { db: db as unknown as D1Database, calls };
 }
 
-const insertOf = (calls: { sql: string; args: unknown[] }[]) =>
-  calls.find((c) => c.sql.includes("INSERT INTO agent_sessions"));
+const insertOf = (calls: { sql: string; args: unknown[] }[]) => calls.find((c) => c.sql.includes("INSERT INTO agent_sessions"));
 
 describe("upsertSessionIndex", () => {
   it("no-ops (no DB writes) when userId or sessionId is missing", async () => {
@@ -35,14 +42,7 @@ describe("upsertSessionIndex", () => {
       gameId: "beat-star",
       gameUrl: "https://beat-star.freegamestore.online",
     });
-    expect(insertOf(calls)!.args).toEqual([
-      "user-1",
-      "sess-1",
-      "Beat Star",
-      "beat-star",
-      "https://beat-star.freegamestore.online",
-      null,
-    ]);
+    expect(insertOf(calls)!.args).toEqual(["user-1", "sess-1", "Beat Star", "beat-star", "https://beat-star.freegamestore.online", null]);
   });
 
   it("binds nulls for missing optional fields (COALESCE preserves existing)", async () => {
@@ -52,8 +52,7 @@ describe("upsertSessionIndex", () => {
   });
 });
 
-const updateOf = (calls: { sql: string; args: unknown[] }[]) =>
-  calls.find((c) => c.sql.includes("UPDATE agent_sessions SET input_tokens"));
+const updateOf = (calls: { sql: string; args: unknown[] }[]) => calls.find((c) => c.sql.includes("UPDATE agent_sessions SET input_tokens"));
 
 describe("bumpSessionTokens", () => {
   it("no-ops when userId or sessionId is missing", async () => {

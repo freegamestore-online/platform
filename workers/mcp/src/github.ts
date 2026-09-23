@@ -3,7 +3,7 @@
 // (no deps). Text files are base64-(de)coded UTF-8 safe; binary passes through.
 // Vendored from fas/mcp/src/github.ts — adapted for FGS.
 
-const UA = "freegamestore-mcp";
+const UA = 'freegamestore-mcp';
 const TEXT_RE = /\.(ts|tsx|js|jsx|mjs|cjs|json|html|css|md|txt|svg|yml|yaml|toml)$/i;
 
 /** A GitHub request that failed for a reason other than confirmed absence —
@@ -15,24 +15,32 @@ export class GitHubError extends Error {
   constructor(message: string, status?: number) {
     super(message);
     this.status = status;
-    this.name = "GitHubError";
+    this.name = 'GitHubError';
   }
 }
 
 function ghFail(what: string, res: any): GitHubError {
   const status = res?.__status as number | undefined;
-  return new GitHubError(`GitHub ${what} failed (${status ?? "no status"}${res?.message ? `: ${res.message}` : ""})`, status);
+  return new GitHubError(
+    `GitHub ${what} failed (${status ?? 'no status'}${res?.message ? `: ${res.message}` : ''})`,
+    status,
+  );
 }
 
-async function gh(token: string | undefined, url: string, method = "GET", body?: unknown): Promise<any> {
+async function gh(
+  token: string | undefined,
+  url: string,
+  method = 'GET',
+  body?: unknown,
+): Promise<any> {
   const res = await fetch(url, {
     method,
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      Accept: "application/vnd.github+json",
-      "User-Agent": UA,
-      "X-GitHub-Api-Version": "2022-11-28",
-      ...(body ? { "Content-Type": "application/json" } : {}),
+      Accept: 'application/vnd.github+json',
+      'User-Agent': UA,
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -49,20 +57,20 @@ async function gh(token: string | undefined, url: string, method = "GET", body?:
 
 // UTF-8-safe base64 (atob/btoa are latin1-only).
 function b64ToText(b64: string): string {
-  const bin = atob(b64.replace(/\n/g, ""));
+  const bin = atob(b64.replace(/\n/g, ''));
   const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
   return new TextDecoder().decode(bytes);
 }
 function textToB64(text: string): string {
   const bytes = new TextEncoder().encode(text);
-  let bin = "";
+  let bin = '';
   for (const b of bytes) bin += String.fromCharCode(b);
   return btoa(bin);
 }
 
 export interface RepoFile {
   content: string; // base64
-  encoding: "base64";
+  encoding: 'base64';
 }
 
 /** Fetch every file of a template repo, substituting APPNAME -> gameId in text
@@ -76,23 +84,25 @@ export async function fetchTemplateFiles(
   const base = `https://api.github.com/repos/${org}/${templateRepo}`;
   const ref = await gh(token, `${base}/git/ref/heads/main`);
   const headSha = ref?.object?.sha;
-  if (!headSha) throw new Error(`template ${templateRepo}: no main ref (${ref.message ?? ref.__status})`);
+  if (!headSha)
+    throw new Error(`template ${templateRepo}: no main ref (${ref.message ?? ref.__status})`);
   const tree = await gh(token, `${base}/git/trees/${headSha}?recursive=1`);
-  if (!Array.isArray(tree?.tree)) throw new Error(`template tree fetch failed (${tree.message ?? tree.__status})`);
+  if (!Array.isArray(tree?.tree))
+    throw new Error(`template tree fetch failed (${tree.message ?? tree.__status})`);
 
   const files = new Map<string, RepoFile>();
   for (const item of tree.tree) {
-    if (item.type !== "blob" || item.path.startsWith(".git/")) continue;
+    if (item.type !== 'blob' || item.path.startsWith('.git/')) continue;
     const blob = await gh(token, `${base}/git/blobs/${item.sha}`);
-    if (typeof blob?.content !== "string") throw new Error(`blob ${item.path} fetch failed`);
+    if (typeof blob?.content !== 'string') throw new Error(`blob ${item.path} fetch failed`);
     if (TEXT_RE.test(item.path)) {
-      const text = b64ToText(blob.content).replaceAll("APPNAME", gameId);
-      files.set(item.path, { content: textToB64(text), encoding: "base64" });
+      const text = b64ToText(blob.content).replaceAll('APPNAME', gameId);
+      files.set(item.path, { content: textToB64(text), encoding: 'base64' });
     } else {
-      files.set(item.path, { content: blob.content.replace(/\n/g, ""), encoding: "base64" });
+      files.set(item.path, { content: blob.content.replace(/\n/g, ''), encoding: 'base64' });
     }
   }
-  if (files.size === 0) throw new Error("template has no files");
+  if (files.size === 0) throw new Error('template has no files');
   return files;
 }
 
@@ -101,10 +111,20 @@ export async function readRegistryGames(
   org: string,
   storeRepo: string,
   token?: string,
-): Promise<Array<{ id: string; creatorGithub?: string; category?: string; description?: string; appUrl?: string; repo?: string; status?: string }>> {
+): Promise<
+  Array<{
+    id: string;
+    creatorGithub?: string;
+    category?: string;
+    description?: string;
+    appUrl?: string;
+    repo?: string;
+    status?: string;
+  }>
+> {
   // readRepoFile throws on anything but a confirmed 404, so an outage never
   // reads as an empty registry (which every caller would take as "no games").
-  const raw = await readRepoFile(org, storeRepo, token, "registry.json");
+  const raw = await readRepoFile(org, storeRepo, token, 'registry.json');
   if (raw === null) return [];
   let data: { games?: Array<Record<string, unknown>> };
   try {
@@ -112,10 +132,19 @@ export async function readRegistryGames(
   } catch {
     throw new GitHubError(`registry.json in ${org}/${storeRepo} is not valid JSON`);
   }
-  return (data.games ?? []) as Array<{ id: string; creatorGithub?: string; category?: string; description?: string; appUrl?: string; repo?: string }>;
+  return (data.games ?? []) as Array<{
+    id: string;
+    creatorGithub?: string;
+    category?: string;
+    description?: string;
+    appUrl?: string;
+    repo?: string;
+  }>;
 }
 
-async function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
+async function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 /** Push a set of files to org/repo's main branch as one commit. Handles both an
  *  empty repo (seeds it) and an existing one (preserves untouched files via
@@ -142,7 +171,7 @@ export async function pushFiles(
       throw e;
     }
   }
-  throw new Error("pushFiles: unreachable");
+  throw new Error('pushFiles: unreachable');
 }
 
 async function pushFilesOnce(
@@ -164,9 +193,9 @@ async function pushFilesOnce(
     baseTree = parent?.tree?.sha;
   } else {
     // Empty repo — Git Data API needs a commit to exist. Seed via Contents API.
-    const seed = await gh(token, `${base}/contents/.gitkeep`, "PUT", {
-      message: "seed",
-      content: textToB64(""),
+    const seed = await gh(token, `${base}/contents/.gitkeep`, 'PUT', {
+      message: 'seed',
+      content: textToB64(''),
     });
     if (!seed?.commit?.sha) throw new Error(`repo seed failed: ${seed.message ?? seed.__status}`);
     parentSha = seed.commit.sha;
@@ -176,22 +205,29 @@ async function pushFilesOnce(
 
   const treeItems: Array<{ path: string; mode: string; type: string; sha: string }> = [];
   for (const [path, f] of files) {
-    const blob = await gh(token, `${base}/git/blobs`, "POST", { content: f.content, encoding: f.encoding });
-    if (!blob?.sha) throw new Error(`blob create failed for ${path}: ${blob.message ?? blob.__status}`);
-    treeItems.push({ path, mode: "100644", type: "blob", sha: blob.sha });
+    const blob = await gh(token, `${base}/git/blobs`, 'POST', {
+      content: f.content,
+      encoding: f.encoding,
+    });
+    if (!blob?.sha)
+      throw new Error(`blob create failed for ${path}: ${blob.message ?? blob.__status}`);
+    treeItems.push({ path, mode: '100644', type: 'blob', sha: blob.sha });
   }
 
-  const tree = await gh(token, `${base}/git/trees`, "POST", { ...(replaceTree ? {} : { base_tree: baseTree }), tree: treeItems });
+  const tree = await gh(token, `${base}/git/trees`, 'POST', {
+    ...(replaceTree ? {} : { base_tree: baseTree }),
+    tree: treeItems,
+  });
   if (!tree?.sha) throw new Error(`tree create failed: ${tree.message ?? tree.__status}`);
 
-  const commit = await gh(token, `${base}/git/commits`, "POST", {
+  const commit = await gh(token, `${base}/git/commits`, 'POST', {
     message,
     tree: tree.sha,
     parents: parentSha ? [parentSha] : [],
   });
   if (!commit?.sha) throw new Error(`commit create failed: ${commit.message ?? commit.__status}`);
 
-  const upd = await gh(token, `${base}/git/refs/heads/main`, "PATCH", { sha: commit.sha });
+  const upd = await gh(token, `${base}/git/refs/heads/main`, 'PATCH', { sha: commit.sha });
   if (!upd?.ref) throw new Error(`ref update failed: ${upd.message ?? upd.__status}`);
   return commit.sha;
 }
@@ -207,18 +243,29 @@ export async function listRepoFiles(org: string, repo: string, token?: string): 
   if (!headSha) throw ghFail(`ref lookup for ${org}/${repo}`, ref);
   const tree = await gh(token, `${base}/git/trees/${headSha}?recursive=1`);
   if (!Array.isArray(tree?.tree)) throw ghFail(`tree fetch for ${org}/${repo}`, tree);
-  return tree.tree.filter((i: any) => i.type === "blob" && !i.path.startsWith(".git/")).map((i: any) => i.path);
+  return tree.tree
+    .filter((i: any) => i.type === 'blob' && !i.path.startsWith('.git/'))
+    .map((i: any) => i.path);
 }
 
 /** Read one file's text content from a repo. Null only on a confirmed 404;
  *  any other failure (or a non-file, e.g. a directory) throws GitHubError. */
-export async function readRepoFile(org: string, repo: string, token: string | undefined, path: string): Promise<string | null> {
+export async function readRepoFile(
+  org: string,
+  repo: string,
+  token: string | undefined,
+  path: string,
+): Promise<string | null> {
   const base = `https://api.github.com/repos/${org}/${repo}`;
-  const res = await gh(token, `${base}/contents/${path.split("/").map(encodeURIComponent).join("/")}`);
+  const res = await gh(
+    token,
+    `${base}/contents/${path.split('/').map(encodeURIComponent).join('/')}`,
+  );
   if (res.__status === 404) return null;
   if (res.__status) throw ghFail(`read of ${path} in ${org}/${repo}`, res);
-  if (typeof res?.content !== "string") throw new GitHubError(`${path} in ${org}/${repo} is not a readable file`);
+  if (typeof res?.content !== 'string')
+    throw new GitHubError(`${path} in ${org}/${repo} is not a readable file`);
   return b64ToText(res.content);
 }
 
-export { textToB64, b64ToText };
+export { b64ToText, textToB64 };

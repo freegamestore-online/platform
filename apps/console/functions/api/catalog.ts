@@ -1,5 +1,5 @@
-import { corsHeaders } from "./_auth";
-import { getRegistry } from "./_games";
+import { corsHeaders } from './_auth';
+import { getRegistry } from './_games';
 
 interface Env {
   GITHUB_TOKEN?: string;
@@ -19,8 +19,8 @@ export const onRequestGet: PagesFunction<Env> = async (ctx) => {
   return new Response(JSON.stringify({ games: list }), {
     status: 200,
     headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "public, max-age=120",
+      'Content-Type': 'application/json',
+      'Cache-Control': 'public, max-age=120',
       ...corsHeaders(ctx.request),
     },
   });

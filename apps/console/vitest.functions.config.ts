@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig } from 'vitest/config';
 
 // Test config for the Cloudflare Pages Functions (functions/api/*). These run in
 // Node (the security-critical helpers use only Web-standard APIs — crypto.subtle,
@@ -6,7 +6,7 @@ import { defineConfig } from "vitest/config";
 // suite. Run with: pnpm test:functions
 export default defineConfig({
   test: {
-    environment: "node",
-    include: ["functions/**/*.test.ts"],
+    environment: 'node',
+    include: ['functions/**/*.test.ts'],
   },
 });

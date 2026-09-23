@@ -4,12 +4,12 @@ import {
   buildSyntheticVersion,
   contentType,
   etagsMatch,
+  ROUTE_CACHE_NEG_TTL_MS,
+  ROUTE_CACHE_TTL_MS,
   type Route,
   r2KeyFor,
   resolveRoute,
   resolveRouteCached,
-  ROUTE_CACHE_NEG_TTL_MS,
-  ROUTE_CACHE_TTL_MS,
   securityHeaders,
   shouldRevalidate,
 } from "../host";
@@ -203,13 +203,13 @@ describe("contentType", () => {
 // plausible.io origins or analytics breaks across every game.
 
 describe("buildSyntheticVersion (fallback version.json from R2 metadata)", () => {
-  const body = buildSyntheticVersion('pong', new Date('2026-07-04T09:30:00.000Z'), '"abc123etag"');
+  const body = buildSyntheticVersion("pong", new Date("2026-07-04T09:30:00.000Z"), '"abc123etag"');
   const parsed = JSON.parse(body);
   it("reports repo, deploy time, and a version from the etag", () => {
-    expect(parsed.repo).toBe('pong');
-    expect(parsed.deployedAt).toBe('2026-07-04T09:30:00.000Z');
-    expect(parsed.version).toBe('abc123etag'); // quotes stripped
-    expect(parsed.source).toBe('r2-metadata');
+    expect(parsed.repo).toBe("pong");
+    expect(parsed.deployedAt).toBe("2026-07-04T09:30:00.000Z");
+    expect(parsed.version).toBe("abc123etag"); // quotes stripped
+    expect(parsed.source).toBe("r2-metadata");
   });
   it("emits valid, parseable JSON", () => {
     expect(() => JSON.parse(body)).not.toThrow();
@@ -276,7 +276,14 @@ describe("securityHeaders", () => {
   it("CSP has NO wildcard https:/wss: in script-src or connect-src (games can't inject/exfil)", () => {
     const csp = html.get("content-security-policy") ?? "";
     const sources = (name: string) =>
-      (csp.split(";").map((d) => d.trim()).find((d) => d.startsWith(`${name} `)) ?? "").split(/\s+/).slice(1);
+      (
+        csp
+          .split(";")
+          .map((d) => d.trim())
+          .find((d) => d.startsWith(`${name} `)) ?? ""
+      )
+        .split(/\s+/)
+        .slice(1);
     // A bare `https:`/`wss:` source would let a malicious game load arbitrary
     // external scripts or exfiltrate data to any host. Only the named
     // platform + analytics allowlist may appear.
@@ -376,7 +383,7 @@ describe("legacy fallback (integration shape only)", () => {
 });
 
 // --- analytics loader (fleet-wide /v1/analytics.js) ---
-import worker, { buildAnalyticsLoader, ANALYTICS_APP_ID_RE } from "../index";
+import worker, { ANALYTICS_APP_ID_RE, buildAnalyticsLoader } from "../index";
 
 // The fetch handler must degrade a backend blip to a clean 503, not throw.
 describe("fetch handler resilience (D1 blip → 503, not raw 500)", () => {

@@ -15,7 +15,14 @@ export interface ServerSession {
   updatedAt?: string;
 }
 
-export type SessionActivityPhase = "idle" | "writing" | "provisioning" | "pushing" | "building" | "live" | "error";
+export type SessionActivityPhase =
+  | 'idle'
+  | 'writing'
+  | 'provisioning'
+  | 'pushing'
+  | 'building'
+  | 'live'
+  | 'error';
 
 export interface SessionActivity {
   phase: SessionActivityPhase;
@@ -32,7 +39,7 @@ export interface UsageTotals {
 
 /** Compact a token count for display: 1234 → "1.2k", 2_500_000 → "2.5M". */
 export function formatTokens(n: number): string {
-  if (!n || n < 0) return "0";
+  if (!n || n < 0) return '0';
   if (n < 1000) return String(n);
   if (n < 1_000_000) return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}k`;
   return `${(n / 1_000_000).toFixed(1)}M`;
@@ -60,40 +67,43 @@ export interface DraftSession {
 
 export function activityLabel(activity: SessionActivity | undefined, deployed = false): string {
   switch (activity?.phase) {
-    case "writing":
-      return "Writing";
-    case "provisioning":
-      return "Provisioning";
-    case "pushing":
-      return "Pushing";
-    case "building":
-      return "Building";
-    case "live":
-      return "Live";
-    case "error":
-      return "Failed";
-    case "idle":
-      return deployed ? "Live" : "Needs prompt";
+    case 'writing':
+      return 'Writing';
+    case 'provisioning':
+      return 'Provisioning';
+    case 'pushing':
+      return 'Pushing';
+    case 'building':
+      return 'Building';
+    case 'live':
+      return 'Live';
+    case 'error':
+      return 'Failed';
+    case 'idle':
+      return deployed ? 'Live' : 'Needs prompt';
     default:
-      return deployed ? "Live" : "Draft";
+      return deployed ? 'Live' : 'Draft';
   }
 }
 
-export function activityTone(activity: SessionActivity | undefined, deployed = false): "accent" | "success" | "danger" | "muted" {
+export function activityTone(
+  activity: SessionActivity | undefined,
+  deployed = false,
+): 'accent' | 'success' | 'danger' | 'muted' {
   switch (activity?.phase) {
-    case "writing":
-    case "provisioning":
-    case "pushing":
-    case "building":
-      return "accent";
-    case "live":
-      return "success";
-    case "error":
-      return "danger";
-    case "idle":
-      return deployed ? "success" : "muted";
+    case 'writing':
+    case 'provisioning':
+    case 'pushing':
+    case 'building':
+      return 'accent';
+    case 'live':
+      return 'success';
+    case 'error':
+      return 'danger';
+    case 'idle':
+      return deployed ? 'success' : 'muted';
     default:
-      return deployed ? "success" : "muted";
+      return deployed ? 'success' : 'muted';
   }
 }
 
@@ -105,14 +115,15 @@ export function mapServerSession(s: ServerSession, nowMs: number): Project {
   const valid = !Number.isNaN(ms);
   return {
     id: s.id,
-    name: s.name || "Untitled",
+    name: s.name || 'Untitled',
     appId: s.gameId,
     appUrl: s.gameUrl,
     deployed: s.deployed,
     activity: s.activity,
     tokens: s.tokens,
     createdAt: valid ? new Date(ms).toISOString() : new Date(nowMs).toISOString(),
-    updatedAt: Date.parse(s.activity?.updatedAt || s.updatedAt || s.createdAt) || (valid ? ms : nowMs),
+    updatedAt:
+      Date.parse(s.activity?.updatedAt || s.updatedAt || s.createdAt) || (valid ? ms : nowMs),
   };
 }
 
@@ -121,7 +132,13 @@ export function mapServerSession(s: ServerSession, nowMs: number): Project {
 export function toDrafts(sessions: ServerSession[]): DraftSession[] {
   return sessions
     .filter((s) => !s.deployed && !s.gameId)
-    .map((s) => ({ id: s.id, name: s.name || "Untitled", createdAt: s.createdAt, gameId: s.gameId, activity: s.activity }));
+    .map((s) => ({
+      id: s.id,
+      name: s.name || 'Untitled',
+      createdAt: s.createdAt,
+      gameId: s.gameId,
+      activity: s.activity,
+    }));
 }
 
 export function activityByGameId(sessions: ServerSession[]): Map<string, SessionActivity> {
@@ -129,7 +146,7 @@ export function activityByGameId(sessions: ServerSession[]): Map<string, Session
   for (const s of sessions) {
     if (!s.gameId || !s.activity) continue;
     const prev = map.get(s.gameId);
-    const prevMs = prev ? Date.parse(prev.updatedAt || "") || 0 : 0;
+    const prevMs = prev ? Date.parse(prev.updatedAt || '') || 0 : 0;
     const nextMs = Date.parse(s.activity.updatedAt || s.updatedAt || s.createdAt) || 0;
     if (!prev || nextMs >= prevMs) map.set(s.gameId, s.activity);
   }

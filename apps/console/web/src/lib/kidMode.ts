@@ -4,11 +4,11 @@
  *  rewrite itself happens server-side on the agent's free tier (POST /kidify);
  *  the technical text is always the source of truth, this is a view layer. */
 
-const AGENT_URL = "https://agent.freegamestore.online";
-const KEY = "stores-kid-mode";
+const AGENT_URL = 'https://agent.freegamestore.online';
+const KEY = 'stores-kid-mode';
 
-export type KidAge = "5" | "8" | "11";
-export type KidVibe = "funny" | "silly" | "adventure" | "chill";
+export type KidAge = '5' | '8' | '11';
+export type KidVibe = 'funny' | 'silly' | 'adventure' | 'chill';
 
 export interface KidMode {
   enabled: boolean;
@@ -20,27 +20,27 @@ export interface KidMode {
 // kid-friendly rewrites without opt-in. Anyone who has explicitly toggled it
 // keeps their choice (a stored preference always wins over this default), and
 // it can be turned off in the profile to save tokens.
-const DEFAULT: KidMode = { enabled: true, age: "8", vibe: "funny" };
+const DEFAULT: KidMode = { enabled: true, age: '8', vibe: 'funny' };
 
 export const KID_AGES: { value: KidAge; label: string }[] = [
-  { value: "5", label: "Ages 5–7" },
-  { value: "8", label: "Ages 8–10" },
-  { value: "11", label: "Ages 11–13" },
+  { value: '5', label: 'Ages 5–7' },
+  { value: '8', label: 'Ages 8–10' },
+  { value: '11', label: 'Ages 11–13' },
 ];
 
 export const KID_VIBES: { value: KidVibe; label: string; emoji: string }[] = [
-  { value: "funny", label: "Funny", emoji: "😂" },
-  { value: "silly", label: "Silly", emoji: "🤪" },
-  { value: "adventure", label: "Adventure", emoji: "🚀" },
-  { value: "chill", label: "Chill", emoji: "😎" },
+  { value: 'funny', label: 'Funny', emoji: '😂' },
+  { value: 'silly', label: 'Silly', emoji: '🤪' },
+  { value: 'adventure', label: 'Adventure', emoji: '🚀' },
+  { value: 'chill', label: 'Chill', emoji: '😎' },
 ];
 
-const isAge = (v: unknown): v is KidAge => v === "5" || v === "8" || v === "11";
+const isAge = (v: unknown): v is KidAge => v === '5' || v === '8' || v === '11';
 const isVibe = (v: unknown): v is KidVibe =>
-  v === "funny" || v === "silly" || v === "adventure" || v === "chill";
+  v === 'funny' || v === 'silly' || v === 'adventure' || v === 'chill';
 
 export function getKidMode(): KidMode {
-  if (typeof window === "undefined") return DEFAULT;
+  if (typeof window === 'undefined') return DEFAULT;
   try {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return DEFAULT;
@@ -48,7 +48,7 @@ export function getKidMode(): KidMode {
     return {
       // Only an explicit stored boolean overrides the default — a partial/legacy
       // blob missing `enabled` must fall back to DEFAULT (on), not coerce to off.
-      enabled: typeof p.enabled === "boolean" ? p.enabled : DEFAULT.enabled,
+      enabled: typeof p.enabled === 'boolean' ? p.enabled : DEFAULT.enabled,
       age: isAge(p.age) ? p.age : DEFAULT.age,
       vibe: isVibe(p.vibe) ? p.vibe : DEFAULT.vibe,
     };
@@ -58,7 +58,7 @@ export function getKidMode(): KidMode {
 }
 
 export function setKidMode(next: KidMode): void {
-  if (typeof window !== "undefined") window.localStorage.setItem(KEY, JSON.stringify(next));
+  if (typeof window !== 'undefined') window.localStorage.setItem(KEY, JSON.stringify(next));
 }
 
 // A cheap, stable key so an identical (message, age, vibe) is fetched once and
@@ -74,10 +74,10 @@ export function cacheKey(text: string, age: string, vibe: string): string {
   let h2 = 0x1000193;
   for (let i = 0; i < s.length; i++) {
     const ch = s.charCodeAt(i);
-    h1 = (Math.imul(h1 ^ ch, 0x01000193)) | 0;
-    h2 = (Math.imul(h2 + ch, 31)) | 0;
+    h1 = Math.imul(h1 ^ ch, 0x01000193) | 0;
+    h2 = Math.imul(h2 + ch, 31) | 0;
   }
-  const hex = (n: number) => (n >>> 0).toString(16).padStart(8, "0");
+  const hex = (n: number) => (n >>> 0).toString(16).padStart(8, '0');
   return `kid:${s.length.toString(36)}:${hex(h1)}${hex(h2)}`;
 }
 
@@ -86,14 +86,14 @@ export function cacheKey(text: string, age: string, vibe: string): string {
 // silently disable caching and re-bill the free tier on every render. Map
 // insertion order gives us recency: on a hit we re-insert to mark it fresh, and
 // saveCache() trims the oldest entries past the cap.
-const CACHE_KEY = "stores-kid-cache";
+const CACHE_KEY = 'stores-kid-cache';
 const CACHE_MAX = 300;
 
 let cache: Map<string, string> | null = null;
 function loadCache(): Map<string, string> {
   if (cache) return cache;
   cache = new Map();
-  if (typeof window === "undefined") return cache;
+  if (typeof window === 'undefined') return cache;
   try {
     const raw = window.localStorage.getItem(CACHE_KEY);
     if (raw) for (const [k, v] of JSON.parse(raw) as [string, string][]) cache.set(k, v);
@@ -108,7 +108,7 @@ function saveCache(c: Map<string, string>): void {
     if (oldest === undefined) break;
     c.delete(oldest);
   }
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(CACHE_KEY, JSON.stringify([...c]));
   } catch {
@@ -125,12 +125,18 @@ let active = 0;
 const waiters: (() => void)[] = [];
 function acquire(): Promise<void> {
   return new Promise((resolve) => {
-    if (active < MAX_CONCURRENT) { active++; resolve(); } else { waiters.push(resolve); }
+    if (active < MAX_CONCURRENT) {
+      active++;
+      resolve();
+    } else {
+      waiters.push(resolve);
+    }
   });
 }
 function release(): void {
   const next = waiters.shift();
-  if (next) next(); // hand the slot straight to the next waiter (active unchanged)
+  if (next)
+    next(); // hand the slot straight to the next waiter (active unchanged)
   else active = Math.max(0, active - 1);
 }
 
@@ -150,14 +156,14 @@ export async function fetchKidVersion(text: string, mode: KidMode): Promise<stri
   await acquire();
   try {
     const res = await fetch(`${AGENT_URL}/kidify`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, age: mode.age, vibe: mode.vibe }),
     });
     if (!res.ok) throw new Error(`kidify ${res.status}`);
     const data = (await res.json()) as { kid?: string };
-    const kid = (data.kid ?? "").trim();
+    const kid = (data.kid ?? '').trim();
     c.set(key, kid);
     saveCache(c);
     return kid;

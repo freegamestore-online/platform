@@ -16,7 +16,7 @@
 // Audit events land in OAUTH_KV, which the worker already binds for the OAuth flow;
 // no extra namespace to provision.
 
-export type TextResult = { content: { type: "text"; text: string }[]; isError?: boolean };
+export type TextResult = { content: { type: 'text'; text: string }[]; isError?: boolean };
 
 interface SafetyEnv {
   OAUTH_KV?: KVNamespace;
@@ -30,11 +30,16 @@ export interface SafetyContext {
   subject?: string;
 }
 
-const errResult = (text: string): TextResult => ({ content: [{ type: "text", text }], isError: true });
-const jsonResult = (value: unknown): TextResult => ({ content: [{ type: "text", text: JSON.stringify(value, null, 2) }] });
+const errResult = (text: string): TextResult => ({
+  content: [{ type: 'text', text }],
+  isError: true,
+});
+const jsonResult = (value: unknown): TextResult => ({
+  content: [{ type: 'text', text: JSON.stringify(value, null, 2) }],
+});
 
 export function isReadOnly(env: SafetyEnv): boolean {
-  return env.MCP_READ_ONLY === "1";
+  return env.MCP_READ_ONLY === '1';
 }
 
 /** Block a write tool when the server is in read-only mode. Returns an error
@@ -45,8 +50,10 @@ export async function requireWritable(
   input?: Record<string, unknown>,
 ): Promise<TextResult | null> {
   if (!isReadOnly(ctx.env)) return null;
-  await audit(ctx, { tool, action: "denied", reason: "read_only", input });
-  return errResult(`Error: ${tool} is a write tool, but this MCP server is in read-only mode (MCP_READ_ONLY=1).`);
+  await audit(ctx, { tool, action: 'denied', reason: 'read_only', input });
+  return errResult(
+    `Error: ${tool} is a write tool, but this MCP server is in read-only mode (MCP_READ_ONLY=1).`,
+  );
 }
 
 /** Require an exact confirmation token before a destructive tool runs. */
@@ -58,8 +65,10 @@ export async function requireConfirmation(
   input?: Record<string, unknown>,
 ): Promise<TextResult | null> {
   if (confirm === expected) return null;
-  await audit(ctx, { tool, action: "denied", reason: "missing_confirmation", expected, input });
-  return errResult(`Error: ${tool} is destructive and cannot be undone. Re-run with confirm="${expected}" to proceed.`);
+  await audit(ctx, { tool, action: 'denied', reason: 'missing_confirmation', expected, input });
+  return errResult(
+    `Error: ${tool} is destructive and cannot be undone. Re-run with confirm="${expected}" to proceed.`,
+  );
 }
 
 /** Preview a mutation: audit the attempt and return what would happen, without committing. */
@@ -71,7 +80,7 @@ export async function dryRun(
   wouldDo: unknown,
 ): Promise<TextResult> {
   const body = { dryRun: true, tool, action, wouldDo };
-  await audit(ctx, { tool, action: "dry_run", input, result: body });
+  await audit(ctx, { tool, action: 'dry_run', input, result: body });
   return jsonResult(body);
 }
 
@@ -83,7 +92,11 @@ export async function audit(ctx: SafetyContext, event: Record<string, unknown>):
   const key = `audit:${ctx.subject}:${now}:${crypto.randomUUID()}`;
   await ctx.env.OAUTH_KV.put(
     key,
-    JSON.stringify({ time: now, subject: ctx.subject, ...(redact(event) as Record<string, unknown>) }),
+    JSON.stringify({
+      time: now,
+      subject: ctx.subject,
+      ...(redact(event) as Record<string, unknown>),
+    }),
     { expirationTtl: 90 * 86_400 },
   );
 }
@@ -115,28 +128,32 @@ export async function listAuditEvents(ctx: SafetyContext, limit = 50): Promise<u
 // key name alone is not enough to keep keys out of the audit log.
 const SECRET_VALUE = new RegExp(
   [
-    "sk-(?:ant-)?[A-Za-z0-9_-]{16,}", // OpenAI / Anthropic
-    "gh[pousr]_[A-Za-z0-9]{20,}", // GitHub tokens
-    "AIza[0-9A-Za-z_-]{20,}", // Google API key
-    "eyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{4,}", // JWT
-    "Bearer\\s+[A-Za-z0-9._-]{12,}", // bearer header
-  ].join("|"),
-  "gi",
+    'sk-(?:ant-)?[A-Za-z0-9_-]{16,}', // OpenAI / Anthropic
+    'gh[pousr]_[A-Za-z0-9]{20,}', // GitHub tokens
+    'AIza[0-9A-Za-z_-]{20,}', // Google API key
+    'eyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{4,}', // JWT
+    'Bearer\\s+[A-Za-z0-9._-]{12,}', // bearer header
+  ].join('|'),
+  'gi',
 );
 
 /** Strip credential-shaped keys and values, and truncate long strings, before anything is logged. */
 function redact(value: unknown, depth = 0): unknown {
-  if (depth > 8) return "[truncated]";
-  if (typeof value === "string") {
-    const masked = value.replace(SECRET_VALUE, "[redacted]");
+  if (depth > 8) return '[truncated]';
+  if (typeof value === 'string') {
+    const masked = value.replace(SECRET_VALUE, '[redacted]');
     return masked.length > 500 ? `${masked.slice(0, 500)}...` : masked;
   }
   if (Array.isArray(value)) return value.map((item) => redact(item, depth + 1));
-  if (!value || typeof value !== "object") return value;
+  if (!value || typeof value !== 'object') return value;
   const out: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value)) {
-    if (/token|secret|password|credential|authorization|auth|api[_-]?key|apikey|access[_-]?(code|token)|refresh[_-]?token|bearer|private[_-]?key|client[_-]?secret|cookie/i.test(key)) {
-      out[key] = "[redacted]";
+    if (
+      /token|secret|password|credential|authorization|auth|api[_-]?key|apikey|access[_-]?(code|token)|refresh[_-]?token|bearer|private[_-]?key|client[_-]?secret|cookie/i.test(
+        key,
+      )
+    ) {
+      out[key] = '[redacted]';
     } else {
       out[key] = redact(item, depth + 1);
     }

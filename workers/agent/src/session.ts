@@ -4,20 +4,20 @@
 import { runAgentTurn } from "./agent";
 import type { StoreConfig } from "./config";
 import { getConfig } from "./config";
-import { fetchRepoFiles, fetchRepoHeadSha, fetchTemplateSeed, resolveSeedFiles, type DeployEnv, type DeployStatus } from "./deploy";
+import { type DeployEnv, type DeployStatus, fetchRepoFiles, fetchRepoHeadSha, fetchTemplateSeed, resolveSeedFiles } from "./deploy";
 import { reportPlatformError } from "./errlog";
-import { ENGINE_TEMPLATE_REPOS } from "./template";
 import type { Env } from "./index";
 import { executeInfraTool } from "./infra-exec";
-import { clampToolResultForHistory } from "./tools";
+import { compKeyFor, getActiveComp } from "./keygrants";
+import { keyStatus, resolveUserKey } from "./keys";
 import { OwnershipLookupError, ownsGame } from "./ownership";
 import type { AIConfig, Message, TokenUsage } from "./providers/types";
 import { type PushSubscription, sendWebPush } from "./push";
-import { keyStatus, resolveUserKey } from "./keys";
-import { compKeyFor, getActiveComp } from "./keygrants";
 import { allowDeploy, allowRequest } from "./ratelimit";
 import { enforceSessionBudget } from "./session-budget";
 import { activityFromDeployStatus, bumpSessionTokens, updateSessionActivity, upsertSessionIndex } from "./sessions";
+import { ENGINE_TEMPLATE_REPOS } from "./template";
+import { clampToolResultForHistory } from "./tools";
 import { armWatchdog, lockIsStale } from "./watchdog";
 
 interface ErrorEntry {
@@ -335,9 +335,7 @@ export class AgentSession implements DurableObject {
    *  for the free GitHub tier → complimentary grant → free tier (github,
    *  platform token). Null when nothing usable. */
   private async resolveTurnConfig(userId: string, aiConfig: AIConfig): Promise<{ aiConfig: AIConfig; usedFreeTier: boolean } | null> {
-    let resolvedKey =
-      aiConfig.apiKey?.trim() ||
-      (userId ? await resolveUserKey(this.env, userId, aiConfig.provider) : null);
+    let resolvedKey = aiConfig.apiKey?.trim() || (userId ? await resolveUserKey(this.env, userId, aiConfig.provider) : null);
 
     if (!resolvedKey && userId && aiConfig.provider === "github") {
       const saved = await this.resolveAnySavedKey(userId);
@@ -391,7 +389,10 @@ export class AgentSession implements DurableObject {
    *  a stale lock was broken (caller should proceed instead of rejecting). */
   private async breakStaleLock(): Promise<boolean> {
     if (!lockIsStale(this.chatInProgress, this.lastTurnEventAt, Date.now(), HUNG_TURN_MS)) return false;
-    this.logError("hung", `stale build lock (silent ${Math.round((Date.now() - this.lastTurnEventAt) / 1000)}s) — force-releasing so recovery isn't blocked`);
+    this.logError(
+      "hung",
+      `stale build lock (silent ${Math.round((Date.now() - this.lastTurnEventAt) / 1000)}s) — force-releasing so recovery isn't blocked`,
+    );
     this.turnEpoch++;
     this.chatInProgress = false;
     await this.state.storage.delete(PENDING_TURN_KEY).catch(() => {});
@@ -413,152 +414,151 @@ export class AgentSession implements DurableObject {
     // the background turn is launched it owns the flag and clears it in finally.
     this.chatInProgress = true;
     try {
-    const body = await request.json<{
-      message: string;
-      aiConfig: AIConfig;
-      /** Engine key to seed a BRAND-NEW session from (ignored once seeded). */
-      engine?: string;
-    }>();
+      const body = await request.json<{
+        message: string;
+        aiConfig: AIConfig;
+        /** Engine key to seed a BRAND-NEW session from (ignored once seeded). */
+        engine?: string;
+      }>();
 
-    if (body.engine && !ENGINE_TEMPLATE_REPOS[body.engine]) {
-      this.chatInProgress = false;
-      return json(
-        { error: `Unknown engine "${body.engine}". Choose: ${Object.keys(ENGINE_TEMPLATE_REPOS).join(", ")}.` },
-        400,
-        request,
-        this.config.domain,
-      );
-    }
-
-    if (!body.message || !body.aiConfig?.provider || !body.aiConfig?.model) {
-      this.chatInProgress = false;
-      return json(
-        { error: "message, aiConfig.provider, and aiConfig.model are required" },
-        400,
-        request,
-        this.config.domain,
-      );
-    }
-
-    // Resolve the AI key server-side (extracted so the alarm-resume path can
-    // re-resolve — the pending-turn record never persists the key).
-    const userId = request.headers.get("X-Auth-User") || "";
-    const resolved = await this.resolveTurnConfig(userId, body.aiConfig);
-    if (!resolved) {
-      this.chatInProgress = false;
-      return json(
-        { error: "No API key saved for this provider — add one in AI settings.", code: "no_key" },
-        400,
-        request,
-        this.config.domain,
-      );
-    }
-    body.aiConfig = resolved.aiConfig;
-    const usedFreeTier = resolved.usedFreeTier;
-
-    // Rate-limit the FREE tier (shared platform token) per user so one scripted
-    // loop can't exhaust the shared GitHub Models quota — or crowd out the
-    // provisioning PAT — for everyone. Users on their own key are their own
-    // quota and aren't limited here.
-    if (usedFreeTier && userId) {
-      const ok = await allowRequest(this.env.DB, `freechat:${userId}`, 60, 3600, Math.floor(Date.now() / 1000));
-      if (!ok) {
+      if (body.engine && !ENGINE_TEMPLATE_REPOS[body.engine]) {
         this.chatInProgress = false;
         return json(
-          { error: "You've hit the free-tier limit for now. Add your own API key in AI settings for unlimited builds, or try again later.", code: "rate_limited" },
-          429,
+          { error: `Unknown engine "${body.engine}". Choose: ${Object.keys(ENGINE_TEMPLATE_REPOS).join(", ")}.` },
+          400,
           request,
           this.config.domain,
         );
       }
-    }
 
-    const session = await this.load(true, body.engine);
-    const files = new Map(Object.entries(session.files));
-
-    // Keep the D1 /sessions index authoritative from the SERVER so this session
-    // is discoverable in ANY browser — not dependent on the client's
-    // PUT /sessions/:id, which can race or be missed (which made an active chat
-    // "vanish" when opened in a second browser). Best-effort; never fail a chat.
-    const sessionId = request.headers.get("X-Session-Id") || "";
-    if (userId && sessionId) {
-      const gameUrl = session.appId ? `https://${session.appId}.${this.config.domain}` : null;
-      try {
-        await upsertSessionIndex(this.env.DB, userId, sessionId, {
-          title: session.appName,
-          gameId: session.appId,
-          gameUrl,
-          login: request.headers.get("X-Auth-Login") || null,
-        });
-      } catch {
-        /* index is best-effort — discovery convenience, not the transcript */
+      if (!body.message || !body.aiConfig?.provider || !body.aiConfig?.model) {
+        this.chatInProgress = false;
+        return json({ error: "message, aiConfig.provider, and aiConfig.model are required" }, 400, request, this.config.domain);
       }
-    }
 
-    // The signed-in creator's GitHub login (worker-verified header), used to add
-    // them as a collaborator on the repo the platform bot creates at deploy.
-    const creatorLogin = request.headers.get("X-Auth-Login") || undefined;
+      // Resolve the AI key server-side (extracted so the alarm-resume path can
+      // re-resolve — the pending-turn record never persists the key).
+      const userId = request.headers.get("X-Auth-User") || "";
+      const resolved = await this.resolveTurnConfig(userId, body.aiConfig);
+      if (!resolved) {
+        this.chatInProgress = false;
+        return json(
+          { error: "No API key saved for this provider — add one in AI settings.", code: "no_key" },
+          400,
+          request,
+          this.config.domain,
+        );
+      }
+      body.aiConfig = resolved.aiConfig;
+      const usedFreeTier = resolved.usedFreeTier;
 
-    const { readable, writable } = new TransformStream<Uint8Array>();
-    const writer = writable.getWriter();
+      // Rate-limit the FREE tier (shared platform token) per user so one scripted
+      // loop can't exhaust the shared GitHub Models quota — or crowd out the
+      // provisioning PAT — for everyone. Users on their own key are their own
+      // quota and aren't limited here.
+      if (usedFreeTier && userId) {
+        const ok = await allowRequest(this.env.DB, `freechat:${userId}`, 60, 3600, Math.floor(Date.now() / 1000));
+        if (!ok) {
+          this.chatInProgress = false;
+          return json(
+            {
+              error:
+                "You've hit the free-tier limit for now. Add your own API key in AI settings for unlimited builds, or try again later.",
+              code: "rate_limited",
+            },
+            429,
+            request,
+            this.config.domain,
+          );
+        }
+      }
 
-    // The turn was already claimed synchronously above (before any await), so a
-    // racing /chat can't slip in. From here the background task owns the flag and
-    // releases it in its finally.
+      const session = await this.load(true, body.engine);
+      const files = new Map(Object.entries(session.files));
 
-    // Persist the user's message NOW, durably, before the turn runs. A refresh
-    // mid-build cancels the SSE stream and can tear the background turn down
-    // before its end-of-turn save() — which permanently lost the first message
-    // + reply and left the reopened chat showing the empty "Describe the game…"
-    // placeholder. `history` is the pre-turn snapshot handed to runAgentTurn
-    // (which re-includes this user message in newMessages); on completion we
-    // rebuild `history.concat(newMessages)` so the provisional save is
-    // superseded without duplicating the user turn.
-    const history = session.messages.slice();
-    session.messages.push({ role: "user", content: body.message, ts: Date.now() });
-    session.pivotAttempted = false; // new turn — clear any prior different-game block
-    if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
-    await this.save();
+      // Keep the D1 /sessions index authoritative from the SERVER so this session
+      // is discoverable in ANY browser — not dependent on the client's
+      // PUT /sessions/:id, which can race or be missed (which made an active chat
+      // "vanish" when opened in a second browser). Best-effort; never fail a chat.
+      const sessionId = request.headers.get("X-Session-Id") || "";
+      if (userId && sessionId) {
+        const gameUrl = session.appId ? `https://${session.appId}.${this.config.domain}` : null;
+        try {
+          await upsertSessionIndex(this.env.DB, userId, sessionId, {
+            title: session.appName,
+            gameId: session.appId,
+            gameUrl,
+            login: request.headers.get("X-Auth-Login") || null,
+          });
+        } catch {
+          /* index is best-effort — discovery convenience, not the transcript */
+        }
+      }
 
-    // Persist the pending-turn record + arm the resurrection heartbeat BEFORE
-    // launching: if this instance dies mid-turn (eviction, a worker deploy, a
-    // client disconnect outliving the grace window), the alarm fires in a fresh
-    // instance and RESUMES the turn from the checkpointed transcript.
-    const pending: PendingTurn = {
-      aiConfig: (({ apiKey: _key, ...rest }) => rest)(body.aiConfig),
-      userId,
-      login: creatorLogin ?? null,
-      sessionId,
-      startedAt: Date.now(),
-      attempts: 0,
-    };
-    await this.state.storage.put(PENDING_TURN_KEY, pending);
-    await this.state.storage.setAlarm(Date.now() + TURN_HEARTBEAT_MS);
+      // The signed-in creator's GitHub login (worker-verified header), used to add
+      // them as a collaborator on the repo the platform bot creates at deploy.
+      const creatorLogin = request.headers.get("X-Auth-Login") || undefined;
 
-    // Keep the DO alive until the turn finishes even if the client disconnects
-    // (a refresh mid-build); the alarm covers the cases waitUntil can't.
-    this.state.waitUntil(
-      this.executeTurn({
-        aiConfig: body.aiConfig,
-        initialMessage: body.message,
-        history,
-        session,
-        files,
+      const { readable, writable } = new TransformStream<Uint8Array>();
+      const writer = writable.getWriter();
+
+      // The turn was already claimed synchronously above (before any await), so a
+      // racing /chat can't slip in. From here the background task owns the flag and
+      // releases it in its finally.
+
+      // Persist the user's message NOW, durably, before the turn runs. A refresh
+      // mid-build cancels the SSE stream and can tear the background turn down
+      // before its end-of-turn save() — which permanently lost the first message
+      // + reply and left the reopened chat showing the empty "Describe the game…"
+      // placeholder. `history` is the pre-turn snapshot handed to runAgentTurn
+      // (which re-includes this user message in newMessages); on completion we
+      // rebuild `history.concat(newMessages)` so the provisional save is
+      // superseded without duplicating the user turn.
+      const history = session.messages.slice();
+      session.messages.push({ role: "user", content: body.message, ts: Date.now() });
+      session.pivotAttempted = false; // new turn — clear any prior different-game block
+      if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
+      await this.save();
+
+      // Persist the pending-turn record + arm the resurrection heartbeat BEFORE
+      // launching: if this instance dies mid-turn (eviction, a worker deploy, a
+      // client disconnect outliving the grace window), the alarm fires in a fresh
+      // instance and RESUMES the turn from the checkpointed transcript.
+      const pending: PendingTurn = {
+        aiConfig: (({ apiKey: _key, ...rest }) => rest)(body.aiConfig),
         userId,
-        creatorLogin,
+        login: creatorLogin ?? null,
         sessionId,
-        writer,
-      }),
-    );
+        startedAt: Date.now(),
+        attempts: 0,
+      };
+      await this.state.storage.put(PENDING_TURN_KEY, pending);
+      await this.state.storage.setAlarm(Date.now() + TURN_HEARTBEAT_MS);
 
-    return new Response(readable, {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-        ...corsHeaders(request, this.config.domain),
-      },
-    });
+      // Keep the DO alive until the turn finishes even if the client disconnects
+      // (a refresh mid-build); the alarm covers the cases waitUntil can't.
+      this.state.waitUntil(
+        this.executeTurn({
+          aiConfig: body.aiConfig,
+          initialMessage: body.message,
+          history,
+          session,
+          files,
+          userId,
+          creatorLogin,
+          sessionId,
+          writer,
+        }),
+      );
+
+      return new Response(readable, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+          ...corsHeaders(request, this.config.domain),
+        },
+      });
     } catch (err) {
       // Setup threw before the background turn launched (bad JSON, key decrypt,
       // load). Release the claim so the session isn't stuck "in progress"
@@ -614,7 +614,7 @@ export class AgentSession implements DurableObject {
     const resolved = await this.resolveTurnConfig(pending.userId, { ...pending.aiConfig } as AIConfig);
     if (!resolved) {
       await this.load();
-      this.appendAssistantError("resume", "The build was interrupted and its API key is no longer available — say \"continue\" to retry.");
+      this.appendAssistantError("resume", 'The build was interrupted and its API key is no longer available — say "continue" to retry.');
       await this.persistNow().catch(() => {});
       await this.state.storage.delete(PENDING_TURN_KEY);
       return;
@@ -628,8 +628,8 @@ export class AgentSession implements DurableObject {
     const writer = writable.getWriter();
 
     this.chatInProgress = true;
-    updateSessionActivity(this.env.DB, pending.userId, pending.sessionId, { phase: "writing", detail: "Writing" }).catch(
-      (e) => this.logError("storage", `activity persist: ${String(e)}`),
+    updateSessionActivity(this.env.DB, pending.userId, pending.sessionId, { phase: "writing", detail: "Writing" }).catch((e) =>
+      this.logError("storage", `activity persist: ${String(e)}`),
     );
     // Re-arm BEFORE the long await so another death mid-resume is also caught.
     await this.state.storage.setAlarm(Date.now() + TURN_HEARTBEAT_MS);
@@ -680,9 +680,14 @@ export class AgentSession implements DurableObject {
         : null;
 
     const encoder = new TextEncoder();
-    const setActivity = (activity: { phase: "idle" | "writing" | "provisioning" | "pushing" | "building" | "live" | "error"; detail?: string | null }) => {
+    const setActivity = (activity: {
+      phase: "idle" | "writing" | "provisioning" | "pushing" | "building" | "live" | "error";
+      detail?: string | null;
+    }) => {
       if (!userId || !sessionId) return;
-      updateSessionActivity(this.env.DB, userId, sessionId, activity).catch((e) => this.logError("storage", `activity persist: ${String(e)}`));
+      updateSessionActivity(this.env.DB, userId, sessionId, activity).catch((e) =>
+        this.logError("storage", `activity persist: ${String(e)}`),
+      );
     };
     const sendSSE = (evt: { type: string; data: string }) => {
       this.lastTurnEventAt = Date.now();
@@ -699,10 +704,13 @@ export class AgentSession implements DurableObject {
       // Record the kill IN THE TRANSCRIPT, not just the live stream — otherwise
       // a watchdog death looks like silent abandonment on reload ("I got
       // interrupted") and nobody can tell why the build stopped.
-      this.appendAssistantError("timeout", `The build ran past the ${TURN_DEADLINE_MS / 60_000}-minute limit and was stopped. Say "continue" to pick up where it left off.`);
+      this.appendAssistantError(
+        "timeout",
+        `The build ran past the ${TURN_DEADLINE_MS / 60_000}-minute limit and was stopped. Say "continue" to pick up where it left off.`,
+      );
       setActivity({ phase: "error", detail: "Stopped after running too long" });
       this.persistNow().catch(() => {});
-      sendSSE({ type: "error", data: "The build took too long and was stopped. Say \"continue\" to pick up where it left off." });
+      sendSSE({ type: "error", data: 'The build took too long and was stopped. Say "continue" to pick up where it left off.' });
       sendSSE({ type: "done", data: "" });
       writer.close().catch(() => {});
       // Deliberate stop — don't let the alarm resurrect it.
@@ -710,20 +718,20 @@ export class AgentSession implements DurableObject {
       this.state.storage.deleteAlarm().catch(() => {});
     });
 
-      try {
-        // A turn spans SEVERAL provider rounds when the model calls server-side
-        // infra tools (fetch_url, CI/status reads): each round's results are
-        // appended to the transcript and the model is re-invoked so it can USE
-        // them. Previously the turn ended after executing the tools — the model
-        // never saw what it fetched, so every "let me get the files" request
-        // died in silence and the user's change was never made. deploy /
-        // push_update remain terminal (their status streams separately);
-        // MAX_INFRA_ROUNDS bounds a pathological fetch loop.
-        const MAX_INFRA_ROUNDS = 6;
-        let resumeMsg: string | null = initialMessage;
-        let infraRounds = 0;
-        setActivity({ phase: "writing", detail: "Writing" });
-        while (true) {
+    try {
+      // A turn spans SEVERAL provider rounds when the model calls server-side
+      // infra tools (fetch_url, CI/status reads): each round's results are
+      // appended to the transcript and the model is re-invoked so it can USE
+      // them. Previously the turn ended after executing the tools — the model
+      // never saw what it fetched, so every "let me get the files" request
+      // died in silence and the user's change was never made. deploy /
+      // push_update remain terminal (their status streams separately);
+      // MAX_INFRA_ROUNDS bounds a pathological fetch loop.
+      const MAX_INFRA_ROUNDS = 6;
+      let resumeMsg: string | null = initialMessage;
+      let infraRounds = 0;
+      setActivity({ phase: "writing", detail: "Writing" });
+      while (true) {
         // First round rebuilds from the pre-turn snapshot (`history`) since the
         // user message was provisionally saved above; resume rounds continue
         // from the transcript as-is (it now ends with the infra tool_result).
@@ -753,22 +761,24 @@ export class AgentSession implements DurableObject {
           session.files = Object.fromEntries(files);
           this.persistNow().catch((e) => this.logError("storage", `checkpoint persist: ${String(e)}`));
         };
-        const result = await runAgentTurn(aiConfig, preTurn, resumeMsg, files, writer, config, sessionCtx, checkpoint).catch(async (err) => {
-          this.logError("agent", String(err));
-          // The user message is already pre-saved above; rebuild from the
-          // pre-turn snapshot (so it's never doubled) and record the failure so
-          // the turn survives a reload.
-          session.messages = preTurn.concat(
-            resumeMsg === null
-              ? [{ role: "assistant", content: `Error: ${String(err)}` }]
-              : [
-                  { role: "user", content: resumeMsg },
-                  { role: "assistant", content: `Error: ${String(err)}` },
-                ],
-          );
-          await this.save();
-          throw err;
-        });
+        const result = await runAgentTurn(aiConfig, preTurn, resumeMsg, files, writer, config, sessionCtx, checkpoint).catch(
+          async (err) => {
+            this.logError("agent", String(err));
+            // The user message is already pre-saved above; rebuild from the
+            // pre-turn snapshot (so it's never doubled) and record the failure so
+            // the turn survives a reload.
+            session.messages = preTurn.concat(
+              resumeMsg === null
+                ? [{ role: "assistant", content: `Error: ${String(err)}` }]
+                : [
+                    { role: "user", content: resumeMsg },
+                    { role: "assistant", content: `Error: ${String(err)}` },
+                  ],
+            );
+            await this.save();
+            throw err;
+          },
+        );
 
         // Rebuild from the pre-turn snapshot: newMessages already begins with
         // the user message we pre-saved, so this supersedes the provisional save
@@ -785,8 +795,8 @@ export class AgentSession implements DurableObject {
         // per-account token usage is readable via GET /sessions without waking
         // the DO. Best-effort — a usage-write failure must never break the chat.
         if (userId && sessionId) {
-          bumpSessionTokens(this.env.DB, userId, sessionId, session.tokenUsage.input, session.tokenUsage.output).catch(
-            (e) => this.logError("storage", `token usage persist: ${String(e)}`),
+          bumpSessionTokens(this.env.DB, userId, sessionId, session.tokenUsage.input, session.tokenUsage.output).catch((e) =>
+            this.logError("storage", `token usage persist: ${String(e)}`),
           );
         }
 
@@ -827,7 +837,10 @@ export class AgentSession implements DurableObject {
                 const head = await fetchRepoHeadSha(session.appId, this.env.GITHUB_TOKEN, this.config).catch(() => null);
                 if (head && head !== known) {
                   toolResult = `Error: the ${this.config.noun}'s code was changed OUTSIDE this chat since it last synced (a direct edit or another session). Pushing now would overwrite those changes. Tell the user to RE-OPEN this ${this.config.noun} from My Games (which re-syncs the files) and then re-apply the change.`;
-                  this.logError("drift", `push_update blocked: repo HEAD ${head?.slice(0, 7)} != session ${known.slice(0, 7)} for ${session.appId}`);
+                  this.logError(
+                    "drift",
+                    `push_update blocked: repo HEAD ${head?.slice(0, 7)} != session ${known.slice(0, 7)} for ${session.appId}`,
+                  );
                   sendSSE({ type: "tool_result", data: JSON.stringify({ id: tc.id, tool: tc.name, result: toolResult }) });
                   infraResults.push({ id: tc.id, content: toolResult });
                   continue;
@@ -888,7 +901,12 @@ export class AgentSession implements DurableObject {
                   // push read as foreign drift (orb-cascade, 2026-07-12).
                   if ((status.phase === "live" || status.phase === "error") && session.appId) {
                     fetchRepoHeadSha(session.appId, this.env.GITHUB_TOKEN, this.config)
-                      .then((sha) => { if (sha && this.session) { this.session.lastPushedSha = sha; this.persistNow().catch(() => {}); } })
+                      .then((sha) => {
+                        if (sha && this.session) {
+                          this.session.lastPushedSha = sha;
+                          this.persistNow().catch(() => {});
+                        }
+                      })
                       .catch(() => {});
                   }
                   if (status.phase === "live") {
@@ -969,9 +987,7 @@ export class AgentSession implements DurableObject {
           // sees the error tool_result, reads get_build_logs (which now carries
           // the actual failing lines) and fixes + re-pushes in the SAME turn.
           // Read-type tools always resume. MAX_INFRA_ROUNDS bounds the loop.
-          const hadDeploy = result.infraRequests.some(
-            (r) => r.toolCall.name === "deploy" || r.toolCall.name === "push_update",
-          );
+          const hadDeploy = result.infraRequests.some((r) => r.toolCall.name === "deploy" || r.toolCall.name === "push_update");
           // The string check used to be `startsWith("Error")` alone, which never
           // matched what the deploy executors actually return — executeDeploy
           // returns "Deploy FAILED: …" and executePushUpdate returns "Update
@@ -979,51 +995,46 @@ export class AgentSession implements DurableObject {
           // on session.deployStatus, with the string arm as dead code. Match the
           // real strings so either signal alone is enough to resume the model.
           const failedResult = (c: string) =>
-            c.startsWith("Error") ||
-            c.includes("Deploy FAILED:") ||
-            c.includes("Update pushed but the build FAILED:");
-          const deployFailed =
-            hadDeploy &&
-            (session.deployStatus?.phase === "error" || infraResults.some((r) => failedResult(r.content)));
+            c.startsWith("Error") || c.includes("Deploy FAILED:") || c.includes("Update pushed but the build FAILED:");
+          const deployFailed = hadDeploy && (session.deployStatus?.phase === "error" || infraResults.some((r) => failedResult(r.content)));
           if (hadDeploy && !deployFailed) break;
           if (++infraRounds >= MAX_INFRA_ROUNDS) break;
           resumeMsg = null;
         }
-        } // while (resume loop)
+      } // while (resume loop)
 
-        sendSSE({ type: "done", data: "" });
-      } catch (err) {
-        const message = String(err);
-        this.appendAssistantError("chat", message);
-        setActivity({ phase: "error", detail: message });
-        // Surface the error to the client FIRST, then persist best-effort. If
-        // save() throws (e.g. the session blob outgrew the DO value cap), the
-        // old ordering meant the error SSE never fired and the stream just
-        // closed — a silent hang. Now the user always sees what failed.
-        sendSSE({ type: "error", data: message });
-        await this.save().catch((e) => this.logError("storage", `save after error failed: ${String(e)}`));
-      } finally {
-        // If the watchdog already fired it released the lock and closed the
-        // stream; don't double-handle. A STALE turn (epoch mismatch — the alarm
-        // declared it hung and started a replacement) must not clear the lock
-        // or the replacement's pending record.
-        if (!watchdog.fired() && epoch === this.turnEpoch) {
-          watchdog.clear();
-          this.chatInProgress = false;
-          if (session.deployStatus?.phase === "live") setActivity({ phase: "live", detail: "Live" });
-          else if (session.deployStatus?.phase === "error") setActivity(activityFromDeployStatus(session.deployStatus));
-          else if (session.deployStatus?.phase) setActivity(activityFromDeployStatus(session.deployStatus));
-          else setActivity({ phase: "idle", detail: "Needs prompt" });
-          writer.close().catch(() => {});
-          // Turn concluded with a persisted outcome — stand down the alarm.
-          await this.state.storage.delete(PENDING_TURN_KEY).catch(() => {});
-          await this.state.storage.deleteAlarm().catch(() => {});
-        } else if (epoch !== this.turnEpoch) {
-          watchdog.clear();
-          writer.close().catch(() => {});
-        }
+      sendSSE({ type: "done", data: "" });
+    } catch (err) {
+      const message = String(err);
+      this.appendAssistantError("chat", message);
+      setActivity({ phase: "error", detail: message });
+      // Surface the error to the client FIRST, then persist best-effort. If
+      // save() throws (e.g. the session blob outgrew the DO value cap), the
+      // old ordering meant the error SSE never fired and the stream just
+      // closed — a silent hang. Now the user always sees what failed.
+      sendSSE({ type: "error", data: message });
+      await this.save().catch((e) => this.logError("storage", `save after error failed: ${String(e)}`));
+    } finally {
+      // If the watchdog already fired it released the lock and closed the
+      // stream; don't double-handle. A STALE turn (epoch mismatch — the alarm
+      // declared it hung and started a replacement) must not clear the lock
+      // or the replacement's pending record.
+      if (!watchdog.fired() && epoch === this.turnEpoch) {
+        watchdog.clear();
+        this.chatInProgress = false;
+        if (session.deployStatus?.phase === "live") setActivity({ phase: "live", detail: "Live" });
+        else if (session.deployStatus?.phase === "error") setActivity(activityFromDeployStatus(session.deployStatus));
+        else if (session.deployStatus?.phase) setActivity(activityFromDeployStatus(session.deployStatus));
+        else setActivity({ phase: "idle", detail: "Needs prompt" });
+        writer.close().catch(() => {});
+        // Turn concluded with a persisted outcome — stand down the alarm.
+        await this.state.storage.delete(PENDING_TURN_KEY).catch(() => {});
+        await this.state.storage.deleteAlarm().catch(() => {});
+      } else if (epoch !== this.turnEpoch) {
+        watchdog.clear();
+        writer.close().catch(() => {});
       }
-
+    }
   }
 
   /** GET /status — current session state */
@@ -1069,7 +1080,11 @@ export class AgentSession implements DurableObject {
   /** Record a deploy phase on the append-only timeline (capped). */
   private logDeploy(status: DeployStatus) {
     if (!this.session) return;
-    this.session.deployLog.push({ timestamp: new Date().toISOString(), phase: status.phase, detail: deployStatusDetail(status).slice(0, 500) });
+    this.session.deployLog.push({
+      timestamp: new Date().toISOString(),
+      phase: status.phase,
+      detail: deployStatusDetail(status).slice(0, 500),
+    });
     if (this.session.deployLog.length > MAX_DEPLOY_LOG) this.session.deployLog = this.session.deployLog.slice(-MAX_DEPLOY_LOG);
   }
 
@@ -1139,7 +1154,12 @@ export class AgentSession implements DurableObject {
     // the in-flight turn holds the old `session` and keeps persisting it — the
     // import would be silently clobbered (or corrupt a half-written deploy).
     if (this.chatInProgress && !(await this.breakStaleLock())) {
-      return json({ error: "A build is in progress — wait for it to finish before opening another game." }, 409, request, this.config.domain);
+      return json(
+        { error: "A build is in progress — wait for it to finish before opening another game." },
+        409,
+        request,
+        this.config.domain,
+      );
     }
     const body = await request.json<{ id?: string }>().catch(() => ({}) as { id?: string });
     const id = (body.id || "").trim();
@@ -1242,12 +1262,7 @@ export class AgentSession implements DurableObject {
     // frontend (the DO has no session-id string and never writes D1). The
     // frontend's putSession/markDeployed after this import keeps that row in
     // sync, so we don't upsert it here.
-    return json(
-      { ok: true, id, name: session.appName, appUrl, fileCount: files.size },
-      200,
-      request,
-      this.config.domain,
-    );
+    return json({ ok: true, id, name: session.appName, appUrl, fileCount: files.size }, 200, request, this.config.domain);
   }
 
   /** POST /reset — start over (re-seeds from the canonical template repo) */

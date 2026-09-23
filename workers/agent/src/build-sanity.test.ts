@@ -85,11 +85,14 @@ describe("checkBuildSanity — Pixi runtime hazards", () => {
   it("blocks RGBA-packed Pixi colors before they ship", () => {
     const files = new Map([
       ["web/package.json", JSON.stringify({ dependencies: { "pixi.js": "^8.0.0" } })],
-      ["web/src/App.tsx", `import { Graphics } from "pixi.js";
+      [
+        "web/src/App.tsx",
+        `import { Graphics } from "pixi.js";
 
 const g = new Graphics();
 g.rect(0, 0, 10, 10).stroke({ color: 0x8b691466, width: 1 });
-`],
+`,
+      ],
     ]);
 
     const findings = checkBuildSanity(files);
@@ -100,12 +103,15 @@ g.rect(0, 0, 10, 10).stroke({ color: 0x8b691466, width: 1 });
   it("allows normal Pixi RGB colors with a separate alpha field", () => {
     const files = new Map([
       ["web/package.json", JSON.stringify({ dependencies: { "pixi.js": "^8.0.0" } })],
-      ["web/src/App.tsx", `import { Graphics } from "pixi.js";
+      [
+        "web/src/App.tsx",
+        `import { Graphics } from "pixi.js";
 
 const g = new Graphics();
 g.rect(0, 0, 10, 10).stroke({ color: 0x8b6914, alpha: 0.4, width: 1 });
 g.circle(5, 5, 3).fill({ color: 0xffffff, alpha: 0.5 });
-`],
+`,
+      ],
     ]);
 
     expect(checkBuildSanity(files)).toHaveLength(0);
@@ -161,9 +167,7 @@ describe("checkBuildSanity — KAPLAY unclosed styled-text tags", () => {
     ]);
 
   it("blocks the candy-shop pattern and names every unclosed tag", () => {
-    const findings = checkBuildSanity(
-      kaplayFiles(`k.add([\n  k.text("[G] Gummies   [C] Chocolates   [H] Hard", { size: 18 }),\n]);`),
-    );
+    const findings = checkBuildSanity(kaplayFiles(`k.add([\n  k.text("[G] Gummies   [C] Chocolates   [H] Hard", { size: 18 }),\n]);`));
     const styled = findings.find((x) => x.problem.includes("unclosed styled-text tag"));
     expect(styled).toBeDefined();
     expect(styled?.problem).toContain("[G], [C], [H]");
@@ -202,9 +206,7 @@ describe("checkBuildSanity — KAPLAY unclosed styled-text tags", () => {
   });
 
   it("reports each offending call separately", () => {
-    const findings = checkBuildSanity(
-      kaplayFiles(`k.text("[G] Gummies");\nk.text("[red]ok[/red]");\nk.text("[H] Hard");`),
-    );
+    const findings = checkBuildSanity(kaplayFiles(`k.text("[G] Gummies");\nk.text("[red]ok[/red]");\nk.text("[H] Hard");`));
     const styled = findings.filter((x) => x.problem.includes("unclosed styled-text tag"));
     expect(styled).toHaveLength(2);
     expect(styled[0].problem).toContain("line 1");

@@ -10,10 +10,11 @@
  * Session *content* (messages, files) still lives in the Durable Object — this
  * is only the index of "which sessions belong to whom".
  */
-import type { Env } from "./index";
+
 import type { StoreConfig } from "./config";
 import type { DeployStatus } from "./deploy";
 import { resilientFetch } from "./ghfetch";
+import type { Env } from "./index";
 
 export type SessionActivityPhase = "idle" | "writing" | "provisioning" | "pushing" | "building" | "live" | "error";
 
@@ -58,7 +59,12 @@ async function ensureSchema(db: D1Database): Promise<void> {
   if (schemaReady) return;
   await db.prepare(SCHEMA).run();
   for (const sql of MIGRATIONS) {
-    await db.prepare(sql).run().catch(() => {/* column already exists */});
+    await db
+      .prepare(sql)
+      .run()
+      .catch(() => {
+        /* column already exists */
+      });
   }
   schemaReady = true;
 }
@@ -85,11 +91,7 @@ export function activityFromDeployStatus(status: DeployStatus): SessionActivity 
 function rowActivity(row: Record<string, unknown>): SessionActivity & { updatedAt?: unknown } {
   const raw = row.activity_phase as string | undefined;
   const phases = new Set<SessionActivityPhase>(["idle", "writing", "provisioning", "pushing", "building", "live", "error"]);
-  const phase = phases.has(raw as SessionActivityPhase)
-    ? (raw as SessionActivityPhase)
-    : row.deployed
-      ? "live"
-      : "idle";
+  const phase = phases.has(raw as SessionActivityPhase) ? (raw as SessionActivityPhase) : row.deployed ? "live" : "idle";
   return {
     phase,
     detail: (row.activity_detail as string) || undefined,
@@ -104,13 +106,7 @@ function rowActivity(row: Record<string, unknown>): SessionActivity & { updatedA
  * every chat turn, so a plain UPDATE here always lands. Best-effort; the caller
  * must not let a usage-write failure break a chat.
  */
-export async function bumpSessionTokens(
-  db: D1Database,
-  userId: string,
-  sessionId: string,
-  input: number,
-  output: number,
-): Promise<void> {
+export async function bumpSessionTokens(db: D1Database, userId: string, sessionId: string, input: number, output: number): Promise<void> {
   if (!userId || !sessionId) return;
   await ensureSchema(db);
   await db
@@ -122,12 +118,7 @@ export async function bumpSessionTokens(
     .run();
 }
 
-export async function updateSessionActivity(
-  db: D1Database,
-  userId: string,
-  sessionId: string,
-  activity: SessionActivity,
-): Promise<void> {
+export async function updateSessionActivity(db: D1Database, userId: string, sessionId: string, activity: SessionActivity): Promise<void> {
   if (!userId || !sessionId) return;
   await ensureSchema(db);
   await db
@@ -253,22 +244,27 @@ export async function listSessionsPage(
   await ensureSchema(db);
   const countRow = await db.prepare("SELECT COUNT(*) AS n FROM agent_sessions").first<{ n: number }>();
   const total = Number(countRow?.n) || 0;
-  const { results } = await db.prepare(
-    `SELECT user_id, user_login, session_id, title, game_id, game_url, deployed,
+  const { results } = await db
+    .prepare(
+      `SELECT user_id, user_login, session_id, title, game_id, game_url, deployed,
             input_tokens, output_tokens, activity_phase, activity_detail, activity_updated_at, created_at, updated_at
      FROM agent_sessions ORDER BY updated_at DESC LIMIT ?1 OFFSET ?2`,
-  ).bind(opts.limit, opts.offset).all();
+    )
+    .bind(opts.limit, opts.offset)
+    .all();
   return { sessions: (results as Record<string, unknown>[]).map(shapeSessionRow), total };
 }
 
 /** Every user's session index rows, newest first — the admin view. */
 export async function listAllSessions(db: D1Database): Promise<Record<string, unknown>[]> {
   await ensureSchema(db);
-  const { results } = await db.prepare(
-    `SELECT user_id, user_login, session_id, title, game_id, game_url, deployed,
+  const { results } = await db
+    .prepare(
+      `SELECT user_id, user_login, session_id, title, game_id, game_url, deployed,
             input_tokens, output_tokens, activity_phase, activity_detail, activity_updated_at, created_at, updated_at
      FROM agent_sessions ORDER BY updated_at DESC LIMIT 500`,
-  ).all();
+    )
+    .all();
   return (results as Record<string, unknown>[]).map(shapeSessionRow);
 }
 
@@ -289,10 +285,7 @@ function shapeSessionRow(r: Record<string, unknown>): Record<string, unknown> {
   };
 }
 
-export async function resolveUser(
-  request: Request,
-  auth: Fetcher,
-): Promise<{ id: string; name: string; login: string | null } | null> {
+export async function resolveUser(request: Request, auth: Fetcher): Promise<{ id: string; name: string; login: string | null } | null> {
   // The fgs_token arrives as X-FGS-Token (MCP), an Authorization Bearer, or the
   // fgs_token cookie (console). Verify it via the auth worker's /me — over a
   // SERVICE BINDING, since fetching auth's public hostname from a Worker loops
@@ -392,7 +385,17 @@ export async function handleSessionsApi(
            activity_updated_at = CASE WHEN excluded.deployed = 1 THEN datetime('now') ELSE agent_sessions.activity_updated_at END,
            updated_at = datetime('now')`,
       )
-        .bind(user.id, sessionId, body.title ?? null, body.gameId ?? null, body.gameUrl ?? null, body.deployed ? 1 : 0, activityPhase, activityDetail, body.deployed ? 1 : 0)
+        .bind(
+          user.id,
+          sessionId,
+          body.title ?? null,
+          body.gameId ?? null,
+          body.gameUrl ?? null,
+          body.deployed ? 1 : 0,
+          activityPhase,
+          activityDetail,
+          body.deployed ? 1 : 0,
+        )
         .run();
       return json({ ok: true });
     }

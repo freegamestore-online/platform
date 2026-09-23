@@ -7,9 +7,9 @@
  * - Attaches recent breadcrumbs so support can see what led up to a crash.
  */
 
-import { serializeBreadcrumbs } from "./breadcrumbs";
+import { serializeBreadcrumbs } from './breadcrumbs';
 
-const ENDPOINT = "/api/client-error";
+const ENDPOINT = '/api/client-error';
 const DEBOUNCE_MS = 2_000;
 
 // Track recently-sent messages to deduplicate rapid repeated errors.
@@ -37,14 +37,17 @@ export interface ErrorReport {
 }
 
 export function reportError(report: ErrorReport): void {
-  const key = `${report.message}|${report.route ?? ""}`;
+  const key = `${report.message}|${report.route ?? ''}`;
   if (isDuplicate(key)) return;
 
   // Attach recent breadcrumbs to context so support can see what led up to
   // this error. The server caps the context field at 1 000 chars.
   const crumbs = serializeBreadcrumbs(700);
-  const callerCtx = report.context ?? "";
-  const contextWithCrumbs = [callerCtx, crumbs ? `crumbs:${crumbs}` : ""].filter(Boolean).join("; ").slice(0, 950);
+  const callerCtx = report.context ?? '';
+  const contextWithCrumbs = [callerCtx, crumbs ? `crumbs:${crumbs}` : '']
+    .filter(Boolean)
+    .join('; ')
+    .slice(0, 950);
 
   const body: ErrorReport = {
     route: report.route ?? location.pathname,
@@ -55,11 +58,11 @@ export function reportError(report: ErrorReport): void {
 
   // Fire-and-forget; never propagate errors from the reporter itself.
   fetch(ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
     // Include the session cookie so the server can resolve the identity.
-    credentials: "include",
+    credentials: 'include',
   }).catch(() => {
     // Silently swallow — error reporting must never cause further errors.
   });

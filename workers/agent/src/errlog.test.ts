@@ -72,7 +72,11 @@ describe("reportPlatformError", () => {
   });
 
   it("swallows a thrown admin call — reporting a failure must not become one", async () => {
-    const ADMIN = { fetch: async () => { throw new Error("admin down"); } };
+    const ADMIN = {
+      fetch: async () => {
+        throw new Error("admin down");
+      },
+    };
     await expect(
       reportPlatformError({ ADMIN, INTERNAL_TOKEN: "s" } as any, "d", { source: "agent/deploy", message: "x" }),
     ).resolves.toBeUndefined();

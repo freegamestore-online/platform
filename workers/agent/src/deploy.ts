@@ -100,7 +100,10 @@ export function filterLogErrorLines(text: string): string[] {
     .map((l: string) => l.replace(/^[0-9T:.Z-]+\s*/, "").replace(/\u001b\[[0-9;]*m/g, ""))
     .slice(-25);
   if (interesting.length) return interesting;
-  return text.split("\n").slice(-30).map((l: string) => l.replace(/^[0-9T:.Z-]+\s*/, ""));
+  return text
+    .split("\n")
+    .slice(-30)
+    .map((l: string) => l.replace(/^[0-9T:.Z-]+\s*/, ""));
 }
 
 /** Describe a FAILED deploy run: the failing job/step name plus the error lines
@@ -133,17 +136,14 @@ export async function describeFailedRun(
   }
   if (failingJobId === null) return { detail, errorLines: [] };
   try {
-    const logRes = await resilientFetch(
-      `https://api.github.com/repos/${config.org}/${repoId}/actions/jobs/${failingJobId}/logs`,
-      {
-        headers: {
-          Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-          Accept: "application/vnd.github+json",
-          "User-Agent": config.agentName,
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
+    const logRes = await resilientFetch(`https://api.github.com/repos/${config.org}/${repoId}/actions/jobs/${failingJobId}/logs`, {
+      headers: {
+        Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+        Accept: "application/vnd.github+json",
+        "User-Agent": config.agentName,
+        "X-GitHub-Api-Version": "2022-11-28",
       },
-    );
+    });
     if (!logRes.ok) return { detail, errorLines: [] };
     return { detail, errorLines: filterLogErrorLines(await logRes.text()) };
   } catch (err) {
@@ -222,20 +222,17 @@ export async function deployApp(
   // collaborator deliberately). Non-fatal: a failure here must not fail deploy.
   if (repoCreated && creatorLogin && VALID_GH_LOGIN.test(creatorLogin)) {
     try {
-      const res = await fetch(
-        `https://api.github.com/repos/${config.org}/${deployConfig.id}/collaborators/${creatorLogin}`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-            Accept: "application/vnd.github+json",
-            "User-Agent": config.agentName,
-            "X-GitHub-Api-Version": "2022-11-28",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ permission: "push" }),
+      const res = await fetch(`https://api.github.com/repos/${config.org}/${deployConfig.id}/collaborators/${creatorLogin}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+          Accept: "application/vnd.github+json",
+          "User-Agent": config.agentName,
+          "X-GitHub-Api-Version": "2022-11-28",
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({ permission: "push" }),
+      });
       // 201 = invitation created (outside collaborator), 204 = added directly
       // (already an org member). Both are success.
       steps.push({
@@ -413,12 +410,7 @@ async function registerViaAdmin(
  *  Strictly best-effort: a game's deploy is NOT failed by a failure to report it.
  *  Admin's hourly reconcile re-derives the same outcome from deploy.yml, so the
  *  worst case of a dropped call is that the flip is late, not lost. */
-export async function reportBuildStatus(
-  repoId: string,
-  status: "live" | "failed",
-  env: DeployEnv,
-  config: StoreConfig,
-): Promise<void> {
+export async function reportBuildStatus(repoId: string, status: "live" | "failed", env: DeployEnv, config: StoreConfig): Promise<void> {
   if (!env.ADMIN || !env.INTERNAL_TOKEN) return;
   try {
     const res = await env.ADMIN.fetch(`https://admin.${config.domain}/api/game-status`, {
@@ -620,9 +612,7 @@ export async function waitForActionsDeploy(
         // Only downgrades a game that has never shipped — admin refuses to move a
         // `live` game to `failed`, because R2 still serves its last good build.
         await reportBuildStatus(repoId, "failed", env, config);
-        const logs = errorLines.length
-          ? `\n\n── error lines from the failing job ──\n${errorLines.join("\n").slice(0, 4000)}`
-          : "";
+        const logs = errorLines.length ? `\n\n── error lines from the failing job ──\n${errorLines.join("\n").slice(0, 4000)}` : "";
         onStatus({
           phase: "error",
           error: `Deploy workflow ${run.conclusion}${detail ? `: ${detail}` : ""}. See ${run.html_url || "the repo's Actions tab"} for logs.${logs}`,

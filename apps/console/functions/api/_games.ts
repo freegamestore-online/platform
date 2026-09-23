@@ -10,8 +10,8 @@
 // admin (edit/provision guards) and the agent (import gate). Per the workspace
 // "vendor, don't depend" rule those are separate copies; keep them in sync.
 
-export const ORG = "freegamestore-online";
-const DOMAIN = "freegamestore.online";
+export const ORG = 'freegamestore-online';
+const DOMAIN = 'freegamestore.online';
 const REGISTRY_URL = `https://raw.githubusercontent.com/${ORG}/freegamestore/main/registry.json`;
 
 export interface RegistryGame {
@@ -55,8 +55,8 @@ interface GhEnv {
 
 const ghHeaders = (token: string) => ({
   Authorization: `Bearer ${token}`,
-  Accept: "application/vnd.github+json",
-  "User-Agent": "freegamestore-publisher",
+  Accept: 'application/vnd.github+json',
+  'User-Agent': 'freegamestore-publisher',
 });
 
 /** Fetch the store registry (source of truth for games).
@@ -73,9 +73,12 @@ const ghHeaders = (token: string) => ({
 export async function getRegistry(token?: string): Promise<RegistryGame[] | null> {
   if (token) {
     try {
-      const res = await fetch(`https://api.github.com/repos/${ORG}/freegamestore/contents/registry.json`, {
-        headers: { ...ghHeaders(token), Accept: "application/vnd.github.raw+json" },
-      });
+      const res = await fetch(
+        `https://api.github.com/repos/${ORG}/freegamestore/contents/registry.json`,
+        {
+          headers: { ...ghHeaders(token), Accept: 'application/vnd.github.raw+json' },
+        },
+      );
       if (res.ok) {
         const reg = (await res.json()) as { games?: RegistryGame[] };
         return reg.games ?? [];
@@ -85,7 +88,7 @@ export async function getRegistry(token?: string): Promise<RegistryGame[] | null
     }
   }
   try {
-    const res = await fetch(REGISTRY_URL, { headers: { "User-Agent": "freegamestore-publisher" } });
+    const res = await fetch(REGISTRY_URL, { headers: { 'User-Agent': 'freegamestore-publisher' } });
     if (res.ok) {
       const reg = (await res.json()) as { games?: RegistryGame[] };
       return reg.games ?? [];
@@ -115,28 +118,33 @@ export function registryToRepo(g: RegistryGame, published: boolean): GameRepo {
     previewUrl: g.appUrl || `https://${g.id}.${DOMAIN}`,
     liveUrl: g.appUrl || `https://${g.id}.${DOMAIN}`,
     repoUrl: g.repo ? `https://github.com/${g.repo}` : `https://github.com/${ORG}/${g.id}`,
-    createdAt: g.firstPublished || "",
-    updatedAt: g.updatedAt || "",
-    lastEditedAt: "",
+    createdAt: g.firstPublished || '',
+    updatedAt: g.updatedAt || '',
+    lastEditedAt: '',
     published,
-    category: g.category || "",
-    icon: g.icon || "",
-    iconBg: g.iconBg || "",
-    description: g.description || "",
+    category: g.category || '',
+    icon: g.icon || '',
+    iconBg: g.iconBg || '',
+    description: g.description || '',
   };
 }
 
 /** The repo's created_at + pushed_at — sources for the "created" (fallback) and
  *  "last edited" timestamps. Best-effort: nulls on any failure so the list still
  *  renders. One call feeds both timestamps. */
-async function fetchRepoTimes(env: GhEnv, repoId: string): Promise<{ createdAt: string; pushedAt: string }> {
+async function fetchRepoTimes(
+  env: GhEnv,
+  repoId: string,
+): Promise<{ createdAt: string; pushedAt: string }> {
   try {
-    const res = await fetch(`https://api.github.com/repos/${ORG}/${repoId}`, { headers: ghHeaders(env.GITHUB_TOKEN) });
-    if (!res.ok) return { createdAt: "", pushedAt: "" };
+    const res = await fetch(`https://api.github.com/repos/${ORG}/${repoId}`, {
+      headers: ghHeaders(env.GITHUB_TOKEN),
+    });
+    if (!res.ok) return { createdAt: '', pushedAt: '' };
     const j = (await res.json()) as { created_at?: string; pushed_at?: string };
-    return { createdAt: j.created_at || "", pushedAt: j.pushed_at || "" };
+    return { createdAt: j.created_at || '', pushedAt: j.pushed_at || '' };
   } catch {
-    return { createdAt: "", pushedAt: "" };
+    return { createdAt: '', pushedAt: '' };
   }
 }
 
@@ -177,8 +185,11 @@ export async function listUserGames(
   env: GhEnv,
   login: string,
 ): Promise<{ owned: GameRepo[]; isOrgMember: boolean; adminAll: GameRepo[] }> {
-  const [games, member] = await Promise.all([getRegistry(env.GITHUB_TOKEN), isOrgMember(env, login)]);
-  if (games === null) throw new Error("registry_unavailable");
+  const [games, member] = await Promise.all([
+    getRegistry(env.GITHUB_TOKEN),
+    isOrgMember(env, login),
+  ]);
+  if (games === null) throw new Error('registry_unavailable');
   const adminAll = games.map((g) => registryToRepo(g, true));
 
   const lc = login.toLowerCase();
@@ -193,9 +204,12 @@ export async function listUserGames(
   await Promise.all(
     legacy.map(async (g) => {
       try {
-        const res = await fetch(`https://api.github.com/repos/${ORG}/${g.id}/collaborators/${login}`, {
-          headers: ghHeaders(env.GITHUB_TOKEN),
-        });
+        const res = await fetch(
+          `https://api.github.com/repos/${ORG}/${g.id}/collaborators/${login}`,
+          {
+            headers: ghHeaders(env.GITHUB_TOKEN),
+          },
+        );
         if (res.status === 204) ownedIds.add(g.id);
       } catch {
         /* ignore — degrade to creatorGithub-only */

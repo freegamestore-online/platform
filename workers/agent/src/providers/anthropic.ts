@@ -166,7 +166,10 @@ async function* parseAnthropicSSE(body: ReadableStream, onChunk?: () => void): A
           // user knows to ask it to continue; the write_file truncation guard
           // (tools.ts) separately rejects the destructive partial write.
           if (evt.delta?.stop_reason === "max_tokens") {
-            yield { type: "text", data: "\n\n⚠️ My response was cut off at the length limit — the last file may be incomplete. Ask me to \"continue\" and I'll finish it." };
+            yield {
+              type: "text",
+              data: '\n\n⚠️ My response was cut off at the length limit — the last file may be incomplete. Ask me to "continue" and I\'ll finish it.',
+            };
           }
         }
       }

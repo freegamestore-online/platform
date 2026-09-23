@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getConfig } from "./config";
-import { getSystemPrompt, getTemplateFiles, detectEngine, ENGINE_TEMPLATE_REPOS } from "./template";
+import { detectEngine, ENGINE_TEMPLATE_REPOS, getSystemPrompt, getTemplateFiles } from "./template";
 
 const appsConfig = getConfig("apps");
 const gamesConfig = getConfig("games");
@@ -144,8 +144,7 @@ describe("getSystemPrompt", () => {
 });
 
 describe("detectEngine", () => {
-  const filesWith = (webPkg: unknown): Map<string, string> =>
-    new Map([["web/package.json", JSON.stringify(webPkg)]]);
+  const filesWith = (webPkg: unknown): Map<string, string> => new Map([["web/package.json", JSON.stringify(webPkg)]]);
 
   it("detects phaser from dependencies", () => {
     expect(detectEngine(filesWith({ dependencies: { phaser: "^3.90.0" } }))).toBe("phaser");
@@ -262,9 +261,18 @@ describe("getSystemPrompt — per engine", () => {
 
 describe("ENGINE_TEMPLATE_REPOS (session seeding map)", () => {
   it("covers exactly the 10 public engine keys", () => {
-    expect(Object.keys(ENGINE_TEMPLATE_REPOS).sort()).toEqual(
-      ["3d", "babylon", "canvas", "cards", "excalibur", "grid", "kaplay", "littlejs", "phaser", "pixi"],
-    );
+    expect(Object.keys(ENGINE_TEMPLATE_REPOS).sort()).toEqual([
+      "3d",
+      "babylon",
+      "canvas",
+      "cards",
+      "excalibur",
+      "grid",
+      "kaplay",
+      "littlejs",
+      "phaser",
+      "pixi",
+    ]);
   });
 
   it("maps every key to a template-game-* repo", () => {

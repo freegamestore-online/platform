@@ -20,48 +20,65 @@ export interface SessionEnv {
 // API (project list, chat history, /api/me) cross-origin. Pin to the console +
 // storefront + dev origins.
 const FIRST_PARTY_ORIGINS = new Set([
-  "https://console.freegamestore.online",
-  "https://freegamestore.online",
-  "http://localhost:5173",
+  'https://console.freegamestore.online',
+  'https://freegamestore.online',
+  'http://localhost:5173',
 ]);
 
 export function corsHeaders(request: Request): Record<string, string> {
-  const origin = request.headers.get("Origin") ?? "";
-  const allow = FIRST_PARTY_ORIGINS.has(origin) ? origin : "https://console.freegamestore.online";
+  const origin = request.headers.get('Origin') ?? '';
+  const allow = FIRST_PARTY_ORIGINS.has(origin) ? origin : 'https://console.freegamestore.online';
   return {
-    "Access-Control-Allow-Origin": allow,
-    "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Credentials": "true",
-    Vary: "Origin",
+    'Access-Control-Allow-Origin': allow,
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Credentials': 'true',
+    Vary: 'Origin',
   };
 }
 
 function getCookie(request: Request, name: string): string | null {
-  const c = request.headers.get("Cookie");
+  const c = request.headers.get('Cookie');
   if (!c) return null;
   const m = c.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
   return m ? m[1] : null;
 }
 
 function b64urlToBytes(s: string): Uint8Array {
-  s = s.replace(/-/g, "+").replace(/_/g, "/");
-  while (s.length % 4) s += "=";
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
   return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 }
 
-export async function verifyJWT(token: string, secret: string): Promise<Record<string, unknown> | null> {
-  const parts = token.split(".");
+export async function verifyJWT(
+  token: string,
+  secret: string,
+): Promise<Record<string, unknown> | null> {
+  const parts = token.split('.');
   if (parts.length !== 3) return null;
   try {
     const header = JSON.parse(new TextDecoder().decode(b64urlToBytes(parts[0])));
-    if (header.alg !== "HS256") return null;
-    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["verify"]);
-    const ok = await crypto.subtle.verify("HMAC", key, b64urlToBytes(parts[2]), new TextEncoder().encode(`${parts[0]}.${parts[1]}`));
+    if (header.alg !== 'HS256') return null;
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify'],
+    );
+    const ok = await crypto.subtle.verify(
+      'HMAC',
+      key,
+      b64urlToBytes(parts[2]),
+      new TextEncoder().encode(`${parts[0]}.${parts[1]}`),
+    );
     if (!ok) return null;
-    const payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(parts[1]))) as Record<string, unknown>;
+    const payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(parts[1]))) as Record<
+      string,
+      unknown
+    >;
     // Require a numeric, unexpired exp — a token missing exp must not verify forever.
-    if (typeof payload.exp !== "number" || payload.exp < Math.floor(Date.now() / 1000)) return null;
+    if (typeof payload.exp !== 'number' || payload.exp < Math.floor(Date.now() / 1000)) return null;
     return payload;
   } catch {
     return null;
@@ -88,16 +105,23 @@ export interface CreatorUser {
  * the single identity provider; its JWT carries `sub: "github:<id>"`, `login`,
  * `name`, and `avatar` (scope is read:user, so there is no email claim).
  */
-export async function resolveCreatorUser(request: Request, env: SessionEnv): Promise<CreatorUser | null> {
+export async function resolveCreatorUser(
+  request: Request,
+  env: SessionEnv,
+): Promise<CreatorUser | null> {
   // Legacy: publisher's own KV session (pre-consolidation sign-ins).
-  const pub = getCookie(request, "fgs_pub_session");
+  const pub = getCookie(request, 'fgs_pub_session');
   if (pub) {
     const raw = await env.SESSIONS.get(`sessions:${pub}`);
     if (raw) {
       try {
         const s = JSON.parse(raw) as {
-          github: string; githubId?: number; sub?: string;
-          name?: string | null; avatarUrl: string; email?: string | null;
+          github: string;
+          githubId?: number;
+          sub?: string;
+          name?: string | null;
+          avatarUrl: string;
+          email?: string | null;
         };
         return {
           github: s.github,
@@ -114,18 +138,18 @@ export async function resolveCreatorUser(request: Request, env: SessionEnv): Pro
   }
 
   // Canonical: auth-worker JWT.
-  const tok = getCookie(request, "fgs_token");
+  const tok = getCookie(request, 'fgs_token');
   if (tok && env.JWT_SECRET) {
     const p = await verifyJWT(tok, env.JWT_SECRET);
-    if (p && typeof p.login === "string") {
-      const sub = typeof p.sub === "string" ? p.sub : null;
-      const parsed = sub && sub.startsWith("github:") ? Number(sub.slice("github:".length)) : NaN;
+    if (p && typeof p.login === 'string') {
+      const sub = typeof p.sub === 'string' ? p.sub : null;
+      const parsed = sub && sub.startsWith('github:') ? Number(sub.slice('github:'.length)) : NaN;
       return {
         github: p.login,
         githubId: Number.isFinite(parsed) ? parsed : null,
         sub,
-        name: typeof p.name === "string" ? p.name : null,
-        avatarUrl: typeof p.avatar === "string" ? p.avatar : "",
+        name: typeof p.name === 'string' ? p.name : null,
+        avatarUrl: typeof p.avatar === 'string' ? p.avatar : '',
         email: null,
       };
     }

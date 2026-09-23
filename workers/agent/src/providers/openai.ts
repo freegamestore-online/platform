@@ -170,7 +170,10 @@ async function* parseOpenAISSE(body: ReadableStream, onChunk?: () => void): Asyn
         // mid write_file, leaving a truncated file. Make it VISIBLE (it used to
         // stall silently); the write_file guard separately rejects the partial write.
         if (chunk.choices?.[0]?.finish_reason === "length") {
-          yield { type: "text", data: "\n\n⚠️ My response was cut off at the length limit — the last file may be incomplete. Ask me to \"continue\" and I'll finish it." };
+          yield {
+            type: "text",
+            data: '\n\n⚠️ My response was cut off at the length limit — the last file may be incomplete. Ask me to "continue" and I\'ll finish it.',
+          };
         }
       }
     }

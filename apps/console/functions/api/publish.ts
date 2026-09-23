@@ -1,5 +1,5 @@
-import { resolveCreator, corsHeaders } from "./_auth";
-import { listUserGames } from "./_games";
+import { corsHeaders, resolveCreator } from './_auth';
+import { listUserGames } from './_games';
 
 interface Env {
   GITHUB_TOKEN: string;
@@ -8,8 +8,8 @@ interface Env {
 }
 
 const CONFIG = {
-  org: "freegamestore-online",
-  adminProvision: "https://admin.freegamestore.online/api/provision",
+  org: 'freegamestore-online',
+  adminProvision: 'https://admin.freegamestore.online/api/provision',
 };
 
 export const onRequestOptions: PagesFunction<Env> = async (ctx) =>
@@ -29,20 +29,23 @@ export const onRequestOptions: PagesFunction<Env> = async (ctx) =>
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const user = await resolveCreator(context.request, context.env);
   const json = (v: unknown, status = 200) =>
-    new Response(JSON.stringify(v), { status, headers: { "Content-Type": "application/json", ...corsHeaders(context.request) } });
+    new Response(JSON.stringify(v), {
+      status,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders(context.request) },
+    });
 
-  if (!user) return json({ error: "Unauthorized" }, 401);
+  if (!user) return json({ error: 'Unauthorized' }, 401);
 
   let body: Record<string, string>;
   try {
-    body = await context.request.json() as Record<string, string>;
+    body = (await context.request.json()) as Record<string, string>;
   } catch {
-    return json({ error: "Invalid JSON body" }, 400);
+    return json({ error: 'Invalid JSON body' }, 400);
   }
   const id = body.id;
-  if (!id) return json({ error: "id required" }, 400);
-  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(id)) return json({ error: "invalid id" }, 400);
-  if (!body.name) return json({ error: "name required" }, 400);
+  if (!id) return json({ error: 'id required' }, 400);
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(id)) return json({ error: 'invalid id' }, 400);
+  if (!body.name) return json({ error: 'name required' }, 400);
 
   // Ownership: the caller must OWN the game by registry `creatorGithub` (which
   // covers a pending-invite creator publishing their own just-created game) or
@@ -54,13 +57,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   } catch (e) {
     // Registry outage: fall back to the collaborator check below (it doesn't
     // need the registry) rather than failing the publish outright.
-    if ((e as Error).message !== "registry_unavailable") throw e;
+    if ((e as Error).message !== 'registry_unavailable') throw e;
   }
   let allowed = owned.some((g) => g.id === id);
   if (!allowed) {
     const collabRes = await fetch(
       `https://api.github.com/repos/${CONFIG.org}/${id}/collaborators/${user}`,
-      { headers: { Authorization: `Bearer ${context.env.GITHUB_TOKEN}`, Accept: "application/vnd.github+json", "User-Agent": "freegamestore-publisher" } },
+      {
+        headers: {
+          Authorization: `Bearer ${context.env.GITHUB_TOKEN}`,
+          Accept: 'application/vnd.github+json',
+          'User-Agent': 'freegamestore-publisher',
+        },
+      },
     );
     allowed = collabRes.status === 204;
   }
@@ -70,10 +79,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   // Forward to the canonical, idempotent provision. Admin authenticates from the
   // fgs_token cookie (shared .freegamestore.online domain); pin the owner.
-  const cookie = context.request.headers.get("Cookie") ?? "";
+  const cookie = context.request.headers.get('Cookie') ?? '';
   const provRes = await fetch(CONFIG.adminProvision, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Cookie": cookie },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: cookie },
     body: JSON.stringify({
       id,
       name: body.name,
@@ -82,6 +91,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       creatorGithub: user,
     }),
   });
-  const provData = await provRes.json().catch(() => ({ error: "Provision returned a non-JSON response" }));
+  const provData = await provRes
+    .json()
+    .catch(() => ({ error: 'Provision returned a non-JSON response' }));
   return json(provData, provRes.status);
 };

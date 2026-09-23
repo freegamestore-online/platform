@@ -3,7 +3,8 @@
 // App.tsx catches that and shows the sign-in screen).
 
 export const LOGIN_URL =
-  "https://auth.freegamestore.online/login/google?redirect=" + encodeURIComponent("https://admin.freegamestore.online/");
+  'https://auth.freegamestore.online/login/google?redirect=' +
+  encodeURIComponent('https://admin.freegamestore.online/');
 
 export class ApiError extends Error {
   status: number;
@@ -15,9 +16,9 @@ export class ApiError extends Error {
 
 export async function api<T = unknown>(path: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(path, {
-    credentials: "include",
+    credentials: 'include',
     ...opts,
-    headers: { "Content-Type": "application/json", ...opts?.headers },
+    headers: { 'Content-Type': 'application/json', ...opts?.headers },
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
@@ -47,7 +48,7 @@ export interface GameInfo {
    *  builds failed. Optional because a console build can outlive a worker that
    *  predates the field — treat a missing value as "live", same rule the worker
    *  applies to a registry entry with no status. */
-  status?: "pending" | "live" | "failed";
+  status?: 'pending' | 'live' | 'failed';
 }
 
 export interface QualityData {
@@ -98,7 +99,7 @@ export interface SessionsPage {
 /** Fetch one page of sessions. */
 export function fetchSessionsPage(cursor: string | null, limit = 20): Promise<SessionsPage> {
   const qs = new URLSearchParams({ limit: String(limit) });
-  if (cursor) qs.set("cursor", cursor);
+  if (cursor) qs.set('cursor', cursor);
   return api<SessionsPage>(`/api/sessions?${qs}`);
 }
 
@@ -136,7 +137,14 @@ export interface SessionRow {
   updatedAt: string;
 }
 
-export type ActivityPhase = "idle" | "writing" | "provisioning" | "pushing" | "building" | "live" | "error";
+export type ActivityPhase =
+  | 'idle'
+  | 'writing'
+  | 'provisioning'
+  | 'pushing'
+  | 'building'
+  | 'live'
+  | 'error';
 
 export interface SessionActivity {
   phase: ActivityPhase;
@@ -145,7 +153,7 @@ export interface SessionActivity {
 }
 
 export interface TranscriptMessage {
-  role: "user" | "assistant" | "tool_result" | string;
+  role: 'user' | 'assistant' | 'tool_result' | string;
   content?: string;
   ts?: number;
   toolCalls?: { name: string; input?: { path?: string; id?: string; name?: string } }[];
@@ -169,13 +177,16 @@ export interface SessionErrorEntry {
 
 export interface ProvisionStep {
   name: string;
-  status: "ok" | "skip" | "fail";
+  status: 'ok' | 'skip' | 'fail';
   detail: string;
 }
 
 export function timeAgo(ts: string | number | undefined): string {
-  if (!ts) return "—";
-  const d = typeof ts === "number" ? new Date(ts) : new Date(String(ts).replace(" ", "T") + (String(ts).endsWith("Z") ? "" : "Z"));
+  if (!ts) return '—';
+  const d =
+    typeof ts === 'number'
+      ? new Date(ts)
+      : new Date(String(ts).replace(' ', 'T') + (String(ts).endsWith('Z') ? '' : 'Z'));
   const s = (Date.now() - d.getTime()) / 1000;
   if (Number.isNaN(s)) return String(ts);
   if (s < 60) return `${Math.floor(s)}s ago`;

@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
-import { useAuth } from "./useAuth";
-import type { ServerSession, UsageTotals } from "../lib/sessions";
+import { useEffect, useState } from 'react';
+import type { ServerSession, UsageTotals } from '../lib/sessions';
+import { useAuth } from './useAuth';
 
 // Account token usage. Reads the SAME agent `/sessions` index the draft list and
 // picker use — it now returns each session's cumulative token totals plus an
 // account-wide `totals` sum — so this is a zero-extra-cost read (no new endpoint,
 // no DO wake). Per-game rows let a creator see which game cost what; the total is
 // the whole account. Non-fatal: usage is an informational surface, never blocks.
-const AGENT_URL = "https://agent.freegamestore.online";
+const AGENT_URL = 'https://agent.freegamestore.online';
 
 export interface UsageGame {
   id: string;
@@ -33,7 +33,7 @@ export function useUsage() {
     }
     const ctrl = new AbortController();
     setLoading(true);
-    fetch(`${AGENT_URL}/sessions`, { credentials: "include", signal: ctrl.signal })
+    fetch(`${AGENT_URL}/sessions`, { credentials: 'include', signal: ctrl.signal })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((data: { sessions?: ServerSession[]; totals?: UsageTotals }) => {
         setTotals(data.totals ?? null);
@@ -41,7 +41,7 @@ export function useUsage() {
           (data.sessions || [])
             .map((s) => ({
               id: s.id,
-              name: s.name || "Untitled",
+              name: s.name || 'Untitled',
               gameId: s.gameId,
               input: s.tokens?.input ?? 0,
               output: s.tokens?.output ?? 0,

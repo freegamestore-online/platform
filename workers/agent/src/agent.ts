@@ -7,7 +7,7 @@ import { GoogleAdapter } from "./providers/google";
 import { OpenAIAdapter } from "./providers/openai";
 import type { AIConfig, Message, ProviderAdapter, StreamEvent, TokenUsage, ToolCall, ToolResult } from "./providers/types";
 import { fitLiveContext, healPoisonedHistory } from "./session-budget";
-import { getSystemPrompt, detectEngine } from "./template";
+import { detectEngine, getSystemPrompt } from "./template";
 import { clampToolResultForHistory, executeTool, getToolDefinitions, INFRA_TOOLS } from "./tools";
 
 /**
@@ -295,7 +295,7 @@ export async function runAgentTurn(
       if (retries > MAX_RETRIES) {
         const note =
           "Error: the AI provider rate-limited this key repeatedly, so the build stopped here. " +
-          "Progress so far is saved. Wait a minute or two and say \"continue\" — or switch provider in settings.";
+          'Progress so far is saved. Wait a minute or two and say "continue" — or switch provider in settings.';
         await send({ type: "error", data: note });
         // PERSIST the failure — this used to go only to the live stream, so a
         // rate-limited turn died with NO transcript entry and no error log:
@@ -373,7 +373,13 @@ export async function runAgentTurn(
       // Free tier: a 24K read_file result alone blows the 8K-token request cap —
       // clamp every tool result much harder so the next round still fits.
       const clamped = clampToolResultForHistory(tc.name, result.content);
-      results.push({ ...result, content: isSmallContext && clamped.length > 5000 ? `${clamped.slice(0, 5000)}\n… [trimmed for the free-tier context — read a specific section]` : clamped });
+      results.push({
+        ...result,
+        content:
+          isSmallContext && clamped.length > 5000
+            ? `${clamped.slice(0, 5000)}\n… [trimmed for the free-tier context — read a specific section]`
+            : clamped,
+      });
       await send({ type: "tool_result", data: JSON.stringify({ id: tc.id, tool: tc.name, result: result.content.slice(0, 400) }) });
     }
 

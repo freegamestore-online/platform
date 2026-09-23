@@ -68,7 +68,11 @@ describe("healPoisonedHistory (breaks the placeholder-imitation loop)", () => {
     for (const poison of ["[2714 bytes written to web/src/lib/levels.ts]", elidedBodyMarker("web/src/lib/levels.ts")]) {
       const messages: Message[] = [
         { role: "user", content: "fix the physics" },
-        { role: "assistant", content: "writing levels", toolCalls: [{ id: "t1", name: "write_file", input: { path: "web/src/lib/levels.ts", content: poison } }] },
+        {
+          role: "assistant",
+          content: "writing levels",
+          toolCalls: [{ id: "t1", name: "write_file", input: { path: "web/src/lib/levels.ts", content: poison } }],
+        },
         { role: "tool_result", content: "", toolResults: [{ id: "t1", content: "Wrote web/src/lib/levels.ts" }] },
         { role: "user", content: "done?" },
       ];
@@ -91,7 +95,11 @@ describe("healPoisonedHistory (breaks the placeholder-imitation loop)", () => {
 
   it("leaves real source and non-write tool calls untouched", () => {
     const messages: Message[] = [
-      { role: "assistant", content: "", toolCalls: [{ id: "t1", name: "write_file", input: { path: "a.ts", content: "export const A = 1;" } }] },
+      {
+        role: "assistant",
+        content: "",
+        toolCalls: [{ id: "t1", name: "write_file", input: { path: "a.ts", content: "export const A = 1;" } }],
+      },
       { role: "tool_result", content: "", toolResults: [{ id: "t1", content: "Wrote a.ts" }] },
       { role: "assistant", content: "", toolCalls: [{ id: "t2", name: "read_file", input: { path: "a.ts" } }] },
       { role: "tool_result", content: "", toolResults: [{ id: "t2", content: "export const A = 1;" }] },

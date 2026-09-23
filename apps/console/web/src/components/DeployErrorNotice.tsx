@@ -1,5 +1,5 @@
-import { deployErrorInfo } from "../lib/deployError";
-import type { DeployState } from "../types";
+import { deployErrorInfo } from '../lib/deployError';
+import type { DeployState } from '../types';
 
 /**
  * The creator-facing "your deploy failed, here's why and what to do" surface.
@@ -27,9 +27,9 @@ export function DeployErrorNotice({
       role="alert"
       className="shrink-0 px-3 py-2.5"
       style={{
-        background: "rgba(239,68,68,0.12)",
-        borderBottom: "1px solid var(--error, #ef4444)",
-        color: "var(--error, #ef4444)",
+        background: 'rgba(239,68,68,0.12)',
+        borderBottom: '1px solid var(--error, #ef4444)',
+        color: 'var(--error, #ef4444)',
       }}
     >
       <div className="text-sm font-semibold">Deploy failed</div>
@@ -38,11 +38,11 @@ export function DeployErrorNotice({
       <pre
         className="text-xs whitespace-pre-wrap mt-1"
         style={{
-          color: "var(--ink, #1a1a1a)",
+          color: 'var(--ink, #1a1a1a)',
           maxHeight: 160,
-          overflowY: "auto",
-          wordBreak: "break-word",
-          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+          overflowY: 'auto',
+          wordBreak: 'break-word',
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
           margin: 0,
         }}
       >
@@ -53,7 +53,12 @@ export function DeployErrorNotice({
           <button
             onClick={onRetry}
             className="inline-flex items-center rounded-md px-3 h-9 text-sm font-semibold"
-            style={{ background: "var(--error, #ef4444)", color: "#fff", border: "none", cursor: "pointer" }}
+            style={{
+              background: 'var(--error, #ef4444)',
+              color: '#fff',
+              border: 'none',
+              cursor: 'pointer',
+            }}
           >
             Fix &amp; retry
           </button>
@@ -64,7 +69,7 @@ export function DeployErrorNotice({
             target="_blank"
             rel="noopener"
             className="text-xs underline"
-            style={{ color: "var(--error, #ef4444)" }}
+            style={{ color: 'var(--error, #ef4444)' }}
           >
             View build logs
           </a>
