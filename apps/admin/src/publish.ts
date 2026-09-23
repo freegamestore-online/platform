@@ -781,6 +781,10 @@ export async function handlePublish(
       // key falls back to canvas at generate time, so writing it here would
       // claim an engine the source doesn't match.
       ...(req.template && TEMPLATE_REPOS[req.template] ? { engine: req.template } : {}),
+      // Remix lineage (#35): the game this one was seeded from. Written once, on
+      // first add, and not editable via handleUpdateGame — attribution display
+      // and fork-chain tracing read it later without a migration.
+      ...(cloneFrom ? { forkedFrom: cloneFrom } : {}),
       // Set once, on first add. `me.ts` reads this for the game's createdAt.
       firstPublished: nowIso,
       // Build lifecycle (#22). Provisioning deliberately runs BEFORE the first

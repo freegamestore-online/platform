@@ -445,62 +445,93 @@ describe('setGameStatuses', () => {
   });
 });
 
+/** Drives a NEW-game provision far enough to capture the first registry PUT.
+ *  Awaits that PUT rather than the whole provision: later steps (placeholder
+ *  substitution, route insert) retry against a stub that can never satisfy them,
+ *  and the entry shape is settled by the time it commits. */
+function firstRegistryPut(req: Parameters<typeof handlePublish>[0]): Promise<any[]> {
+  let resolvePut: (games: any[]) => void;
+  const firstPut = new Promise<any[]>((r) => {
+    resolvePut = r;
+  });
+
+  vi.stubGlobal('fetch', async (input: unknown, init?: { method?: string; body?: string }) => {
+    const url = typeof input === 'string' ? input : (input as Request).url;
+    const method = init?.method ?? 'GET';
+    if (url.includes('/contents/registry.json')) {
+      if (method === 'GET') {
+        return new Response(
+          JSON.stringify({ content: btoa(JSON.stringify({ games: [] })), sha: 'sha1' }),
+          { status: 200 },
+        );
+      }
+      resolvePut(JSON.parse(atob(JSON.parse(init!.body!).content)).games);
+      return new Response(JSON.stringify({ content: { sha: 'sha2' } }), { status: 200 });
+    }
+    // Target repo does not exist yet → provision proceeds down the create path.
+    if (method === 'GET' && url.endsWith(`/repos/freegamestore-online/${req.id}`)) {
+      return new Response(JSON.stringify({ message: 'Not Found' }), { status: 404 });
+    }
+    // The APPNAME substitution step polls for the generated repo's main ref
+    // (12 × 1.5s) before it commits. Answer it immediately so the run reaches
+    // the registry write inside the test timeout instead of spinning there.
+    if (url.includes('/git/ref/heads/main')) {
+      return new Response(JSON.stringify({ object: { sha: 'headsha' } }), { status: 200 });
+    }
+    if (url.includes('/git/commits/')) {
+      return new Response(JSON.stringify({ tree: { sha: 'treesha' } }), { status: 200 });
+    }
+    // Any other repo file read (the substitution targets) — a real contents
+    // payload, so the step completes rather than retrying on a decode failure.
+    if (method === 'GET' && url.includes('/contents/')) {
+      return new Response(JSON.stringify({ content: btoa('APPNAME'), sha: 's' }), {
+        status: 200,
+      });
+    }
+    return new Response(JSON.stringify({ ok: true, id: 1 }), { status: 200 });
+  });
+
+  const env = { GITHUB_TOKEN: 'x', DB: undefined } as unknown as Parameters<
+    typeof handlePublish
+  >[1];
+  void handlePublish(req, env);
+  return firstPut;
+}
+
 describe('handlePublish build status', () => {
   it('lists a NEW game as pending — provisioning runs before the first build', async () => {
-    // Awaits the registry PUT rather than the whole provision: later steps
-    // (placeholder substitution, route insert) retry against a stub that can
-    // never satisfy them, and the entry shape is settled by the time it commits.
-    let resolvePut: (games: any[]) => void;
-    const firstPut = new Promise<any[]>((r) => {
-      resolvePut = r;
+    const games = await firstRegistryPut({
+      id: 'chess',
+      name: 'Chess',
+      category: 'arcade',
+      creatorGithub: 'someone',
     });
-
-    vi.stubGlobal('fetch', async (input: unknown, init?: { method?: string; body?: string }) => {
-      const url = typeof input === 'string' ? input : (input as Request).url;
-      const method = init?.method ?? 'GET';
-      if (url.includes('/contents/registry.json')) {
-        if (method === 'GET') {
-          return new Response(
-            JSON.stringify({ content: btoa(JSON.stringify({ games: [] })), sha: 'sha1' }),
-            { status: 200 },
-          );
-        }
-        resolvePut(JSON.parse(atob(JSON.parse(init!.body!).content)).games);
-        return new Response(JSON.stringify({ content: { sha: 'sha2' } }), { status: 200 });
-      }
-      // Target repo does not exist yet → provision proceeds down the create path.
-      if (method === 'GET' && url.endsWith('/repos/freegamestore-online/chess')) {
-        return new Response(JSON.stringify({ message: 'Not Found' }), { status: 404 });
-      }
-      // The APPNAME substitution step polls for the generated repo's main ref
-      // (12 × 1.5s) before it commits. Answer it immediately so the run reaches
-      // the registry write inside the test timeout instead of spinning there.
-      if (url.includes('/git/ref/heads/main')) {
-        return new Response(JSON.stringify({ object: { sha: 'headsha' } }), { status: 200 });
-      }
-      if (url.includes('/git/commits/')) {
-        return new Response(JSON.stringify({ tree: { sha: 'treesha' } }), { status: 200 });
-      }
-      // Any other repo file read (the substitution targets) — a real contents
-      // payload, so the step completes rather than retrying on a decode failure.
-      if (method === 'GET' && url.includes('/contents/')) {
-        return new Response(JSON.stringify({ content: btoa('APPNAME'), sha: 's' }), {
-          status: 200,
-        });
-      }
-      return new Response(JSON.stringify({ ok: true, id: 1 }), { status: 200 });
-    });
-
-    const env = { GITHUB_TOKEN: 'x', DB: undefined } as unknown as Parameters<
-      typeof handlePublish
-    >[1];
-    void handlePublish(
-      { id: 'chess', name: 'Chess', category: 'arcade', creatorGithub: 'someone' },
-      env,
-    );
-
-    const games = await firstPut;
     expect(games.find((g: any) => g.id === 'chess').status).toBe('pending');
+  });
+});
+
+// Remix lineage (#35). Every remix used to lose its provenance; the registry
+// entry must record the source so attribution + fork-chain tracing are possible.
+describe('handlePublish forkedFrom lineage', () => {
+  it('records the remix source as forkedFrom', async () => {
+    const games = await firstRegistryPut({
+      id: 'chess-remix',
+      name: 'Chess Remix',
+      category: 'arcade',
+      creatorGithub: 'someone',
+      cloneFrom: ' Chess ',
+    });
+    expect(games.find((g: any) => g.id === 'chess-remix').forkedFrom).toBe('chess');
+  });
+
+  it('omits forkedFrom on a game that is not a remix', async () => {
+    const games = await firstRegistryPut({
+      id: 'chess',
+      name: 'Chess',
+      category: 'arcade',
+      creatorGithub: 'someone',
+    });
+    expect(games.find((g: any) => g.id === 'chess')).not.toHaveProperty('forkedFrom');
   });
 });
 

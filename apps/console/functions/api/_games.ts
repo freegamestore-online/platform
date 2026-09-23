@@ -29,6 +29,8 @@ export interface RegistryGame {
   updatedAt?: string;
   /** Engine/template the game was generated from (kaplay|phaser|3d|canvas|grid|cards). */
   engine?: string;
+  /** Remix lineage: id of the game this one was seeded from (#35). */
+  forkedFrom?: string;
 }
 
 export interface GameRepo {
@@ -47,6 +49,8 @@ export interface GameRepo {
   icon: string;
   iconBg: string;
   description: string;
+  /** Remix lineage: id of the game this one was seeded from, if any. */
+  forkedFrom?: string;
 }
 
 interface GhEnv {
@@ -126,6 +130,7 @@ export function registryToRepo(g: RegistryGame, published: boolean): GameRepo {
     icon: g.icon || '',
     iconBg: g.iconBg || '',
     description: g.description || '',
+    ...(g.forkedFrom ? { forkedFrom: g.forkedFrom } : {}),
   };
 }
 
