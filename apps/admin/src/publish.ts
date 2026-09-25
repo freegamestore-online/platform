@@ -531,6 +531,128 @@ function decodeGhContent(b64: string): string {
   );
 }
 
+const REMIX_CREDIT_MARKER = 'fgs-remix-attribution';
+
+/**
+ * The game templates live in their own repositories, so a Remix needs a
+ * self-contained credit surface at provision time. This markup works for every
+ * supported engine/template (including templates with a local shell instead of
+ * the SDK). It deliberately uses textContent for all snapshot data and only
+ * enables the source-game link after the public registry confirms the id still
+ * exists. A deleted source therefore keeps its immutable credit without a dead
+ * link.
+ */
+export function renderRemixAttributionShell(attribution: ForkAttribution): string {
+  if (!isForkAttribution(attribution)) return '';
+  // JSON is data, never executable source. Escape '<' so a hostile display name
+  // cannot terminate the application/json script element.
+  const data = JSON.stringify(attribution).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+  return `
+    <script id="${REMIX_CREDIT_MARKER}" type="application/json">${data}</script>
+    <script>
+      (() => {
+        const dataNode = document.getElementById('${REMIX_CREDIT_MARKER}');
+        if (!dataNode) return;
+        let attribution;
+        try { attribution = JSON.parse(dataNode.textContent || ''); } catch { return; }
+        const validId = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+        const validLogin = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
+        if (!attribution || !validId.test(attribution.id) ||
+            typeof attribution.name !== 'string' || !attribution.name.trim() ||
+            !validLogin.test(attribution.creatorGithub)) return;
+
+        const credit = document.createElement('aside');
+        credit.id = 'fgs-remix-credit';
+        credit.setAttribute('aria-label', 'Remix attribution');
+        Object.assign(credit.style, {
+          position: 'fixed', right: '0.45rem', bottom: '0.35rem', zIndex: '2147483647',
+          maxWidth: 'calc(100vw - 0.9rem)', padding: '0.18rem 0.35rem', borderRadius: '0.3rem',
+          background: 'color-mix(in srgb, var(--panel, #fff) 92%, transparent)',
+          color: 'var(--muted, #666)', font: '600 0.6rem/1.25 system-ui, sans-serif',
+          textAlign: 'right', pointerEvents: 'none'
+        });
+        credit.append('Remixed from ');
+        const sourceName = document.createElement('span');
+        sourceName.textContent = attribution.name.trim();
+        credit.append(sourceName, ' by ');
+        const creator = document.createElement('a');
+        creator.textContent = '@' + attribution.creatorGithub;
+        creator.href = 'https://github.com/' + attribution.creatorGithub;
+        creator.target = '_blank';
+        creator.rel = 'noopener noreferrer';
+        Object.assign(creator.style, { color: 'inherit', pointerEvents: 'auto' });
+        credit.append(creator);
+        document.body.append(credit);
+
+        // The snapshot supplies the durable label; registry lookup is used only
+        // to decide whether a source link is still live. Network failure safely
+        // leaves the readable non-link fallback in place.
+        fetch('https://raw.githubusercontent.com/freegamestore-online/freegamestore/main/registry.json')
+          .then((response) => response.ok ? response.json() : null)
+          .then((registry) => {
+            if (!Array.isArray(registry && registry.games) ||
+                !registry.games.some((game) => game && game.id === attribution.id)) return;
+            const source = document.createElement('a');
+            source.textContent = attribution.name.trim();
+            source.href = 'https://' + attribution.id + '.freegamestore.online';
+            source.target = '_blank';
+            source.rel = 'noopener noreferrer';
+            Object.assign(source.style, { color: 'inherit', pointerEvents: 'auto' });
+            sourceName.replaceWith(source);
+          })
+          .catch(() => {});
+      })();
+    </script>`;
+}
+
+/** Add the cross-template, runtime-safe Remix credit to a generated game. */
+async function addRemixAttributionShell(
+  env: PublishEnv,
+  org: string,
+  id: string,
+  attribution: ForkAttribution,
+): Promise<Step> {
+  const markup = renderRemixAttributionShell(attribution);
+  if (!markup)
+    return { name: 'Remix attribution', status: 'fail', detail: 'invalid source snapshot' };
+  const path = `/repos/${org}/${id}/contents/web/index.html`;
+  try {
+    const file = await ghApi(env, path);
+    if (!file.content || !file.sha) {
+      return { name: 'Remix attribution', status: 'fail', detail: 'could not read game shell' };
+    }
+    const original = decodeGhContent(file.content);
+    if (original.includes(`id="${REMIX_CREDIT_MARKER}"`)) {
+      return { name: 'Remix attribution', status: 'skip', detail: 'already present' };
+    }
+    const updated = original.includes('</body>')
+      ? original.replace('</body>', `${markup}\n  </body>`)
+      : `${original}\n${markup}`;
+    const result = await ghApi(env, path, 'PUT', {
+      message: 'Add immutable Remix attribution',
+      content: btoa(
+        Array.from(new TextEncoder().encode(updated))
+          .map((byte) => String.fromCharCode(byte))
+          .join(''),
+      ),
+      sha: file.sha,
+    });
+    return result.__status >= 200 && result.__status < 300
+      ? { name: 'Remix attribution', status: 'ok', detail: 'added immutable source credit' }
+      : {
+          name: 'Remix attribution',
+          status: 'fail',
+          detail: result.message || 'shell update failed',
+        };
+  } catch (error: any) {
+    return {
+      name: 'Remix attribution',
+      status: 'fail',
+      detail: error?.message || 'shell update error',
+    };
+  }
+}
+
 /** Resolve the engine a source game was built on, from its web/package.json
  *  dependencies (same rule as the agent's detectEngine). Returns a TEMPLATE_REPOS
  *  key, or "" if the source is missing/unreadable. Grid/cards can't be told apart
@@ -814,6 +936,19 @@ export async function handlePublish(
       // infra so the new game starts from the source's real code.
       if (cloneFrom) {
         steps.push(await overlayGameSource(env, config.org, id, cloneFrom));
+        // The source overlay intentionally excludes index.html so template infra
+        // remains id-correct. Put the immutable Remix credit there: it is shared
+        // by every supported game template and survives source-file replacement.
+        if (sourceForkAttribution) {
+          const attributionStep = await addRemixAttributionShell(
+            env,
+            config.org,
+            id,
+            sourceForkAttribution,
+          );
+          steps.push(attributionStep);
+          if (attributionStep.status === 'fail') return { steps, success: false };
+        }
       }
     } else {
       steps.push({

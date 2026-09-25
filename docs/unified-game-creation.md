@@ -57,6 +57,28 @@ backward compatibility; they are upgraded only when the registry contains every
 required source fact and the fork's original `firstPublished` timestamp. Missing
 facts remain a string rather than being guessed into attribution.
 
+## Displaying Remix credit
+
+The platform keeps the product term **Remix**. Studio's *My Games* rows show
+`Remixed from <source name> by @<creator>` from the immutable snapshot. The
+source-game link is offered only while that source still exists in the registry;
+the creator link uses a validated GitHub login and opens with `noopener
+noreferrer`. If the original has been deleted, or a legacy string cannot be
+upgraded, Studio retains a readable, deliberately unlinked credit instead of
+inventing facts or sending players to a dead destination.
+
+Every newly provisioned Remix also receives a small attribution surface in its
+generated `web/index.html`. This is injected after the source overlay, so it is
+shared across all supported engine templates (including templates that do not
+use the SDK `GameShell`). It renders snapshot text with DOM text nodes, validates
+the id/login before forming URLs, and checks the public registry at runtime
+before enabling the source-game link. A renamed source keeps its original
+snapshot name; a deleted one remains credited without a broken source link.
+
+Storefront detail-page rendering is owned by the separate
+`freegamestore-online/freegamestore` repository and is tracked as a coordinated
+follow-up rather than part of this platform change.
+
 ## Opening an existing game in VibeCode
 
 `Dashboard → "Edit in VibeCode"` (or the studio project picker) →

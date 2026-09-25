@@ -23,6 +23,18 @@ export interface GameRepo {
   icon: string;
   iconBg: string;
   description: string;
+  /** Immutable remix lineage supplied by the registry API. Older entries may
+   * only have the source id; the UI deliberately renders that without guessing. */
+  forkedFrom?:
+    | {
+        id: string;
+        name: string;
+        creatorGithub: string;
+        forkedAt: string;
+      }
+    | string;
+  /** Whether the source still exists in the live registry (safe-link signal). */
+  forkedFromSourceAvailable?: boolean;
 }
 
 interface CreatorRecord {

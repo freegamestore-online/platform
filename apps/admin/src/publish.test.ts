@@ -6,6 +6,7 @@ import {
   handleUpdateGame,
   normalizeForkedFrom,
   readGameStatus,
+  renderRemixAttributionShell,
   setGameStatuses,
 } from './publish';
 
@@ -142,6 +143,29 @@ describe('legacy forkedFrom compatibility (#44)', () => {
     expect(normalizeForkedFrom('deleted-source', [source], '2026-09-25T00:00:00.000Z')).toBe(
       'deleted-source',
     );
+  });
+});
+
+describe('generated Remix attribution shell (#46)', () => {
+  const snapshot = {
+    id: 'space-shooter',
+    name: 'Space </script><img src=x>',
+    creatorGithub: 'original-creator',
+    forkedAt: '2026-09-25T00:00:00.000Z',
+  };
+
+  it('uses data/text nodes and only makes links with safe rel attributes', () => {
+    const shell = renderRemixAttributionShell(snapshot);
+    expect(shell).toContain('fgs-remix-attribution');
+    expect(shell).toContain('textContent = attribution.name.trim()');
+    expect(shell).toContain("rel = 'noopener noreferrer'");
+    expect(shell).toContain('registry.games.some');
+    expect(shell).toContain("source.href = 'https://' + attribution.id + '.freegamestore.online'");
+    expect(shell).not.toContain('</script><img');
+  });
+
+  it('refuses malformed attribution instead of emitting an unsafe shell', () => {
+    expect(renderRemixAttributionShell({ ...snapshot, id: 'javascript:alert(1)' })).toBe('');
   });
 });
 

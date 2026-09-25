@@ -61,6 +61,9 @@ export interface GameRepo {
   description: string;
   /** Immutable remix lineage, or a legacy source id when facts are incomplete. */
   forkedFrom?: ForkedFrom;
+  /** True only while the source still has a registry entry. Consumers use this
+   * to avoid turning an immutable, deleted-source credit into a dead link. */
+  forkedFromSourceAvailable?: boolean;
 }
 
 interface GhEnv {
@@ -177,6 +180,13 @@ export function registryToRepo(
   registry: RegistryGame[] = [],
 ): GameRepo {
   const forkedFrom = normalizeForkedFrom(g.forkedFrom, registry, g.firstPublished);
+  const sourceId =
+    typeof forkedFrom === 'string'
+      ? forkedFrom
+      : forkedFrom && typeof forkedFrom.id === 'string'
+        ? forkedFrom.id
+        : undefined;
+  const forkedFromSourceAvailable = !!sourceId && registry.some((game) => game.id === sourceId);
   return {
     id: g.id,
     name: g.name || g.id.charAt(0).toUpperCase() + g.id.slice(1),
@@ -191,7 +201,12 @@ export function registryToRepo(
     icon: g.icon || '',
     iconBg: g.iconBg || '',
     description: g.description || '',
-    ...(forkedFrom ? { forkedFrom } : {}),
+    ...(forkedFrom
+      ? {
+          forkedFrom,
+          forkedFromSourceAvailable,
+        }
+      : {}),
   };
 }
 

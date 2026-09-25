@@ -5,6 +5,7 @@ import { CreateGameForm } from '../components/CreateGameForm';
 import { GameVersion } from '../components/GameVersion';
 import { Nav } from '../components/Nav';
 import { ErrorShell, LoadingShell, SignInShell } from '../components/PageShell';
+import { RemixAttribution } from '../components/RemixAttribution';
 import { Badge, Button, buttonClass } from '../components/ui';
 import { type GameRepo, useAuth } from '../hooks/useAuth';
 import { type DraftSession, useDraftSessions } from '../hooks/useDraftSessions';
@@ -240,6 +241,10 @@ function LiveGameRow({ game, activity }: { game: GameRepo; activity?: SessionAct
             )}
             <GameVersion liveUrl={game.liveUrl} />
           </div>
+          <RemixAttribution
+            attribution={game.forkedFrom}
+            sourceAvailable={game.forkedFromSourceAvailable}
+          />
         </div>
       </Link>
       <div className="flex items-center gap-2 shrink-0">

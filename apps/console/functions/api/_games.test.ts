@@ -11,9 +11,11 @@ describe('registryToRepo forkedFrom', () => {
       creatorGithub: 'original-creator',
       forkedAt: '2026-09-25T00:00:00.000Z',
     };
-    expect(registryToRepo({ id: 'chess-remix', forkedFrom: attribution }, true).forkedFrom).toEqual(
-      attribution,
-    );
+    const repo = registryToRepo({ id: 'chess-remix', forkedFrom: attribution }, true, [
+      { id: 'chess' },
+    ]);
+    expect(repo.forkedFrom).toEqual(attribution);
+    expect(repo.forkedFromSourceAvailable).toBe(true);
   });
 
   it('normalizes a legacy source id when registry facts are complete', () => {
@@ -39,8 +41,8 @@ describe('registryToRepo forkedFrom', () => {
         },
         true,
         [],
-      ).forkedFrom,
-    ).toBe('deleted-source');
+      ),
+    ).toMatchObject({ forkedFrom: 'deleted-source', forkedFromSourceAvailable: false });
   });
 
   it('keeps a legacy id when its historical timestamp is unavailable', () => {
