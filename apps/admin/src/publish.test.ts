@@ -309,6 +309,119 @@ describe('handlePublish cloneFrom validation (#34)', () => {
   });
 });
 
+describe('handlePublish Remix truncation regression (#45)', () => {
+  it('silently commits only MAX_FILES=40 when the source has 41 eligible files', async () => {
+    const sourceId = 'source-game';
+    const targetId = 'remixed-game';
+    const sourceFiles = Array.from({ length: 41 }, (_, i) => ({
+      path: `web/src/file-${i + 1}.ts`,
+      sha: `source-blob-${i + 1}`,
+      type: 'blob',
+    }));
+    const committedTrees: Array<Array<{ path: string }>> = [];
+    const sourceBlobReads: string[] = [];
+
+    vi.stubGlobal('fetch', async (input: unknown, init?: { method?: string; body?: string }) => {
+      const url = typeof input === 'string' ? input : (input as Request).url;
+      const method = init?.method ?? 'GET';
+      if (method === 'GET' && url.endsWith(`/repos/freegamestore-online/${targetId}`)) {
+        return new Response(JSON.stringify({ message: 'Not Found' }), { status: 404 });
+      }
+      if (method === 'POST' && url.includes('/generate')) {
+        return new Response(JSON.stringify({ id: 1 }), { status: 201 });
+      }
+      if (
+        method === 'GET' &&
+        url.endsWith(`/repos/freegamestore-online/${sourceId}/contents/web/package.json`)
+      ) {
+        return new Response(JSON.stringify({ content: btoa('{}') }), { status: 200 });
+      }
+      if (
+        method === 'GET' &&
+        url.endsWith(`/repos/freegamestore-online/${sourceId}/git/ref/heads/main`)
+      ) {
+        return new Response(JSON.stringify({ object: { sha: 'source-head' } }), { status: 200 });
+      }
+      if (
+        method === 'GET' &&
+        url.endsWith(`/repos/freegamestore-online/${sourceId}/git/commits/source-head`)
+      ) {
+        return new Response(JSON.stringify({ tree: { sha: 'source-tree' } }), { status: 200 });
+      }
+      if (
+        method === 'GET' &&
+        url.includes(`/repos/freegamestore-online/${sourceId}/git/trees/source-tree?recursive=1`)
+      ) {
+        return new Response(JSON.stringify({ tree: sourceFiles }), { status: 200 });
+      }
+      if (method === 'GET' && url.includes(`/repos/freegamestore-online/${sourceId}/git/blobs/`)) {
+        sourceBlobReads.push(url);
+        return new Response(JSON.stringify({ content: btoa('source file'), encoding: 'base64' }), {
+          status: 200,
+        });
+      }
+      if (method === 'GET' && url.includes('/git/ref/heads/main')) {
+        return new Response(JSON.stringify({ object: { sha: 'target-head' } }), { status: 200 });
+      }
+      if (method === 'GET' && url.includes('/git/commits/')) {
+        return new Response(JSON.stringify({ tree: { sha: 'target-tree' } }), { status: 200 });
+      }
+      if (method === 'GET' && url.includes('/contents/registry.json')) {
+        return new Response(
+          JSON.stringify({ content: btoa(JSON.stringify({ games: [] })), sha: 'registry-sha' }),
+          {
+            status: 200,
+          },
+        );
+      }
+      if (method === 'PUT' && url.includes('/contents/registry.json')) {
+        return new Response(JSON.stringify({ content: {} }), { status: 200 });
+      }
+      if (method === 'POST' && url.endsWith('/git/trees')) {
+        const body = JSON.parse(init!.body!);
+        if (body.tree.every((item: { path: string }) => item.path.startsWith('web/src/file-'))) {
+          committedTrees.push(body.tree);
+        }
+        return new Response(JSON.stringify({ sha: 'new-tree' }), { status: 201 });
+      }
+      if (method === 'POST' && url.endsWith('/git/blobs')) {
+        return new Response(JSON.stringify({ sha: 'new-blob' }), { status: 201 });
+      }
+      if (method === 'POST' && url.endsWith('/git/commits')) {
+        return new Response(JSON.stringify({ sha: 'new-commit' }), { status: 201 });
+      }
+      if (method === 'PATCH' && url.includes('/git/refs/heads/main')) {
+        return new Response(JSON.stringify({ ref: 'refs/heads/main' }), { status: 200 });
+      }
+      if (method === 'GET' && url.includes('/contents/')) {
+        return new Response(JSON.stringify({ content: btoa('APPNAME'), sha: 'file-sha' }), {
+          status: 200,
+        });
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+
+    const env = { GITHUB_TOKEN: 'x', DB: undefined } as unknown as Parameters<
+      typeof handlePublish
+    >[1];
+    const result = await handlePublish(
+      { id: targetId, name: 'Remixed Game', category: 'arcade', cloneFrom: sourceId },
+      env,
+    );
+
+    const remix = result.steps.find((step) => step.name === 'Remix');
+    expect(sourceFiles).toHaveLength(41);
+    expect(sourceBlobReads).toHaveLength(40);
+    expect(committedTrees).toHaveLength(1);
+    expect(committedTrees[0]).toHaveLength(40);
+    expect(committedTrees[0]!.map((item) => item.path)).not.toContain('web/src/file-41.ts');
+    expect(remix).toMatchObject({
+      status: 'ok',
+      detail: 'copied 40 files from source-game (first 40 of 41)',
+    });
+  });
+});
+
 // Build-status lifecycle (#22). Provisioning writes `pending` before the first
 // build, so nothing may report a game live until a deploy.yml run concludes
 // success. These guard the transition rules that make that safe.
