@@ -308,3 +308,48 @@ describe('creator self-serve routes are NOT behind the admin gate', () => {
     expect(calls).toHaveLength(0); // aborted before any GitHub call
   });
 });
+
+describe('GET /api/games/:id/detail fork attribution (#44)', () => {
+  it('returns the immutable attribution object from the registry', async () => {
+    vi.stubGlobal('fetch', async (input: unknown) => {
+      const url = typeof input === 'string' ? input : (input as Request).url;
+      if (url.includes('/contents/registry.json')) {
+        return new Response(
+          JSON.stringify({
+            games: [
+              { id: 'chess', name: 'Chess', creatorGithub: 'original-creator' },
+              {
+                id: 'chess-remix',
+                name: 'Chess Remix',
+                creatorGithub: 'remixer',
+                forkedFrom: {
+                  id: 'chess',
+                  name: 'Chess',
+                  creatorGithub: 'original-creator',
+                  forkedAt: '2026-09-25T00:00:00.000Z',
+                },
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(JSON.stringify({ workflow_runs: [] }), { status: 200 });
+    });
+    const env = {
+      ...makeEnv({ meEmail: ADMIN, adminEmails: ADMIN, DB: undefined }),
+      GITHUB_TOKEN: 'test-token',
+    };
+    const res = await worker.fetch(
+      req('/api/games/chess-remix/detail', { headers: { 'X-FGS-Token': 't' } }),
+      env,
+    );
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { forkedFrom?: unknown }).forkedFrom).toEqual({
+      id: 'chess',
+      name: 'Chess',
+      creatorGithub: 'original-creator',
+      forkedAt: '2026-09-25T00:00:00.000Z',
+    });
+  });
+});

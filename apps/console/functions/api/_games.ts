@@ -14,6 +14,16 @@ export const ORG = 'freegamestore-online';
 const DOMAIN = 'freegamestore.online';
 const REGISTRY_URL = `https://raw.githubusercontent.com/${ORG}/freegamestore/main/registry.json`;
 
+/** Immutable snapshot written for new remixes (#44). String remains accepted
+ * for #35-era registry records that cannot be safely reconstructed. */
+export interface ForkAttribution {
+  id: string;
+  name: string;
+  creatorGithub: string;
+  forkedAt: string;
+}
+export type ForkedFrom = ForkAttribution | string;
+
 export interface RegistryGame {
   id: string;
   name?: string;
@@ -29,8 +39,8 @@ export interface RegistryGame {
   updatedAt?: string;
   /** Engine/template the game was generated from (kaplay|phaser|3d|canvas|grid|cards). */
   engine?: string;
-  /** Remix lineage: id of the game this one was seeded from (#35). */
-  forkedFrom?: string;
+  /** Immutable remix lineage, or a legacy source id when facts are incomplete. */
+  forkedFrom?: ForkedFrom;
 }
 
 export interface GameRepo {
@@ -49,8 +59,8 @@ export interface GameRepo {
   icon: string;
   iconBg: string;
   description: string;
-  /** Remix lineage: id of the game this one was seeded from, if any. */
-  forkedFrom?: string;
+  /** Immutable remix lineage, or a legacy source id when facts are incomplete. */
+  forkedFrom?: ForkedFrom;
 }
 
 interface GhEnv {
@@ -62,6 +72,52 @@ const ghHeaders = (token: string) => ({
   Accept: 'application/vnd.github+json',
   'User-Agent': 'freegamestore-publisher',
 });
+
+const VALID_ID = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+const VALID_GH_LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
+
+function isForkAttribution(value: unknown): value is ForkAttribution {
+  if (!value || typeof value !== 'object') return false;
+  const attribution = value as Record<string, unknown>;
+  return (
+    typeof attribution.id === 'string' &&
+    VALID_ID.test(attribution.id) &&
+    typeof attribution.name === 'string' &&
+    attribution.name.trim().length > 0 &&
+    typeof attribution.creatorGithub === 'string' &&
+    VALID_GH_LOGIN.test(attribution.creatorGithub) &&
+    typeof attribution.forkedAt === 'string' &&
+    !Number.isNaN(Date.parse(attribution.forkedAt))
+  );
+}
+
+/** Compatibility projection for #35 strings. It only returns a rich object if
+ * the target's creation time and the source's current id/name/creator are all
+ * present. Otherwise it preserves the bare id instead of fabricating credit. */
+export function normalizeForkedFrom(
+  value: unknown,
+  registry: RegistryGame[],
+  legacyForkedAt: unknown,
+): ForkedFrom | undefined {
+  if (isForkAttribution(value)) return value;
+  if (typeof value !== 'string' || !VALID_ID.test(value)) return undefined;
+  if (typeof legacyForkedAt !== 'string' || Number.isNaN(Date.parse(legacyForkedAt))) return value;
+  const source = registry.find((game) => game.id === value);
+  if (
+    !source ||
+    typeof source.name !== 'string' ||
+    !source.name.trim() ||
+    typeof source.creatorGithub !== 'string' ||
+    !VALID_GH_LOGIN.test(source.creatorGithub)
+  )
+    return value;
+  return {
+    id: value,
+    name: source.name.trim(),
+    creatorGithub: source.creatorGithub,
+    forkedAt: legacyForkedAt,
+  };
+}
 
 /** Fetch the store registry (source of truth for games).
  *  Prefers the authenticated GitHub contents API, which is NOT CDN-cached, so a
@@ -115,7 +171,12 @@ export async function isOrgMember(env: GhEnv, login: string): Promise<boolean> {
   }
 }
 
-export function registryToRepo(g: RegistryGame, published: boolean): GameRepo {
+export function registryToRepo(
+  g: RegistryGame,
+  published: boolean,
+  registry: RegistryGame[] = [],
+): GameRepo {
+  const forkedFrom = normalizeForkedFrom(g.forkedFrom, registry, g.firstPublished);
   return {
     id: g.id,
     name: g.name || g.id.charAt(0).toUpperCase() + g.id.slice(1),
@@ -130,7 +191,7 @@ export function registryToRepo(g: RegistryGame, published: boolean): GameRepo {
     icon: g.icon || '',
     iconBg: g.iconBg || '',
     description: g.description || '',
-    ...(g.forkedFrom ? { forkedFrom: g.forkedFrom } : {}),
+    ...(forkedFrom ? { forkedFrom } : {}),
   };
 }
 
@@ -195,7 +256,7 @@ export async function listUserGames(
     isOrgMember(env, login),
   ]);
   if (games === null) throw new Error('registry_unavailable');
-  const adminAll = games.map((g) => registryToRepo(g, true));
+  const adminAll = games.map((g) => registryToRepo(g, true, games));
 
   const lc = login.toLowerCase();
   const ownedIds = new Set<string>();
@@ -222,7 +283,7 @@ export async function listUserGames(
     }),
   );
 
-  const owned = games.filter((g) => ownedIds.has(g.id)).map((g) => registryToRepo(g, true));
+  const owned = games.filter((g) => ownedIds.has(g.id)).map((g) => registryToRepo(g, true, games));
   // Enrich the owned set (small — capped by the per-creator slot limit) with the
   // repo's last-push time + a created_at fallback for legacy games missing
   // firstPublished.

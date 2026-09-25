@@ -115,6 +115,20 @@ interface Step {
  *  never downgrade it. Do not backfill by probing — the probe is what lies. */
 export type GameStatus = 'pending' | 'live' | 'failed';
 
+/** Immutable attribution captured when a game is remixed.  `name` and
+ * `creatorGithub` are deliberately denormalised: an original can later be
+ * renamed or delisted without erasing the credit on its descendants. */
+export interface ForkAttribution {
+  id: string;
+  name: string;
+  creatorGithub: string;
+  forkedAt: string;
+}
+
+/** Legacy #35 entries used a source id string. Readers retain that form when
+ * there is not enough trustworthy registry data to upgrade it. */
+export type ForkedFrom = ForkAttribution | string;
+
 /** Missing → `live` (legacy entry). Anything unrecognised is treated as legacy
  *  too rather than hiding a game on a typo. */
 export function readGameStatus(entry: { status?: unknown } | null | undefined): GameStatus {
@@ -200,6 +214,85 @@ function validateId(id: string): string | null {
 // into a privileged github.com path + written to the registry as the ownership
 // key), so an invalid value must abort the whole provision — never be persisted.
 const VALID_GH_LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
+
+function isForkAttribution(value: unknown): value is ForkAttribution {
+  if (!value || typeof value !== 'object') return false;
+  const attribution = value as Record<string, unknown>;
+  return (
+    typeof attribution.id === 'string' &&
+    !validateId(attribution.id) &&
+    typeof attribution.name === 'string' &&
+    attribution.name.trim().length > 0 &&
+    typeof attribution.creatorGithub === 'string' &&
+    VALID_GH_LOGIN.test(attribution.creatorGithub) &&
+    typeof attribution.forkedAt === 'string' &&
+    !Number.isNaN(Date.parse(attribution.forkedAt))
+  );
+}
+
+/** Build a snapshot only from fields which the source registry actually
+ * contains. Returning undefined rather than inventing a name, creator, or
+ * timestamp is the compatibility rule for legacy lineage. */
+function snapshotForkAttribution(
+  sourceId: string,
+  source: Record<string, unknown> | undefined,
+  forkedAt: unknown,
+): ForkAttribution | undefined {
+  if (
+    !source ||
+    source.id !== sourceId ||
+    typeof source.name !== 'string' ||
+    !source.name.trim() ||
+    typeof source.creatorGithub !== 'string' ||
+    !VALID_GH_LOGIN.test(source.creatorGithub) ||
+    typeof forkedAt !== 'string' ||
+    Number.isNaN(Date.parse(forkedAt))
+  ) {
+    return undefined;
+  }
+  return {
+    id: sourceId,
+    name: source.name.trim(),
+    creatorGithub: source.creatorGithub,
+    forkedAt,
+  };
+}
+
+/**
+ * Present old string lineage as rich attribution only when the registry has all
+ * four facts: the old target's creation timestamp plus the source id, name and
+ * creator. Otherwise leave the string intact; guessing would make a mutable
+ * source look like an immutable historical credit.
+ */
+export function normalizeForkedFrom(
+  value: unknown,
+  registry: Array<Record<string, unknown>>,
+  legacyForkedAt: unknown,
+): ForkedFrom | undefined {
+  if (isForkAttribution(value)) return value;
+  if (typeof value !== 'string' || validateId(value)) return undefined;
+  return (
+    snapshotForkAttribution(
+      value,
+      registry.find((entry) => entry.id === value),
+      legacyForkedAt,
+    ) ?? value
+  );
+}
+
+/** Freeze safely-upgradable #35 records the next time a registry write already
+ * occurs. Entries without all source facts deliberately remain legacy strings. */
+function migrateLegacyForkAttribution(items: Array<Record<string, unknown>>): boolean {
+  let changed = false;
+  for (const item of items) {
+    const normalized = normalizeForkedFrom(item.forkedFrom, items, item.firstPublished);
+    if (normalized && typeof normalized !== 'string' && item.forkedFrom !== normalized) {
+      item.forkedFrom = normalized;
+      changed = true;
+    }
+  }
+  return changed;
+}
 
 /** Write the D1 routes row that fgs/host reads to map host → R2 prefix.
  *  Idempotent via ON CONFLICT DO UPDATE — re-publishing the same id is a
@@ -547,6 +640,38 @@ async function overlayGameSource(
   }
 }
 
+/** Read the source before creating the target repo. A remix must be able to
+ * retain complete credit at creation time; accepting an incomplete source would
+ * recreate the lineage loss that #44 fixes. */
+async function getSourceForkAttribution(
+  env: PublishEnv,
+  sourceId: string,
+  forkedAt: string,
+): Promise<{ attribution?: ForkAttribution; error?: string }> {
+  const registryPath = `/repos/${STORE_CONFIG.org}/${STORE_CONFIG.storeRepo}/contents/registry.json`;
+  const registryFile = await ghApi(env, registryPath);
+  if (!registryFile.content) return { error: 'Could not read source attribution from registry' };
+  try {
+    const raw = new TextDecoder().decode(
+      Uint8Array.from(atob(registryFile.content.replace(/\n/g, '')), (c) => c.charCodeAt(0)),
+    );
+    const content = JSON.parse(raw) as Record<string, unknown>;
+    const items = Array.isArray(content[STORE_CONFIG.registryKey])
+      ? (content[STORE_CONFIG.registryKey] as Array<Record<string, unknown>>)
+      : [];
+    const attribution = snapshotForkAttribution(
+      sourceId,
+      items.find((item) => item.id === sourceId),
+      forkedAt,
+    );
+    return attribution
+      ? { attribution }
+      : { error: `Source ${sourceId} has incomplete immutable attribution data` };
+  } catch {
+    return { error: 'Could not parse source attribution from registry' };
+  }
+}
+
 export async function handlePublish(
   req: PublishRequest,
   env: PublishEnv,
@@ -594,6 +719,7 @@ export async function handlePublish(
   // (workflows, deps, lockfile) matches the web/src we overlay after generate —
   // the picker's `template` is ignored when cloning.
   const cloneFrom = typeof req.cloneFrom === 'string' ? req.cloneFrom.trim().toLowerCase() : '';
+  let sourceForkAttribution: ForkAttribution | undefined;
   if (cloneFrom) {
     // `cloneFrom` is interpolated into privileged GitHub paths (engine lookup +
     // source overlay), so it must pass the same grammar/reserved-id rules as `id`
@@ -605,6 +731,14 @@ export async function handlePublish(
         success: false,
       };
     }
+    const sourceFork = await getSourceForkAttribution(env, cloneFrom, nowIso);
+    if (sourceFork.error) {
+      return {
+        steps: [{ name: 'Fork attribution', status: 'fail', detail: sourceFork.error }],
+        success: false,
+      };
+    }
+    sourceForkAttribution = sourceFork.attribution;
     const srcEngine = await resolveSourceEngine(env, config.org, cloneFrom);
     if (srcEngine) req.template = srcEngine;
   }
@@ -753,7 +887,7 @@ export async function handlePublish(
       Uint8Array.from(atob(registryFile.content.replace(/\n/g, '')), (c) => c.charCodeAt(0)),
     );
     const content = JSON.parse(rawContent);
-    const items = content[key] || [];
+    const items: Array<Record<string, unknown>> = Array.isArray(content[key]) ? content[key] : [];
     if (items.some((a: any) => a.id === id)) {
       return {
         name: 'Store registry',
@@ -761,6 +895,10 @@ export async function handlePublish(
         detail: isRetry ? 'Added by a concurrent provision' : 'Already listed',
       };
     }
+    // Freeze safely-upgradable #35 strings while this write is already taking
+    // place. Entries missing any historical fact stay strings rather than being
+    // guessed into a misleading attribution object.
+    migrateLegacyForkAttribution(items);
     items.push({
       id,
       name,
@@ -781,10 +919,9 @@ export async function handlePublish(
       // key falls back to canvas at generate time, so writing it here would
       // claim an engine the source doesn't match.
       ...(req.template && TEMPLATE_REPOS[req.template] ? { engine: req.template } : {}),
-      // Remix lineage (#35): the game this one was seeded from. Written once, on
-      // first add, and not editable via handleUpdateGame — attribution display
-      // and fork-chain tracing read it later without a migration.
-      ...(cloneFrom ? { forkedFrom: cloneFrom } : {}),
+      // #44: source identity + display credit are captured before target side
+      // effects. The PATCH allowlist below deliberately excludes this field.
+      ...(sourceForkAttribution ? { forkedFrom: sourceForkAttribution } : {}),
       // Set once, on first add. `me.ts` reads this for the game's createdAt.
       firstPublished: nowIso,
       // Build lifecycle (#22). Provisioning deliberately runs BEFORE the first
@@ -887,7 +1024,9 @@ export async function handleUpdateGame(
     Uint8Array.from(atob(registryFile.content.replace(/\n/g, '')), (c) => c.charCodeAt(0)),
   );
   const content = JSON.parse(rawContent);
-  const items: Array<Record<string, unknown>> = content[config.registryKey] || [];
+  const items: Array<Record<string, unknown>> = Array.isArray(content[config.registryKey])
+    ? content[config.registryKey]
+    : [];
   const idx = items.findIndex((g) => g.id === gameId);
   if (idx < 0) return { error: `Game "${gameId}" not found in registry` };
 
@@ -919,6 +1058,10 @@ export async function handleUpdateGame(
     }
   }
   if (!changed) return { error: 'No changes' };
+  // Opportunistically freeze only legacy strings that can be reconstructed
+  // from concrete registry facts. The edited game's own forkedFrom is never an
+  // allowed input and therefore remains immutable.
+  migrateLegacyForkAttribution(items);
   game.updatedAt = new Date().toISOString();
 
   items[idx] = game;

@@ -8,6 +8,7 @@ import {
   handlePublish,
   handleUpdateGame,
   insertHostRoute,
+  normalizeForkedFrom,
   readGameStatus,
   setGameStatus,
   setGameStatuses,
@@ -811,7 +812,9 @@ export default {
           status: readGameStatus(entry),
           name: entry?.name ?? id,
           creatorGithub: entry?.creatorGithub ?? null,
-          forkedFrom: entry?.forkedFrom ?? null,
+          forkedFrom: entry
+            ? (normalizeForkedFrom(entry.forkedFrom, items, entry.firstPublished) ?? null)
+            : null,
           hostedOn: entry?.hostedOn ?? (routeRow?.hosted_on || 'unknown'),
           route: routeRow
             ? { configured: true, r2Prefix: routeRow.r2_prefix }

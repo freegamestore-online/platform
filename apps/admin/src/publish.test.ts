@@ -4,6 +4,7 @@ import {
   handleDeleteGame,
   handlePublish,
   handleUpdateGame,
+  normalizeForkedFrom,
   readGameStatus,
   setGameStatuses,
 } from './publish';
@@ -83,6 +84,64 @@ describe('handleUpdateGame ownership', () => {
     const res = await handleUpdateGame('chess', 'serge-the-dev', { name: 'New Name' }, env);
     expect(res.ok).toBe(true);
     expect(putBody).not.toBeNull(); // a write happened → ownership passed despite casing
+  });
+
+  it('cannot change immutable fork attribution through metadata PATCH', async () => {
+    const attribution = {
+      id: 'chess',
+      name: 'Chess',
+      creatorGithub: 'original-creator',
+      forkedAt: '2026-09-25T00:00:00.000Z',
+    };
+    const registry = {
+      games: [
+        { id: 'chess', name: 'Chess', creatorGithub: 'original-creator' },
+        {
+          id: 'chess-remix',
+          name: 'Chess Remix',
+          creatorGithub: 'remixer',
+          forkedFrom: attribution,
+        },
+      ],
+    };
+    let written: any;
+    vi.stubGlobal('fetch', async (_input: unknown, init?: { method?: string; body?: string }) => {
+      if (init?.method === 'PUT') {
+        written = JSON.parse(atob(JSON.parse(init.body!).content));
+        return new Response(JSON.stringify({ content: {} }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ content: btoa(JSON.stringify(registry)), sha: 's' }), {
+        status: 200,
+      });
+    });
+    const env = { GITHUB_TOKEN: 'x' } as unknown as Parameters<typeof handleUpdateGame>[3];
+    const res = await handleUpdateGame(
+      'chess-remix',
+      'remixer',
+      { name: 'Renamed Remix', forkedFrom: { id: 'forged' } },
+      env,
+    );
+    expect(res.ok).toBe(true);
+    expect(written.games[1].forkedFrom).toEqual(attribution);
+  });
+});
+
+describe('legacy forkedFrom compatibility (#44)', () => {
+  const source = { id: 'chess', name: 'Chess', creatorGithub: 'original-creator' };
+
+  it('normalizes a legacy id only when every immutable fact is present', () => {
+    expect(normalizeForkedFrom('chess', [source], '2026-09-25T00:00:00.000Z')).toEqual({
+      id: 'chess',
+      name: 'Chess',
+      creatorGithub: 'original-creator',
+      forkedAt: '2026-09-25T00:00:00.000Z',
+    });
+  });
+
+  it('preserves an unresolved legacy id instead of fabricating attribution', () => {
+    expect(normalizeForkedFrom('deleted-source', [source], '2026-09-25T00:00:00.000Z')).toBe(
+      'deleted-source',
+    );
   });
 });
 
@@ -307,6 +366,31 @@ describe('handlePublish cloneFrom validation (#34)', () => {
     }
     expect(calls).toHaveLength(0);
   });
+
+  it('refuses a source without complete credit before creating the target repo', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', async (input: unknown) => {
+      const url = typeof input === 'string' ? input : (input as Request).url;
+      calls.push(url);
+      return new Response(
+        JSON.stringify({
+          content: btoa(JSON.stringify({ games: [{ id: 'chess', name: 'Chess' }] })),
+        }),
+        { status: 200 },
+      );
+    });
+    const env = { GITHUB_TOKEN: 'x', DB: undefined } as unknown as Parameters<
+      typeof handlePublish
+    >[1];
+    const res = await handlePublish(
+      { id: 'chess-remix', name: 'Chess Remix', category: 'arcade', cloneFrom: 'chess' },
+      env,
+    );
+    expect(res.success).toBe(false);
+    expect(res.steps[0]).toMatchObject({ name: 'Fork attribution', status: 'fail' });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain('/contents/registry.json');
+  });
 });
 
 describe('handlePublish Remix truncation regression (#45)', () => {
@@ -368,7 +452,14 @@ describe('handlePublish Remix truncation regression (#45)', () => {
       }
       if (method === 'GET' && url.includes('/contents/registry.json')) {
         return new Response(
-          JSON.stringify({ content: btoa(JSON.stringify({ games: [] })), sha: 'registry-sha' }),
+          JSON.stringify({
+            content: btoa(
+              JSON.stringify({
+                games: [{ id: sourceId, name: 'Source Game', creatorGithub: 'source-creator' }],
+              }),
+            ),
+            sha: 'registry-sha',
+          }),
           {
             status: 200,
           },
@@ -573,8 +664,18 @@ function firstRegistryPut(req: Parameters<typeof handlePublish>[0]): Promise<any
     const method = init?.method ?? 'GET';
     if (url.includes('/contents/registry.json')) {
       if (method === 'GET') {
+        const sourceId = req.cloneFrom?.trim().toLowerCase();
         return new Response(
-          JSON.stringify({ content: btoa(JSON.stringify({ games: [] })), sha: 'sha1' }),
+          JSON.stringify({
+            content: btoa(
+              JSON.stringify({
+                games: sourceId
+                  ? [{ id: sourceId, name: 'Chess', creatorGithub: 'source-creator' }]
+                  : [],
+              }),
+            ),
+            sha: 'sha1',
+          }),
           { status: 200 },
         );
       }
@@ -623,10 +724,9 @@ describe('handlePublish build status', () => {
   });
 });
 
-// Remix lineage (#35). Every remix used to lose its provenance; the registry
-// entry must record the source so attribution + fork-chain tracing are possible.
+// #44 snapshots immutable source credit at the moment a remix is created.
 describe('handlePublish forkedFrom lineage', () => {
-  it('records the remix source as forkedFrom', async () => {
+  it('records immutable source attribution for a remix', async () => {
     const games = await firstRegistryPut({
       id: 'chess-remix',
       name: 'Chess Remix',
@@ -634,7 +734,12 @@ describe('handlePublish forkedFrom lineage', () => {
       creatorGithub: 'someone',
       cloneFrom: ' Chess ',
     });
-    expect(games.find((g: any) => g.id === 'chess-remix').forkedFrom).toBe('chess');
+    expect(games.find((g: any) => g.id === 'chess-remix').forkedFrom).toMatchObject({
+      id: 'chess',
+      name: 'Chess',
+      creatorGithub: 'source-creator',
+      forkedAt: expect.any(String),
+    });
   });
 
   it('omits forkedFrom on a game that is not a remix', async () => {

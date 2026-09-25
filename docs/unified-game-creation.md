@@ -34,6 +34,29 @@ the studio **bound to the new game** (see "Opening").
 `/api/me` uses, so the slot count on the Dashboard and the create gate can never
 disagree.
 
+## Remix lineage and immutable attribution
+
+When creation includes `cloneFrom`, admin captures the source registry entry
+*before* it creates the target repository. New registry entries store this
+immutable snapshot:
+
+```json
+"forkedFrom": {
+  "id": "space-shooter",
+  "name": "Space Shooter",
+  "creatorGithub": "someuser",
+  "forkedAt": "2026-09-25T00:00:00.000Z"
+}
+```
+
+The denormalised name and creator preserve a credit after the source is renamed
+or removed. `forkedFrom` is excluded from the metadata PATCH allowlist, so a
+creator cannot rewrite lineage later. Admin game detail and console game-list
+APIs return the object. Existing pre-#44 string values remain readable for
+backward compatibility; they are upgraded only when the registry contains every
+required source fact and the fork's original `firstPublished` timestamp. Missing
+facts remain a string rather than being guessed into attribution.
+
 ## Opening an existing game in VibeCode
 
 `Dashboard → "Edit in VibeCode"` (or the studio project picker) →
