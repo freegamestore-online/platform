@@ -13,8 +13,11 @@ import { StudioToolbar } from '../components/StudioToolbar';
 import { Button, buttonClass } from '../components/ui';
 import { type AIConfig, useAgent } from '../hooks/useAgent';
 import { useAuth } from '../hooks/useAuth';
+import { useCreateRouteSync } from '../hooks/useCreateRouteSync';
 import { useKeys } from '../hooks/useKeys';
-import { PROVIDERS, resolveInitialProvider } from '../lib/ai-keys';
+import { useLegacyDeepLinkMigration } from '../hooks/useLegacyDeepLinkMigration';
+import { useStudioViewportLock } from '../hooks/useStudioViewportLock';
+import { resolveInitialProvider } from '../lib/ai-keys';
 import { RETRY_DEPLOY_PROMPT } from '../lib/deployError';
 import {
   clearInitialBuild,
@@ -23,9 +26,8 @@ import {
   readInitialBuild,
 } from '../lib/initialBuild';
 import { getKidMode } from '../lib/kidMode';
-import { firstModelFor, resolveModel } from '../lib/models';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { resolveModel } from '../lib/models';
+import { resolveProvider } from '../lib/providerResolution';
 
 export function Create() {
   const { user, loading, signIn } = useAuth();
@@ -50,303 +52,37 @@ export function Create() {
   // Kid mode preference (Profile → Kid mode). Read on mount; changing it in the
   // Profile route remounts Create, so a fresh value is picked up on return.
   const [kidMode] = useState(getKidMode);
-  const openedGameRef = useRef<string | null>(null);
-  const openedSessionRef = useRef<string | null>(null);
   const autoInitialPromptRef = useRef<string | null>(null);
   const [initialBuild, setInitialBuild] = useState<InitialBuild | null>(null);
   const [providerResolved, setProviderResolved] = useState(false);
   const keySignature = [...keys.providers].sort().join('|');
   const { id: urlKey } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  // The key whose resolution the routing effect has already started — re-entry
-  // protection, so an unrelated re-render can't fire a second openGame for it.
-  const resolvedKeyRef = useRef<string | null>(null);
-  // A SELF-WRITE whose URL has not landed yet: `undefined` = none pending,
-  // `null` = navigating to the empty state, a string = navigating to that key.
-  //
-  // The picker no longer changes currentProjectId (#16), but delete and fresh-chat
-  // still must — deleteProject promotes a survivor, startFreshChat mints a
-  // session — and then catch the URL up. Between those two updates urlKey still
-  // names the OLD game while the open session is already the new one, and this
-  // effect depends on both. Without this guard it "resolves" that stale key and
-  // re-imports the game the user just deleted.
-  const pendingSelfNavRef = useRef<string | null | undefined>(undefined);
-  const [resolvingUrl, setResolvingUrl] = useState(false);
-  const currentProject = agent.projects.find((p) => p.id === agent.currentProjectId);
   const legacyGameParam = searchParams.get('game');
   const legacySessionParam = searchParams.get('session');
-
-  const routeKeyForProject = useCallback(
-    (project: { id: string; appId?: string } | undefined | null) =>
-      project?.appId || project?.id || null,
-    [],
-  );
-
-  /** Point the address bar at a project.
-   *
-   *  `alreadyOpen` distinguishes the two kinds of caller, which used to be
-   *  conflated (#16):
-   *   - SELF-WRITE (`alreadyOpen: true`) — the session is already the open one
-   *     and we are only catching the URL up (delete picked a survivor,
-   *     startFreshChat minted a session). Pre-marking the key as resolved tells
-   *     the routing effect there is nothing to open.
-   *   - USER INTENT (default) — the user asked for a different game. We write
-   *     ONLY the URL and let the routing effect do the opening, so there is
-   *     exactly one code path that opens a game. Pre-marking here would suppress
-   *     that open entirely. */
-  const navigateToProject = useCallback(
-    (
-      project: { id: string; appId?: string } | undefined | null,
-      opts: { replace?: boolean; alreadyOpen?: boolean } = {},
-    ) => {
-      const { replace = false, alreadyOpen = false } = opts;
-      const key = routeKeyForProject(project);
-      if (!key) {
-        if (alreadyOpen) {
-          resolvedKeyRef.current = null;
-          pendingSelfNavRef.current = null;
-        }
-        navigate('/create', { replace });
-        return;
-      }
-      if (alreadyOpen) {
-        resolvedKeyRef.current = key;
-        pendingSelfNavRef.current = key;
-      }
-      navigate(`/create/${key}`, { replace });
-    },
-    [navigate, routeKeyForProject],
-  );
-
-  // Path routing: /create/<key> opens that game or session — the key is the
-  // game id once deployed (/create/tetris), or the session id for a draft.
-  //
-  // THE URL IS THE SINGLE AUTHORITATIVE TRIGGER for opening a game (#16). This is
-  // the ONLY place that opens one. Everything that wants to change which game is
-  // open — the picker, a My Games link, the back button — writes the URL and
-  // lets this effect resolve it.
-  //
-  // #3/#4/#5/#6 were all the same root cause: the picker imperatively did BOTH
-  // switchProject (currentProjectId) AND navigateToProject (the URL) in one
-  // non-batched callback, so there was a transient render where currentProjectId
-  // was already the NEW game while urlKey still named the OLD one — and this
-  // effect, which depends on both, treated the stale urlKey as "needs opening"
-  // and re-opened the previous game. The picker no longer touches
-  // currentProjectId, so that transient cannot occur and lastUrlKeyRef (which
-  // existed only to detect it) is gone.
-  //
-  // resolvedKeyRef remains, doing one job: latching the key whose resolution has
-  // already been STARTED. Re-entry protection, not race arbitration — without it
-  // an unrelated re-render (projects updating, an import settling) would fire a
-  // second openGame for the same key.
-  useEffect(() => {
-    if (loading || !user || agent.projectsLoading || agent.isStreaming) return;
-    // A self-write is in flight — ignore every run until the URL actually lands,
-    // because until then urlKey names the PREVIOUS game.
-    if (pendingSelfNavRef.current !== undefined) {
-      if (pendingSelfNavRef.current !== (urlKey ?? null)) return;
-      pendingSelfNavRef.current = undefined;
-    }
-    if (!urlKey) return;
-    if (resolvedKeyRef.current === urlKey) return;
-    resolvedKeyRef.current = urlKey;
-    const project = agent.projects.find((p) => p.appId === urlKey || p.id === urlKey);
-    if (project?.id === agent.currentProjectId) return; // already open
-    if (project && !project.appId) {
-      agent.switchProject(project.id);
-      return;
-    } // draft
-    // A deployed game (known or not-yet-listed): openGame re-syncs its repo
-    // files and dedupes to its existing session. A UUID with no index row is a
-    // session whose transcript still lives in the DO — just switch to it.
-    const gameId = project?.appId ?? (UUID_RE.test(urlKey) ? null : urlKey);
-    if (!gameId) {
-      agent.switchProject(urlKey);
-      return;
-    }
-    setResolvingUrl(true);
-    // Capture the revert target SYNCHRONOUSLY before the async openGame call.
-    // Reading currentProject inside the .then() callback would use a potentially
-    // stale closure value if the component re-rendered while the import was in
-    // flight — e.g. if a stale openGame from a DIFFERENT call had already mutated
-    // currentProjectId. Capturing here ensures the revert always points at the
-    // game that was genuinely open when the user initiated this navigation.
-    const revertKey = currentProject?.appId || currentProject?.id || null;
-    void agent
-      .openGame(gameId)
-      .then((openedId) => {
-        // openGame resolves to null when the import fails (game not found / no
-        // access / a build in progress) — it has already surfaced the reason on
-        // the error banner. See freegamestore-online/platform#3.
-        // Do NOT leave the user parked on /create/<gameId> while
-        // the studio still shows the PREVIOUS game: that URL↔session mismatch is
-        // silent and dangerous — their next prompt would edit the previous game.
-        // Point the address bar back at whatever is actually open (or the empty
-        // state). Crucially, DON'T rewrite resolvedKeyRef here: it is already
-        // latched to the failed key (above), which stops this effect from
-        // re-firing openGame in a loop; when the reverted URL lands, the effect
-        // re-runs once and re-latches to the open game — so re-selecting the
-        // failed game later still RETRIES.
-        if (openedId) return;
-        // Guard against reverting a superseded open: if the user switched to a
-        // different game while this openGame was in flight, this effect has since
-        // re-run for the new key and re-latched resolvedKeyRef to it. Don't clobber
-        // the URL the user deliberately landed on. Only revert for genuine failures
-        // where this effect is still the active resolution. See issue #5.
-        if (resolvedKeyRef.current !== urlKey) return;
-        navigate(revertKey ? `/create/${revertKey}` : '/create', { replace: true });
-      })
-      .finally(() => setResolvingUrl(false));
-  }, [
+  const hasLegacyDeepLink = !!legacyGameParam || !!legacySessionParam;
+  useLegacyDeepLinkMigration({
+    params: searchParams,
+    ready: !loading && !!user && !agent.projectsLoading,
+    isStreaming: agent.isStreaming,
+    openGame: agent.openGame,
+    startFreshChat: agent.startFreshChat,
+    switchProject: agent.switchProject,
+    clear: () => setSearchParams({}, { replace: true }),
+  });
+  const { currentProject, navigateToProject, resolvingUrl } = useCreateRouteSync({
     urlKey,
-    loading,
-    user,
-    agent.projectsLoading,
-    agent.isStreaming,
-    agent.projects,
-    agent.currentProjectId,
-    agent.switchProject,
-    agent.openGame,
-    currentProject,
+    ready: !loading && !!user,
+    isStreaming: agent.isStreaming,
+    projectsLoading: agent.projectsLoading,
+    projects: agent.projects,
+    currentProjectId: agent.currentProjectId,
+    hasLegacyDeepLink,
+    openGame: agent.openGame,
+    switchProject: agent.switchProject,
     navigate,
-  ]);
+  });
 
-  // Canonical URL: keep the address bar on the open game's unique URL. Same
-  // project (bare /create on load, or a draft URL right after deploy) is a
-  // rewrite — replace. A different project is a navigation — push, so Back
-  // returns to the previous game.
-  //
-  // Since #16 this is a FEEDBACK loop only — it reports which session is open
-  // (chiefly the draft→deployed promotion, /create/<sessionId> → /create/<gameId>)
-  // and never opens anything. The routing effect above is the sole opener.
-  useEffect(() => {
-    if (loading || !user || agent.projectsLoading || resolvingUrl) return;
-    if (searchParams.get('game') || searchParams.get('session')) return; // legacy deep-link still resolving
-    if (pendingSelfNavRef.current !== undefined) return; // an earlier self-write hasn't landed
-    if (urlKey && resolvedKeyRef.current !== urlKey) return; // path still resolving
-    const current = agent.projects.find((p) => p.id === agent.currentProjectId);
-    if (urlKey) {
-      const routeMatchesCurrent =
-        current?.appId === urlKey ||
-        current?.id === urlKey ||
-        (UUID_RE.test(urlKey) && agent.currentProjectId === urlKey);
-      if (!routeMatchesCurrent) return;
-    }
-    const canonical = current?.appId || agent.currentProjectId;
-    if (canonical === (urlKey ?? null)) return;
-    if (!canonical) {
-      resolvedKeyRef.current = null;
-      pendingSelfNavRef.current = null;
-      navigate('/create', { replace: true });
-      return;
-    }
-    const urlProject = urlKey
-      ? agent.projects.find((p) => p.appId === urlKey || p.id === urlKey)
-      : undefined;
-    const sameProject = !urlKey || urlProject?.id === agent.currentProjectId;
-    // Our own write — nothing to re-open, and urlKey stays stale until it lands.
-    resolvedKeyRef.current = canonical;
-    pendingSelfNavRef.current = canonical;
-    navigate(`/create/${canonical}`, { replace: sameProject });
-  }, [
-    urlKey,
-    loading,
-    user,
-    agent.projectsLoading,
-    resolvingUrl,
-    agent.projects,
-    agent.currentProjectId,
-    searchParams,
-    navigate,
-  ]);
-
-  // Deep-link: /create?game=<id> opens an existing game in the studio. Wait for
-  // the session list to load first (so an already-open game switches instead of
-  // importing a duplicate), open once, then drop the param so a reload / new
-  // message doesn't re-import.
-  useEffect(() => {
-    const gameId = searchParams.get('game');
-    // Wait for identity to resolve. Without `!user || loading`, this fires during
-    // the auth-loading window when projectsLoading is already false and the
-    // project list is still empty — so openGame finds no match and mints a
-    // duplicate session for a game that already has one.
-    if (
-      !gameId ||
-      loading ||
-      !user ||
-      agent.projectsLoading ||
-      agent.isStreaming ||
-      openedGameRef.current === gameId
-    )
-      return;
-    openedGameRef.current = gameId;
-    // ?fresh=1 (from a game's settings) starts a CLEAN chat for the game instead
-    // of reopening its existing conversation — the escape hatch for a session
-    // whose history has gone bad. Otherwise open/resume the game normally.
-    const fresh = searchParams.get('fresh') === '1';
-    const open = fresh ? agent.startFreshChat(gameId) : agent.openGame(gameId);
-    void open.finally(() => {
-      setSearchParams({}, { replace: true });
-    });
-  }, [
-    searchParams,
-    loading,
-    user,
-    agent.projectsLoading,
-    agent.isStreaming,
-    agent.openGame,
-    agent.startFreshChat,
-    setSearchParams,
-  ]);
-
-  // Deep-link: /create?session=<id> resumes an in-progress draft session (opened
-  // from My Games). Unlike ?game=, a draft has no live repo to
-  // import — its transcript already lives in the DO keyed by this id, so we just
-  // switch to it and loadHistory() fills in the messages.
-  useEffect(() => {
-    const sessionId = searchParams.get('session');
-    if (
-      !sessionId ||
-      loading ||
-      !user ||
-      agent.projectsLoading ||
-      agent.isStreaming ||
-      openedSessionRef.current === sessionId
-    )
-      return;
-    openedSessionRef.current = sessionId;
-    agent.switchProject(sessionId);
-    setSearchParams({}, { replace: true });
-  }, [
-    searchParams,
-    loading,
-    user,
-    agent.projectsLoading,
-    agent.isStreaming,
-    agent.switchProject,
-    setSearchParams,
-  ]);
-
-  useEffect(() => {
-    if (!agent.currentProjectId || agent.projectsLoading || resolvingUrl) return;
-    if (legacyGameParam || legacySessionParam) return;
-    if (urlKey) {
-      const routedSessionOpen = UUID_RE.test(urlKey) && agent.currentProjectId === urlKey;
-      const routedGameOpen = currentProject?.appId === urlKey || currentProject?.id === urlKey;
-      if (!routedSessionOpen && !routedGameOpen) return;
-    }
-    void agent.loadHistory();
-  }, [
-    agent.currentProjectId,
-    agent.projectsLoading,
-    agent.loadHistory,
-    resolvingUrl,
-    legacyGameParam,
-    legacySessionParam,
-    urlKey,
-    currentProject?.appId,
-    currentProject?.id,
-  ]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll only when messages change; re-running when isStreaming flips would jump a reader who has scrolled up.
   useEffect(() => {
     // While a build is streaming, only stick to the bottom when the user is
@@ -404,17 +140,14 @@ export function Create() {
       return;
     }
     autoPickedRef.current = true;
-    if (keys.hasKey(provider)) {
-      setProviderResolved(true);
-      return;
-    }
-    const keyed = PROVIDERS.find((p) => keys.hasKey(p.type));
-    if (keyed) {
-      setProvider(keyed.type);
-      setModel(firstModelFor(keyed.type));
-    } else if (!keys.providerUsable(provider)) {
-      setProvider('github');
-      setModel(firstModelFor('github'));
+    const resolution = resolveProvider({
+      provider,
+      hasKey: keys.hasKey,
+      providerUsable: keys.providerUsable,
+    });
+    if (resolution) {
+      setProvider(resolution.provider);
+      setModel(resolution.model);
     }
     setProviderResolved(true);
   }, [keys.loading, keys.hasKey, keys.providerUsable, keySignature, provider, user?.sub]);
@@ -498,22 +231,7 @@ export function Create() {
     sendPrompt,
   ]);
 
-  // The studio is a fixed, full-height app shell where ONLY the chat scrolls.
-  // Lock the page itself while it's mounted so mobile Safari can't scroll the
-  // whole layout (both bars included) when the transcript overflows — html/body
-  // otherwise only lock overflow-x and #root is min-height:100dvh (can grow).
-  // Restored on unmount so the other routes (Dashboard, Profile) scroll normally.
-  useEffect(() => {
-    const body = document.body.style;
-    const html = document.documentElement.style;
-    const prev = { body: body.overflow, html: html.overflow };
-    body.overflow = 'hidden';
-    html.overflow = 'hidden';
-    return () => {
-      body.overflow = prev.body;
-      html.overflow = prev.html;
-    };
-  }, []);
+  useStudioViewportLock();
 
   if (loading) {
     return (
