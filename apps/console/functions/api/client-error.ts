@@ -1,3 +1,4 @@
+import { clampErrorLogText, ERROR_LOG_LIMITS } from '../../../../contracts/error-log/v1/contract';
 import { corsHeaders, resolveCreator } from './_auth';
 import { recordError } from './_errlog';
 
@@ -55,17 +56,22 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return json({ error: 'Invalid JSON body' }, 400);
   }
 
-  // Cap all string fields before insert — message/stack can be large.
-  const MAX_MESSAGE = 2_000;
-  const MAX_STACK = 4_000;
-  const MAX_CONTEXT = 1_000;
-
-  const route = typeof body.route === 'string' ? body.route.slice(0, 200) : null;
+  // Client-specific fields still use the shared contract's canonical limits;
+  // recordError performs the authoritative row normalization again at insert.
+  const route =
+    typeof body.route === 'string' ? clampErrorLogText(body.route, ERROR_LOG_LIMITS.route) : null;
   const message =
-    typeof body.message === 'string' ? body.message.slice(0, MAX_MESSAGE) : 'unknown error';
-  const stack = typeof body.stack === 'string' ? body.stack.slice(0, MAX_STACK) || null : null;
+    typeof body.message === 'string'
+      ? clampErrorLogText(body.message, ERROR_LOG_LIMITS.message)
+      : 'unknown error';
+  const stack =
+    typeof body.stack === 'string'
+      ? clampErrorLogText(body.stack, ERROR_LOG_LIMITS.stack) || null
+      : null;
   const clientContext =
-    typeof body.context === 'string' ? body.context.slice(0, MAX_CONTEXT) : null;
+    typeof body.context === 'string'
+      ? clampErrorLogText(body.context, ERROR_LOG_LIMITS.context)
+      : null;
 
   // Resolve the signed-in GitHub login server-side — never trust the client.
   const userLogin = await resolveCreator(request, env);

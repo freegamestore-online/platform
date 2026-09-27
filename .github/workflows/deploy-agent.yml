@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - workers/agent/**
+      - contracts/error-log/**
       - .github/workflows/deploy-agent.yml
   workflow_dispatch:
 

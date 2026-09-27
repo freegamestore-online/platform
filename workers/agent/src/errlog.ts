@@ -19,15 +19,9 @@
  *  failure. Every path swallows and logs. The DO's own in-session `errors[]`
  *  array and Workers Logs remain the authoritative per-session record; this is
  *  the durable, centrally-discoverable copy. */
+import { type ErrLogRow, normalizeErrorLogRow } from "../../../contracts/error-log/v1/contract";
 
-export interface AgentErrorRow {
-  /** Stable prefix so operators can filter, e.g. "agent/deploy". */
-  source: string;
-  user?: string | null;
-  context?: string | null;
-  message: string;
-  stack?: string | null;
-}
+export type AgentErrorRow = ErrLogRow;
 
 export interface ErrorReportEnv {
   ADMIN?: Fetcher;
@@ -36,24 +30,20 @@ export interface ErrorReportEnv {
 
 export async function reportPlatformError(env: ErrorReportEnv, domain: string, row: AgentErrorRow): Promise<void> {
   if (!env.ADMIN || !env.INTERNAL_TOKEN) return;
-  if (!row.source || !row.message) return;
+  const normalized = normalizeErrorLogRow(row);
+  if (!normalized) return;
   try {
     const res = await env.ADMIN.fetch(`https://admin.${domain}/api/internal/error`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Internal-Token": env.INTERNAL_TOKEN },
       body: JSON.stringify({
-        source: row.source,
-        user: row.user ?? null,
-        context: row.context ?? null,
-        // Admin clamps these too; trimming here keeps the request small.
-        message: row.message.slice(0, 2000),
-        stack: row.stack ? row.stack.slice(0, 4000) : null,
+        ...normalized,
       }),
     });
     if (!res.ok) {
-      console.error(`[errlog] admin rejected error report (${res.status}) for ${row.source}`);
+      console.error(`[errlog] admin rejected error report (${res.status}) for ${normalized.source}`);
     }
   } catch (err) {
-    console.error(`[errlog] could not report ${row.source} error: ${String(err)}`);
+    console.error(`[errlog] could not report ${normalized.source} error: ${String(err)}`);
   }
 }

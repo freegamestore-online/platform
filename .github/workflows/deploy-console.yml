@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - apps/console/**
+      - contracts/error-log/**
       - .github/workflows/deploy-console.yml
   workflow_dispatch:
 

@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ERROR_LOG_LIMITS } from '../../../contracts/error-log/v1/contract';
+import { reportPlatformError } from '../../../workers/agent/src/errlog';
 import worker from './index';
 
 // Coverage for the reconcile heal path (Fix #2 + #3):
@@ -383,6 +385,31 @@ describe('POST /api/internal/error', () => {
     const insert = inserts.find((i) => /INSERT INTO error_log/i.test(i.sql))!;
     expect(insert.binds[1]).toBeNull();
     expect(insert.binds[2]).toBeNull();
+  });
+
+  it('accepts the agent reporter contract through the real internal endpoint', async () => {
+    const { inserts, env } = envWithDb();
+    const ADMIN = {
+      fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+        worker.fetch(new Request(input, init), env),
+    };
+
+    await reportPlatformError({ ADMIN, INTERNAL_TOKEN: 'secret' }, 'freegamestore.online', {
+      source: 'a'.repeat(ERROR_LOG_LIMITS.source + 1),
+      user: 'u'.repeat(ERROR_LOG_LIMITS.user + 1),
+      context: 'c'.repeat(ERROR_LOG_LIMITS.context + 1),
+      message: 'm'.repeat(ERROR_LOG_LIMITS.message + 1),
+      stack: 's'.repeat(ERROR_LOG_LIMITS.stack + 1),
+    });
+
+    const insert = inserts.find((entry) => /INSERT INTO error_log/i.test(entry.sql));
+    expect(insert?.binds.map((value) => String(value).length)).toEqual([
+      ERROR_LOG_LIMITS.source,
+      ERROR_LOG_LIMITS.user,
+      ERROR_LOG_LIMITS.context,
+      ERROR_LOG_LIMITS.message,
+      ERROR_LOG_LIMITS.stack,
+    ]);
   });
 });
 

@@ -1,69 +1,13 @@
-/** Durable error/crash log in the shared "fas" D1 (`error_log`). The publisher's
- *  /api/create writes to the SAME table (its own _errlog.ts), so the admin
- *  console shows crashes from both the create Pages Function and admin's own
- *  provision path. Read helpers back the console's Errors tab. Best-effort:
- *  logging must never throw into the caller. */
+/** Read/query helpers for the shared error-log persistence contract. */
+import { ensureErrorLogTable } from '../../../contracts/error-log/v1/contract';
 
-export interface ErrLogRow {
-  source: string;
-  user?: string | null;
-  context?: string | null;
-  message: string;
-  stack?: string | null;
-}
+export {
+  type ErrLogEntry,
+  type ErrLogRow,
+  recordError,
+} from '../../../contracts/error-log/v1/contract';
 
-export interface ErrLogEntry extends ErrLogRow {
-  id: number;
-  ts: string;
-  user_github: string | null;
-}
-
-const SCHEMA = `CREATE TABLE IF NOT EXISTS error_log (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  ts TEXT NOT NULL DEFAULT (datetime('now')),
-  source TEXT NOT NULL,
-  user_github TEXT,
-  context TEXT,
-  message TEXT NOT NULL,
-  stack TEXT
-)`;
-
-let ready: Promise<unknown> | null = null;
-function ensure(db: D1Database): Promise<unknown> {
-  if (!ready)
-    ready = db
-      .prepare(SCHEMA)
-      .run()
-      .catch((e) => {
-        ready = null;
-        throw e;
-      });
-  return ready;
-}
-
-export async function recordError(db: D1Database | undefined, row: ErrLogRow): Promise<void> {
-  console.error(
-    `[error] source=${row.source} ctx=${row.context ?? ''} user=${row.user ?? '?'} :: ${row.message}`,
-  );
-  if (!db) return;
-  try {
-    await ensure(db);
-    await db
-      .prepare(
-        'INSERT INTO error_log (source, user_github, context, message, stack) VALUES (?, ?, ?, ?, ?)',
-      )
-      .bind(
-        row.source,
-        row.user ?? null,
-        row.context ?? null,
-        row.message.slice(0, 2000),
-        (row.stack ?? '').slice(0, 4000) || null,
-      )
-      .run();
-  } catch (e) {
-    console.error(`[error] failed to persist error_log: ${String(e)}`);
-  }
-}
+import type { ErrLogEntry } from '../../../contracts/error-log/v1/contract';
 
 export interface ListErrorsOpts {
   user?: string;
@@ -77,7 +21,7 @@ export async function listErrors(
 ): Promise<ErrLogEntry[]> {
   if (!db) return [];
   try {
-    await ensure(db);
+    await ensureErrorLogTable(db);
     const clauses: string[] = [];
     const bindings: unknown[] = [];
     if (opts.user) {
@@ -108,7 +52,7 @@ export async function listErrors(
 export async function pruneErrors(db: D1Database | undefined, days = 30): Promise<void> {
   if (!db) return;
   try {
-    await ensure(db);
+    await ensureErrorLogTable(db);
     await db
       .prepare(`DELETE FROM error_log WHERE ts < datetime('now', ?)`)
       .bind(`-${days} days`)
@@ -127,7 +71,7 @@ export interface ErrorStats {
 export async function errorStats(db: D1Database | undefined): Promise<ErrorStats> {
   if (!db) return { total: 0, last24h: 0, series: [] };
   try {
-    await ensure(db);
+    await ensureErrorLogTable(db);
     const total = await db.prepare('SELECT COUNT(*) AS c FROM error_log').first<{ c: number }>();
     const day = await db
       .prepare("SELECT COUNT(*) AS c FROM error_log WHERE ts >= datetime('now','-1 day')")

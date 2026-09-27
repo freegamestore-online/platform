@@ -1,3 +1,4 @@
+import { normalizeErrorLogRow } from '../../../contracts/error-log/v1/contract';
 import { handleAuthExchange, handleAuthMe, verifySession } from './auth';
 import { renderApiDocs } from './dashboard';
 import { driftReportFrom, type FleetRow, findDrift, recentRuns, sweepFleet } from './drift';
@@ -1071,19 +1072,11 @@ export default {
         message?: unknown;
         stack?: unknown;
       };
-      const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v : null);
-      const source = str(body.source);
-      const message = str(body.message);
-      if (!source || !message) {
+      const row = normalizeErrorLogRow(body);
+      if (!row) {
         return jsonResponse({ error: 'source and message are required' }, 400, request);
       }
-      await recordError(env.DB, {
-        source,
-        user: str(body.user),
-        context: str(body.context),
-        message,
-        stack: str(body.stack),
-      });
+      await recordError(env.DB, row);
       return jsonResponse({ ok: true }, 200, request);
     }
 

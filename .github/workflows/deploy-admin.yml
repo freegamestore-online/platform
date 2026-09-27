@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - apps/admin/**
+      - contracts/error-log/**
       - .github/workflows/deploy-admin.yml
   workflow_dispatch:
 
