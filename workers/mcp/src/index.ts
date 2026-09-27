@@ -83,10 +83,19 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
     }
   }
 
+  /**
+   * Agents 0.24 loads durable-object props asynchronously, so they can be
+   * absent for an unauthenticated request. Treat that state as empty auth
+   * rather than dereferencing an optional value in a tool handler.
+   */
+  private get session(): McpProps {
+    return this.props ?? {};
+  }
+
   /** Ownership gate: does the session user own this published game?
    *  FGS has no /v1/apps/mine — registry.json's creatorGithub is the record. */
   private async ownsGame(gameId: string): Promise<boolean> {
-    const login = this.props.userId;
+    const login = this.session.userId;
     if (!login) return false;
     const games = await readRegistryGames(
       this.env.GITHUB_ORG,
@@ -103,7 +112,7 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
   /** Safety context for the current caller: env (read-only flag + audit KV) and
    *  the GitHub login the audit trail is keyed on. */
   private safety(): SafetyContext {
-    return { env: this.env, subject: this.props.userId };
+    return { env: this.env, subject: this.session.userId };
   }
 
   /**
@@ -475,7 +484,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
           ),
       },
       async ({ game_id, name, category, description, template, dry_run = false }) => {
-        const token = this.props.token;
+        const token = this.session.token;
         if (!token)
           return errText('Not authenticated. Connect with a FGS session token to create games.');
         if (!this.env.GITHUB_TOKEN)
@@ -517,7 +526,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
           category,
           description: description || name,
           oneliner: description || name,
-          creatorGithub: this.props.userId,
+          creatorGithub: this.session.userId,
           template: tmpl,
         })) as {
           error?: string;
@@ -609,7 +618,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
           ),
       },
       async ({ game_id, files, message, dry_run = false }) => {
-        const token = this.props.token;
+        const token = this.session.token;
         if (!token) return errText('Not authenticated. Connect with a FGS session token.');
         if (!this.env.GITHUB_TOKEN)
           return errText('Write tools are disabled (server missing GITHUB_TOKEN).');
@@ -720,7 +729,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
         session_id,
         dry_run = false,
       }) => {
-        const token = this.props.token;
+        const token = this.session.token;
         if (!token) return errText('Not authenticated. Connect with a FGS session token.');
         const roBlock = await requireWritable(this.safety(), 'agent_build', { game_id, template });
         if (roBlock) return roBlock;
@@ -731,7 +740,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
           google: 'gemini-2.5-flash',
           github: 'openai/gpt-4o',
         };
-        const prefix = sessionPrefix(this.props.userId);
+        const prefix = sessionPrefix(this.session.userId);
         const sid = session_id
           ? session_id.startsWith(prefix)
             ? session_id
@@ -880,7 +889,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
           ),
       },
       async ({ game_id, prompt, api_key, provider, model, dry_run = false }) => {
-        const token = this.props.token;
+        const token = this.session.token;
         if (!token) return errText('Not authenticated. Connect with a FGS session token.');
         const roBlock = await requireWritable(this.safety(), 'edit_game', { game_id });
         if (roBlock) return roBlock;
@@ -913,7 +922,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
         // Deterministic session per (user, game): reopening continues the same
         // VibeCode conversation. Kept ≤64 chars (agent route cap) and prefixed so
         // agent_status accepts it.
-        const prefix = sessionPrefix(this.props.userId);
+        const prefix = sessionPrefix(this.session.userId);
         const sid = `${prefix}g-${gid}`.slice(0, 64);
 
         // 1) Import / re-sync from the repo HEAD (ownership enforced server-side).
@@ -1043,9 +1052,9 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       'Check a VibeCode agent build session (started with agent_build): the game id, deploy phase, and live URL.',
       { session_id: z.string().describe('The session_id returned by agent_build') },
       async ({ session_id }) => {
-        const token = this.props.token;
+        const token = this.session.token;
         if (!token) return errText('Not authenticated. Connect with a FGS session token.');
-        if (!session_id.startsWith(sessionPrefix(this.props.userId)))
+        if (!session_id.startsWith(sessionPrefix(this.session.userId)))
           return errText(
             "That session isn't one of yours — agent sessions are scoped to your account.",
           );
@@ -1085,8 +1094,8 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       "Show who you're authenticated as on the FreeGameStore MCP — your GitHub login and token identity.",
       {},
       async () => {
-        const login = this.props.userId;
-        const token = this.props.token;
+        const login = this.session.userId;
+        const token = this.session.token;
         if (!login && !token)
           return errText('Not authenticated — no session on this MCP connection.');
         let claims = '';
@@ -1118,7 +1127,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       "List YOUR VibeCode sessions from the web console — title, game, last updated. These are the chats where you built games with the platform's AI. Use session_history to read a transcript.",
       {},
       async () => {
-        const token = this.props.token;
+        const token = this.session.token;
         if (!token) return errText('Not authenticated. Connect with a FGS session token.');
         const res = await fetch(`${this.env.AGENT_BASE}/sessions`, {
           headers: { 'X-FGS-Token': token },
@@ -1163,7 +1172,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       "Read the full chat transcript of a VibeCode session by id (from list_sessions, or a console.freegamestore.online/create/<id> URL) — the conversation between you and the platform's AI game builder.",
       { session_id: z.string().describe('VibeCode session id') },
       async ({ session_id }) => {
-        const token = this.props.token;
+        const token = this.session.token;
         if (!token) return errText('Not authenticated. Connect with a FGS session token.');
         // The agent worker gates every /session/* route — without the token this
         // always 401'd. resolveUser accepts a Bearer token.
@@ -1210,7 +1219,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       "PLATFORM ADMINS (org members) ONLY: list EVERY user's VibeCode sessions across the platform — who built what, token spend, last activity. Pair with admin_session_history to read any transcript. Non-admins get 403.",
       {},
       async () => {
-        const token = this.props.token;
+        const token = this.session.token;
         if (!token) return errText('Not authenticated. Connect with a FGS session token.');
         const res = await withTimeout((signal) =>
           fetch(`${this.env.AGENT_BASE}/admin/sessions`, {
@@ -1255,7 +1264,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
       "PLATFORM ADMINS (org members) ONLY: read the full chat transcript of ANY user's VibeCode session by id (from admin_list_sessions). Read-only. Non-admins get 403.",
       { session_id: z.string().describe("VibeCode session id (any user's)") },
       async ({ session_id }) => {
-        const token = this.props.token;
+        const token = this.session.token;
         if (!token) return errText('Not authenticated. Connect with a FGS session token.');
         // ?admin=1 asks the agent worker to verify org membership and pass the
         // read-only admin flag to the session DO (bypasses the ownership gate
@@ -1333,7 +1342,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
           ),
       },
       async ({ session_id, prompt, provider, confirm, dry_run = false }) => {
-        const token = this.props.token;
+        const token = this.session.token;
         if (!token) return errText('Not authenticated. Connect with a FGS session token.');
         const roBlock = await requireWritable(this.safety(), 'admin_send_prompt', { session_id });
         if (roBlock) return roBlock;
@@ -1473,7 +1482,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
           ),
       },
       async ({ game_id, confirm, dry_run = false }) => {
-        const token = this.props.token;
+        const token = this.session.token;
         if (!token) return errText('Not authenticated. Connect with a FGS session token.');
         const roBlock = await requireWritable(this.safety(), 'delete_game', { game_id });
         if (roBlock) return roBlock;
@@ -1565,7 +1574,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
           ),
       },
       async ({ session_id, confirm, dry_run = false }) => {
-        const token = this.props.token;
+        const token = this.session.token;
         if (!token) return errText('Not authenticated. Connect with a FGS session token.');
         const roBlock = await requireWritable(this.safety(), 'discard_session', { session_id });
         if (roBlock) return roBlock;
@@ -1618,7 +1627,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
           .describe('Max events to return (default 50)'),
       },
       async ({ limit }) => {
-        if (!this.props.userId)
+        if (!this.session.userId)
           return errText('Not authenticated — the audit log is keyed to your GitHub login.');
         const events = await listAuditEvents(this.safety(), limit ?? 50);
         if (!events.length) return txt('No audit events recorded for your account yet.');
