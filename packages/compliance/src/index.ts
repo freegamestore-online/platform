@@ -36,7 +36,7 @@ import { checkUnsafeVh } from './checks/unsafe-vh.js';
 import { checkUsesGameSdk } from './checks/uses-game-sdk.js';
 import { checkUsesLocalStorage } from './checks/uses-localstorage.js';
 import { checkViewportSupport } from './checks/viewport-support.js';
-import { type FileSource, mapFileSource } from './lib/file-source.js';
+import { mapFileSource } from './lib/file-source.js';
 import { fsFileSource } from './lib/fs-file-source.js';
 import { isGameProject } from './lib/project-type.js';
 import { runChecksFromFiles, runChecksOn } from './run-checks.js';

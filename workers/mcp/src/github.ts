@@ -176,14 +176,12 @@ export async function readRegistryGames(
   storeRepo: string,
   token?: string,
 ): Promise<RegistryReadResult> {
-  let contentsState: 'missing' | 'unavailable' = 'unavailable';
   let contentsMissing = false;
   let contentsErrored = false;
   let raw: string | null;
   try {
     raw = await readRepoFile(org, storeRepo, token, 'registry.json');
-  } catch (error) {
-    contentsState = 'unavailable';
+  } catch {
     contentsErrored = true;
     raw = null;
   }
@@ -192,14 +190,12 @@ export async function readRegistryGames(
       const data = JSON.parse(raw) as { games?: Array<Record<string, unknown>> };
       if (Array.isArray(data.games))
         return { status: 'available', games: data.games as RegistryGame[] };
-      contentsState = 'unavailable';
-    } catch {
-      contentsState = 'unavailable';
-    }
+    } catch {}
   } else if (!contentsErrored) {
-    contentsState = 'missing';
     contentsMissing = true;
   }
+  // Keep the raw-content fallback for public stores where the Contents API is
+  // unavailable; callers distinguish a missing registry only when both reads miss.
   try {
     const fallback = await fetch(
       `https://raw.githubusercontent.com/${org}/${storeRepo}/main/registry.json`,

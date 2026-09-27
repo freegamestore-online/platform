@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "cd web && npx wrangler pages dev -- pnpm dev",
     "build": "cd web && pnpm build",
+    "typecheck": "cd web && pnpm exec tsc -b",
     "test": "pnpm test:web && pnpm test:functions",
     "test:web": "cd web && pnpm test",
     "test:functions": "vitest run -c vitest.functions.config.ts"

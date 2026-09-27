@@ -11,6 +11,7 @@
     "node": ">=18"
   },
   "scripts": {
+    "typecheck": "tsc --noEmit && pnpm --dir web exec tsc -b",
     "test": "vitest run"
   },
   "keywords": [],

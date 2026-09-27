@@ -9,8 +9,8 @@ import { errorStats, listErrors, pruneErrors, recordError } from './errlog';
 import { createGameLifecycle } from './lifecycle/game-lifecycle';
 import { createRegistryState, createRemixSource } from './lifecycle/registry-state';
 import { type GameStatus, insertHostRoute } from './publish';
-import { readRegistry } from './registryReader';
 import { createReconciliationService } from './reconciliation-service';
+import { readRegistry } from './registryReader';
 
 interface Env {
   CF_ACCOUNT_ID: string;

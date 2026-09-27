@@ -72,7 +72,7 @@ describe('handleUpdateGame ownership', () => {
   it('matches the owner case-insensitively (GitHub logins are case-insensitive)', async () => {
     const registry = { games: [{ id: 'chess', name: 'Chess', creatorGithub: 'Serge-The-Dev' }] };
     let putBody: any = null;
-    vi.stubGlobal('fetch', async (input: unknown, init?: { method?: string; body?: string }) => {
+    vi.stubGlobal('fetch', async (_input: unknown, init?: { method?: string; body?: string }) => {
       if (init?.method === 'PUT') {
         putBody = JSON.parse(init.body!);
         return new Response(JSON.stringify({ content: {} }), { status: 200 });
@@ -192,7 +192,7 @@ describe('handleDeleteGame ownership', () => {
     const registry = { games: [{ id: 'chess', name: 'Chess', creatorGithub: 'serge-the-dev' }] };
     let putBody: any = null;
     const dbRun = vi.fn(async () => {});
-    vi.stubGlobal('fetch', async (input: unknown, init?: { method?: string; body?: string }) => {
+    vi.stubGlobal('fetch', async (_input: unknown, init?: { method?: string; body?: string }) => {
       if (init?.method === 'PUT') {
         putBody = JSON.parse(init.body!);
         return new Response(JSON.stringify({ content: {} }), { status: 200 });
@@ -701,7 +701,7 @@ describe('setGameStatuses', () => {
   });
 
   it('skips an unknown id rather than failing the batch', async () => {
-    const { puts, fetchFn } = registryStub([{ id: 'chess', status: 'pending' }]);
+    const { fetchFn } = registryStub([{ id: 'chess', status: 'pending' }]);
     vi.stubGlobal('fetch', fetchFn);
     const res = await setGameStatuses(envWithToken(), [
       { id: 'ghost', status: 'live' },

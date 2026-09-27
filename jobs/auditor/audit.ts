@@ -380,7 +380,6 @@ async function auditUrl(url: string): Promise<AuditResult> {
     }
 
     // Banned CSS libraries — check for their telltale class prefixes or stylesheets
-    const allClasses = document.documentElement.innerHTML;
     // Banned CSS libraries — check class names on actual DOM elements, not innerHTML text
     const bannedLibs: string[] = [];
     const allEls = document.querySelectorAll('[class]');
@@ -749,6 +748,9 @@ async function main(): Promise<void> {
           viewports: result.viewports,
           usesSDK: result.usesSDK,
           hasNoSelect: result.hasNoSelect,
+          extraNavbars: result.extraNavbars,
+          bannedLibs: result.bannedLibs,
+          securityIssues: result.securityIssues,
         });
       } catch (err) {
         console.error(`  Failed to audit ${game.id}: ${err}`);

@@ -309,12 +309,7 @@ export async function resolveUser(request: Request, auth: Fetcher): Promise<{ id
  * Handle `/sessions` and `/sessions/:id`. Returns null when the path is not a
  * sessions route, so the caller can fall through to Durable Object routing.
  */
-export async function handleSessionsApi(
-  request: Request,
-  env: Env,
-  domain: string,
-  cors: Record<string, string>,
-): Promise<Response | null> {
+export async function handleSessionsApi(request: Request, env: Env, cors: Record<string, string>): Promise<Response | null> {
   const path = new URL(request.url).pathname;
   if (path !== "/sessions" && !path.startsWith("/sessions/")) return null;
 

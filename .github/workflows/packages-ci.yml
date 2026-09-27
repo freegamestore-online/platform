@@ -55,7 +55,9 @@ jobs:
         # would drop the `web` member that its `test:web` script depends on.
         include:
           - dir: apps/admin
-            install: pnpm install --frozen-lockfile --ignore-workspace
+            install: |
+              pnpm install --frozen-lockfile --ignore-workspace
+              pnpm --dir web install --frozen-lockfile --ignore-workspace
           - dir: apps/console
             install: pnpm install --frozen-lockfile
           - dir: workers/agent
@@ -89,6 +91,7 @@ jobs:
           cache-dependency-path: ${{ matrix.dir }}/pnpm-lock.yaml
 
       - run: ${{ matrix.install }}
+      - run: pnpm typecheck
       - run: pnpm test
 
   # workers/mcp is the one unit on npm (package-lock.json), so it needs neither
@@ -109,4 +112,5 @@ jobs:
           cache-dependency-path: workers/mcp/package-lock.json
 
       - run: npm ci
+      - run: npm run typecheck
       - run: npm test

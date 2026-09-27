@@ -93,7 +93,7 @@ export default {
     }
 
     // Per-user session list (D1) — /sessions, /sessions/:id
-    const sessionsResp = await handleSessionsApi(request, env, config.domain, corsHeaders(request, config.domain));
+    const sessionsResp = await handleSessionsApi(request, env, corsHeaders(request, config.domain));
     if (sessionsResp) return sessionsResp;
 
     // Admin all-users session list (org members only) — GET /admin/sessions
