@@ -15,9 +15,11 @@ import type { AIConfig, Message, TokenUsage } from "./providers/types";
 import { isValidPushSubscription, type PushSubscription, sendWebPush } from "./push";
 import { allowDeploy, allowRequest } from "./ratelimit";
 import { enforceSessionBudget } from "./session-budget";
+import { corsHeaders, jsonResponse as json, routeSessionRequest } from "./session-router";
 import { activityFromDeployStatus, bumpSessionTokens, updateSessionActivity, upsertSessionIndex } from "./sessions";
 import { ENGINE_TEMPLATE_REPOS } from "./template";
 import { clampToolResultForHistory } from "./tools";
+import { TurnOrchestrator } from "./turn-orchestrator";
 import { armWatchdog, lockIsStale } from "./watchdog";
 
 interface ErrorEntry {
@@ -166,6 +168,8 @@ export class AgentSession implements DurableObject {
   private turnEpoch = 0;
   /** Last moment the active turn produced ANY event (SSE or checkpoint). */
   private lastTurnEventAt = 0;
+  /** Pure control-flow collaborator; receives stateful rounds by injection. */
+  private readonly turnOrchestrator = new TurnOrchestrator();
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -267,66 +271,20 @@ export class AgentSession implements DurableObject {
   }
 
   async fetch(request: Request): Promise<Response> {
-    const url = new URL(request.url);
-    const path = url.pathname;
-
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders(request, this.config.domain) });
-    }
-
-    try {
-      // Ownership gate. The worker has already verified identity and set
-      // X-Auth-User; bind this session to the first authenticated caller
-      // (trust-on-first-use) and reject everyone else. Without this, anyone who
-      // learns a session id could read its transcript (/history), wipe it
-      // (/reset), or drive the agent.
-      const caller = request.headers.get("X-Auth-User");
-      if (!caller) return json({ error: "unauthorized" }, 401, request, this.config.domain);
-      // X-Auth-Admin is set (and the client's copy stripped) by the worker after
-      // an org-membership check — read-only admin access to any session's
-      // transcript/status. Must NOT bind ownership: an admin peeking at an
-      // unclaimed session id would otherwise become its owner.
-      const adminRead =
-        request.headers.get("X-Auth-Admin") === "1" &&
-        request.method === "GET" &&
-        (path === "/history" || path === "/status" || path === "/errors");
-      if (!adminRead) {
-        const owner = await this.state.storage.get<string>("owner");
-        if (!owner) {
-          await this.state.storage.put("owner", caller);
-        } else if (owner !== caller) {
-          return json({ error: "forbidden" }, 403, request, this.config.domain);
-        }
-      }
-
-      if (path === "/chat" && request.method === "POST") {
-        return this.handleChat(request);
-      }
-      if (path === "/status" && request.method === "GET") {
-        return this.handleStatus(request);
-      }
-      if (path === "/files" && request.method === "GET") {
-        return this.handleListFiles(request);
-      }
-      if (path === "/history" && request.method === "GET") {
-        return this.handleHistory(request);
-      }
-      if (path === "/errors" && request.method === "GET") {
-        return this.handleErrors(request);
-      }
-      if (path === "/import" && request.method === "POST") {
-        return this.handleImport(request);
-      }
-      if (path === "/reset" && request.method === "POST") {
-        return this.handleReset(request);
-      }
-      if (path === "/push-subscribe" && request.method === "POST") {
-        return this.handlePushSubscribe(request);
-      }
-      return json({ error: "not found" }, 404, request, this.config.domain);
-    } catch (err) {
-      return json({ error: String(err) }, 500, request, this.config.domain);
-    }
+    return routeSessionRequest(request, {
+      storage: this.state.storage,
+      config: this.config,
+      handlers: {
+        chat: (req) => this.handleChat(req),
+        status: (req) => this.handleStatus(req),
+        files: (req) => this.handleListFiles(req),
+        history: (req) => this.handleHistory(req),
+        errors: (req) => this.handleErrors(req),
+        import: (req) => this.handleImport(req),
+        reset: (req) => this.handleReset(req),
+        pushSubscribe: (req) => this.handlePushSubscribe(req),
+      },
+    });
   }
 
   /** POST /chat — stream an agent turn via SSE */
@@ -727,11 +685,8 @@ export class AgentSession implements DurableObject {
       // died in silence and the user's change was never made. deploy /
       // push_update remain terminal (their status streams separately);
       // MAX_INFRA_ROUNDS bounds a pathological fetch loop.
-      const MAX_INFRA_ROUNDS = 6;
-      let resumeMsg: string | null = initialMessage;
-      let infraRounds = 0;
       setActivity({ phase: "writing", detail: "Writing" });
-      while (true) {
+      await this.turnOrchestrator.run(initialMessage, async (resumeMsg) => {
         // First round rebuilds from the pre-turn snapshot (`history`) since the
         // user message was provisionally saved above; resume rounds continue
         // from the transcript as-is (it now ends with the infra tool_result).
@@ -801,7 +756,7 @@ export class AgentSession implements DurableObject {
         }
 
         // No infra tools → the model finished its reply; the turn is complete.
-        if (result.infraRequests.length === 0) break;
+        if (result.infraRequests.length === 0) return { hasInfraRequests: false, successfulDeploy: false };
 
         // Execute infra tools server-side, then loop to feed results back.
         {
@@ -811,8 +766,7 @@ export class AgentSession implements DurableObject {
             setActivity({ phase: "error", detail: msg });
             await this.save();
             sendSSE({ type: "error", data: msg });
-            sendSSE({ type: "done", data: "" });
-            return;
+            return { hasInfraRequests: false, successfulDeploy: false };
           }
 
           const infraResults: { id: string; content: string }[] = [];
@@ -997,11 +951,9 @@ export class AgentSession implements DurableObject {
           const failedResult = (c: string) =>
             c.startsWith("Error") || c.includes("Deploy FAILED:") || c.includes("Update pushed but the build FAILED:");
           const deployFailed = hadDeploy && (session.deployStatus?.phase === "error" || infraResults.some((r) => failedResult(r.content)));
-          if (hadDeploy && !deployFailed) break;
-          if (++infraRounds >= MAX_INFRA_ROUNDS) break;
-          resumeMsg = null;
+          return { hasInfraRequests: true, successfulDeploy: hadDeploy && !deployFailed };
         }
-      } // while (resume loop)
+      });
 
       sendSSE({ type: "done", data: "" });
     } catch (err) {
@@ -1299,33 +1251,4 @@ export class AgentSession implements DurableObject {
       // Push failed (subscription expired, etc.) — don't crash the session
     }
   }
-}
-
-// Dev origins only — exact host match so e.g. `http://localhost.evil.com` (a
-// prefix match) can't slip through and make credentialed requests.
-const DEV_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
-
-function corsHeaders(request: Request, domain: string): Record<string, string> {
-  const origin = request.headers.get("Origin");
-  // Credentialed CORS is restricted to the FIRST-PARTY console origins only —
-  // NOT `*.${domain}`. Published games are untrusted, user/agent-authored JS
-  // served at `<slug>.${domain}`; reflecting those with credentials would let a
-  // malicious or XSS'd game ride a signed-in user's `fgs_token` cookie to read
-  // their transcripts, drive /chat, and read key status. The console is served
-  // only at `console.`/`publish.`; the apex is the storefront (never calls this).
-  const firstParty = origin === `https://console.${domain}` || origin === `https://publish.${domain}`;
-  const allowed = origin && (firstParty || DEV_ORIGIN.test(origin)) ? origin : `https://console.${domain}`;
-  return {
-    "Access-Control-Allow-Origin": allowed,
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Credentials": "true",
-  };
-}
-
-function json(data: unknown, status: number, request: Request, domain: string): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json", ...corsHeaders(request, domain) },
-  });
 }
