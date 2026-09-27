@@ -1287,7 +1287,11 @@ export async function handleDeleteGame(
   // 2. Drop the D1 host route so <id>.<domain> stops resolving. Non-fatal: the
   //    registry delist already removes it everywhere user-facing.
   try {
-    await env.DB?.prepare('DELETE FROM routes WHERE slug = ? AND zone = ?')
+    // The binding is required in production, but fail explicitly instead of
+    // reporting a successful route removal when a misconfigured environment
+    // has no D1 binding (optional chaining would otherwise make this a no-op).
+    if (!env.DB) throw new Error('D1 binding not available');
+    await env.DB.prepare('DELETE FROM routes WHERE slug = ? AND zone = ?')
       .bind(gameId, config.domain)
       .run();
     steps.push({
@@ -1305,7 +1309,15 @@ export async function handleDeleteGame(
 
   // 3. Archive (never hard-delete) the repo. Non-fatal.
   try {
-    await ghApi(env, `/repos/${config.org}/${gameId}`, 'PATCH', { archived: true });
+    // ghApi deliberately returns GitHub error responses as data so provision
+    // steps can present useful details. Do not mistake such a response for a
+    // completed archive merely because fetch itself resolved.
+    const archive = await ghApi(env, `/repos/${config.org}/${gameId}`, 'PATCH', {
+      archived: true,
+    });
+    if (archive.__status < 200 || archive.__status >= 300) {
+      throw new Error(archive.message || `GitHub returned ${archive.__status}`);
+    }
     steps.push({ name: 'Repo', status: 'ok', detail: 'archived (never hard-deleted)' });
   } catch (e: any) {
     steps.push({ name: 'Repo', status: 'fail', detail: e?.message ?? 'archive failed' });
@@ -1316,11 +1328,14 @@ export async function handleDeleteGame(
   //    that D1 (agent_sessions), so ask it over the service binding. Non-fatal.
   if (env.AGENT && env.INTERNAL_TOKEN) {
     try {
-      await env.AGENT.fetch(`https://agent.${config.domain}/v1/admin/purge-game-sessions`, {
+      const purge = await env.AGENT.fetch(`https://agent.${config.domain}/v1/admin/purge-game-sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Internal-Token': env.INTERNAL_TOKEN },
         body: JSON.stringify({ gameId }),
       });
+      if (!purge.ok) {
+        throw new Error(`agent returned ${purge.status}`);
+      }
       steps.push({ name: 'Session index', status: 'ok', detail: 'agent rows purged' });
     } catch (e: any) {
       steps.push({ name: 'Session index', status: 'fail', detail: e?.message ?? 'purge failed' });

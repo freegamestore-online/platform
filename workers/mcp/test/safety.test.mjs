@@ -207,6 +207,16 @@ test('errText carries isError, and mcp_audit_log is exposed', async () => {
   );
 });
 
+test('delete_game reports partial cleanup rather than claiming every downstream step succeeded', async () => {
+  const src = await read('src/index.ts');
+  const start = src.indexOf("'delete_game'");
+  const end = src.indexOf("'discard_session'", start);
+  const tool = src.slice(start, end);
+  assert.match(tool, /failedSteps/);
+  assert.match(tool, /cleanup was incomplete/);
+  assert.match(tool, /action:\s*'partial'/);
+});
+
 // -- surface: manifest consistency --
 
 test('server.json tool set exactly matches the tools registered in index.ts', async () => {

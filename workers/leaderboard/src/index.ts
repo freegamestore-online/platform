@@ -221,6 +221,42 @@ async function verifyJWT(request: Request, secret: string): Promise<JWTPayload |
   }
 }
 
+/**
+ * Insert a score only when this user has not submitted to this game during the
+ * rate-limit window. Keeping the check and write in one SQL statement matters:
+ * a separate SELECT followed by INSERT lets two concurrent requests both see
+ * no recent row and bypass the limit.
+ */
+export async function insertScoreUnlessRateLimited(
+  db: D1Database,
+  values: { game: string; playerName: string; score: number; ipHash: string; userId: string },
+): Promise<boolean> {
+  const result = await db
+    .prepare(
+      `INSERT INTO scores (game_id, player_name, score, ip_hash, user_id)
+       SELECT ?, ?, ?, ?, ?
+       WHERE NOT EXISTS (
+         SELECT 1 FROM scores
+         WHERE user_id = ? AND game_id = ?
+         -- SQLite's default datetime has second precision. Include the exact
+         -- boundary so a second submission in the same second is throttled.
+         AND created_at >= datetime('now', ?)
+       )`,
+    )
+    .bind(
+      values.game,
+      values.playerName,
+      values.score,
+      values.ipHash,
+      values.userId,
+      values.userId,
+      values.game,
+      `-${RATE_LIMIT_SECONDS} seconds`,
+    )
+    .run();
+  return (result.meta?.changes ?? 0) > 0;
+}
+
 // POST /api/scores { game, name, score }
 async function submitScore(request: Request, env: Env): Promise<Response> {
   // Submission is credentialed (reads the fgs_token cookie), so every response
@@ -264,25 +300,20 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
   const ipHash = await hashIP(ip);
 
   // Rate limit: 1 submission per user per game per RATE_LIMIT_SECONDS.
+  // This must be an atomic conditional insert, not a read then write, because
+  // parallel requests can otherwise both pass the read before either inserts.
   // Keyed on the authenticated user (not IP) so a shared network isn't
   // throttled collectively; ip_hash is still stored for abuse forensics.
-  const recent = await env.DB.prepare(
-    `SELECT COUNT(*) as cnt FROM scores
-     WHERE user_id = ? AND game_id = ?
-     AND created_at > datetime('now', ?)`,
-  )
-    .bind(userId, game, `-${RATE_LIMIT_SECONDS} seconds`)
-    .first<{ cnt: number }>();
-
-  if (recent && recent.cnt > 0) {
+  const inserted = await insertScoreUnlessRateLimited(env.DB, {
+    game,
+    playerName,
+    score,
+    ipHash,
+    userId,
+  });
+  if (!inserted) {
     return j({ error: 'Too fast, wait a few seconds' }, 429);
   }
-
-  await env.DB.prepare(
-    `INSERT INTO scores (game_id, player_name, score, ip_hash, user_id) VALUES (?, ?, ?, ?, ?)`,
-  )
-    .bind(game, playerName, score, ipHash, userId)
-    .run();
 
   // Return the player's rank (count of distinct OTHER users who beat this score).
   // Excluding the submitter (user_id != ?) matters when they post a score below

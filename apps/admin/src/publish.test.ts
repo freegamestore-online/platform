@@ -212,6 +212,62 @@ describe('handleDeleteGame ownership', () => {
     expect(putBody.content).toBeDefined(); // registry rewritten (entry removed)
     expect(dbRun).toHaveBeenCalled(); // route deletion attempted
   });
+
+  it('reports a failed GitHub archive instead of claiming the repo was archived', async () => {
+    const registry = { games: [{ id: 'chess', name: 'Chess', creatorGithub: 'serge-the-dev' }] };
+    vi.stubGlobal('fetch', async (_input: unknown, init?: { method?: string }) => {
+      if (init?.method === 'PUT') {
+        return new Response(JSON.stringify({ content: {} }), { status: 200 });
+      }
+      if (init?.method === 'PATCH') {
+        return new Response(JSON.stringify({ message: 'GitHub is unavailable' }), { status: 503 });
+      }
+      return new Response(JSON.stringify({ content: btoa(JSON.stringify(registry)), sha: 's' }), {
+        status: 200,
+      });
+    });
+    const env = {
+      GITHUB_TOKEN: 'x',
+      DB: { prepare: () => ({ bind: () => ({ run: async () => {} }) }) },
+    } as unknown as Parameters<typeof handleDeleteGame>[2];
+
+    const res = await handleDeleteGame('chess', 'serge-the-dev', env);
+
+    expect(res.ok).toBe(true); // Delisting succeeded; cleanup status is per-step.
+    expect(res.steps).toContainEqual({
+      name: 'Repo',
+      status: 'fail',
+      detail: 'GitHub is unavailable',
+    });
+    expect(res.steps).not.toContainEqual(
+      expect.objectContaining({ name: 'Repo', status: 'ok' }),
+    );
+  });
+
+  it('reports a failed agent session purge instead of treating any response as success', async () => {
+    const registry = { games: [{ id: 'chess', name: 'Chess', creatorGithub: 'serge-the-dev' }] };
+    vi.stubGlobal('fetch', async (_input: unknown, init?: { method?: string }) => {
+      if (init?.method === 'PUT') return new Response(JSON.stringify({ content: {} }), { status: 200 });
+      if (init?.method === 'PATCH') return new Response(JSON.stringify({ archived: true }), { status: 200 });
+      return new Response(JSON.stringify({ content: btoa(JSON.stringify(registry)), sha: 's' }), {
+        status: 200,
+      });
+    });
+    const env = {
+      GITHUB_TOKEN: 'x',
+      DB: { prepare: () => ({ bind: () => ({ run: async () => {} }) }) },
+      INTERNAL_TOKEN: 'internal',
+      AGENT: { fetch: async () => new Response('busy', { status: 503 }) },
+    } as unknown as Parameters<typeof handleDeleteGame>[2];
+
+    const res = await handleDeleteGame('chess', 'serge-the-dev', env);
+
+    expect(res.steps).toContainEqual({
+      name: 'Session index',
+      status: 'fail',
+      detail: 'agent returned 503',
+    });
+  });
 });
 
 describe('handlePublish reserved-id guard', () => {

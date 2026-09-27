@@ -1511,6 +1511,30 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
             `Could not delete \`${id}\`: ${result.error}${result.detail ? ` — ${result.detail}` : ''}${hint}`,
           );
         }
+        // Delisting is the durable first step, while route cleanup, archival,
+        // and session-index purging are best-effort. The admin API returns its
+        // per-step outcome even when that primary operation succeeded; never
+        // tell the caller every resource was removed if one of those steps
+        // failed.
+        const failedSteps = Array.isArray((result as { steps?: unknown }).steps)
+          ? (result as { steps: Array<{ name?: unknown; detail?: unknown; status?: unknown }> }).steps.filter(
+              (step) => step.status === 'fail',
+            )
+          : [];
+        if (failedSteps.length) {
+          const details = failedSteps
+            .map((step) => `${String(step.name ?? 'cleanup')}: ${String(step.detail ?? 'failed')}`)
+            .join('; ');
+          await audit(this.safety(), {
+            tool: 'delete_game',
+            action: 'partial',
+            input: { game_id: id },
+            result: { deleted: id, failedSteps: failedSteps.length },
+          });
+          return errText(
+            `Deleted **${id}** from the store, but cleanup was incomplete: ${details}. Retry deletion or contact an administrator.`,
+          );
+        }
         await audit(this.safety(), {
           tool: 'delete_game',
           action: 'success',

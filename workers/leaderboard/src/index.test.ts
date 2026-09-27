@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { isAllowedOrigin, isValidScore, sanitizeName, withinCap } from './index';
+import {
+  insertScoreUnlessRateLimited,
+  isAllowedOrigin,
+  isValidScore,
+  sanitizeName,
+  withinCap,
+} from './index';
 
 // Unit tests for pure helpers in the leaderboard worker. These import the REAL
 // functions from ./index so the tests fail if the runtime logic drifts — the
@@ -78,5 +84,47 @@ describe('name sanitisation', () => {
     expect(sanitizeName('')).toBe('Anonymous');
     expect(sanitizeName('   ')).toBe('Anonymous');
     expect(sanitizeName(null)).toBe('Anonymous');
+  });
+});
+
+describe('score rate-limit insertion', () => {
+  const values = {
+    game: 'chess',
+    playerName: 'Alice',
+    score: 100,
+    ipHash: 'hashed-ip',
+    userId: 'github:1',
+  };
+
+  function dbWithChanges(changes: number) {
+    let sql = '';
+    return {
+      db: {
+        prepare(query: string) {
+          sql = query;
+          return {
+            bind() {
+              return { run: async () => ({ meta: { changes } }) };
+            },
+          };
+        },
+      } as unknown as D1Database,
+      sql: () => sql,
+    };
+  }
+
+  it('accepts the request only when the conditional insert creates a row', async () => {
+    const fake = dbWithChanges(1);
+
+    await expect(insertScoreUnlessRateLimited(fake.db, values)).resolves.toBe(true);
+    expect(fake.sql()).toContain('INSERT INTO scores');
+    expect(fake.sql()).toContain('WHERE NOT EXISTS');
+    expect(fake.sql()).toContain("created_at >= datetime('now', ?)");
+  });
+
+  it('rejects a request when the atomic rate-limit condition finds a recent score', async () => {
+    const fake = dbWithChanges(0);
+
+    await expect(insertScoreUnlessRateLimited(fake.db, values)).resolves.toBe(false);
   });
 });

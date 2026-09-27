@@ -13,7 +13,20 @@ export const onRequestOptions: PagesFunction<Env> = async (ctx) =>
 
 export const onRequestGet: PagesFunction<Env> = async (ctx) => {
   const games = await getRegistry(ctx.env.GITHUB_TOKEN);
-  const list = (games ?? [])
+  // An unavailable registry is operationally different from an empty catalog.
+  // Returning 200 with [] made the Remix picker claim there were no games and
+  // encouraged users to make decisions from an outage-shaped response.
+  if (games === null) {
+    return new Response(JSON.stringify({ error: 'Game catalog is temporarily unavailable' }), {
+      status: 503,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store',
+        ...corsHeaders(ctx.request),
+      },
+    });
+  }
+  const list = games
     .filter((g) => g.id)
     .map((g) => ({ id: g.id, name: g.name || g.id, engine: g.engine, icon: g.icon }));
   return new Response(JSON.stringify({ games: list }), {
