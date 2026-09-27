@@ -1,12 +1,42 @@
 {
   "version": 1,
   "cases": [
-    { "name": "contents_success", "contents": "success", "raw": "not_called", "expected": "available" },
-    { "name": "contents_missing_raw_success", "contents": "missing", "raw": "success", "expected": "available" },
+    {
+      "name": "contents_success",
+      "contents": "success",
+      "raw": "not_called",
+      "expected": "available"
+    },
+    {
+      "name": "contents_missing_raw_success",
+      "contents": "missing",
+      "raw": "success",
+      "expected": "available"
+    },
     { "name": "both_missing", "contents": "missing", "raw": "missing", "expected": "missing" },
-    { "name": "contents_error_raw_success", "contents": "unavailable", "raw": "success", "expected": "available" },
-    { "name": "both_unavailable", "contents": "unavailable", "raw": "unavailable", "expected": "unavailable" },
-    { "name": "malformed_contents_raw_success", "contents": "malformed", "raw": "success", "expected": "available" },
-    { "name": "both_malformed", "contents": "malformed", "raw": "malformed", "expected": "unavailable" }
+    {
+      "name": "contents_error_raw_success",
+      "contents": "unavailable",
+      "raw": "success",
+      "expected": "available"
+    },
+    {
+      "name": "both_unavailable",
+      "contents": "unavailable",
+      "raw": "unavailable",
+      "expected": "unavailable"
+    },
+    {
+      "name": "malformed_contents_raw_success",
+      "contents": "malformed",
+      "raw": "success",
+      "expected": "available"
+    },
+    {
+      "name": "both_malformed",
+      "contents": "malformed",
+      "raw": "malformed",
+      "expected": "unavailable"
+    }
   ]
 }

@@ -11,7 +11,10 @@ export const onRequestPost: PagesFunction = async (context) => {
     method: 'POST',
     headers: { 'X-FGS-Token': token, 'X-FGS-Handoff-Target': AGENT },
   });
-  if (!issued.ok) return new Response(JSON.stringify({ error: 'could not establish agent session' }), { status: 401 });
+  if (!issued.ok)
+    return new Response(JSON.stringify({ error: 'could not establish agent session' }), {
+      status: 401,
+    });
   return new Response(await issued.text(), {
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
   });

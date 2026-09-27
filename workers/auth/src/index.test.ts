@@ -12,9 +12,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import worker, {
-  COOKIE_NAME,
   base64urlDecode,
   base64urlEncode,
+  COOKIE_NAME,
   handleCallback,
   handleGitHubCallback,
   handleGitHubTokenExchange,
@@ -209,7 +209,9 @@ test('worker routes GET /me and enforces the same PII boundary via the cookie', 
 test('auth ignores the legacy domain cookie even when it contains a valid session', async () => {
   const token = await mintToken();
   const res = await handleMe(
-    new Request('https://auth.freegamestore.online/me', { headers: { Cookie: `fgs_token=${token}` } }),
+    new Request('https://auth.freegamestore.online/me', {
+      headers: { Cookie: `fgs_token=${token}` },
+    }),
     ME_ENV,
   );
   assert.equal(res.status, 401);
@@ -219,10 +221,13 @@ test('auth ignores the legacy domain cookie even when it contains a valid sessio
 test('a signed handoff can mint only its intended target-origin session', async () => {
   const source = await mintToken();
   const issue = await handleHandoffIssue(
-    new Request('https://auth.freegamestore.online/handoff/issue?target=https%3A%2F%2Fconsole.freegamestore.online', {
-      method: 'POST',
-      headers: { 'X-FGS-Token': source },
-    }),
+    new Request(
+      'https://auth.freegamestore.online/handoff/issue?target=https%3A%2F%2Fconsole.freegamestore.online',
+      {
+        method: 'POST',
+        headers: { 'X-FGS-Token': source },
+      },
+    ),
     ME_ENV,
   );
   assert.equal(issue.status, 200);

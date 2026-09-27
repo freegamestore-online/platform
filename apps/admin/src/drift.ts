@@ -55,6 +55,31 @@ interface DriftEnv {
   GITHUB_TOKEN?: string;
 }
 
+interface GitHubRefResponse {
+  object?: unknown;
+}
+
+interface GitHubWorkflowRun {
+  conclusion?: unknown;
+  head_commit?: unknown;
+  head_sha?: unknown;
+  html_url?: unknown;
+  status?: unknown;
+  updated_at?: unknown;
+}
+
+interface GitHubWorkflowRunsResponse {
+  workflow_runs?: unknown;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const isWorkflowRun = (value: unknown): value is GitHubWorkflowRun => isRecord(value);
+
+const workflowRuns = (response: GitHubWorkflowRunsResponse | null): GitHubWorkflowRun[] =>
+  Array.isArray(response?.workflow_runs) ? response.workflow_runs.filter(isWorkflowRun) : [];
+
 /** Run `work` over `items` with at most `limit` in flight. ~127 games × 2 calls
  *  would otherwise open 254 sockets at once and trip GitHub's abuse detection. */
 async function mapPool<T, R>(
@@ -75,7 +100,7 @@ async function mapPool<T, R>(
   return out;
 }
 
-async function gh(env: DriftEnv, path: string): Promise<any | null> {
+async function gh<T>(env: DriftEnv, path: string): Promise<T | null> {
   try {
     const res = await fetch(`https://api.github.com${path}`, {
       headers: {
@@ -86,7 +111,7 @@ async function gh(env: DriftEnv, path: string): Promise<any | null> {
       },
     });
     if (!res.ok) return null;
-    return await res.json();
+    return (await res.json()) as T;
   } catch {
     return null;
   }
@@ -107,28 +132,31 @@ const CONCLUSIONS = new Set(['success', 'failure', 'timed_out', 'cancelled']);
  *  long failure streak would be misreported as "never built". */
 export async function checkGameDrift(env: DriftEnv, org: string, id: string): Promise<FleetRow> {
   const [ref, runs] = await Promise.all([
-    gh(env, `/repos/${org}/${id}/git/ref/heads/main`),
-    gh(env, `/repos/${org}/${id}/actions/workflows/deploy.yml/runs?per_page=10`),
+    gh<GitHubRefResponse>(env, `/repos/${org}/${id}/git/ref/heads/main`),
+    gh<GitHubWorkflowRunsResponse>(
+      env,
+      `/repos/${org}/${id}/actions/workflows/deploy.yml/runs?per_page=10`,
+    ),
   ]);
 
-  const headSha = short(ref?.object?.sha);
-  const list: any[] = Array.isArray(runs?.workflow_runs) ? runs.workflow_runs : [];
-  const concluded = list.filter((r) => r?.status === 'completed' && r?.conclusion);
+  const headSha = short(isRecord(ref?.object) ? ref.object.sha : undefined);
+  const list = workflowRuns(runs);
+  const concluded = list.filter((run) => run.status === 'completed' && run.conclusion);
 
-  const raw = concluded[0]?.conclusion as string | undefined;
+  const raw = concluded[0]?.conclusion;
   const conclusion: DeployConclusion = raw
-    ? CONCLUSIONS.has(raw)
-      ? (raw as DeployConclusion)
+    ? typeof raw === 'string' && CONCLUSIONS.has(raw)
+      ? raw
       : 'other'
     : null;
 
-  let lastSuccessSha = short(concluded.find((r) => r.conclusion === 'success')?.head_sha);
+  let lastSuccessSha = short(concluded.find((run) => run.conclusion === 'success')?.head_sha);
   if (!lastSuccessSha && runs !== null) {
-    const older = await gh(
+    const older = await gh<GitHubWorkflowRunsResponse>(
       env,
       `/repos/${org}/${id}/actions/workflows/deploy.yml/runs?status=success&per_page=1`,
     );
-    lastSuccessSha = short(older?.workflow_runs?.[0]?.head_sha);
+    lastSuccessSha = short(workflowRuns(older)[0]?.head_sha);
   }
 
   // A missing HEAD means the repo is unreadable — say so rather than inferring
@@ -197,18 +225,27 @@ export interface RunRow {
  *  Separate from the fleet sweep on purpose: this is a single-game view, so it
  *  can afford the richer per-run detail the sweep deliberately skips. */
 export async function recentRuns(env: DriftEnv, org: string, id: string, n = 5): Promise<RunRow[]> {
-  const runs = await gh(env, `/repos/${org}/${id}/actions/workflows/deploy.yml/runs?per_page=${n}`);
-  const list: any[] = Array.isArray(runs?.workflow_runs) ? runs.workflow_runs : [];
-  return list.slice(0, n).map((r) => ({
-    // An in-flight run has no conclusion yet — report its status instead of an
-    // empty badge.
-    conclusion: (r?.status === 'completed' ? r?.conclusion : r?.status) || 'unknown',
-    sha: short(r?.head_sha),
-    message:
-      typeof r?.head_commit?.message === 'string'
-        ? r.head_commit.message.split('\n')[0]!.slice(0, 120)
-        : '',
-    updatedAt: typeof r?.updated_at === 'string' ? r.updated_at : null,
-    url: typeof r?.html_url === 'string' ? r.html_url : null,
-  }));
+  const runs = await gh<GitHubWorkflowRunsResponse>(
+    env,
+    `/repos/${org}/${id}/actions/workflows/deploy.yml/runs?per_page=${n}`,
+  );
+  return workflowRuns(runs)
+    .slice(0, n)
+    .map((run) => ({
+      // An in-flight run has no conclusion yet — report its status instead of an
+      // empty badge.
+      conclusion:
+        typeof (run.status === 'completed' ? run.conclusion : run.status) === 'string'
+          ? run.status === 'completed'
+            ? run.conclusion
+            : run.status
+          : 'unknown',
+      sha: short(run.head_sha),
+      message:
+        isRecord(run.head_commit) && typeof run.head_commit.message === 'string'
+          ? run.head_commit.message.split('\n')[0]!.slice(0, 120)
+          : '',
+      updatedAt: typeof run.updated_at === 'string' ? run.updated_at : null,
+      url: typeof run.html_url === 'string' ? run.html_url : null,
+    }));
 }

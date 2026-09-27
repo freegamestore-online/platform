@@ -8,6 +8,12 @@ import { checkGameDrift, findDrift } from './drift';
 const ORG = 'freegamestore-online';
 const env = { GITHUB_TOKEN: 't' };
 
+const urlOf = (input: RequestInfo | URL): string => {
+  if (typeof input === 'string') return input;
+  if (input instanceof URL) return input.href;
+  return input.url;
+};
+
 /** Route the two GitHub reads per game. `head` is main's SHA; `success` is the
  *  head_sha of the last successful deploy.yml run (null → no successful run). */
 function stubGh(
@@ -16,27 +22,33 @@ function stubGh(
     { head?: string | null; success?: string | null; refFails?: boolean; runsFail?: boolean }
   >,
 ) {
-  globalThis.fetch = vi.fn().mockImplementation(async (input: any) => {
-    const url = typeof input === 'string' ? input : input.url;
-    const m = /\/repos\/[^/]+\/([^/]+)\//.exec(url);
-    const g = m ? games[m[1]!] : undefined;
-    if (!g) return new Response('nope', { status: 404 });
-    if (url.includes('/git/ref/heads/main')) {
-      if (g.refFails) return new Response('boom', { status: 500 });
-      return new Response(JSON.stringify({ object: { sha: g.head ?? null } }), { status: 200 });
-    }
-    if (url.includes('/actions/workflows/deploy.yml/runs')) {
-      if (g.runsFail) return new Response('boom', { status: 500 });
-      return new Response(
-        JSON.stringify({ workflow_runs: g.success ? [{ head_sha: g.success }] : [] }),
-        { status: 200 },
-      );
-    }
-    return new Response('{}', { status: 200 });
-  }) as any;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = urlOf(input);
+      const m = /\/repos\/[^/]+\/([^/]+)\//.exec(url);
+      const g = m ? games[m[1]!] : undefined;
+      if (!g) return new Response('nope', { status: 404 });
+      if (url.includes('/git/ref/heads/main')) {
+        if (g.refFails) return new Response('boom', { status: 500 });
+        return new Response(JSON.stringify({ object: { sha: g.head ?? null } }), { status: 200 });
+      }
+      if (url.includes('/actions/workflows/deploy.yml/runs')) {
+        if (g.runsFail) return new Response('boom', { status: 500 });
+        return new Response(
+          JSON.stringify({ workflow_runs: g.success ? [{ head_sha: g.success }] : [] }),
+          { status: 200 },
+        );
+      }
+      return new Response('{}', { status: 200 });
+    }),
+  );
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe('checkGameDrift', () => {
   it('flags a game whose HEAD is past its last successful build', async () => {
@@ -112,19 +124,22 @@ describe('findDrift', () => {
     // ~127 games × 2 calls would otherwise open 254 sockets at once.
     let inFlight = 0;
     let peak = 0;
-    globalThis.fetch = vi.fn().mockImplementation(async (input: any) => {
-      const url = typeof input === 'string' ? input : input.url;
-      inFlight++;
-      peak = Math.max(peak, inFlight);
-      await new Promise((r) => setTimeout(r, 1));
-      inFlight--;
-      if (url.includes('/git/ref/heads/main')) {
-        return new Response(JSON.stringify({ object: { sha: '1111111' } }), { status: 200 });
-      }
-      return new Response(JSON.stringify({ workflow_runs: [{ head_sha: '1111111' }] }), {
-        status: 200,
-      });
-    }) as any;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = urlOf(input);
+        inFlight++;
+        peak = Math.max(peak, inFlight);
+        await new Promise((r) => setTimeout(r, 1));
+        inFlight--;
+        if (url.includes('/git/ref/heads/main')) {
+          return new Response(JSON.stringify({ object: { sha: '1111111' } }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ workflow_runs: [{ head_sha: '1111111' }] }), {
+          status: 200,
+        });
+      }),
+    );
 
     const ids = Array.from({ length: 40 }, (_, i) => `game-${i}`);
     const report = await findDrift(env, ORG, ids);

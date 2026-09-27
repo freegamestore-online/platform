@@ -794,7 +794,8 @@ async function getSourceForkAttribution(
   forkedAt: string,
 ): Promise<{ attribution?: ForkAttribution; error?: string }> {
   const result = await readRegistry(env.GITHUB_TOKEN);
-  if (result.status !== 'available') return { error: 'Could not read source attribution from registry' };
+  if (result.status !== 'available')
+    return { error: 'Could not read source attribution from registry' };
   const attribution = snapshotForkAttribution(
     sourceId,
     result.games.find((item) => item.id === sourceId),
@@ -1186,7 +1187,10 @@ export async function handleUpdateGame(
   // are case-insensitive, so a casing difference must not make an owned game
   // uneditable.
   const owner = typeof game.creatorGithub === 'string' ? game.creatorGithub : '';
-  if (!ownershipFacts(game, login, { isOrgMember: false, isLegacyAcceptedCollaborator: false }).isCreator) {
+  if (
+    !ownershipFacts(game, login, { isOrgMember: false, isLegacyAcceptedCollaborator: false })
+      .isCreator
+  ) {
     return {
       error: owner
         ? `Only the creator (${owner}) can update this game`
@@ -1265,7 +1269,8 @@ export async function handleDeleteGame(
   }
   if (
     !opts.adminOverride &&
-    !ownershipFacts(game, login, { isOrgMember: false, isLegacyAcceptedCollaborator: false }).isCreator
+    !ownershipFacts(game, login, { isOrgMember: false, isLegacyAcceptedCollaborator: false })
+      .isCreator
   ) {
     return {
       error: owner
@@ -1342,11 +1347,14 @@ export async function handleDeleteGame(
   //    that D1 (agent_sessions), so ask it over the service binding. Non-fatal.
   if (env.AGENT && env.INTERNAL_TOKEN) {
     try {
-      const purge = await env.AGENT.fetch(`https://agent.${config.domain}/v1/admin/purge-game-sessions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Internal-Token': env.INTERNAL_TOKEN },
-        body: JSON.stringify({ gameId }),
-      });
+      const purge = await env.AGENT.fetch(
+        `https://agent.${config.domain}/v1/admin/purge-game-sessions`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Internal-Token': env.INTERNAL_TOKEN },
+          body: JSON.stringify({ gameId }),
+        },
+      );
       if (!purge.ok) {
         throw new Error(`agent returned ${purge.status}`);
       }

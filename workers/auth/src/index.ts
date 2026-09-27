@@ -204,7 +204,12 @@ function handoffTarget(redirect: string): string | null {
   }
 }
 
-async function mintHandoff(token: string, target: string, secret: string, game?: string): Promise<string> {
+async function mintHandoff(
+  token: string,
+  target: string,
+  secret: string,
+  game?: string,
+): Promise<string> {
   const payload = await jwtVerify(token, secret);
   if (!payload || !HANDOFF_TARGETS.has(target)) throw new Error('invalid handoff');
   const now = Math.floor(Date.now() / 1000);
@@ -230,7 +235,11 @@ async function loginRedirect(redirect: string, token: string, secret: string): P
   const location = target
     ? `${target}/auth/handoff?token=${encodeURIComponent(await mintHandoff(token, target, secret))}&return_to=${encodeURIComponent(redirect)}`
     : redirect;
-  const headers = new Headers({ Location: location, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
+  const headers = new Headers({
+    Location: location,
+    'Cache-Control': 'no-store',
+    'Referrer-Policy': 'no-referrer',
+  });
   headers.append('Set-Cookie', setTokenCookie(token));
   headers.append('Set-Cookie', clearLegacyTokenCookie());
   // The state cookie is single-use in practice because the provider code is
@@ -609,7 +618,8 @@ export async function handleHandoffConsume(request: Request, env: Env): Promise<
 export async function handleHandoffIssue(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const token = request.headers.get('X-FGS-Token') || getCookie(request, COOKIE_NAME) || '';
-  const target = request.headers.get('X-FGS-Handoff-Target') || url.searchParams.get('target') || '';
+  const target =
+    request.headers.get('X-FGS-Handoff-Target') || url.searchParams.get('target') || '';
   const game = request.headers.get('X-FGS-Game') || url.searchParams.get('game') || undefined;
   const payload = await jwtVerify(token, env.JWT_SECRET);
   if (!payload || typeof payload.sub !== 'string' || !HANDOFF_TARGETS.has(target)) {

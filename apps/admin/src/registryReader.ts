@@ -29,10 +29,16 @@ type Attempt = 'available' | 'missing' | 'unavailable';
 function parseRegistry(value: unknown): RegistryGame[] | null {
   // Contents normally honours the raw accept header. Accept an envelope as
   // well so a proxy that ignores it is still a trustworthy source.
-  if (value && typeof value === 'object' && typeof (value as { content?: unknown }).content === 'string') {
+  if (
+    value &&
+    typeof value === 'object' &&
+    typeof (value as { content?: unknown }).content === 'string'
+  ) {
     try {
       const decoded = new TextDecoder().decode(
-        Uint8Array.from(atob((value as { content: string }).content.replace(/\n/g, '')), (c) => c.charCodeAt(0)),
+        Uint8Array.from(atob((value as { content: string }).content.replace(/\n/g, '')), (c) =>
+          c.charCodeAt(0),
+        ),
       );
       value = JSON.parse(decoded);
     } catch {
@@ -44,7 +50,10 @@ function parseRegistry(value: unknown): RegistryGame[] | null {
   return (value as { games: RegistryGame[] }).games;
 }
 
-async function readAttempt(url: string, init?: RequestInit): Promise<{ state: Attempt; games?: RegistryGame[] }> {
+async function readAttempt(
+  url: string,
+  init?: RequestInit,
+): Promise<{ state: Attempt; games?: RegistryGame[] }> {
   try {
     const res = await fetch(url, init);
     if (res.status === 404) return { state: 'missing' };

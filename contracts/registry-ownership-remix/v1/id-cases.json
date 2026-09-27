@@ -16,6 +16,10 @@
     { "id": "submissions", "valid": false, "reason": "reserved" },
     { "id": "template-game-canvas", "valid": false, "reason": "reserved" },
     { "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "valid": true },
-    { "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "valid": false, "reason": "too_long" }
+    {
+      "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "valid": false,
+      "reason": "too_long"
+    }
   ]
 }

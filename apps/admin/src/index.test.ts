@@ -42,7 +42,7 @@ function makeEnv(opts: {
 
 const ADMIN = 'serge.the.dev@gmail.com';
 function req(path: string, init?: RequestInit): Request {
-  return new Request('https://admin.freegamestore.online' + path, init);
+  return new Request(`https://admin.freegamestore.online${path}`, init);
 }
 
 describe('admin gate — observability/console routes', () => {

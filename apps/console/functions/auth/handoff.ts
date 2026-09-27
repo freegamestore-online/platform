@@ -33,7 +33,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     'Cache-Control': 'no-store',
     'Referrer-Policy': 'no-referrer',
   });
-  headers.append('Set-Cookie', `${SESSION_COOKIE}=${body.token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`);
-  headers.append('Set-Cookie', 'fgs_token=; Domain=.freegamestore.online; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+  headers.append(
+    'Set-Cookie',
+    `${SESSION_COOKIE}=${body.token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`,
+  );
+  headers.append(
+    'Set-Cookie',
+    'fgs_token=; Domain=.freegamestore.online; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0',
+  );
   return new Response(null, { status: 302, headers });
 };

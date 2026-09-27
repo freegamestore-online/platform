@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const contracts = resolve(root, '../../contracts/registry-ownership-remix/v1');
-const { readRegistryGames, ownershipFacts, validateGameId } = await import(resolve(root, 'src/github.ts'));
+const { readRegistryGames, ownershipFacts, validateGameId } = await import(
+  resolve(root, 'src/github.ts')
+);
 const load = async (name) => JSON.parse(await readFile(resolve(contracts, name), 'utf8'));
 
 async function withFetch(contents, raw, fn) {
@@ -40,7 +42,9 @@ test('registry-ownership contract v1: canonical IDs', async () => {
 test('registry-ownership contract v1: registry result states', async () => {
   const fixture = await load('registry-cases.json');
   for (const testCase of fixture.cases) {
-    const result = await withFetch(testCase.contents, testCase.raw, () => readRegistryGames('org', 'store', 'token'));
+    const result = await withFetch(testCase.contents, testCase.raw, () =>
+      readRegistryGames('org', 'store', 'token'),
+    );
     assert.equal(result.status, testCase.expected, testCase.name);
   }
 });
@@ -50,9 +54,14 @@ test('registry-ownership contract v1: ownership facts', async () => {
   for (const testCase of fixture.cases) {
     assert.deepEqual(
       ownershipFacts(
-        testCase.creatorGithub ? { id: 'source-game', creatorGithub: testCase.creatorGithub } : { id: 'source-game' },
+        testCase.creatorGithub
+          ? { id: 'source-game', creatorGithub: testCase.creatorGithub }
+          : { id: 'source-game' },
         testCase.login,
-        { isOrgMember: testCase.isOrgMember, isLegacyAcceptedCollaborator: testCase.isLegacyAcceptedCollaborator },
+        {
+          isOrgMember: testCase.isOrgMember,
+          isLegacyAcceptedCollaborator: testCase.isLegacyAcceptedCollaborator,
+        },
       ),
       testCase.expected,
       testCase.name,

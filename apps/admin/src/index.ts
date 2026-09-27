@@ -652,13 +652,24 @@ export default {
       const returnTo = url.searchParams.get('return_to');
       let location = 'https://admin.freegamestore.online/';
       try {
-        if (returnTo && new URL(returnTo).origin === 'https://admin.freegamestore.online') location = returnTo;
+        if (returnTo && new URL(returnTo).origin === 'https://admin.freegamestore.online')
+          location = returnTo;
       } catch {
         /* safe default */
       }
-      const headers = new Headers({ Location: location, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
-      headers.append('Set-Cookie', `__Host-fgs_token=${body.token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`);
-      headers.append('Set-Cookie', 'fgs_token=; Domain=.freegamestore.online; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+      const headers = new Headers({
+        Location: location,
+        'Cache-Control': 'no-store',
+        'Referrer-Policy': 'no-referrer',
+      });
+      headers.append(
+        'Set-Cookie',
+        `__Host-fgs_token=${body.token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`,
+      );
+      headers.append(
+        'Set-Cookie',
+        'fgs_token=; Domain=.freegamestore.online; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0',
+      );
       return new Response(null, { status: 302, headers });
     }
 

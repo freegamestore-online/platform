@@ -158,7 +158,11 @@ function base64UrlDecode(str: string): Uint8Array {
   return bytes;
 }
 
-export async function verifyScoreHandoff(request: Request, secret: string, game: string): Promise<JWTPayload | null> {
+export async function verifyScoreHandoff(
+  request: Request,
+  secret: string,
+  game: string,
+): Promise<JWTPayload | null> {
   const authz = request.headers.get('Authorization') ?? '';
   const token = authz.startsWith('Bearer ') ? authz.slice(7).trim() : '';
   if (!token) return null;

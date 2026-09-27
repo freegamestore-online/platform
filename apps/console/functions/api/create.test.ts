@@ -7,7 +7,9 @@ vi.mock('./_auth', () => ({
   corsHeaders: () => ({}),
   SESSION_COOKIE: '__Host-fgs_token',
   getCookie: (request: Request, name: string) => {
-    const match = (request.headers.get('Cookie') ?? '').match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
+    const match = (request.headers.get('Cookie') ?? '').match(
+      new RegExp(`(?:^|;\\s*)${name}=([^;]+)`),
+    );
     return match?.[1] ?? null;
   },
 }));

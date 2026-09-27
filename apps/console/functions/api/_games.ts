@@ -102,7 +102,8 @@ export function ownershipFacts(
   login: string,
   signals: Pick<OwnershipFacts, 'isOrgMember' | 'isLegacyAcceptedCollaborator'>,
 ): OwnershipFacts {
-  const isCreator = !!game?.creatorGithub && game.creatorGithub.toLowerCase() === login.toLowerCase();
+  const isCreator =
+    !!game?.creatorGithub && game.creatorGithub.toLowerCase() === login.toLowerCase();
   return {
     isCreator,
     isOrgMember: signals.isOrgMember,

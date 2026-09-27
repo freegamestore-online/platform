@@ -239,16 +239,16 @@ describe('handleDeleteGame ownership', () => {
       status: 'fail',
       detail: 'GitHub is unavailable',
     });
-    expect(res.steps).not.toContainEqual(
-      expect.objectContaining({ name: 'Repo', status: 'ok' }),
-    );
+    expect(res.steps).not.toContainEqual(expect.objectContaining({ name: 'Repo', status: 'ok' }));
   });
 
   it('reports a failed agent session purge instead of treating any response as success', async () => {
     const registry = { games: [{ id: 'chess', name: 'Chess', creatorGithub: 'serge-the-dev' }] };
     vi.stubGlobal('fetch', async (_input: unknown, init?: { method?: string }) => {
-      if (init?.method === 'PUT') return new Response(JSON.stringify({ content: {} }), { status: 200 });
-      if (init?.method === 'PATCH') return new Response(JSON.stringify({ archived: true }), { status: 200 });
+      if (init?.method === 'PUT')
+        return new Response(JSON.stringify({ content: {} }), { status: 200 });
+      if (init?.method === 'PATCH')
+        return new Response(JSON.stringify({ archived: true }), { status: 200 });
       return new Response(JSON.stringify({ content: btoa(JSON.stringify(registry)), sha: 's' }), {
         status: 200,
       });

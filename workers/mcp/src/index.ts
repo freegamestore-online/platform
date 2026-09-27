@@ -6,22 +6,14 @@ import { z } from 'zod';
 import authHandler from './auth-handler.js';
 import {
   listRepoFiles,
+  ownershipFacts,
   pushFiles,
   type RepoFile,
-  ownershipFacts,
   readRegistryGames,
   readRepoFile,
   textToB64,
 } from './github.js';
-import {
-  errMsg,
-  fgsApi,
-  fgsDelete,
-  fgsPost,
-  getDeployStatus,
-  safeFetch,
-  withTimeout,
-} from './http.js';
+import { errMsg, fgsApi, fgsDelete, fgsPost, getDeployStatus, withTimeout } from './http.js';
 import {
   audit,
   dryRun,
@@ -103,14 +95,19 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
       this.env.STORE_REPO,
       this.env.GITHUB_TOKEN,
     );
-    if (registry.status === 'unavailable') throw new Error(`registry unavailable: ${registry.detail}`);
+    if (registry.status === 'unavailable')
+      throw new Error(`registry unavailable: ${registry.detail}`);
     if (registry.status === 'missing') return false;
     // The MCP write policy deliberately authorizes creators only; the common
     // evaluator still exposes all facts for conformance and future operations.
-    return ownershipFacts(registry.games.find((g) => g.id === gameId), login, {
-      isOrgMember: false,
-      isLegacyAcceptedCollaborator: false,
-    }).isCreator;
+    return ownershipFacts(
+      registry.games.find((g) => g.id === gameId),
+      login,
+      {
+        isOrgMember: false,
+        isLegacyAcceptedCollaborator: false,
+      },
+    ).isCreator;
   }
 
   /** Safety context for the current caller: env (read-only flag + audit KV) and
@@ -218,15 +215,19 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
         // shipped — that is the case where it carries real information (the host
         // is genuinely down) rather than fabricating liveness.
         const registry = await readRegistryGames(org, this.env.STORE_REPO, this.env.GITHUB_TOKEN);
-        const entry = registry.status === 'available' ? registry.games.find((g) => g.id === game_id) : undefined;
+        const entry =
+          registry.status === 'available'
+            ? registry.games.find((g) => g.id === game_id)
+            : undefined;
         // Absent entry → unlisted; absent status → predates the field, so live.
-        const buildStatus = registry.status === 'unavailable'
-          ? 'unavailable'
-          : !entry
-          ? 'unlisted'
-          : entry.status === 'pending' || entry.status === 'failed'
-            ? entry.status
-            : 'live';
+        const buildStatus =
+          registry.status === 'unavailable'
+            ? 'unavailable'
+            : !entry
+              ? 'unlisted'
+              : entry.status === 'pending' || entry.status === 'failed'
+                ? entry.status
+                : 'live';
 
         let status: string;
         if (buildStatus === 'unavailable') {
@@ -1431,7 +1432,7 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
                 if (ev.type === 'tool_call') {
                   const tc = JSON.parse(ev.data);
                   trace.push(
-                    `tool: ${tc.name}${tc.input?.path ? ' ' + tc.input.path : tc.input?.id ? ' ' + tc.input.id : ''}`,
+                    `tool: ${tc.name}${tc.input?.path ? ` ${tc.input.path}` : tc.input?.id ? ` ${tc.input.id}` : ''}`,
                   );
                 } else if (ev.type === 'deploy_status') {
                   const d = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data;
@@ -1534,9 +1535,9 @@ Variants: primary | secondary | ghost | danger. Sizes: sm | md | lg.`,
         // tell the caller every resource was removed if one of those steps
         // failed.
         const failedSteps = Array.isArray((result as { steps?: unknown }).steps)
-          ? (result as { steps: Array<{ name?: unknown; detail?: unknown; status?: unknown }> }).steps.filter(
-              (step) => step.status === 'fail',
-            )
+          ? (
+              result as { steps: Array<{ name?: unknown; detail?: unknown; status?: unknown }> }
+            ).steps.filter((step) => step.status === 'fail')
           : [];
         if (failedSteps.length) {
           const details = failedSteps

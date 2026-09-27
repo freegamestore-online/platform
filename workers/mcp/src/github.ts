@@ -96,15 +96,33 @@ export interface OwnershipFacts {
 }
 
 const RESERVED_GAME_IDS = new Set([
-  'freegamestore', 'submissions', 'template-game-canvas', 'template-game-3d',
-  'template-game-grid', 'template-game-cards', 'template-game-kaplay',
-  'template-game-phaser', 'template-game-pixi', 'template-game-babylon',
-  'template-game-excalibur', 'template-game-littlejs', 'brand', 'ops', 'sdk',
+  'freegamestore',
+  'submissions',
+  'template-game-canvas',
+  'template-game-3d',
+  'template-game-grid',
+  'template-game-cards',
+  'template-game-kaplay',
+  'template-game-phaser',
+  'template-game-pixi',
+  'template-game-babylon',
+  'template-game-excalibur',
+  'template-game-littlejs',
+  'brand',
+  'ops',
+  'sdk',
 ]);
 
 export function validateGameId(id: string): boolean {
-  return id.length >= 3 && id.length <= 58 && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(id) &&
-    !id.startsWith('free') && !id.startsWith('pro') && !id.startsWith('template-game-') && !RESERVED_GAME_IDS.has(id);
+  return (
+    id.length >= 3 &&
+    id.length <= 58 &&
+    /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(id) &&
+    !id.startsWith('free') &&
+    !id.startsWith('pro') &&
+    !id.startsWith('template-game-') &&
+    !RESERVED_GAME_IDS.has(id)
+  );
 }
 
 export function ownershipFacts(
@@ -172,7 +190,8 @@ export async function readRegistryGames(
   if (raw !== null) {
     try {
       const data = JSON.parse(raw) as { games?: Array<Record<string, unknown>> };
-      if (Array.isArray(data.games)) return { status: 'available', games: data.games as RegistryGame[] };
+      if (Array.isArray(data.games))
+        return { status: 'available', games: data.games as RegistryGame[] };
       contentsState = 'unavailable';
     } catch {
       contentsState = 'unavailable';
@@ -188,13 +207,17 @@ export async function readRegistryGames(
     );
     if (fallback.ok) {
       const data = (await fallback.json()) as { games?: unknown };
-      if (Array.isArray(data.games)) return { status: 'available', games: data.games as RegistryGame[] };
+      if (Array.isArray(data.games))
+        return { status: 'available', games: data.games as RegistryGame[] };
       return { status: 'unavailable', detail: 'raw registry games is not an array' };
     }
     if (contentsMissing && fallback.status === 404) return { status: 'missing' };
     return { status: 'unavailable', detail: `raw registry ${fallback.status}` };
   } catch (error) {
-    return { status: 'unavailable', detail: error instanceof Error ? error.message : String(error) };
+    return {
+      status: 'unavailable',
+      detail: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
