@@ -1,4 +1,5 @@
 import { corsHeaders, getCookie, resolveCreator, SESSION_COOKIE } from '../_auth';
+import { validateId } from '../_validate';
 
 interface Env {
   SESSIONS: KVNamespace;
@@ -29,7 +30,8 @@ async function proxy(
   if (!user) return json({ error: 'Unauthorized' }, 401);
 
   const id = String(context.params.id ?? '');
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) return json({ error: 'Invalid game id' }, 400);
+  const idError = validateId(id);
+  if (idError) return json({ error: idError }, 400);
 
   const init: RequestInit = {
     method,

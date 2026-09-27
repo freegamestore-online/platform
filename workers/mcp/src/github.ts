@@ -73,6 +73,52 @@ export interface RepoFile {
   encoding: 'base64';
 }
 
+export interface RegistryGame {
+  id: string;
+  creatorGithub?: string;
+  category?: string;
+  description?: string;
+  appUrl?: string;
+  repo?: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
+export type RegistryReadResult =
+  | { status: 'available'; games: RegistryGame[] }
+  | { status: 'missing' }
+  | { status: 'unavailable'; detail: string };
+
+export interface OwnershipFacts {
+  isCreator: boolean;
+  isOrgMember: boolean;
+  isLegacyAcceptedCollaborator: boolean;
+}
+
+const RESERVED_GAME_IDS = new Set([
+  'freegamestore', 'submissions', 'template-game-canvas', 'template-game-3d',
+  'template-game-grid', 'template-game-cards', 'template-game-kaplay',
+  'template-game-phaser', 'template-game-pixi', 'template-game-babylon',
+  'template-game-excalibur', 'template-game-littlejs', 'brand', 'ops', 'sdk',
+]);
+
+export function validateGameId(id: string): boolean {
+  return id.length >= 3 && id.length <= 58 && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(id) &&
+    !id.startsWith('free') && !id.startsWith('pro') && !id.startsWith('template-game-') && !RESERVED_GAME_IDS.has(id);
+}
+
+export function ownershipFacts(
+  game: Pick<RegistryGame, 'creatorGithub'> | undefined,
+  login: string,
+  signals: Pick<OwnershipFacts, 'isOrgMember' | 'isLegacyAcceptedCollaborator'>,
+): OwnershipFacts {
+  return {
+    isCreator: !!game?.creatorGithub && game.creatorGithub.toLowerCase() === login.toLowerCase(),
+    isOrgMember: signals.isOrgMember,
+    isLegacyAcceptedCollaborator: !game?.creatorGithub && signals.isLegacyAcceptedCollaborator,
+  };
+}
+
 /** Fetch every file of a template repo, substituting APPNAME -> gameId in text
  *  files (matches `fgs init`). Returns path -> base64 content. */
 export async function fetchTemplateFiles(
@@ -111,35 +157,45 @@ export async function readRegistryGames(
   org: string,
   storeRepo: string,
   token?: string,
-): Promise<
-  Array<{
-    id: string;
-    creatorGithub?: string;
-    category?: string;
-    description?: string;
-    appUrl?: string;
-    repo?: string;
-    status?: string;
-  }>
-> {
-  // readRepoFile throws on anything but a confirmed 404, so an outage never
-  // reads as an empty registry (which every caller would take as "no games").
-  const raw = await readRepoFile(org, storeRepo, token, 'registry.json');
-  if (raw === null) return [];
-  let data: { games?: Array<Record<string, unknown>> };
+): Promise<RegistryReadResult> {
+  let contentsState: 'missing' | 'unavailable' = 'unavailable';
+  let contentsMissing = false;
+  let contentsErrored = false;
+  let raw: string | null;
   try {
-    data = JSON.parse(raw);
-  } catch {
-    throw new GitHubError(`registry.json in ${org}/${storeRepo} is not valid JSON`);
+    raw = await readRepoFile(org, storeRepo, token, 'registry.json');
+  } catch (error) {
+    contentsState = 'unavailable';
+    contentsErrored = true;
+    raw = null;
   }
-  return (data.games ?? []) as Array<{
-    id: string;
-    creatorGithub?: string;
-    category?: string;
-    description?: string;
-    appUrl?: string;
-    repo?: string;
-  }>;
+  if (raw !== null) {
+    try {
+      const data = JSON.parse(raw) as { games?: Array<Record<string, unknown>> };
+      if (Array.isArray(data.games)) return { status: 'available', games: data.games as RegistryGame[] };
+      contentsState = 'unavailable';
+    } catch {
+      contentsState = 'unavailable';
+    }
+  } else if (!contentsErrored) {
+    contentsState = 'missing';
+    contentsMissing = true;
+  }
+  try {
+    const fallback = await fetch(
+      `https://raw.githubusercontent.com/${org}/${storeRepo}/main/registry.json`,
+      { headers: { 'User-Agent': UA } },
+    );
+    if (fallback.ok) {
+      const data = (await fallback.json()) as { games?: unknown };
+      if (Array.isArray(data.games)) return { status: 'available', games: data.games as RegistryGame[] };
+      return { status: 'unavailable', detail: 'raw registry games is not an array' };
+    }
+    if (contentsMissing && fallback.status === 404) return { status: 'missing' };
+    return { status: 'unavailable', detail: `raw registry ${fallback.status}` };
+  } catch (error) {
+    return { status: 'unavailable', detail: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 async function sleep(ms: number) {

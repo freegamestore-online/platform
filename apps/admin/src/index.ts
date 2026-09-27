@@ -13,6 +13,7 @@ import {
   setGameStatus,
   setGameStatuses,
 } from './publish';
+import { readRegistry } from './registryReader';
 
 interface Env {
   CF_ACCOUNT_ID: string;
@@ -213,8 +214,6 @@ interface QualityData {
   games: QualityGame[];
 }
 
-const REGISTRY_URL =
-  'https://raw.githubusercontent.com/freegamestore-online/freegamestore/main/registry.json';
 const QUALITY_URL =
   'https://raw.githubusercontent.com/freegamestore-online/freegamestore/main/data/quality-results.json';
 const ORG = 'freegamestore-online';
@@ -232,36 +231,8 @@ const DOMAIN = 'freegamestore.online';
  *  would delete every route). `[]` means the registry loaded and is genuinely
  *  empty; callers that just render tolerate `?? []`. */
 async function fetchRegistryItems(env: Env): Promise<any[] | null> {
-  if (env.GITHUB_TOKEN) {
-    try {
-      const res = await fetch(
-        `https://api.github.com/repos/${ORG}/freegamestore/contents/registry.json`,
-        {
-          headers: {
-            Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-            Accept: 'application/vnd.github.raw+json',
-            'User-Agent': 'freegamestore-admin',
-          },
-        },
-      );
-      if (res.ok) {
-        const data = (await res.json()) as any;
-        return data.games || [];
-      }
-    } catch {
-      /* fall through to the raw CDN URL */
-    }
-  }
-  try {
-    const res = await fetch(REGISTRY_URL, { headers: { 'User-Agent': 'freegamestore-admin' } });
-    if (res.ok) {
-      const data = (await res.json()) as any;
-      return data.games || [];
-    }
-  } catch {
-    /* both attempts failed */
-  }
-  return null;
+  const result = await readRegistry(env.GITHUB_TOKEN);
+  return result.status === 'available' ? result.games : null;
 }
 
 async function fetchRegistry(env: Env): Promise<GameConfig[]> {

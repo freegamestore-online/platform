@@ -10,9 +10,16 @@
 // admin (edit/provision guards) and the agent (import gate). Per the workspace
 // "vendor, don't depend" rule those are separate copies; keep them in sync.
 
+import { validateId } from './_validate';
+
 export const ORG = 'freegamestore-online';
 const DOMAIN = 'freegamestore.online';
 const REGISTRY_URL = `https://raw.githubusercontent.com/${ORG}/freegamestore/main/registry.json`;
+
+export type RegistryReadResult =
+  | { status: 'available'; games: RegistryGame[] }
+  | { status: 'missing' }
+  | { status: 'unavailable' };
 
 /** Immutable snapshot written for new remixes (#44). String remains accepted
  * for #35-era registry records that cannot be safely reconstructed. */
@@ -76,15 +83,39 @@ const ghHeaders = (token: string) => ({
   'User-Agent': 'freegamestore-publisher',
 });
 
-const VALID_ID = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+const VALID_ID = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 const VALID_GH_LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
+
+function isCanonicalId(id: string): boolean {
+  return VALID_ID.test(id) && validateId(id) === null;
+}
+
+export interface OwnershipFacts {
+  isCreator: boolean;
+  isOrgMember: boolean;
+  isLegacyAcceptedCollaborator: boolean;
+}
+
+/** Shared-contract facts; individual endpoints decide which facts authorize an operation. */
+export function ownershipFacts(
+  game: Pick<RegistryGame, 'creatorGithub'> | undefined,
+  login: string,
+  signals: Pick<OwnershipFacts, 'isOrgMember' | 'isLegacyAcceptedCollaborator'>,
+): OwnershipFacts {
+  const isCreator = !!game?.creatorGithub && game.creatorGithub.toLowerCase() === login.toLowerCase();
+  return {
+    isCreator,
+    isOrgMember: signals.isOrgMember,
+    isLegacyAcceptedCollaborator: !game?.creatorGithub && signals.isLegacyAcceptedCollaborator,
+  };
+}
 
 function isForkAttribution(value: unknown): value is ForkAttribution {
   if (!value || typeof value !== 'object') return false;
   const attribution = value as Record<string, unknown>;
   return (
     typeof attribution.id === 'string' &&
-    VALID_ID.test(attribution.id) &&
+    isCanonicalId(attribution.id) &&
     typeof attribution.name === 'string' &&
     attribution.name.trim().length > 0 &&
     typeof attribution.creatorGithub === 'string' &&
@@ -133,7 +164,8 @@ export function normalizeForkedFrom(
  *  games and mis-gates create (a re-provision of their own id 409s); callers
  *  must surface `null` as temporarily-unavailable instead. `[]` means the
  *  registry loaded and is genuinely empty. */
-export async function getRegistry(token?: string): Promise<RegistryGame[] | null> {
+export async function getRegistryState(token?: string): Promise<RegistryReadResult> {
+  let contentsMissing = false;
   if (token) {
     try {
       const res = await fetch(
@@ -144,7 +176,9 @@ export async function getRegistry(token?: string): Promise<RegistryGame[] | null
       );
       if (res.ok) {
         const reg = (await res.json()) as { games?: RegistryGame[] };
-        return reg.games ?? [];
+        if (Array.isArray(reg.games)) return { status: 'available', games: reg.games };
+      } else if (res.status === 404) {
+        contentsMissing = true;
       }
     } catch {
       /* fall through to the raw CDN URL */
@@ -154,12 +188,20 @@ export async function getRegistry(token?: string): Promise<RegistryGame[] | null
     const res = await fetch(REGISTRY_URL, { headers: { 'User-Agent': 'freegamestore-publisher' } });
     if (res.ok) {
       const reg = (await res.json()) as { games?: RegistryGame[] };
-      return reg.games ?? [];
+      if (Array.isArray(reg.games)) return { status: 'available', games: reg.games };
+    } else if (res.status === 404 && contentsMissing) {
+      return { status: 'missing' };
     }
   } catch {
     /* both attempts failed */
   }
-  return null;
+  return { status: 'unavailable' };
+}
+
+/** Compatibility projection for existing routes; callers that need diagnostics use getRegistryState. */
+export async function getRegistry(token?: string): Promise<RegistryGame[] | null> {
+  const result = await getRegistryState(token);
+  return result.status === 'available' ? result.games : null;
 }
 
 /** True if `login` is a member of the org (→ admin-all view). */

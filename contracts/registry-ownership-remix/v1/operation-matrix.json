@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "operations": {
+    "console_owned_list": { "allow": ["isCreator", "isLegacyAcceptedCollaborator"], "separateFact": "isOrgMember exposes adminAll, not owned" },
+    "admin_self_service_update": { "allow": ["isCreator"] },
+    "admin_delete": { "allow": ["isCreator", "allowlistedAdminOverride"] },
+    "agent_open_existing": { "allow": ["isCreator", "isOrgMember", "isLegacyAcceptedCollaborator"] },
+    "mcp_update_files": { "allow": ["isCreator"], "note": "MCP deliberately does not infer admin or legacy-collaborator authority" }
+  },
+  "registryUnavailable": "deny_or_retry; never treat as an empty registry or an ownership denial"
+}

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "cases": [
+    { "id": "arcade-run", "valid": true },
+    { "id": "game123", "valid": true },
+    { "id": "a1b", "valid": true },
+    { "id": "ab", "valid": false, "reason": "too_short" },
+    { "id": "", "valid": false, "reason": "empty" },
+    { "id": "Game", "valid": false, "reason": "grammar" },
+    { "id": "game-", "valid": false, "reason": "grammar" },
+    { "id": "-game", "valid": false, "reason": "grammar" },
+    { "id": "free-play", "valid": false, "reason": "reserved_prefix" },
+    { "id": "pro-play", "valid": false, "reason": "reserved_prefix" },
+    { "id": "template-game-new", "valid": false, "reason": "reserved_prefix" },
+    { "id": "freegamestore", "valid": false, "reason": "reserved" },
+    { "id": "submissions", "valid": false, "reason": "reserved" },
+    { "id": "template-game-canvas", "valid": false, "reason": "reserved" },
+    { "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "valid": true },
+    { "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "valid": false, "reason": "too_long" }
+  ]
+}

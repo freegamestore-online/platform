@@ -3,6 +3,7 @@
 import type { StoreConfig } from "./config";
 import { type DeployEnv, filterLogErrorLines } from "./deploy";
 import { makeGhApi, resilientFetch } from "./ghfetch";
+import { readRegistry } from "./registry";
 
 async function cfApi(token: string, _accountId: string, path: string) {
   const res = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
@@ -39,12 +40,10 @@ export async function checkDeployStatus(appId: string, env: DeployEnv, config: S
 
 /** List all items from the store registry. */
 export async function listDeployed(env: DeployEnv, config: StoreConfig): Promise<string> {
-  const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
-  const file = await ghApi(`/repos/${config.org}/${config.storeRepo}/contents/registry.json`);
-  if (!file.content) return "Could not read registry.";
-  const rawBytes = Uint8Array.from(atob(file.content.replace(/\n/g, "")), (c) => c.charCodeAt(0));
-  const registry = JSON.parse(new TextDecoder().decode(rawBytes));
-  const items = registry[config.nounPlural] || [];
+  const registry = await readRegistry(config, env.GITHUB_TOKEN);
+  if (registry.status !== "available")
+    return registry.status === "missing" ? "Registry is missing." : "Registry is temporarily unavailable.";
+  const items = registry.games;
   if (items.length === 0) return `No ${config.nounPlural} deployed yet.`;
   return items.map((a: any) => `${a.id} — ${a.name} (${a.category}) ${a.appUrl}`).join("\n");
 }

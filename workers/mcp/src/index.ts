@@ -8,6 +8,7 @@ import {
   listRepoFiles,
   pushFiles,
   type RepoFile,
+  ownershipFacts,
   readRegistryGames,
   readRepoFile,
   textToB64,
@@ -97,16 +98,19 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
   private async ownsGame(gameId: string): Promise<boolean> {
     const login = this.session.userId;
     if (!login) return false;
-    const games = await readRegistryGames(
+    const registry = await readRegistryGames(
       this.env.GITHUB_ORG,
       this.env.STORE_REPO,
       this.env.GITHUB_TOKEN,
     );
-    // GitHub logins are case-insensitive; the agent/publisher/admin all compare
-    // lowercased. Match that here so registry casing drift doesn't wrongly deny.
-    return games.some(
-      (g) => g.id === gameId && g.creatorGithub?.toLowerCase() === login.toLowerCase(),
-    );
+    if (registry.status === 'unavailable') throw new Error(`registry unavailable: ${registry.detail}`);
+    if (registry.status === 'missing') return false;
+    // The MCP write policy deliberately authorizes creators only; the common
+    // evaluator still exposes all facts for conformance and future operations.
+    return ownershipFacts(registry.games.find((g) => g.id === gameId), login, {
+      isOrgMember: false,
+      isLegacyAcceptedCollaborator: false,
+    }).isCreator;
   }
 
   /** Safety context for the current caller: env (read-only flag + audit KV) and
@@ -213,17 +217,21 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
         // The probe is still worth running for a game the registry says HAS
         // shipped — that is the case where it carries real information (the host
         // is genuinely down) rather than fabricating liveness.
-        const games = await readRegistryGames(org, this.env.STORE_REPO, this.env.GITHUB_TOKEN);
-        const entry = games.find((g) => g.id === game_id);
+        const registry = await readRegistryGames(org, this.env.STORE_REPO, this.env.GITHUB_TOKEN);
+        const entry = registry.status === 'available' ? registry.games.find((g) => g.id === game_id) : undefined;
         // Absent entry → unlisted; absent status → predates the field, so live.
-        const buildStatus = !entry
+        const buildStatus = registry.status === 'unavailable'
+          ? 'unavailable'
+          : !entry
           ? 'unlisted'
           : entry.status === 'pending' || entry.status === 'failed'
             ? entry.status
             : 'live';
 
         let status: string;
-        if (buildStatus === 'unlisted') {
+        if (buildStatus === 'unavailable') {
+          status = 'Store registry is temporarily unavailable';
+        } else if (buildStatus === 'unlisted') {
           status = 'Not listed in the store registry';
         } else if (buildStatus === 'pending') {
           status = 'Building — provisioned, but no successful build yet (not live)';

@@ -78,13 +78,21 @@ const STARTERS = [
 ];
 
 const ID_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+const RESERVED_IDS = new Set([
+  'freegamestore', 'submissions', 'template-game-canvas', 'template-game-3d',
+  'template-game-grid', 'template-game-cards', 'template-game-kaplay',
+  'template-game-phaser', 'template-game-pixi', 'template-game-babylon',
+  'template-game-excalibur', 'template-game-littlejs', 'brand', 'ops', 'sdk',
+]);
 
 function validateId(id: string): string | null {
   if (!id) return null;
+  if (id.length < 3) return '3 chars min';
   if (id.length > 58) return '58 chars max';
   if (!/^[a-z0-9-]*$/.test(id)) return 'Lowercase letters, numbers, dashes only';
   if (!ID_RE.test(id)) return 'Cannot start or end with a dash';
   if (id.startsWith('free') || id.startsWith('pro')) return "Cannot start with 'free' or 'pro'";
+  if (id.startsWith('template-game-') || RESERVED_IDS.has(id)) return 'Reserved id';
   return null;
 }
 

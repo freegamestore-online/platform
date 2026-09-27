@@ -6,6 +6,7 @@ import type { DeployEnv, DeployStatus } from "./deploy";
 import { ACTIONS_DEPLOY_CEILING_MS, deployApp, pushUpdate, substituteAppName, waitForActionsDeploy } from "./deploy";
 import { checkDeployStatus, fetchUrl, getAuditResults, getBuildLogs, getCIResults, listDeployed } from "./infra";
 import type { ToolCall } from "./providers/types";
+import { validateGameId } from "./registry";
 
 interface ExecContext {
   appId: string | null;
@@ -64,7 +65,7 @@ export async function executeInfraTool(tc: ToolCall, ctx: ExecContext): Promise<
   // Validate deploy ID (id presence already enforced above for deploy).
   if (tc.name === "deploy") {
     const id = tc.input.id as string;
-    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(id) || id.length > 58 || id.startsWith("free") || id.startsWith("pro")) {
+    if (!validateGameId(id)) {
       return `Error: invalid ${config.noun} ID "${id}". Must be lowercase, numbers, hyphens. No "free"/"pro" prefix. Max 58 chars.`;
     }
     if (ctx.appId && ctx.appId !== id) {

@@ -8,14 +8,7 @@
  */
 import type { StoreConfig } from "./config";
 import { resilientFetch } from "./ghfetch";
-
-export interface RegistryGame {
-  id: string;
-  name?: string;
-  creatorGithub?: string;
-  developer?: string;
-  appUrl?: string;
-}
+import { ownershipFacts, type RegistryGame, readRegistry } from "./registry";
 
 function gh(path: string, token: string, agentName: string, accept = "application/vnd.github+json"): Promise<Response> {
   // resilientFetch adds a timeout + transient-failure retry but leaves the body
@@ -48,46 +41,15 @@ export class OwnershipLookupError extends Error {
  *  "not found" and un-editable by its own creator for minutes. Mirrors the
  *  publisher's `_games.ts getRegistry` (vendored copy, kept in sync by hand).
  *  Throws OwnershipLookupError when EVERY attempt failed. */
-async function fetchRegistry(config: StoreConfig, token: string): Promise<RegistryGame[]> {
-  const failures: string[] = [];
-  // Authenticated contents API — uncached. Accept: raw returns the file body
-  // directly (not the base64-wrapped metadata envelope).
-  try {
-    const res = await gh(
-      `/repos/${config.org}/${config.storeRepo}/contents/registry.json`,
-      token,
-      config.agentName,
-      "application/vnd.github.raw+json",
-    );
-    if (res.ok) {
-      const reg = (await res.json()) as Record<string, RegistryGame[] | undefined>;
-      return reg[config.nounPlural] ?? [];
-    }
-    failures.push(`contents API ${res.status}`);
-  } catch (e) {
-    failures.push(`contents API ${e instanceof Error ? e.message : String(e)}`);
-  }
-  // Fallback: the CDN-cached raw URL (no token needed).
-  try {
-    const url = `https://raw.githubusercontent.com/${config.org}/${config.storeRepo}/main/registry.json`;
-    const res = await fetch(url, { headers: { "User-Agent": config.agentName } });
-    if (res.ok) {
-      const reg = (await res.json()) as Record<string, RegistryGame[] | undefined>;
-      return reg[config.nounPlural] ?? [];
-    }
-    failures.push(`raw ${res.status}`);
-  } catch (e) {
-    failures.push(`raw ${e instanceof Error ? e.message : String(e)}`);
-  }
-  throw new OwnershipLookupError(`store registry unavailable (${failures.join("; ")})`);
-}
-
 /** Look up a single game in the store registry by id. Null only when the
  *  registry was read and has no such game; throws OwnershipLookupError when
  *  the registry could not be read. */
 export async function fetchRegistryGame(config: StoreConfig, token: string, id: string): Promise<RegistryGame | null> {
-  const games = await fetchRegistry(config, token);
-  return games.find((g) => g.id === id) ?? null;
+  const registry = await readRegistry(config, token);
+  if (registry.status === "available") return registry.games.find((g) => g.id === id) ?? null;
+  throw new OwnershipLookupError(
+    registry.status === "missing" ? "store registry missing" : `store registry unavailable (${registry.detail})`,
+  );
 }
 
 /** 204 → yes, 404 → no; anything else (auth, outage, network) throws, so a
@@ -123,19 +85,25 @@ export async function ownsGame(
   const game = await fetchRegistryGame(config, token, id);
   if (!game) return { owns: false, game: null };
 
-  const lc = login.toLowerCase();
-  if (game.creatorGithub && game.creatorGithub.toLowerCase() === lc) {
+  if (ownershipFacts(game, login, false, false).isCreator) {
     return { owns: true, game };
   }
 
   // Org member → admin-all.
-  if (await probe(`/orgs/${config.org}/members/${login}`, token, config.agentName, "org membership")) {
+  const isOrgMember = await probe(`/orgs/${config.org}/members/${login}`, token, config.agentName, "org membership");
+  if (ownershipFacts(game, login, isOrgMember, false).isOrgMember) {
     return { owns: true, game };
   }
 
   // Legacy games with no recorded creator: accepted-collaborator check.
   if (!game.creatorGithub) {
-    if (await probe(`/repos/${config.org}/${id}/collaborators/${login}`, token, config.agentName, "collaborator")) {
+    const isLegacyAcceptedCollaborator = await probe(
+      `/repos/${config.org}/${id}/collaborators/${login}`,
+      token,
+      config.agentName,
+      "collaborator",
+    );
+    if (ownershipFacts(game, login, false, isLegacyAcceptedCollaborator).isLegacyAcceptedCollaborator) {
       return { owns: true, game };
     }
   }

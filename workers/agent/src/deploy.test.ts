@@ -256,7 +256,7 @@ describe("deploy ID validation edge cases", () => {
     expect(result).not.toContain("invalid");
   });
 
-  it("allows single character ID", async () => {
+  it("rejects single character ID under the v1 contract", async () => {
     globalThis.fetch = vi
       .fn()
       .mockResolvedValueOnce({ status: 404 })
@@ -274,7 +274,7 @@ describe("deploy ID validation edge cases", () => {
         onAppDeployed: vi.fn(),
       },
     );
-    expect(result).not.toContain("invalid");
+    expect(result).toContain("invalid");
   });
 });
 

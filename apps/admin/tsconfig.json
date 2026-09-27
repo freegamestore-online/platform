@@ -5,7 +5,9 @@
     "moduleResolution": "bundler",
     "strict": true,
     "lib": ["ESNext"],
-    "types": ["@cloudflare/workers-types"]
+    "types": ["@cloudflare/workers-types"],
+    "resolveJsonModule": true,
+    "skipLibCheck": true
   },
   "include": ["src"]
 }

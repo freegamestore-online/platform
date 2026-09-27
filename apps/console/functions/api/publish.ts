@@ -1,5 +1,6 @@
 import { corsHeaders, getCookie, resolveCreator, SESSION_COOKIE } from './_auth';
 import { listUserGames } from './_games';
+import { validateId } from './_validate';
 
 interface Env {
   GITHUB_TOKEN: string;
@@ -43,8 +44,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return json({ error: 'Invalid JSON body' }, 400);
   }
   const id = body.id;
-  if (!id) return json({ error: 'id required' }, 400);
-  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(id)) return json({ error: 'invalid id' }, 400);
+  const idError = validateId(id || '');
+  if (idError) return json({ error: idError }, 400);
   if (!body.name) return json({ error: 'name required' }, 400);
 
   // Ownership: the caller must OWN the game by registry `creatorGithub` (which

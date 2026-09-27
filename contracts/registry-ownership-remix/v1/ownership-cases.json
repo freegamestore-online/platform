@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "cases": [
+    { "name": "creator_case_insensitive", "creatorGithub": "Original-Creator", "login": "original-creator", "isOrgMember": false, "isLegacyAcceptedCollaborator": false, "expected": { "isCreator": true, "isOrgMember": false, "isLegacyAcceptedCollaborator": false } },
+    { "name": "other_creator", "creatorGithub": "someone-else", "login": "creator", "isOrgMember": false, "isLegacyAcceptedCollaborator": false, "expected": { "isCreator": false, "isOrgMember": false, "isLegacyAcceptedCollaborator": false } },
+    { "name": "org_member", "creatorGithub": "someone-else", "login": "operator", "isOrgMember": true, "isLegacyAcceptedCollaborator": false, "expected": { "isCreator": false, "isOrgMember": true, "isLegacyAcceptedCollaborator": false } },
+    { "name": "legacy_collaborator", "login": "legacy-owner", "isOrgMember": false, "isLegacyAcceptedCollaborator": true, "expected": { "isCreator": false, "isOrgMember": false, "isLegacyAcceptedCollaborator": true } },
+    { "name": "legacy_non_collaborator", "login": "visitor", "isOrgMember": false, "isLegacyAcceptedCollaborator": false, "expected": { "isCreator": false, "isOrgMember": false, "isLegacyAcceptedCollaborator": false } }
+  ]
+}

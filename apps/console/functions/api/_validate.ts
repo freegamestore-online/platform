@@ -30,6 +30,7 @@ export const INFRA_REPOS = new Set([
 /** Returns an error string if `id` is not a provisionable game id, else null. */
 export function validateId(id: string): string | null {
   if (!id) return 'ID is required';
+  if (id.length < 3) return 'ID must be at least 3 characters';
   if (id.length > 58) return '58 characters max';
   if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(id))
     return 'Lowercase letters, numbers, dashes only. No leading/trailing dash.';

@@ -1,3 +1,5 @@
+import { readRegistry } from './registryReader';
+
 // Publish API -- provisions a new game on FreeGameStore via Path B.
 // POST /api/provision
 // Body: { id, name, category, icon, iconBg, description, type?, creatorGithub? }
@@ -197,8 +199,9 @@ const INFRA_REPOS = new Set([
   'sdk',
 ]);
 
-function validateId(id: string): string | null {
+export function validateId(id: string): string | null {
   if (!id) return 'ID is required';
+  if (id.length < 3) return 'ID must be at least 3 characters';
   if (id.length > 58) return 'ID must be 58 characters or less';
   if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(id))
     return 'ID must be lowercase letters, numbers, and dashes only. Cannot start/end with a dash.';
@@ -214,6 +217,26 @@ function validateId(id: string): string | null {
 // into a privileged github.com path + written to the registry as the ownership
 // key), so an invalid value must abort the whole provision — never be persisted.
 const VALID_GH_LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
+
+export interface OwnershipFacts {
+  isCreator: boolean;
+  isOrgMember: boolean;
+  isLegacyAcceptedCollaborator: boolean;
+}
+
+/** Shared-contract facts; admin operations choose their own authorization policy. */
+export function ownershipFacts(
+  game: { creatorGithub?: unknown } | undefined,
+  login: string,
+  signals: Pick<OwnershipFacts, 'isOrgMember' | 'isLegacyAcceptedCollaborator'>,
+): OwnershipFacts {
+  const creator = typeof game?.creatorGithub === 'string' ? game.creatorGithub : '';
+  return {
+    isCreator: !!creator && creator.toLowerCase() === login.toLowerCase(),
+    isOrgMember: signals.isOrgMember,
+    isLegacyAcceptedCollaborator: !creator && signals.isLegacyAcceptedCollaborator,
+  };
+}
 
 function isForkAttribution(value: unknown): value is ForkAttribution {
   if (!value || typeof value !== 'object') return false;
@@ -770,28 +793,16 @@ async function getSourceForkAttribution(
   sourceId: string,
   forkedAt: string,
 ): Promise<{ attribution?: ForkAttribution; error?: string }> {
-  const registryPath = `/repos/${STORE_CONFIG.org}/${STORE_CONFIG.storeRepo}/contents/registry.json`;
-  const registryFile = await ghApi(env, registryPath);
-  if (!registryFile.content) return { error: 'Could not read source attribution from registry' };
-  try {
-    const raw = new TextDecoder().decode(
-      Uint8Array.from(atob(registryFile.content.replace(/\n/g, '')), (c) => c.charCodeAt(0)),
-    );
-    const content = JSON.parse(raw) as Record<string, unknown>;
-    const items = Array.isArray(content[STORE_CONFIG.registryKey])
-      ? (content[STORE_CONFIG.registryKey] as Array<Record<string, unknown>>)
-      : [];
-    const attribution = snapshotForkAttribution(
-      sourceId,
-      items.find((item) => item.id === sourceId),
-      forkedAt,
-    );
-    return attribution
-      ? { attribution }
-      : { error: `Source ${sourceId} has incomplete immutable attribution data` };
-  } catch {
-    return { error: 'Could not parse source attribution from registry' };
-  }
+  const result = await readRegistry(env.GITHUB_TOKEN);
+  if (result.status !== 'available') return { error: 'Could not read source attribution from registry' };
+  const attribution = snapshotForkAttribution(
+    sourceId,
+    result.games.find((item) => item.id === sourceId),
+    forkedAt,
+  );
+  return attribution
+    ? { attribution }
+    : { error: `Source ${sourceId} has incomplete immutable attribution data` };
 }
 
 export async function handlePublish(
@@ -1175,7 +1186,7 @@ export async function handleUpdateGame(
   // are case-insensitive, so a casing difference must not make an owned game
   // uneditable.
   const owner = typeof game.creatorGithub === 'string' ? game.creatorGithub : '';
-  if (!owner || owner.toLowerCase() !== login.toLowerCase()) {
+  if (!ownershipFacts(game, login, { isOrgMember: false, isLegacyAcceptedCollaborator: false }).isCreator) {
     return {
       error: owner
         ? `Only the creator (${owner}) can update this game`
@@ -1252,7 +1263,10 @@ export async function handleDeleteGame(
   if (opts.adminOverride) {
     console.log(`[deprovision] ADMIN override by ${login} on ${gameId} (owner=${owner || 'none'})`);
   }
-  if (!opts.adminOverride && (!owner || owner.toLowerCase() !== login.toLowerCase())) {
+  if (
+    !opts.adminOverride &&
+    !ownershipFacts(game, login, { isOrgMember: false, isLegacyAcceptedCollaborator: false }).isCreator
+  ) {
     return {
       error: owner
         ? `Only the creator (${owner}) can delete this game`

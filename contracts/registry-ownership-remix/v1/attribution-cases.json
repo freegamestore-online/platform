@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "cases": [
+    { "name": "rich_snapshot", "value": { "id": "source-game", "name": "Source Game", "creatorGithub": "source-creator", "forkedAt": "2026-09-25T00:00:00.000Z" }, "legacyForkedAt": "2026-09-26T00:00:00.000Z", "registry": [], "expected": "rich" },
+    { "name": "legacy_complete", "value": "source-game", "legacyForkedAt": "2026-09-25T00:00:00.000Z", "registry": [{ "id": "source-game", "name": "Source Game", "creatorGithub": "source-creator" }], "expected": "rich" },
+    { "name": "legacy_missing_source", "value": "deleted-source", "legacyForkedAt": "2026-09-25T00:00:00.000Z", "registry": [], "expected": "legacy" },
+    { "name": "legacy_missing_timestamp", "value": "source-game", "registry": [{ "id": "source-game", "name": "Source Game", "creatorGithub": "source-creator" }], "expected": "legacy" },
+    { "name": "malformed_rich_id", "value": { "id": "javascript:alert(1)", "name": "Unsafe", "creatorGithub": "source-creator", "forkedAt": "2026-09-25T00:00:00.000Z" }, "registry": [], "expected": "absent" },
+    { "name": "malformed_rich_timestamp", "value": { "id": "source-game", "name": "Source Game", "creatorGithub": "source-creator", "forkedAt": "not-a-date" }, "registry": [], "expected": "absent" },
+    { "name": "absent", "registry": [], "expected": "absent" }
+  ]
+}

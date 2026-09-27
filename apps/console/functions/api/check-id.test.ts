@@ -36,6 +36,6 @@ describe('check-id validateId', () => {
   it('accepts a well-formed id', () => {
     expect(validateId('coolgame')).toBeNull();
     expect(validateId('my-cool-game2')).toBeNull();
-    expect(validateId('g')).toBeNull();
+    expect(validateId('g')).toBeTruthy();
   });
 });
