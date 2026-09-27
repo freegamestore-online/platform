@@ -13,6 +13,14 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 const read = (p) => readFile(resolve(root, p), 'utf8');
+const TOOL_MODULES = [
+  'src/tools/catalog.ts',
+  'src/tools/game-files.ts',
+  'src/tools/build-session.ts',
+  'src/tools/admin.ts',
+];
+const readToolModules = async () => Promise.all(TOOL_MODULES.map(read));
+const toolSource = async () => (await readToolModules()).join('\n');
 
 const { isReadOnly, requireWritable, requireConfirmation, dryRun, audit, listAuditEvents } =
   await import(resolve(root, 'src/safety.ts'));
@@ -168,47 +176,47 @@ const CONFIRM_TOOLS = ['delete_game', 'discard_session', 'admin_send_prompt'];
 const DRY_RUN_TOOLS = WRITE_TOOLS;
 
 test('every write + destructive tool is gated by requireWritable', async () => {
-  const src = await read('src/index.ts');
+  const src = await toolSource();
   for (const tool of WRITE_TOOLS) {
     assert.match(
       src,
-      new RegExp(`requireWritable\\(\\s*this\\.safety\\(\\),\\s*["']${tool}["']`),
+      new RegExp(`requireWritable\\(\\s*ctx\\.safetyCtx,\\s*["']${tool}["']`),
       `${tool} missing read-only guard`,
     );
   }
 });
 
 test('confirm-gated tools require confirmation; every write tool offers dry_run', async () => {
-  const src = await read('src/index.ts');
+  const src = await toolSource();
   for (const tool of CONFIRM_TOOLS) {
     assert.match(
       src,
-      new RegExp(`requireConfirmation\\(\\s*this\\.safety\\(\\),\\s*["']${tool}["']`),
+      new RegExp(`requireConfirmation\\(\\s*ctx\\.safetyCtx,\\s*["']${tool}["']`),
       `${tool} missing confirmation`,
     );
   }
   for (const tool of DRY_RUN_TOOLS) {
     assert.match(
       src,
-      new RegExp(`dryRun\\(\\s*this\\.safety\\(\\),\\s*["']${tool}["']`),
+      new RegExp(`dryRun\\(\\s*ctx\\.safetyCtx,\\s*["']${tool}["']`),
       `${tool} missing dry_run`,
     );
   }
 });
 
 test('errText carries isError, and mcp_audit_log is exposed', async () => {
-  const src = await read('src/index.ts');
-  assert.match(src, /const errText = [^;]*isError: true/);
+  const [src, registration] = await Promise.all([toolSource(), read('src/tools/registration.ts')]);
+  assert.match(registration, /const errText = [^;]*isError: true/);
   assert.match(src, /["']mcp_audit_log["']/);
-  assert.match(src, /listAuditEvents\(this\.safety\(\)/);
+  assert.match(src, /listAuditEvents\(ctx\.safetyCtx/);
   assert.match(
     src,
-    /audit\(\s*this\.safety\(\),\s*\{\s*tool:\s*["']create_game["'],\s*action:\s*["']success["']/,
+    /audit\(\s*ctx\.safetyCtx,\s*\{\s*tool:\s*["']create_game["'],\s*action:\s*["']success["']/,
   );
 });
 
 test('delete_game reports partial cleanup rather than claiming every downstream step succeeded', async () => {
-  const src = await read('src/index.ts');
+  const src = await read('src/tools/build-session.ts');
   const start = src.indexOf("'delete_game'");
   const end = src.indexOf("'discard_session'", start);
   const tool = src.slice(start, end);
@@ -219,10 +227,10 @@ test('delete_game reports partial cleanup rather than claiming every downstream 
 
 // -- surface: manifest consistency --
 
-test('server.json tool set exactly matches the tools registered in index.ts', async () => {
+test('server.json tool set exactly matches the tools registered across focused modules', async () => {
   const manifest = JSON.parse(await read('server.json'));
-  const src = await read('src/index.ts');
-  const registered = [...src.matchAll(/this\.safeTool\(\s*["']([a-z_]+)["']/g)]
+  const src = await toolSource();
+  const registered = [...src.matchAll(/ctx\.safeTool\(\s*["']([a-z_]+)["']/g)]
     .map((m) => m[1])
     .sort();
   const declared = manifest.tools.map((t) => t.name).sort();
