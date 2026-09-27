@@ -1,20 +1,16 @@
 import { normalizeErrorLogRow } from '../../../contracts/error-log/v1/contract';
+import { routeAdminRequest } from './admin-request-router';
+import { serveAdminStatic } from './admin-static';
 import { handleAuthExchange, handleAuthMe, verifySession } from './auth';
 import { renderApiDocs } from './dashboard';
-import { driftReportFrom, type FleetRow, findDrift, recentRuns, sweepFleet } from './drift';
+import { createAdminDataService } from './data-service';
+import { driftReportFrom, type FleetRow, recentRuns, sweepFleet } from './drift';
 import { errorStats, listErrors, pruneErrors, recordError } from './errlog';
-import {
-  type GameStatus,
-  handleDeleteGame,
-  handlePublish,
-  handleUpdateGame,
-  insertHostRoute,
-  normalizeForkedFrom,
-  readGameStatus,
-  setGameStatus,
-  setGameStatuses,
-} from './publish';
+import { createGameLifecycle } from './lifecycle/game-lifecycle';
+import { createRegistryState, createRemixSource } from './lifecycle/registry-state';
+import { type GameStatus, insertHostRoute } from './publish';
 import { readRegistry } from './registryReader';
+import { createReconciliationService } from './reconciliation-service';
 
 interface Env {
   CF_ACCOUNT_ID: string;
@@ -52,6 +48,12 @@ interface Env {
    *  resolved via the auth worker's /me). Falls back to the sole owner. */
   ADMIN_EMAILS?: string;
 }
+
+// The HTTP layer only depends on these narrow lifecycle ports. The GitHub/D1
+// implementation remains in publish.ts and can be replaced by contract fakes.
+const gameLifecycle = createGameLifecycle();
+const registryState = createRegistryState();
+const remixSource = createRemixSource();
 
 /** Length-checked constant-time-ish string compare for the internal token. */
 function safeEqual(a: string, b: string): boolean {
@@ -190,6 +192,53 @@ async function authenticateLogin(request: Request, env: Env): Promise<string | n
   return null;
 }
 
+/** Auth transport is deliberately kept ahead of every API/static route. */
+async function handleAdminAuthRoute(request: Request, env: Env): Promise<Response | null> {
+  const url = new URL(request.url);
+  // Auth owns the OAuth state cookie; this origin only receives a signed,
+  // short-lived handoff and writes its own host-only session cookie.
+  if (url.pathname === '/auth/handoff' && request.method === 'GET') {
+    const handoff = url.searchParams.get('token') ?? '';
+    if (!handoff) return new Response('missing session handoff', { status: 400 });
+    const exchanged = await env.AUTH.fetch('https://auth.freegamestore.online/handoff/consume', {
+      method: 'POST',
+      headers: {
+        'X-FGS-Handoff': handoff,
+        'X-FGS-Handoff-Target': 'https://admin.freegamestore.online',
+      },
+    });
+    if (!exchanged.ok) return new Response('invalid or expired session handoff', { status: 401 });
+    const body = (await exchanged.json()) as { token?: string };
+    if (!body.token) return new Response('invalid session handoff response', { status: 502 });
+    const returnTo = url.searchParams.get('return_to');
+    let location = 'https://admin.freegamestore.online/';
+    try {
+      if (returnTo && new URL(returnTo).origin === 'https://admin.freegamestore.online')
+        location = returnTo;
+    } catch {
+      /* safe default */
+    }
+    const headers = new Headers({
+      Location: location,
+      'Cache-Control': 'no-store',
+      'Referrer-Policy': 'no-referrer',
+    });
+    headers.append(
+      'Set-Cookie',
+      `__Host-fgs_token=${body.token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`,
+    );
+    headers.append(
+      'Set-Cookie',
+      'fgs_token=; Domain=.freegamestore.online; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0',
+    );
+    return new Response(null, { status: 302, headers });
+  }
+  if (url.pathname === '/v1/auth/exchange' && request.method === 'POST')
+    return handleAuthExchange(request, env);
+  if (url.pathname === '/v1/auth/me' && request.method === 'GET') return handleAuthMe(request, env);
+  return null;
+}
+
 interface GameConfig {
   id: string;
   name: string;
@@ -245,7 +294,7 @@ async function fetchRegistry(env: Env): Promise<GameConfig[]> {
     cfProject: item.cfProject || `free${item.id}app`,
     domain: `${item.id}.${DOMAIN}`,
     hostedOn: item.hostedOn || 'pages',
-    status: readGameStatus(item),
+    status: registryState.readStatus(item),
   }));
 }
 
@@ -359,6 +408,17 @@ async function fetchAllStatus(env: Env) {
     }),
   );
   return results;
+}
+
+function dataService(env: Env) {
+  return createAdminDataService({
+    registryItems: () => fetchRegistryItems(env),
+    registry: () => fetchRegistry(env),
+    registryRaw: () => fetchRegistryRaw(env),
+    gameStatus: (game: GameConfig) => fetchGameStatus(game, env),
+    allStatus: () => fetchAllStatus(env),
+    quality: fetchQuality,
+  });
 }
 
 // STRICT allowlist — the admin API must NOT reflect arbitrary game subdomains.
@@ -530,7 +590,7 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
   const missingRoute = [...registryIds].filter((id) => !routeSlugs.has(id)).sort();
   const orphanRoute = [...routeSlugs].filter((slug) => !registryIds.has(slug)).sort();
   const pending = items
-    .filter((g) => g?.id && readGameStatus(g) === 'pending')
+    .filter((g) => g?.id && registryState.readStatus(g) === 'pending')
     .map((g) => g.id as string)
     .sort();
 
@@ -587,7 +647,7 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
       // null → nothing concluded yet; leave pending for the next run.
     }
     if (flips.length > 0) {
-      const res = await setGameStatuses(env as any, flips);
+      const res = await registryState.setStatuses(env as any, flips);
       report.healed = {
         ...(report.healed ?? { insertedRoutes: [], deletedRoutes: [] }),
         statusFlips: res.updated,
@@ -622,66 +682,27 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
 export default {
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     // Hourly: heal provisioning drift, then prune the error log's old rows.
-    ctx.waitUntil(reconcile(env, true));
+    ctx.waitUntil(createReconciliationService((heal) => reconcile(env, heal)).reconcile(true));
     ctx.waitUntil(pruneErrors(env.DB));
   },
 
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-
-    // CORS preflight — unauthenticated (a preflight carries no cookies).
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: corsHeaders(request) });
-    }
-
-    // Auth owns the OAuth state cookie; this origin receives only a signed,
-    // short-lived handoff and writes its own __Host- session cookie.
-    if (url.pathname === '/auth/handoff' && request.method === 'GET') {
-      const handoff = url.searchParams.get('token') ?? '';
-      if (!handoff) return new Response('missing session handoff', { status: 400 });
-      const exchanged = await env.AUTH.fetch('https://auth.freegamestore.online/handoff/consume', {
-        method: 'POST',
-        headers: {
-          'X-FGS-Handoff': handoff,
-          'X-FGS-Handoff-Target': 'https://admin.freegamestore.online',
-        },
-      });
-      if (!exchanged.ok) return new Response('invalid or expired session handoff', { status: 401 });
-      const body = (await exchanged.json()) as { token?: string };
-      if (!body.token) return new Response('invalid session handoff response', { status: 502 });
-      const returnTo = url.searchParams.get('return_to');
-      let location = 'https://admin.freegamestore.online/';
-      try {
-        if (returnTo && new URL(returnTo).origin === 'https://admin.freegamestore.online')
-          location = returnTo;
-      } catch {
-        /* safe default */
-      }
-      const headers = new Headers({
-        Location: location,
-        'Cache-Control': 'no-store',
-        'Referrer-Policy': 'no-referrer',
-      });
-      headers.append(
-        'Set-Cookie',
-        `__Host-fgs_token=${body.token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`,
-      );
-      headers.append(
-        'Set-Cookie',
-        'fgs_token=; Domain=.freegamestore.online; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0',
-      );
-      return new Response(null, { status: 302, headers });
-    }
-
-    // CLI login mechanism — must stay reachable before the admin gate.
-    // Self-contained auth: exchange a GitHub token for an FGS admin session,
-    // then verify it. `fgs login` calls /v1/auth/exchange.
-    if (url.pathname === '/v1/auth/exchange' && request.method === 'POST') {
-      return handleAuthExchange(request, env);
-    }
-    if (url.pathname === '/v1/auth/me' && request.method === 'GET') {
-      return handleAuthMe(request, env);
-    }
+    const data = dataService(env);
+    const reconciliation = createReconciliationService((heal) => reconcile(env, heal));
+    const transportResponse = await routeAdminRequest(request, {
+      preflight: (req) => new Response(null, { status: 204, headers: corsHeaders(req) }),
+      auth: (req) => handleAdminAuthRoute(req, env),
+      // API routing below deliberately remains a separate data/lifecycle layer.
+      api: async () => null,
+      static: (req) =>
+        serveAdminStatic(req, {
+          authenticate: (staticRequest) => authenticateAdmin(staticRequest, env),
+          renderSignIn,
+          assets: env.ASSETS,
+        }),
+    });
+    if (transportResponse) return transportResponse;
 
     // --- ADMIN GATE ---------------------------------------------------------
     // The console UI + every observability/read endpoint are restricted to the
@@ -783,7 +804,7 @@ export default {
     const detailMatch = url.pathname.match(/^\/api\/games\/([a-z0-9][a-z0-9-]*)\/detail$/);
     if (detailMatch && request.method === 'GET') {
       const id = detailMatch[1]!;
-      const items = (await fetchRegistryItems(env)) ?? [];
+      const items = (await data.registryItems()) ?? [];
       const entry = items.find((g) => g?.id === id) ?? null;
 
       const routeRow = env.DB
@@ -820,11 +841,11 @@ export default {
         {
           id,
           listed: !!entry,
-          status: readGameStatus(entry),
+          status: registryState.readStatus(entry),
           name: entry?.name ?? id,
           creatorGithub: entry?.creatorGithub ?? null,
           forkedFrom: entry
-            ? (normalizeForkedFrom(entry.forkedFrom, items, entry.firstPublished) ?? null)
+            ? (remixSource.normalize(entry.forkedFrom, items, entry.firstPublished) ?? null)
             : null,
           hostedOn: entry?.hostedOn ?? (routeRow?.hosted_on || 'unknown'),
           route: routeRow
@@ -842,7 +863,7 @@ export default {
 
     // GET /api/reconcile — on-demand drift report (same logic as the cron).
     if (url.pathname === '/api/reconcile' && request.method === 'GET') {
-      return jsonResponse(await reconcile(env), 200, request);
+      return jsonResponse(await reconciliation.reconcile(), 200, request);
     }
 
     if (url.pathname === '/docs') {
@@ -854,10 +875,9 @@ export default {
     if (url.pathname === '/api/status') {
       const detail = url.searchParams.get('detail') === 'true';
       if (detail) {
-        const data = await fetchAllStatus(env);
-        return jsonResponse(data, 200, request);
+        return jsonResponse(await data.allStatus(), 200, request);
       }
-      const games = await fetchRegistry(env);
+      const games = await data.registry();
       return jsonResponse(games, 200, request);
     }
 
@@ -866,21 +886,21 @@ export default {
       if (!id) {
         return jsonResponse({ error: 'id required' }, 400, request);
       }
-      const games = await fetchRegistry(env);
+      const games = await data.registry();
       const game = games.find((g) => g.id === id);
       if (!game) {
         return jsonResponse({ error: 'not found' }, 404, request);
       }
-      const status = await fetchGameStatus(game, env);
+      const status = await data.gameStatus(game);
       return jsonResponse({ ...game, ...status }, 200, request);
     }
 
     if (url.pathname === '/api/quality') {
-      const data = await fetchQuality();
-      if (!data) {
+      const quality = await data.quality();
+      if (!quality) {
         return new Response(null, { status: 204, headers: corsHeaders(request) });
       }
-      return jsonResponse(data, 200, request);
+      return jsonResponse(quality, 200, request);
     }
 
     // Errors/crashes for the console (protected by CF Access, like /api/status).
@@ -896,9 +916,9 @@ export default {
 
     // Aggregate stats + the errors-per-day series for the Overview graph.
     if (url.pathname === '/api/stats') {
-      const [games, errStats] = await Promise.all([fetchRegistry(env), errorStats(env.DB)]);
+      const [games, errStats] = await Promise.all([data.registry(), errorStats(env.DB)]);
       const creators = new Set<string>();
-      for (const g of await fetchRegistryRaw(env))
+      for (const g of await data.registryRaw())
         if (g.creatorGithub) creators.add(String(g.creatorGithub).toLowerCase());
       return jsonResponse(
         {
@@ -915,7 +935,7 @@ export default {
 
     // Creators derived from the registry (creatorGithub), with their game counts.
     if (url.pathname === '/api/users') {
-      const raw = await fetchRegistryRaw(env);
+      const raw = await data.registryRaw();
       const byUser = new Map<string, { login: string; games: string[] }>();
       for (const g of raw) {
         const login = g.creatorGithub ? String(g.creatorGithub) : '(unknown)';
@@ -1014,7 +1034,7 @@ export default {
       }
       try {
         const body = (await request.json()) as Record<string, unknown>;
-        const result = await handleUpdateGame(gameMatch[1]!, login, body, env as any);
+        const result = await gameLifecycle.update(gameMatch[1]!, login, body, env as any);
         return jsonResponse(result, result.error ? 400 : 200, request);
       } catch (e) {
         await recordError(env.DB, {
@@ -1043,7 +1063,7 @@ export default {
         return jsonResponse({ error: 'unauthorized' }, 401, request);
       }
       try {
-        const result = await handleDeleteGame(gameMatch[1]!, actor, env as any, {
+        const result = await gameLifecycle.delete(gameMatch[1]!, actor, env as any, {
           adminOverride: isAdmin,
         });
         return jsonResponse(result, result.error ? 400 : 200, request);
@@ -1242,7 +1262,7 @@ export default {
       // Only heal a game the registry actually lists. Writing a route for an
       // unlisted id would recreate exactly the orphan-route drift reconcile
       // deletes on its next pass — churn that looks like a fix.
-      const items = await fetchRegistryItems(env);
+      const items = await data.registryItems();
       if (items === null) {
         return jsonResponse({ error: 'registry read failed — not healing blind' }, 503, request);
       }
@@ -1297,7 +1317,7 @@ export default {
           request,
         );
       }
-      const step = await setGameStatus(env as any, body.id, body.status);
+      const step = await registryState.setStatus(env as any, body.id, body.status);
       if (step.status === 'fail') {
         await recordError(env.DB, {
           source: 'admin/game-status',
@@ -1352,7 +1372,7 @@ export default {
           );
         }
         console.log(`[provision] id=${body?.id} owner=${owner} trusted=${trusted}`);
-        const result = await handlePublish({ ...body, creatorGithub: owner }, env as any);
+        const result = await gameLifecycle.provision({ ...body, creatorGithub: owner }, env as any);
         console.log(`[provision] id=${body?.id} success=${result.success} +${Date.now() - t0}ms`);
         // Persist a provision failure (handlePublish returns success:false rather
         // than throwing) so it shows on the admin console. Logging only — the
@@ -1391,22 +1411,10 @@ export default {
     // indexable dashboard HTML to anyone (info disclosure; the /api/* it calls
     // still 401, but the shell shouldn't be world-readable). Non-admins get the
     // sign-in page.
-    const { email, isAdmin } = await authenticateAdmin(request, env);
-    if (!isAdmin) {
-      return new Response(renderSignIn(email), {
-        status: 200,
-        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
-      });
-    }
-    // Serve the built React app (Workers Static Assets; hash routing, so any
-    // authed non-API path resolves to the asset or falls back to index.html).
-    if (env.ASSETS) {
-      const assetRes = await env.ASSETS.fetch(request);
-      if (assetRes.status !== 404) return assetRes;
-      return env.ASSETS.fetch(
-        new Request(new URL('/', request.url).toString(), { headers: request.headers }),
-      );
-    }
-    return new Response('admin app assets missing (build web/)', { status: 500 });
+    return serveAdminStatic(request, {
+      authenticate: (staticRequest) => authenticateAdmin(staticRequest, env),
+      renderSignIn,
+      assets: env.ASSETS,
+    });
   },
 };

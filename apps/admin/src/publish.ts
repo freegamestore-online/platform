@@ -14,7 +14,8 @@ import { readRegistry } from './registryReader';
 //
 // Why: 100-project/account CF Pages cap doesn't scale for free side.
 
-interface PublishEnv {
+/** Runtime bindings consumed by the GitHub/D1 lifecycle implementation. */
+export interface PublishEnv {
   CF_ACCOUNT_ID: string;
   CF_API_TOKEN: string;
   GITHUB_TOKEN: string;
@@ -26,7 +27,8 @@ interface PublishEnv {
   INTERNAL_TOKEN?: string;
 }
 
-interface PublishRequest {
+/** Input accepted by the provision lifecycle operation. */
+export interface PublishRequest {
   /** Slug / subdomain. Optional — derived from `name` when the CLI omits it. */
   id?: string;
   name: string;
@@ -96,7 +98,7 @@ function displayName(name: string, id: string): string {
     .join(' ');
 }
 
-interface Step {
+export interface Step {
   name: string;
   status: 'ok' | 'skip' | 'fail';
   detail: string;

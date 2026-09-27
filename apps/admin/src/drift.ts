@@ -119,7 +119,12 @@ async function gh<T>(env: DriftEnv, path: string): Promise<T | null> {
 
 const short = (sha: unknown) => (typeof sha === 'string' && sha ? sha.slice(0, 7) : null);
 
-const CONCLUSIONS = new Set(['success', 'failure', 'timed_out', 'cancelled']);
+const CONCLUSIONS = new Set<Exclude<DeployConclusion, null | 'other'>>([
+  'success',
+  'failure',
+  'timed_out',
+  'cancelled',
+]);
 
 /** Inspect one game: HEAD vs last successful build, plus the latest concluded
  *  deploy outcome.
@@ -144,11 +149,12 @@ export async function checkGameDrift(env: DriftEnv, org: string, id: string): Pr
   const concluded = list.filter((run) => run.status === 'completed' && run.conclusion);
 
   const raw = concluded[0]?.conclusion;
-  const conclusion: DeployConclusion = raw
-    ? typeof raw === 'string' && CONCLUSIONS.has(raw)
-      ? raw
-      : 'other'
-    : null;
+  const conclusion: DeployConclusion =
+    typeof raw === 'string'
+      ? CONCLUSIONS.has(raw as Exclude<DeployConclusion, null | 'other'>)
+        ? (raw as Exclude<DeployConclusion, null | 'other'>)
+        : 'other'
+      : null;
 
   let lastSuccessSha = short(concluded.find((run) => run.conclusion === 'success')?.head_sha);
   if (!lastSuccessSha && runs !== null) {
@@ -231,21 +237,19 @@ export async function recentRuns(env: DriftEnv, org: string, id: string, n = 5):
   );
   return workflowRuns(runs)
     .slice(0, n)
-    .map((run) => ({
-      // An in-flight run has no conclusion yet — report its status instead of an
-      // empty badge.
-      conclusion:
-        typeof (run.status === 'completed' ? run.conclusion : run.status) === 'string'
-          ? run.status === 'completed'
-            ? run.conclusion
-            : run.status
-          : 'unknown',
-      sha: short(run.head_sha),
-      message:
-        isRecord(run.head_commit) && typeof run.head_commit.message === 'string'
-          ? run.head_commit.message.split('\n')[0]!.slice(0, 120)
-          : '',
-      updatedAt: typeof run.updated_at === 'string' ? run.updated_at : null,
-      url: typeof run.html_url === 'string' ? run.html_url : null,
-    }));
+    .map((run) => {
+      const outcome = run.status === 'completed' ? run.conclusion : run.status;
+      return {
+        // An in-flight run has no conclusion yet — report its status instead of an
+        // empty badge.
+        conclusion: typeof outcome === 'string' ? outcome : 'unknown',
+        sha: short(run.head_sha),
+        message:
+          isRecord(run.head_commit) && typeof run.head_commit.message === 'string'
+            ? run.head_commit.message.split('\n')[0]!.slice(0, 120)
+            : '',
+        updatedAt: typeof run.updated_at === 'string' ? run.updated_at : null,
+        url: typeof run.html_url === 'string' ? run.html_url : null,
+      };
+    });
 }

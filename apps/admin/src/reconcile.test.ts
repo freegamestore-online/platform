@@ -392,7 +392,7 @@ describe('POST /api/internal/error', () => {
     const ADMIN = {
       fetch: (input: RequestInfo | URL, init?: RequestInit) =>
         worker.fetch(new Request(input, init), env),
-    };
+    } as unknown as Fetcher;
 
     await reportPlatformError({ ADMIN, INTERNAL_TOKEN: 'secret' }, 'freegamestore.online', {
       source: 'a'.repeat(ERROR_LOG_LIMITS.source + 1),
