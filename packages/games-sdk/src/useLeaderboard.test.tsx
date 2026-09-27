@@ -33,7 +33,11 @@ describe('useLeaderboard', () => {
 
   it('submitScore returns ok + rank from the worker', async () => {
     mockFetch((url) =>
-      url.includes('/api/scores') ? { ok: true, rank: 3 } : { game: 'g', scores: [] },
+      url.includes('/handoff/issue')
+        ? { token: 'game-scoped-token' }
+        : url.includes('/api/scores')
+          ? { ok: true, rank: 3 }
+          : { game: 'g', scores: [] },
     );
     const { result } = renderHook(() => useLeaderboard('snake'));
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -42,6 +46,10 @@ describe('useLeaderboard', () => {
       out = await result.current.submitScore(42);
     });
     expect(out).toEqual({ ok: true, rank: 3 });
+    const scoreCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.find(([url]) =>
+      String(url).includes('/api/scores'),
+    );
+    expect(scoreCall?.[1]?.headers).toMatchObject({ Authorization: 'Bearer game-scoped-token' });
   });
 
   it('submitScore returns {ok:false} on a rejected (e.g. 401) response', async () => {

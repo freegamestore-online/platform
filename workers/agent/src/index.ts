@@ -34,6 +34,8 @@ export interface Env {
 // Dev origins only — exact host match so e.g. `http://localhost.evil.com` (a
 // prefix match) can't slip through and make credentialed requests.
 const DEV_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+const SESSION_COOKIE = '__Host-fgs_token';
+const AGENT_ORIGIN = 'https://agent.freegamestore.online';
 
 function corsHeaders(request: Request, domain: string): Record<string, string> {
   const origin = request.headers.get("Origin");
@@ -63,6 +65,32 @@ export default {
 
     const url = new URL(request.url);
     const path = url.pathname;
+
+    // The console establishes this cookie with auth's signed, five-minute
+    // handoff. A user-authored game cannot set a __Host- cookie for agent.
+    if (path === '/auth/handoff' && request.method === 'GET') {
+      const handoff = url.searchParams.get('token') ?? '';
+      if (!handoff)
+        return new Response(JSON.stringify({ error: 'missing session handoff' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders(request, config.domain) },
+        });
+      const exchanged = await env.AUTH.fetch('https://auth.freegamestore.online/handoff/consume', {
+        method: 'POST',
+        headers: { 'X-FGS-Handoff': handoff, 'X-FGS-Handoff-Target': AGENT_ORIGIN },
+      });
+      if (!exchanged.ok)
+        return new Response(JSON.stringify({ error: 'invalid or expired session handoff' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders(request, config.domain) },
+        });
+      const body = (await exchanged.json()) as { token?: string };
+      if (!body.token) return new Response(JSON.stringify({ error: 'invalid session handoff response' }), { status: 502 });
+      const headers = new Headers({ 'Cache-Control': 'no-store', ...corsHeaders(request, config.domain) });
+      headers.append('Set-Cookie', `${SESSION_COOKIE}=${body.token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`);
+      headers.append('Set-Cookie', 'fgs_token=; Domain=.freegamestore.online; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+      return new Response(null, { status: 204, headers });
+    }
 
     // Per-user session list (D1) — /sessions, /sessions/:id
     const sessionsResp = await handleSessionsApi(request, env, config.domain, corsHeaders(request, config.domain));

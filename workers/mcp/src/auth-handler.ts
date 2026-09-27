@@ -11,9 +11,8 @@
  *   /authorize  → parse the MCP client's request, stash it, set a nonce cookie
  *                 bound to it, bounce to the auth worker's /login?redirect=<our
  *                 /callback>
- *   auth worker → GitHub → sets the fgs_token cookie on .freegamestore.online,
- *                 redirects back to our /callback (a subdomain, so it gets the
- *                 cookie)
+ *   auth worker → GitHub → sends a signed, five-minute handoff to our
+ *                 /auth/handoff; this origin alone sets its host-only cookie
  *   GET /callback  → match the nonce cookie against the stashed request, verify
  *                    fgs_token, and render the CONSENT PAGE naming the client
  *                    and the account. Nothing is consumed or minted here.
@@ -70,6 +69,8 @@ function getCookie(request: Request, name: string): string | null {
  *    cookie, not that the cookie is withheld on cross-site navigation.
  */
 const CSRF_COOKIE_PREFIX = '__Host-mcp_csrf_';
+const SESSION_COOKIE = '__Host-fgs_token';
+const MCP_ORIGIN = 'https://mcp.freegamestore.online';
 
 /** reqId is echoed back to us in the URL and becomes part of a cookie name, so
  *  keep it to the shape we mint (a v4 UUID) rather than trusting the query. */
@@ -157,7 +158,7 @@ async function verifySession(
   request: Request,
   env: Env,
 ): Promise<{ token: string; login: string | undefined } | Response> {
-  const token = getCookie(request, 'fgs_token');
+  const token = getCookie(request, SESSION_COOKIE);
   if (!token) return new Response('sign-in did not complete (no session cookie)', { status: 401 });
   const verify = await env.AUTH.fetch('https://auth.freegamestore.online/me', {
     headers: { 'X-FGS-Token': token },
@@ -220,6 +221,29 @@ function consentPage(reqId: string, clientName: string, login: string): string {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
+    if (url.pathname === '/auth/handoff' && request.method === 'GET') {
+      const handoff = url.searchParams.get('token') ?? '';
+      if (!handoff) return new Response('missing session handoff', { status: 400 });
+      const exchanged = await env.AUTH.fetch('https://auth.freegamestore.online/handoff/consume', {
+        method: 'POST',
+        headers: { 'X-FGS-Handoff': handoff, 'X-FGS-Handoff-Target': MCP_ORIGIN },
+      });
+      if (!exchanged.ok) return new Response('invalid or expired session handoff', { status: 401 });
+      const body = (await exchanged.json()) as { token?: string };
+      if (!body.token) return new Response('invalid session handoff response', { status: 502 });
+      const returnTo = url.searchParams.get('return_to');
+      let location = `${MCP_ORIGIN}/`;
+      try {
+        if (returnTo && new URL(returnTo).origin === MCP_ORIGIN) location = returnTo;
+      } catch {
+        /* use safe default */
+      }
+      const headers = new Headers({ Location: location, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
+      headers.append('Set-Cookie', `${SESSION_COOKIE}=${body.token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`);
+      headers.append('Set-Cookie', 'fgs_token=; Domain=.freegamestore.online; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+      return new Response(null, { status: 302, headers });
+    }
 
     // Step 1 — MCP client lands here. Stash its OAuth request, bounce to auth worker.
     if (url.pathname === '/authorize') {

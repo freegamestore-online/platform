@@ -1,4 +1,4 @@
-import { corsHeaders, resolveCreator } from './_auth';
+import { corsHeaders, getCookie, resolveCreator, SESSION_COOKIE } from './_auth';
 import { listUserGames } from './_games';
 
 interface Env {
@@ -77,12 +77,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return json({ error: "You don't have access to this game" }, 403);
   }
 
-  // Forward to the canonical, idempotent provision. Admin authenticates from the
-  // fgs_token cookie (shared .freegamestore.online domain); pin the owner.
-  const cookie = context.request.headers.get('Cookie') ?? '';
+  // Console's host-only session is forwarded explicitly to the admin service.
+  const token = getCookie(context.request, SESSION_COOKIE) ?? '';
   const provRes = await fetch(CONFIG.adminProvision, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Cookie: cookie },
+    headers: { 'Content-Type': 'application/json', 'X-FGS-Token': token },
     body: JSON.stringify({
       id,
       name: body.name,

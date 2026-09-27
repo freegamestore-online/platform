@@ -8,8 +8,22 @@ interface Env {
 }
 
 const ALLOWED_ORIGIN = /^https:\/\/[\w-]+\.freegamestore\.online$/;
-const COOKIE_NAME = 'fgs_token';
+/**
+ * Browser sessions are deliberately host-only.  FGS publishes untrusted games
+ * on sibling subdomains, so a Domain=.freegamestore.online cookie can be
+ * tossed by a game and must never authenticate a privileged surface.
+ */
+export const COOKIE_NAME = '__Host-fgs_token';
+const LEGACY_COOKIE_NAME = 'fgs_token';
 const COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
+const HANDOFF_MAX_AGE = 5 * 60;
+const HANDOFF_TARGETS = new Set([
+  'https://console.freegamestore.online',
+  'https://admin.freegamestore.online',
+  'https://mcp.freegamestore.online',
+  'https://agent.freegamestore.online',
+  'https://leaderboard.freegamestore.online',
+]);
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo';
@@ -123,11 +137,16 @@ function json(data: unknown, status: number, request: Request): Response {
 // --- Cookie helpers ---
 
 function setTokenCookie(token: string): string {
-  return `${COOKIE_NAME}=${token}; Domain=.freegamestore.online; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${COOKIE_MAX_AGE}`;
+  return `${COOKIE_NAME}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${COOKIE_MAX_AGE}`;
 }
 
 function clearTokenCookie(): string {
-  return `${COOKIE_NAME}=; Domain=.freegamestore.online; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+  return `${COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+}
+
+/** Retire the vulnerable cookie on successful sign-in/out without reading it. */
+function clearLegacyTokenCookie(): string {
+  return `${LEGACY_COOKIE_NAME}=; Domain=.freegamestore.online; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 }
 
 function getCookie(request: Request, name: string): string | null {
@@ -138,7 +157,7 @@ function getCookie(request: Request, name: string): string | null {
 
 // --- OAuth state / redirect safety ---
 
-const OAUTH_STATE_COOKIE = 'fgs_oauth_state';
+const OAUTH_STATE_COOKIE = '__Host-fgs_oauth_state';
 
 /** SECURITY: allowlist the post-login redirect to our own origins. An
  *  attacker-controlled `redirect` param would otherwise be reflected into the
@@ -176,9 +195,44 @@ function clearStateCookie(): string {
   return `${OAUTH_STATE_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 }
 
-function loginRedirect(redirect: string, token: string): Response {
-  const headers = new Headers({ Location: redirect, 'Cache-Control': 'no-store' });
+function handoffTarget(redirect: string): string | null {
+  try {
+    const origin = new URL(redirect).origin;
+    return HANDOFF_TARGETS.has(origin) ? origin : null;
+  } catch {
+    return null;
+  }
+}
+
+async function mintHandoff(token: string, target: string, secret: string, game?: string): Promise<string> {
+  const payload = await jwtVerify(token, secret);
+  if (!payload || !HANDOFF_TARGETS.has(target)) throw new Error('invalid handoff');
+  const now = Math.floor(Date.now() / 1000);
+  return jwtSign(
+    {
+      typ: 'fgs_handoff',
+      aud: target,
+      sub: payload.sub,
+      name: payload.name,
+      avatar: payload.avatar,
+      email: payload.email,
+      login: payload.login,
+      ...(game ? { game } : {}),
+      iat: now,
+      exp: now + HANDOFF_MAX_AGE,
+    },
+    secret,
+  );
+}
+
+async function loginRedirect(redirect: string, token: string, secret: string): Promise<Response> {
+  const target = handoffTarget(redirect);
+  const location = target
+    ? `${target}/auth/handoff?token=${encodeURIComponent(await mintHandoff(token, target, secret))}&return_to=${encodeURIComponent(redirect)}`
+    : redirect;
+  const headers = new Headers({ Location: location, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
   headers.append('Set-Cookie', setTokenCookie(token));
+  headers.append('Set-Cookie', clearLegacyTokenCookie());
   // The state cookie is single-use in practice because the provider code is
   // single-use, but clear it too so a completed login leaves no replay window.
   headers.append('Set-Cookie', clearStateCookie());
@@ -306,7 +360,7 @@ export async function handleCallback(request: Request, env: Env): Promise<Respon
     env.JWT_SECRET,
   );
 
-  return loginRedirect(redirect, token);
+  return loginRedirect(redirect, token, env.JWT_SECRET);
 }
 
 export async function handleMe(request: Request, env: Env): Promise<Response> {
@@ -356,7 +410,7 @@ function handleLogout(request: Request): Response {
     status: 302,
     headers: {
       Location: referrer,
-      'Set-Cookie': clearTokenCookie(),
+      'Set-Cookie': `${clearTokenCookie()}, ${clearLegacyTokenCookie()}`,
     },
   });
 }
@@ -445,7 +499,7 @@ export async function handleGitHubCallback(request: Request, env: Env): Promise<
 
   const { token } = await mintGitHubUserToken(ghUser, env);
 
-  return loginRedirect(redirect, token);
+  return loginRedirect(redirect, token, env.JWT_SECRET);
 }
 
 async function mintGitHubUserToken(
@@ -514,6 +568,68 @@ export async function handleGitHubTokenExchange(request: Request, env: Env): Pro
   return json({ token, login: ghUser.login, expiresAt }, 200, request);
 }
 
+/** Exchange a five-minute audience-bound handoff for a host-only target session. */
+export async function handleHandoffConsume(request: Request, env: Env): Promise<Response> {
+  const handoff = request.headers.get('X-FGS-Handoff') ?? '';
+  const target = request.headers.get('X-FGS-Handoff-Target') ?? '';
+  const payload = await jwtVerify(handoff, env.JWT_SECRET);
+  if (
+    !payload ||
+    payload.typ !== 'fgs_handoff' ||
+    payload.aud !== target ||
+    !HANDOFF_TARGETS.has(target) ||
+    typeof payload.sub !== 'string'
+  ) {
+    return json({ error: 'invalid or expired handoff' }, 401, request);
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const token = await jwtSign(
+    {
+      typ: 'fgs_session',
+      aud: target,
+      sub: payload.sub,
+      name: payload.name,
+      avatar: payload.avatar,
+      email: payload.email,
+      login: payload.login,
+      ...(typeof payload.game === 'string' ? { game: payload.game } : {}),
+      iat: now,
+      exp: now + COOKIE_MAX_AGE,
+    },
+    env.JWT_SECRET,
+  );
+  return json({ token }, 200, request);
+}
+
+/**
+ * Issue a five-minute handoff. Browser games may only request a leaderboard
+ * credential for their own hostname; privileged surfaces invoke this from
+ * their server-side origin after reading their own HttpOnly cookie.
+ */
+export async function handleHandoffIssue(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const token = request.headers.get('X-FGS-Token') || getCookie(request, COOKIE_NAME) || '';
+  const target = request.headers.get('X-FGS-Handoff-Target') || url.searchParams.get('target') || '';
+  const game = request.headers.get('X-FGS-Game') || url.searchParams.get('game') || undefined;
+  const payload = await jwtVerify(token, env.JWT_SECRET);
+  if (!payload || typeof payload.sub !== 'string' || !HANDOFF_TARGETS.has(target)) {
+    return json({ error: 'not signed in' }, 401, request);
+  }
+  if (target === 'https://leaderboard.freegamestore.online') {
+    const origin = request.headers.get('Origin') ?? '';
+    let host = '';
+    try {
+      host = new URL(origin).hostname;
+    } catch {
+      /* rejected below */
+    }
+    if (!game || host !== `${game}.freegamestore.online` || !ALLOWED_ORIGIN.test(origin)) {
+      return json({ error: 'invalid game handoff request' }, 403, request);
+    }
+  }
+  return json({ token: await mintHandoff(token, target, env.JWT_SECRET, game) }, 200, request);
+}
+
 // --- Main ---
 
 export default {
@@ -539,6 +655,12 @@ export default {
     }
     if (request.method === 'POST' && path === '/token/github') {
       return handleGitHubTokenExchange(request, env);
+    }
+    if (request.method === 'POST' && path === '/handoff/consume') {
+      return handleHandoffConsume(request, env);
+    }
+    if (request.method === 'POST' && path === '/handoff/issue') {
+      return handleHandoffIssue(request, env);
     }
 
     // Google OAuth (legacy — used by games for player auth)

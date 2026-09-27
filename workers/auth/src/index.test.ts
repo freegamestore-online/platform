@@ -12,11 +12,14 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import worker, {
+  COOKIE_NAME,
   base64urlDecode,
   base64urlEncode,
   handleCallback,
   handleGitHubCallback,
   handleGitHubTokenExchange,
+  handleHandoffConsume,
+  handleHandoffIssue,
   handleMe,
   jwtSign,
   jwtVerify,
@@ -175,7 +178,7 @@ test('handleMe OMITS email when authenticated via the browser cookie only', asyn
   const token = await mintToken();
   const res = await handleMe(
     new Request('https://auth.freegamestore.online/me', {
-      headers: { Cookie: `fgs_token=${token}` },
+      headers: { Cookie: `__Host-fgs_token=${token}` },
     }),
     ME_ENV,
   );
@@ -194,13 +197,63 @@ test('worker routes GET /me and enforces the same PII boundary via the cookie', 
   const token = await mintToken();
   const res = await worker.fetch(
     new Request('https://auth.freegamestore.online/me', {
-      headers: { Cookie: `fgs_token=${token}` },
+      headers: { Cookie: `__Host-fgs_token=${token}` },
     }),
     ME_ENV as never,
   );
   assert.equal(res.status, 200);
   const body = (await res.json()) as Record<string, unknown>;
   assert.equal('email' in body, false);
+});
+
+test('auth ignores the legacy domain cookie even when it contains a valid session', async () => {
+  const token = await mintToken();
+  const res = await handleMe(
+    new Request('https://auth.freegamestore.online/me', { headers: { Cookie: `fgs_token=${token}` } }),
+    ME_ENV,
+  );
+  assert.equal(res.status, 401);
+  assert.equal(COOKIE_NAME, '__Host-fgs_token');
+});
+
+test('a signed handoff can mint only its intended target-origin session', async () => {
+  const source = await mintToken();
+  const issue = await handleHandoffIssue(
+    new Request('https://auth.freegamestore.online/handoff/issue?target=https%3A%2F%2Fconsole.freegamestore.online', {
+      method: 'POST',
+      headers: { 'X-FGS-Token': source },
+    }),
+    ME_ENV,
+  );
+  assert.equal(issue.status, 200);
+  const { token: handoff } = (await issue.json()) as { token: string };
+  const consumed = await handleHandoffConsume(
+    new Request('https://auth.freegamestore.online/handoff/consume', {
+      method: 'POST',
+      headers: {
+        'X-FGS-Handoff': handoff,
+        'X-FGS-Handoff-Target': 'https://console.freegamestore.online',
+      },
+    }),
+    ME_ENV,
+  );
+  assert.equal(consumed.status, 200);
+  const { token } = (await consumed.json()) as { token: string };
+  const payload = await jwtVerify(token, SECRET);
+  assert.equal(payload?.typ, 'fgs_session');
+  assert.equal(payload?.aud, 'https://console.freegamestore.online');
+
+  const wrongTarget = await handleHandoffConsume(
+    new Request('https://auth.freegamestore.online/handoff/consume', {
+      method: 'POST',
+      headers: {
+        'X-FGS-Handoff': handoff,
+        'X-FGS-Handoff-Target': 'https://admin.freegamestore.online',
+      },
+    }),
+    ME_ENV,
+  );
+  assert.equal(wrongTarget.status, 401);
 });
 
 // --- handleCallback: verified-email + CSRF-nonce enforcement ---
@@ -231,7 +284,7 @@ test('handleCallback 403s on OAuth nonce mismatch (login-CSRF guard)', async () 
     'https://auth.freegamestore.online/callback?code=abc&state=' + encodeURIComponent(state),
     {
       // Cookie nonce deliberately does NOT match the nonce embedded in `state`.
-      headers: { Cookie: 'fgs_oauth_state=WRONG-nonce' },
+      headers: { Cookie: '__Host-fgs_oauth_state=WRONG-nonce' },
     },
   );
   const env = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<
@@ -252,7 +305,7 @@ test('handleGitHubCallback 403s when the cookie nonce does not match state', asy
   const { state } = oauthState('https://freegamestore.online');
   const req = new Request(
     'https://auth.freegamestore.online/callback/github?code=abc&state=' + encodeURIComponent(state),
-    { headers: { Cookie: 'fgs_oauth_state=WRONG-nonce' } },
+    { headers: { Cookie: '__Host-fgs_oauth_state=WRONG-nonce' } },
   );
   const env = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<
     typeof handleGitHubCallback
@@ -280,7 +333,7 @@ test('handleGitHubCallback 403s when state carries no nonce at all', async () =>
   const state = base64urlEncode(JSON.stringify({ redirect: 'https://freegamestore.online' }));
   const req = new Request(
     'https://auth.freegamestore.online/callback/github?code=abc&state=' + encodeURIComponent(state),
-    { headers: { Cookie: 'fgs_oauth_state=some-nonce' } },
+    { headers: { Cookie: '__Host-fgs_oauth_state=some-nonce' } },
   );
   const env = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<
     typeof handleGitHubCallback
@@ -310,7 +363,7 @@ test('handleCallback carries a null email claim when Google reports email_verifi
   const req = new Request(
     'https://auth.freegamestore.online/callback?code=abc&state=' + encodeURIComponent(state),
     {
-      headers: { Cookie: `fgs_oauth_state=${nonce}` },
+      headers: { Cookie: `__Host-fgs_oauth_state=${nonce}` },
     },
   );
   const env = {
@@ -343,13 +396,13 @@ test('handleCallback carries a null email claim when Google reports email_verifi
     assert.equal(res.status, 302);
     assert.equal(res.headers.get('Cache-Control'), 'no-store');
     const cookie = res.headers.get('Set-Cookie') ?? '';
-    const m = cookie.match(/fgs_token=([^;]+)/);
+    const m = cookie.match(/__Host-fgs_token=([^;]+)/);
     assert.ok(m, 'expected a session cookie to be set');
     const payload = await jwtVerify(m![1], SECRET);
     assert.ok(payload);
     assert.equal(payload.email, null); // unverified email must NOT be trusted
     assert.equal(payload.sub, '9');
-    assert.match(cookie, /fgs_oauth_state=;.*Max-Age=0/);
+    assert.match(cookie, /__Host-fgs_oauth_state=;.*Max-Age=0/);
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -359,7 +412,7 @@ test('handleCallback never logs a provider-controlled token-exchange error body'
   const { state, nonce } = oauthState('https://freegamestore.online');
   const req = new Request(
     'https://auth.freegamestore.online/callback?code=abc&state=' + encodeURIComponent(state),
-    { headers: { Cookie: `fgs_oauth_state=${nonce}` } },
+    { headers: { Cookie: `__Host-fgs_oauth_state=${nonce}` } },
   );
   const env = {
     JWT_SECRET: SECRET,

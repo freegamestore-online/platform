@@ -96,23 +96,8 @@ export function sanitizeName(raw: unknown): string {
   );
 }
 
-// First-party surfaces — the only origins trusted for CREDENTIALED requests
-// (score submission reads the player's fgs_token session cookie). Game
-// subdomains (<game>.freegamestore.online) serve untrusted, potentially XSS'd
-// user content, so they are deliberately excluded here: otherwise a malicious
-// game could POST /api/scores with the signed-in player's cookie auto-riding
-// and forge scores under their identity on OTHER games. Mirrors the auth
-// worker's isFirstParty / corsVault split.
-const FIRST_PARTY_ORIGINS = new Set([
-  'https://freegamestore.online',
-  'https://console.freegamestore.online',
-  'http://localhost:5173',
-]);
-
-export function isFirstParty(origin: string): boolean {
-  return FIRST_PARTY_ORIGINS.has(origin);
-}
-
+// Score submission never reads a shared browser cookie. Games present a signed,
+// five-minute bearer handoff restricted to their own game id instead.
 // Broad, credential-LESS CORS for public leaderboard READS (GET). Any game
 // subdomain may read the boards to display them; these responses expose only
 // public high-score data and carry no session cookie, so reflecting game
@@ -129,16 +114,15 @@ function corsRead(request: Request): Record<string, string> {
   };
 }
 
-// Strict, CREDENTIALED CORS for score SUBMISSION (POST /api/scores). Only
-// first-party origins are allowed; a game subdomain's preflight fails so the
-// browser never sends the cross-game submission.
+// A game may submit only with a token scoped to that game. Reflecting a valid
+// game origin is therefore safe: a compromised game cannot reuse its token to
+// submit a score for another game's board.
 function corsSubmit(request: Request): Record<string, string> {
   const origin = request.headers.get('Origin') ?? '';
   return {
-    'Access-Control-Allow-Origin': isFirstParty(origin) ? origin : '',
+    'Access-Control-Allow-Origin': isAllowedOrigin(origin) ? origin : '',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   };
@@ -174,15 +158,9 @@ function base64UrlDecode(str: string): Uint8Array {
   return bytes;
 }
 
-function getCookie(request: Request, name: string): string | null {
-  const header = request.headers.get('Cookie');
-  if (!header) return null;
-  const match = header.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : null;
-}
-
-async function verifyJWT(request: Request, secret: string): Promise<JWTPayload | null> {
-  const token = getCookie(request, 'fgs_token');
+export async function verifyScoreHandoff(request: Request, secret: string, game: string): Promise<JWTPayload | null> {
+  const authz = request.headers.get('Authorization') ?? '';
+  const token = authz.startsWith('Bearer ') ? authz.slice(7).trim() : '';
   if (!token) return null;
 
   const parts = token.split('.');
@@ -208,12 +186,21 @@ async function verifyJWT(request: Request, secret: string): Promise<JWTPayload |
     const valid = await crypto.subtle.verify('HMAC', key, signature, data);
     if (!valid) return null;
 
-    // Decode payload
+    // Decode payload. This is not a generic FGS session: accepting one here
+    // would reintroduce a transferable credential on user-authored game pages.
     const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(parts[1]))) as JWTPayload;
 
     // Check expiration (matches auth's jwtVerify — a token with a missing or
     // non-numeric exp must not be treated as non-expiring, so require a number).
     if (typeof payload.exp !== 'number' || payload.exp < Math.floor(Date.now() / 1000)) return null;
+    const scoped = payload as JWTPayload & { typ?: unknown; aud?: unknown; game?: unknown };
+    if (
+      scoped.typ !== 'fgs_handoff' ||
+      scoped.aud !== 'https://leaderboard.freegamestore.online' ||
+      scoped.game !== game ||
+      typeof payload.sub !== 'string'
+    )
+      return null;
 
     return payload;
   } catch {
@@ -259,10 +246,8 @@ export async function insertScoreUnlessRateLimited(
 
 // POST /api/scores { game, name, score }
 async function submitScore(request: Request, env: Env): Promise<Response> {
-  // Submission is credentialed (reads the fgs_token cookie), so every response
-  // here carries the strict first-party-only CORS — never the broad game-origin
-  // reflection used for public reads. This is what stops a malicious game
-  // subdomain from POSTing scores under the signed-in player's identity.
+  // Submission is authorized by a game-scoped bearer token, so every response
+  // carries the submission CORS policy, never the public-read policy.
   const j = (data: unknown, status: number) => json(data, status, request, corsSubmit);
 
   let body: unknown;
@@ -284,7 +269,7 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
   // Authentication is required to submit. Anonymous posts were trivially
   // spoofable (any client could POST a name + score), so the boards only
   // accept signed-in users now.
-  const jwtPayload = await verifyJWT(request, env.JWT_SECRET);
+  const jwtPayload = await verifyScoreHandoff(request, env.JWT_SECRET, game);
   if (!jwtPayload) {
     return j({ error: 'Sign in to submit a score' }, 401);
   }

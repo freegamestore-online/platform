@@ -4,6 +4,18 @@ import { reportError } from '../lib/errorReporter';
 
 /** freegamestore-auth worker — the store-wide identity provider. */
 const AUTH_BASE = 'https://auth.freegamestore.online';
+const AGENT_BASE = 'https://agent.freegamestore.online';
+
+async function establishAgentSession(): Promise<void> {
+  const issued = await fetch('/auth/agent-handoff', { method: 'POST', credentials: 'include' });
+  if (!issued.ok) throw new Error('agent session handoff failed');
+  const { token } = (await issued.json()) as { token?: string };
+  if (!token) throw new Error('agent session handoff was empty');
+  const established = await fetch(`${AGENT_BASE}/auth/handoff?token=${encodeURIComponent(token)}`, {
+    credentials: 'include',
+  });
+  if (!established.ok) throw new Error('agent rejected session handoff');
+}
 
 /** A game published to FreeGameStore by this creator. */
 export interface GameRepo {
@@ -135,6 +147,9 @@ export function useAuthProvider(): AuthContextValue {
         email: meData.user.email ?? null,
         createdAt: meData.user.createdAt ?? null,
       });
+      // Agent is a separate origin. Establish its own HttpOnly host cookie
+      // before Studio mounts any credentialed agent requests.
+      await establishAgentSession();
     } catch (e) {
       console.error('[auth] error:', e);
       reportError({
@@ -182,8 +197,8 @@ export function useAuthProvider(): AuthContextValue {
   }, [refetch]);
 
   // Sign-in is delegated to the freegamestore-auth worker (single identity
-  // provider). It runs GitHub OAuth on its own domain, sets the `fgs_token`
-  // cookie on `.freegamestore.online`, then redirects back here.
+  // provider). The callback hands a signed, five-minute code to this origin,
+  // which writes its own host-only session cookie before redirecting back.
   const signIn = useCallback(async () => {
     const returnTo = window.location.href;
     window.location.href = `${AUTH_BASE}/login?redirect=${encodeURIComponent(returnTo)}`;

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // The worker also serves the unversioned paths, so games built against older
 // SDK releases keep working.
 const API_BASE = 'https://leaderboard.freegamestore.online/v1';
+const AUTH_BASE = 'https://auth.freegamestore.online/v1';
 
 export interface LeaderboardEntry {
   player_name: string;
@@ -94,13 +95,19 @@ export function useLeaderboard(gameId: string): {
   const submitScore = useCallback(
     async (score: number): Promise<{ ok: boolean; rank?: number }> => {
       try {
-        // The Worker wants `{ game, score }`. Submitting requires auth: the
-        // player name comes from the cookie JWT, and an unauthenticated post
-        // is rejected with 401 (handled by the `!res.ok` check below).
+        // Exchange the auth-origin cookie for a five-minute bearer token bound
+        // to THIS game. Untrusted game JS never receives a store-wide session,
+        // and leaderboard rejects the token for every other game id.
+        const handoffRes = await fetch(
+          `${AUTH_BASE}/handoff/issue?target=${encodeURIComponent('https://leaderboard.freegamestore.online')}&game=${encodeURIComponent(gameId)}`,
+          { method: 'POST', credentials: 'include' },
+        );
+        if (!handoffRes.ok) return { ok: false };
+        const handoff = (await handoffRes.json()) as { token?: string };
+        if (!handoff.token) return { ok: false };
         const res = await fetch(`${API_BASE}/api/scores`, {
           method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${handoff.token}` },
           body: JSON.stringify({ game: gameId, score }),
         });
         if (!res.ok) return { ok: false };

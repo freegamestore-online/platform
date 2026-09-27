@@ -1,4 +1,4 @@
-import { corsHeaders, resolveCreator } from './_auth';
+import { corsHeaders, getCookie, resolveCreator, SESSION_COOKIE } from './_auth';
 import { fetchWithTimeout, recordError } from './_errlog';
 import { listUserGames } from './_games';
 // Single source of truth shared with check-id.ts so the create gate and the
@@ -150,17 +150,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
-    // Forward to the canonical provision endpoint. Admin authenticates the caller
-    // from the fgs_token cookie (Domain=.freegamestore.online — shared with this
-    // Pages host), so we pass the incoming Cookie through and pin creatorGithub to
-    // the resolved user so the registry records the right owner.
-    const cookie = context.request.headers.get('Cookie') ?? '';
+    // The browser's console cookie is host-only. Forward the already-authenticated
+    // session explicitly server-to-server; admin never relies on a broad cookie.
+    const token = getCookie(context.request, SESSION_COOKIE) ?? '';
     log('admin provision: POST (up to 90s)');
     const provRes = await fetchWithTimeout(
       CONFIG.adminProvision,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Cookie: cookie },
+        headers: { 'Content-Type': 'application/json', 'X-FGS-Token': token },
         body: JSON.stringify({
           id: body.id,
           name: body.name,

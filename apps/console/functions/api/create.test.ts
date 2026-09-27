@@ -5,6 +5,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('./_auth', () => ({
   resolveCreator: vi.fn(),
   corsHeaders: () => ({}),
+  SESSION_COOKIE: '__Host-fgs_token',
+  getCookie: (request: Request, name: string) => {
+    const match = (request.headers.get('Cookie') ?? '').match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
+    return match?.[1] ?? null;
+  },
 }));
 vi.mock('./_games', () => ({
   listUserGames: vi.fn(),
@@ -28,7 +33,7 @@ type Ctx = Parameters<typeof onRequestPost>[0];
 function makeCtx(body: Record<string, unknown>, envOverrides: Record<string, unknown> = {}): Ctx {
   const request = new Request('https://console.freegamestore.online/api/create', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Cookie: 'fgs_token=abc' },
+    headers: { 'Content-Type': 'application/json', Cookie: '__Host-fgs_token=abc' },
     body: JSON.stringify(body),
   });
   const env = {

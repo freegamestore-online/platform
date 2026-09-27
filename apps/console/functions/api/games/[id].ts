@@ -1,4 +1,4 @@
-import { corsHeaders, resolveCreator } from '../_auth';
+import { corsHeaders, getCookie, resolveCreator, SESSION_COOKIE } from '../_auth';
 
 interface Env {
   SESSIONS: KVNamespace;
@@ -35,7 +35,7 @@ async function proxy(
     method,
     headers: {
       'Content-Type': 'application/json',
-      Cookie: context.request.headers.get('Cookie') ?? '',
+      'X-FGS-Token': getCookie(context.request, SESSION_COOKIE) ?? '',
     },
   };
   if (method === 'PATCH') init.body = await context.request.text();

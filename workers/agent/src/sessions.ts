@@ -292,7 +292,7 @@ export async function resolveUser(request: Request, auth: Fetcher): Promise<{ id
   // back through the edge and times out (CF 522).
   const authz = request.headers.get("Authorization") ?? "";
   const xfgs = request.headers.get("X-FGS-Token") ?? "";
-  const cookieToken = (request.headers.get("Cookie") ?? "").match(/fgs_token=([^;]*)/)?.[1];
+  const cookieToken = (request.headers.get("Cookie") ?? "").match(/__Host-fgs_token=([^;]*)/)?.[1];
   const token = xfgs || (authz.startsWith("Bearer ") ? authz.slice(7).trim() : "") || cookieToken;
   if (!token) return null;
   try {

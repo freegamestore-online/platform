@@ -79,7 +79,7 @@ async function authenticateAdmin(
   const bearer = authz.startsWith('Bearer ') ? authz.slice(7).trim() : '';
   const cookie = request.headers.get('Cookie') ?? '';
   const fgsToken =
-    request.headers.get('X-FGS-Token') || cookie.match(/fgs_token=([^;]*)/)?.[1] || bearer;
+    request.headers.get('X-FGS-Token') || cookie.match(/__Host-fgs_token=([^;]*)/)?.[1] || bearer;
   if (!fgsToken) return { email: null, isAdmin: false };
   try {
     // X-FGS-Token so /me returns the email (it withholds it on other paths).
@@ -162,7 +162,7 @@ async function authenticateLogin(request: Request, env: Env): Promise<string | n
   //    or the Bearer fallback. The auth worker's /me verifies the signature.
   const cookie = request.headers.get('Cookie') ?? '';
   const fgsToken =
-    request.headers.get('X-FGS-Token') || cookie.match(/fgs_token=([^;]*)/)?.[1] || bearer;
+    request.headers.get('X-FGS-Token') || cookie.match(/__Host-fgs_token=([^;]*)/)?.[1] || bearer;
   if (fgsToken) {
     try {
       // Service binding (not a public-hostname fetch — that loops back, CF 522).
@@ -660,6 +660,34 @@ export default {
     // CORS preflight — unauthenticated (a preflight carries no cookies).
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(request) });
+    }
+
+    // Auth owns the OAuth state cookie; this origin receives only a signed,
+    // short-lived handoff and writes its own __Host- session cookie.
+    if (url.pathname === '/auth/handoff' && request.method === 'GET') {
+      const handoff = url.searchParams.get('token') ?? '';
+      if (!handoff) return new Response('missing session handoff', { status: 400 });
+      const exchanged = await env.AUTH.fetch('https://auth.freegamestore.online/handoff/consume', {
+        method: 'POST',
+        headers: {
+          'X-FGS-Handoff': handoff,
+          'X-FGS-Handoff-Target': 'https://admin.freegamestore.online',
+        },
+      });
+      if (!exchanged.ok) return new Response('invalid or expired session handoff', { status: 401 });
+      const body = (await exchanged.json()) as { token?: string };
+      if (!body.token) return new Response('invalid session handoff response', { status: 502 });
+      const returnTo = url.searchParams.get('return_to');
+      let location = 'https://admin.freegamestore.online/';
+      try {
+        if (returnTo && new URL(returnTo).origin === 'https://admin.freegamestore.online') location = returnTo;
+      } catch {
+        /* safe default */
+      }
+      const headers = new Headers({ Location: location, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
+      headers.append('Set-Cookie', `__Host-fgs_token=${body.token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`);
+      headers.append('Set-Cookie', 'fgs_token=; Domain=.freegamestore.online; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+      return new Response(null, { status: 302, headers });
     }
 
     // CLI login mechanism — must stay reachable before the admin gate.

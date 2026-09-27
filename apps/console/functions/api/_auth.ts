@@ -14,6 +14,8 @@ export interface SessionEnv {
   JWT_SECRET?: string;
 }
 
+export const SESSION_COOKIE = '__Host-fgs_token';
+
 // First-party origins ONLY. The old `*.freegamestore.online` wildcard reflected
 // game subdomains too — and games are untrusted user content sharing the
 // session cookie's registrable domain, so any game could read this credentialed
@@ -37,7 +39,7 @@ export function corsHeaders(request: Request): Record<string, string> {
   };
 }
 
-function getCookie(request: Request, name: string): string | null {
+export function getCookie(request: Request, name: string): string | null {
   const c = request.headers.get('Cookie');
   if (!c) return null;
   const m = c.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
@@ -138,7 +140,7 @@ export async function resolveCreatorUser(
   }
 
   // Canonical: auth-worker JWT.
-  const tok = getCookie(request, 'fgs_token');
+  const tok = getCookie(request, SESSION_COOKIE);
   if (tok && env.JWT_SECRET) {
     const p = await verifyJWT(tok, env.JWT_SECRET);
     if (p && typeof p.login === 'string') {

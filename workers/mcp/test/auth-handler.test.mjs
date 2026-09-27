@@ -122,8 +122,10 @@ function jwtWithPayload(payload) {
 
 const GRACE = jwtWithPayload({ sub: 'github:7', login: 'grace', name: 'Grace', exp: 2000000000 });
 
-const get = (path, headers = {}) => new Request(`${ORIGIN}${path}`, { headers });
-const cookies = (...pairs) => pairs.filter(Boolean).join('; ');
+const hostOnly = (value) => value.replace(/(?:^|;\s*)fgs_token=/g, (m) => m.replace('fgs_token=', '__Host-fgs_token='));
+const get = (path, headers = {}) =>
+  new Request(`${ORIGIN}${path}`, { headers: headers.Cookie ? { ...headers, Cookie: hostOnly(headers.Cookie) } : headers });
+const cookies = (...pairs) => hostOnly(pairs.filter(Boolean).join('; '));
 
 /**
  * Drive /authorize the way a browser would and keep what it hands back: the
