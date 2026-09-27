@@ -113,7 +113,10 @@ function cors(request: Request): Record<string, string> {
 function json(data: unknown, status: number, request: Request): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json', ...cors(request) },
+    // Identity and token-exchange responses must never be retained by a browser,
+    // CDN, or shared intermediary. In particular, /v1/token/github returns a
+    // bearer token in JSON and /me is authenticated user data.
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...cors(request) },
   });
 }
 
@@ -167,6 +170,19 @@ export function safeRedirect(raw: string | null | undefined): string {
 /** Short-lived, browser-bound nonce cookie for OAuth CSRF protection. */
 function setStateCookie(nonce: string): string {
   return `${OAUTH_STATE_COOKIE}=${nonce}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`;
+}
+
+function clearStateCookie(): string {
+  return `${OAUTH_STATE_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+}
+
+function loginRedirect(redirect: string, token: string): Response {
+  const headers = new Headers({ Location: redirect, 'Cache-Control': 'no-store' });
+  headers.append('Set-Cookie', setTokenCookie(token));
+  // The state cookie is single-use in practice because the provider code is
+  // single-use, but clear it too so a completed login leaves no replay window.
+  headers.append('Set-Cookie', clearStateCookie());
+  return new Response(null, { status: 302, headers });
 }
 
 // --- Route handlers ---
@@ -236,9 +252,9 @@ export async function handleCallback(request: Request, env: Env): Promise<Respon
   });
 
   if (!tokenRes.ok) {
-    console.error(
-      `Google token exchange failed: HTTP ${tokenRes.status} ${await tokenRes.text().catch(() => '')}`,
-    );
+    // Provider error bodies are outside our trust boundary and can contain
+    // echoed request data. Log only the status, never a response body.
+    console.error(`Google token exchange failed: HTTP ${tokenRes.status}`);
     return new Response('Token exchange failed', { status: 502 });
   }
 
@@ -250,9 +266,7 @@ export async function handleCallback(request: Request, env: Env): Promise<Respon
   });
 
   if (!userRes.ok) {
-    console.error(
-      `Google userinfo fetch failed: HTTP ${userRes.status} ${await userRes.text().catch(() => '')}`,
-    );
+    console.error(`Google userinfo fetch failed: HTTP ${userRes.status}`);
     return new Response('Failed to fetch user info', { status: 502 });
   }
 
@@ -292,13 +306,7 @@ export async function handleCallback(request: Request, env: Env): Promise<Respon
     env.JWT_SECRET,
   );
 
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: redirect,
-      'Set-Cookie': setTokenCookie(token),
-    },
-  });
+  return loginRedirect(redirect, token);
 }
 
 export async function handleMe(request: Request, env: Env): Promise<Response> {
@@ -413,9 +421,8 @@ export async function handleGitHubCallback(request: Request, env: Env): Promise<
   });
 
   if (!tokenRes.ok) {
-    console.error(
-      `GitHub token exchange failed: HTTP ${tokenRes.status} ${await tokenRes.text().catch(() => '')}`,
-    );
+    // See the Google path above: do not put provider-controlled bodies in logs.
+    console.error(`GitHub token exchange failed: HTTP ${tokenRes.status}`);
     return new Response('Token exchange failed', { status: 502 });
   }
 
@@ -430,9 +437,7 @@ export async function handleGitHubCallback(request: Request, env: Env): Promise<
   });
 
   if (!userRes.ok) {
-    console.error(
-      `GitHub userinfo fetch failed: HTTP ${userRes.status} ${await userRes.text().catch(() => '')}`,
-    );
+    console.error(`GitHub userinfo fetch failed: HTTP ${userRes.status}`);
     return new Response('Failed to fetch user info', { status: 502 });
   }
 
@@ -440,13 +445,7 @@ export async function handleGitHubCallback(request: Request, env: Env): Promise<
 
   const { token } = await mintGitHubUserToken(ghUser, env);
 
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: redirect,
-      'Set-Cookie': setTokenCookie(token),
-    },
-  });
+  return loginRedirect(redirect, token);
 }
 
 async function mintGitHubUserToken(

@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { type PushSubscription, sendWebPush } from "./push";
+import { isValidPushSubscription, type PushSubscription, sendWebPush } from "./push";
 
 // Generate a test VAPID key pair at runtime — never commit real keys
 let VAPID_PUBLIC: string;
@@ -23,6 +23,23 @@ beforeAll(async () => {
 const FAKE_SUB: PushSubscription = {
   endpoint: "https://fcm.googleapis.com/fcm/send/test-id-123",
 };
+
+describe("push subscription validation", () => {
+  it("accepts HTTPS endpoints without URL credentials", () => {
+    expect(isValidPushSubscription(FAKE_SUB)).toBe(true);
+  });
+
+  it.each([
+    null,
+    {},
+    { endpoint: "" },
+    { endpoint: "http://push.example.test/subscription" },
+    { endpoint: "https://user:pass@push.example.test/subscription" },
+    { endpoint: "not a URL" },
+  ])("rejects malformed or non-HTTPS endpoint %#", (subscription) => {
+    expect(isValidPushSubscription(subscription)).toBe(false);
+  });
+});
 
 describe("sendWebPush — no payload", () => {
   it("POSTs to the subscription endpoint", async () => {
@@ -113,6 +130,20 @@ describe("sendWebPush — no payload", () => {
     try {
       const result = await sendWebPush(FAKE_SUB, VAPID_PUBLIC, VAPID_PRIVATE, "freegamestore.online");
       expect(result).toBe(false);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("does not fetch a malformed subscription even if one was persisted before validation existed", async () => {
+    const mockFetch = vi.fn();
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = mockFetch as any;
+
+    try {
+      const result = await sendWebPush({ endpoint: "http://127.0.0.1/internal" }, VAPID_PUBLIC, VAPID_PRIVATE, "freegamestore.online");
+      expect(result).toBe(false);
+      expect(mockFetch).not.toHaveBeenCalled();
     } finally {
       globalThis.fetch = originalFetch;
     }

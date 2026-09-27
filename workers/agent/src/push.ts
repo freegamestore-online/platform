@@ -6,6 +6,24 @@ export interface PushSubscription {
 }
 
 /**
+ * A subscription endpoint comes from the browser, so validate it before
+ * persisting or fetching it. Web Push endpoints are always HTTPS; rejecting
+ * other schemes also prevents the notification sender from becoming an
+ * authenticated user's generic outbound-request primitive.
+ */
+export function isValidPushSubscription(value: unknown): value is PushSubscription {
+  if (!value || typeof value !== "object") return false;
+  const endpoint = (value as { endpoint?: unknown }).endpoint;
+  if (typeof endpoint !== "string" || endpoint.length === 0 || endpoint.length > 2048) return false;
+  try {
+    const url = new URL(endpoint);
+    return url.protocol === "https:" && !!url.hostname && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Send a no-payload push notification. The service worker shows a
  * predefined message when it receives the push event.
  * Returns true on success (HTTP 201), false on failure.
@@ -16,11 +34,12 @@ export async function sendWebPush(
   vapidPrivateKey: string,
   contactDomain: string,
 ): Promise<boolean> {
+  if (!isValidPushSubscription(subscription)) return false;
   const url = new URL(subscription.endpoint);
   const audience = `${url.protocol}//${url.host}`;
   const jwt = await createVapidJWT(audience, vapidPublicKey, vapidPrivateKey, contactDomain);
 
-  const res = await fetch(subscription.endpoint, {
+  const res = await fetch(url.toString(), {
     method: "POST",
     headers: {
       Authorization: `vapid t=${jwt}, k=${vapidPublicKey}`,

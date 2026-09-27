@@ -12,7 +12,7 @@ import { compKeyFor, getActiveComp } from "./keygrants";
 import { keyStatus, resolveUserKey } from "./keys";
 import { OwnershipLookupError, ownsGame } from "./ownership";
 import type { AIConfig, Message, TokenUsage } from "./providers/types";
-import { type PushSubscription, sendWebPush } from "./push";
+import { isValidPushSubscription, type PushSubscription, sendWebPush } from "./push";
 import { allowDeploy, allowRequest } from "./ratelimit";
 import { enforceSessionBudget } from "./session-budget";
 import { activityFromDeployStatus, bumpSessionTokens, updateSessionActivity, upsertSessionIndex } from "./sessions";
@@ -1280,9 +1280,9 @@ export class AgentSession implements DurableObject {
 
   /** POST /push-subscribe — store push subscription for notifications */
   private async handlePushSubscribe(request: Request): Promise<Response> {
-    const sub = await request.json<PushSubscription>();
-    if (!sub.endpoint) {
-      return json({ error: "endpoint required" }, 400, request, this.config.domain);
+    const sub = await request.json<unknown>().catch(() => null);
+    if (!isValidPushSubscription(sub)) {
+      return json({ error: "a valid HTTPS push endpoint is required" }, 400, request, this.config.domain);
     }
     await this.state.storage.put("pushSubscription", sub);
     return json({ ok: true }, 200, request, this.config.domain);

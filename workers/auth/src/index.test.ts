@@ -168,6 +168,7 @@ test('handleMe includes email when authenticated via X-FGS-Token (worker-to-work
   assert.equal(body.email, 'grace@example.com');
   assert.equal(body.id, 'github:7');
   assert.equal(body.login, 'grace');
+  assert.equal(res.headers.get('Cache-Control'), 'no-store');
 });
 
 test('handleMe OMITS email when authenticated via the browser cookie only', async () => {
@@ -340,6 +341,7 @@ test('handleCallback carries a null email claim when Google reports email_verifi
   try {
     const res = await handleCallback(req, env);
     assert.equal(res.status, 302);
+    assert.equal(res.headers.get('Cache-Control'), 'no-store');
     const cookie = res.headers.get('Set-Cookie') ?? '';
     const m = cookie.match(/fgs_token=([^;]+)/);
     assert.ok(m, 'expected a session cookie to be set');
@@ -347,8 +349,39 @@ test('handleCallback carries a null email claim when Google reports email_verifi
     assert.ok(payload);
     assert.equal(payload.email, null); // unverified email must NOT be trusted
     assert.equal(payload.sub, '9');
+    assert.match(cookie, /fgs_oauth_state=;.*Max-Age=0/);
   } finally {
     globalThis.fetch = realFetch;
+  }
+});
+
+test('handleCallback never logs a provider-controlled token-exchange error body', async () => {
+  const { state, nonce } = oauthState('https://freegamestore.online');
+  const req = new Request(
+    'https://auth.freegamestore.online/callback?code=abc&state=' + encodeURIComponent(state),
+    { headers: { Cookie: `fgs_oauth_state=${nonce}` } },
+  );
+  const env = {
+    JWT_SECRET: SECRET,
+    GOOGLE_CLIENT_ID: 'cid',
+    GOOGLE_CLIENT_SECRET: 'csecret',
+    DB: fakeDb(),
+  } as unknown as Parameters<typeof handleCallback>[1];
+  const realFetch = globalThis.fetch;
+  const realConsoleError = console.error;
+  const logs: string[] = [];
+  globalThis.fetch = (async () =>
+    new Response('access_token=secret-token', { status: 400 })) as typeof fetch;
+  console.error = ((message: string) => logs.push(message)) as typeof console.error;
+  try {
+    const res = await handleCallback(req, env);
+    assert.equal(res.status, 502);
+    assert.equal(logs.length, 1);
+    assert.match(logs[0]!, /HTTP 400/);
+    assert.doesNotMatch(logs[0]!, /secret-token|access_token/);
+  } finally {
+    globalThis.fetch = realFetch;
+    console.error = realConsoleError;
   }
 });
 
