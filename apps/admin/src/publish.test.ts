@@ -19,6 +19,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+const GAME_TEMPLATE = { name: 'template-game-canvas', owner: { login: 'freegamestore-online' } };
+
 describe('verifySession', () => {
   it('fails closed when the signing key is empty', async () => {
     // Never verify against a "undefined"/empty key (which would be forgeable).
@@ -33,9 +35,12 @@ describe('handlePublish collaborator escalation', () => {
       const url = typeof input === 'string' ? input : (input as Request).url;
       const method = init?.method ?? 'GET';
       calls.push({ url, method });
-      // GET on the target repo → it already exists.
+      // GET on the target repo → it already exists (template-generated, so the
+      // claim guard lets it through and the collaborator branch is exercised).
       if (method === 'GET' && url.endsWith('/repos/freegamestore-online/chess')) {
-        return new Response(JSON.stringify({ id: 123 }), { status: 200 });
+        return new Response(JSON.stringify({ id: 123, template_repository: GAME_TEMPLATE }), {
+          status: 200,
+        });
       }
       // Everything else (registry read/write etc.) → benign 200.
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
@@ -335,10 +340,20 @@ describe('handlePublish interrupted-provision heal', () => {
       const method = init?.method ?? 'GET';
       calls.push({ url, method });
       if (method === 'GET' && url.endsWith('/repos/freegamestore-online/chess')) {
-        return new Response(JSON.stringify({ id: 123 }), { status: 200 }); // repo exists
+        // Repo exists and was generated from a game template (a cut-off provision).
+        return new Response(JSON.stringify({ id: 123, template_repository: GAME_TEMPLATE }), {
+          status: 200,
+        });
       }
       if (method === 'GET' && url.includes('/contents/package.json')) {
         return new Response(JSON.stringify({ content: btoa(pkgJson) }), { status: 200 });
+      }
+      if (method === 'GET' && url.includes('/freegamestore/contents/registry.json')) {
+        // Unlisted: the provision was cut off before its registry write.
+        return new Response(
+          JSON.stringify({ content: btoa(JSON.stringify({ games: [] })), sha: 's' }),
+          { status: 200 },
+        );
       }
       if (method === 'GET' && url.includes('/contents/')) {
         return new Response(JSON.stringify({}), { status: 404 }); // other targets absent
@@ -918,5 +933,118 @@ describe('handleDeleteGame admin override', () => {
     const res = await handleDeleteGame('chess', 'alice', deleteEnv());
     expect(res.error).toBeTruthy();
     expect(res.steps?.[0]).toMatchObject({ name: 'Store registry', status: 'fail' });
+  });
+});
+
+describe('handlePublish existing-repo claim guard (#61)', () => {
+  const env = { GITHUB_TOKEN: 'x', DB: undefined } as unknown as Parameters<
+    typeof handlePublish
+  >[1];
+
+  // `repo` is the GET /repos/{org}/{id} body; `registry` is registry.json (or
+  // null for an unreadable registry).
+  function stub(id: string, repo: Record<string, unknown>, registry: unknown) {
+    const writes: string[] = [];
+    vi.stubGlobal('fetch', async (input: unknown, init?: { method?: string }) => {
+      const url = typeof input === 'string' ? input : (input as Request).url;
+      const method = init?.method ?? 'GET';
+      if (method !== 'GET') writes.push(`${method} ${url}`);
+      if (method === 'GET' && url.endsWith(`/repos/freegamestore-online/${id}`)) {
+        return new Response(JSON.stringify({ id: 1, ...repo }), { status: 200 });
+      }
+      if (method === 'GET' && url.includes('/freegamestore/contents/registry.json')) {
+        return registry === null
+          ? new Response(JSON.stringify({ message: 'Server Error' }), { status: 500 })
+          : new Response(JSON.stringify({ content: btoa(JSON.stringify(registry)), sha: 's' }), {
+              status: 200,
+            });
+      }
+      if (method === 'GET' && url.includes('/contents/')) {
+        return new Response(JSON.stringify({}), { status: 404 }); // repo files absent
+      }
+      return new Response(JSON.stringify({ ok: true, content: {} }), { status: 200 });
+    });
+    return writes;
+  }
+
+  it('refuses to register an existing non-game org repo (e.g. the platform monorepo)', async () => {
+    const writes = stub('platform', { private: true, template_repository: null }, { games: [] });
+    const res = await handlePublish(
+      { id: 'platform', name: 'x', category: 'arcade', creatorGithub: 'attacker' },
+      env,
+    );
+    expect(res.success).toBe(false);
+    expect(res.steps).toContainEqual(
+      expect.objectContaining({ name: 'GitHub repo', status: 'fail' }),
+    );
+    // No registry entry, route, collaborator, or naming commit — nothing written.
+    expect(writes).toHaveLength(0);
+  });
+
+  it('refuses a repo generated from a non-game template', async () => {
+    const writes = stub(
+      'spike',
+      { template_repository: { name: 'platform', owner: { login: 'freegamestore-online' } } },
+      { games: [] },
+    );
+    const res = await handlePublish(
+      { id: 'spike', name: 'x', category: 'arcade', creatorGithub: 'attacker' },
+      env,
+    );
+    expect(res.success).toBe(false);
+    expect(writes).toHaveLength(0);
+  });
+
+  it("refuses to re-claim a deleted game's archived repo", async () => {
+    const writes = stub(
+      'old-game',
+      { archived: true, template_repository: GAME_TEMPLATE },
+      {
+        games: [],
+      },
+    );
+    const res = await handlePublish(
+      { id: 'old-game', name: 'x', category: 'arcade', creatorGithub: 'attacker' },
+      env,
+    );
+    expect(res.success).toBe(false);
+    expect(writes).toHaveLength(0);
+  });
+
+  it('fails closed when the registry cannot be read', async () => {
+    const writes = stub('new-game', { template_repository: GAME_TEMPLATE }, null);
+    const res = await handlePublish(
+      { id: 'new-game', name: 'x', category: 'arcade', creatorGithub: 'me' },
+      env,
+    );
+    expect(res.success).toBe(false);
+    expect(res.steps.at(-1)?.detail).toMatch(/Could not read registry\.json/);
+    expect(writes).toHaveLength(0);
+  });
+
+  it('still heals an unlisted repo generated from a game template (cut-off provision)', async () => {
+    const writes = stub('new-game', { template_repository: GAME_TEMPLATE }, { games: [] });
+    const res = await handlePublish(
+      { id: 'new-game', name: 'New', category: 'arcade', creatorGithub: 'me' },
+      env,
+    );
+    expect(res.steps).toContainEqual(
+      expect.objectContaining({ name: 'GitHub repo', status: 'skip' }),
+    );
+    expect(writes.some((w) => w.startsWith('PUT') && w.includes('registry.json'))).toBe(true);
+  });
+
+  it('still re-provisions an already-listed legacy game without template provenance', async () => {
+    stub('chess', { template_repository: null }, { games: [{ id: 'chess', name: 'Chess' }] });
+    const res = await handlePublish(
+      { id: 'chess', name: 'Chess', category: 'arcade', creatorGithub: 'me' },
+      env,
+    );
+    expect(res.steps).toContainEqual(
+      expect.objectContaining({ name: 'GitHub repo', status: 'skip' }),
+    );
+    expect(res.steps).not.toContainEqual(
+      expect.objectContaining({ name: 'GitHub repo', status: 'fail' }),
+    );
   });
 });

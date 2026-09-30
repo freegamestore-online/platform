@@ -556,6 +556,47 @@ function decodeGhContent(b64: string): string {
   );
 }
 
+/** Returns why an already-existing repo must not be (re-)provisioned, or null.
+ *  A registry-listed id keeps today's heal/skip behaviour. An unlisted id is
+ *  only accepted when GitHub says the repo was generated from one of our
+ *  `template-game-*` repos and is not archived — the signature of a provision
+ *  that was cut off before its registry write. Infra repos (platform, console,
+ *  …) and archived repos of deleted games fail that test. Fails closed when
+ *  the registry cannot be read. */
+async function existingRepoClaimError(
+  env: PublishEnv,
+  config: typeof STORE_CONFIG,
+  id: string,
+  repo: {
+    archived?: unknown;
+    template_repository?: { name?: unknown; owner?: { login?: unknown } } | null;
+  },
+): Promise<string | null> {
+  const registryFile = await ghApi(
+    env,
+    `/repos/${config.org}/${config.storeRepo}/contents/registry.json`,
+  );
+  let items: unknown = null;
+  try {
+    if (registryFile.content)
+      items = JSON.parse(decodeGhContent(registryFile.content))[config.registryKey];
+  } catch {
+    items = null;
+  }
+  if (!Array.isArray(items)) {
+    return `Could not read registry.json to verify ${config.org}/${id} — aborting to avoid claiming an existing repo. Please retry.`;
+  }
+  if (items.some((g) => (g as { id?: unknown })?.id === id)) return null;
+
+  const template = repo.template_repository;
+  const fromGameTemplate =
+    template?.owner?.login === config.org &&
+    typeof template?.name === 'string' &&
+    template.name.startsWith('template-game-');
+  if (fromGameTemplate && repo.archived !== true) return null;
+  return `${config.org}/${id} already exists and is not a game this service provisioned — choose a different id`;
+}
+
 const REMIX_CREDIT_MARKER = 'fgs-remix-attribution';
 
 /**
@@ -900,6 +941,15 @@ export async function handlePublish(
   }
   const repoExisted = repoCheck.__status === 200;
   if (repoExisted) {
+    // An existing repo is only provisionable if it is already a listed game or
+    // provably an interrupted provision of one. Otherwise any signed-in caller
+    // could register an arbitrary org repo (e.g. `platform`) as their game and
+    // then archive it through the owner-checked delete path (#61).
+    const claimError = await existingRepoClaimError(env, config, id, repoCheck);
+    if (claimError) {
+      steps.push({ name: 'GitHub repo', status: 'fail', detail: claimError });
+      return { steps, success: false };
+    }
     steps.push({
       name: 'GitHub repo',
       status: 'skip',
