@@ -9,18 +9,31 @@ import { useSound } from './SoundContext.js';
 export function useGameSounds() {
   const { muted } = useSound();
   const ctxRef = useRef<AudioContext | null>(null);
+  // Set once the game unmounts: no new AudioContext may be created after that.
+  const disposedRef = useRef(false);
+  // Delayed notes of multi-tone sounds (score, game over, level up, …).
+  const timersRef = useRef(new Set<ReturnType<typeof setTimeout>>());
 
   // Release the AudioContext when the game unmounts so it isn't leaked
-  // (browsers cap concurrent contexts).
+  // (browsers cap concurrent contexts). Pending delayed notes are cancelled
+  // first: one firing after unmount used to create a NEW context that nothing
+  // ever closed — one leak per game swapped out mid-sound, until browsers stop
+  // allowing new contexts and sound dies (#99). Reset on (re)mount so
+  // StrictMode's simulated remount doesn't leave sounds permanently disabled.
   useEffect(() => {
+    disposedRef.current = false;
+    const timers = timersRef.current;
     return () => {
-      void ctxRef.current?.close();
+      disposedRef.current = true;
+      for (const t of timers) clearTimeout(t);
+      timers.clear();
+      void ctxRef.current?.close().catch(() => {});
       ctxRef.current = null;
     };
   }, []);
 
   const getCtx = useCallback((): AudioContext | null => {
-    if (muted) return null;
+    if (muted || disposedRef.current) return null;
     if (!ctxRef.current) {
       try {
         ctxRef.current = new AudioContext();
@@ -64,6 +77,18 @@ export function useGameSounds() {
     [getCtx],
   );
 
+  /** Play a note after `ms`, cancelled if the game unmounts first. */
+  const later = useCallback(
+    (ms: number, ...args: Parameters<typeof tone>) => {
+      const timer = setTimeout(() => {
+        timersRef.current.delete(timer);
+        tone(...args);
+      }, ms);
+      timersRef.current.add(timer);
+    },
+    [tone],
+  );
+
   /** Short click/tap — piece moved, card flipped, button pressed */
   const playMove = useCallback(() => {
     tone(600, 0.06, 'square', 0.08);
@@ -72,8 +97,8 @@ export function useGameSounds() {
   /** Positive ding — scored a point, matched, correct answer */
   const playScore = useCallback(() => {
     tone(880, 0.12, 'sine', 0.15);
-    setTimeout(() => tone(1100, 0.15, 'sine', 0.12), 60);
-  }, [tone]);
+    later(60, 1100, 0.15, 'sine', 0.12);
+  }, [tone, later]);
 
   /** Negative buzz — wrong answer, hit obstacle, lost life */
   const playError = useCallback(() => {
@@ -83,17 +108,17 @@ export function useGameSounds() {
   /** Game over — descending tones */
   const playGameOver = useCallback(() => {
     tone(440, 0.15, 'sine', 0.12);
-    setTimeout(() => tone(350, 0.15, 'sine', 0.1), 100);
-    setTimeout(() => tone(260, 0.3, 'sine', 0.08), 200);
-  }, [tone]);
+    later(100, 350, 0.15, 'sine', 0.1);
+    later(200, 260, 0.3, 'sine', 0.08);
+  }, [tone, later]);
 
   /** Level up / achievement — ascending arpeggio */
   const playLevelUp = useCallback(() => {
     tone(523, 0.1, 'sine', 0.12);
-    setTimeout(() => tone(659, 0.1, 'sine', 0.12), 80);
-    setTimeout(() => tone(784, 0.1, 'sine', 0.12), 160);
-    setTimeout(() => tone(1047, 0.2, 'sine', 0.15), 240);
-  }, [tone]);
+    later(80, 659, 0.1, 'sine', 0.12);
+    later(160, 784, 0.1, 'sine', 0.12);
+    later(240, 1047, 0.2, 'sine', 0.15);
+  }, [tone, later]);
 
   /** Hard drop / thud — Tetris block landing, bowling throw */
   const playDrop = useCallback(() => {
@@ -103,9 +128,9 @@ export function useGameSounds() {
   /** Line clear / combo — satisfying sweep */
   const playClear = useCallback(() => {
     tone(700, 0.08, 'sine', 0.1);
-    setTimeout(() => tone(900, 0.08, 'sine', 0.1), 50);
-    setTimeout(() => tone(1200, 0.12, 'sine', 0.12), 100);
-  }, [tone]);
+    later(50, 900, 0.08, 'sine', 0.1);
+    later(100, 1200, 0.12, 'sine', 0.12);
+  }, [tone, later]);
 
   /** Countdown tick — timer warning */
   const playTick = useCallback(() => {

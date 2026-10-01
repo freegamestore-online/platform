@@ -3,18 +3,37 @@ import { useCallback, useEffect, useState } from 'react';
 const THEME_KEY = 'stores-theme';
 type Pref = 'system' | 'light' | 'dark';
 
+// Storage can be unavailable: privacy modes, blocked third-party storage in an
+// iframe, or disabled cookies make even reading `window.localStorage` throw a
+// SecurityError. This runs during render, so an unguarded access crashed the
+// whole game (#99) — the toggle must degrade to an unsaved preference instead.
 function getStoredPref(): Pref {
   if (typeof window === 'undefined') return 'system';
-  const s = window.localStorage.getItem(THEME_KEY);
-  if (s === 'light' || s === 'dark' || s === 'system') return s;
+  try {
+    const s = window.localStorage.getItem(THEME_KEY);
+    if (s === 'light' || s === 'dark' || s === 'system') return s;
+  } catch {
+    // Storage blocked — fall back to the default.
+  }
   return 'system';
+}
+
+function storePref(pref: Pref) {
+  try {
+    window.localStorage.setItem(THEME_KEY, pref);
+  } catch {
+    // Storage blocked or full — the theme still applies for this visit.
+  }
+}
+
+function darkQuery(): MediaQueryList | null {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return null;
+  return window.matchMedia('(prefers-color-scheme: dark)');
 }
 
 function resolve(pref: Pref): 'light' | 'dark' {
   if (pref !== 'system') return pref;
-  return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
-    ? 'dark'
-    : 'light';
+  return darkQuery()?.matches ? 'dark' : 'light';
 }
 
 function apply(pref: Pref) {
@@ -25,7 +44,7 @@ function apply(pref: Pref) {
   } else {
     delete document.documentElement.dataset.theme;
   }
-  window.localStorage.setItem(THEME_KEY, pref);
+  storePref(pref);
 }
 
 /**
@@ -40,6 +59,21 @@ export function GameThemeToggle() {
   // applied on reload, not just when cycled) and on every change.
   useEffect(() => {
     apply(pref);
+  }, [pref]);
+
+  // "system" follows the OS: re-apply when the OS theme changes, rather than
+  // only on reload.
+  const [, setOsTick] = useState(0);
+  useEffect(() => {
+    if (pref !== 'system') return;
+    const mq = darkQuery();
+    if (!mq) return;
+    const onChange = () => {
+      apply('system');
+      setOsTick((n) => n + 1); // re-render so the icon matches
+    };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
   }, [pref]);
 
   const cycle = useCallback(() => {
