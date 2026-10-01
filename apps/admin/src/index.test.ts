@@ -307,6 +307,40 @@ describe('creator self-serve routes are NOT behind the admin gate', () => {
     expect(JSON.stringify(await res.json())).toMatch(/invalid creatorgithub/i);
     expect(calls).toHaveLength(0); // aborted before any GitHub call
   });
+
+  it('POST /api/provision answers 409 when the id belongs to another creator (#88)', async () => {
+    vi.stubGlobal('fetch', async (input: unknown) => {
+      const url = typeof input === 'string' ? input : (input as Request).url;
+      if (url.endsWith('/repos/freegamestore-online/chess')) {
+        return new Response(JSON.stringify({ id: 1 }), { status: 200 });
+      }
+      if (url.includes('/contents/registry.json')) {
+        return new Response(
+          JSON.stringify({
+            content: btoa(JSON.stringify({ games: [{ id: 'chess', creatorGithub: 'alice' }] })),
+            sha: 's',
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(JSON.stringify({}), { status: 404 });
+    });
+    const res = await worker.fetch(
+      req('/api/provision', {
+        method: 'POST',
+        headers: { 'X-Internal-Token': 'secret', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: 'chess',
+          name: 'Chess',
+          category: 'arcade',
+          creatorGithub: 'bob',
+        }),
+      }),
+      makeEnv({ internalToken: 'secret', adminEmails: ADMIN, DB: undefined }),
+    );
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { conflict?: boolean }).conflict).toBe(true);
+  });
 });
 
 describe('GET /api/games/:id/detail fork attribution (#44)', () => {

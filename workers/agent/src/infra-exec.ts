@@ -130,6 +130,11 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
     if (!ctx.appId) {
       return `Error: ${ctx.config.noun} ID "${appId}" is already taken, and this session is not opened on it — deploying would overwrite that ${ctx.config.noun} blind. If it's the user's own ${ctx.config.noun}, tell them to open it first (opening loads the real repo files into this session); do NOT retry deploy or push_update. Otherwise choose a different ID.`;
     }
+  } else if (repoRes.status !== 404) {
+    // Only an explicit 404 means "free". A 401/403/5xx says nothing about who
+    // owns the id, so treating it as free could provision over — and bind to —
+    // another creator's game (#88).
+    return `Error: couldn't confirm whether the ${ctx.config.noun} ID "${appId}" is free (GitHub returned HTTP ${repoRes.status}). Nothing was deployed — retry deploy in a moment.`;
   }
 
   // Replace APPNAME placeholders (slug in package manifests, display name
@@ -137,9 +142,12 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
   // so this must stay the single canonical substitution — hence the shared fn.
   substituteAppName(ctx.files, appId, appName);
 
-  // Bind the id only — the build hasn't run yet. Marking "deployed" here is what
-  // let a red CI run read as a shipped game (#9).
-  ctx.onAppBound(appId, appName);
+  // Bind the id only once admin confirms it is this creator's (deployApp calls
+  // back after provisioning) — binding up front let a lost race or an id owned
+  // by someone else authorize push_update against their game (#88). Still before
+  // the build: marking "deployed" here is what let a red CI run read as a
+  // shipped game (#9).
+  const bind = () => ctx.onAppBound(appId, appName);
 
   let deployError: string | null = null;
   let finalStatus: DeployStatus | null = null;
@@ -168,6 +176,7 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
     },
     ctx.creatorLogin,
     ctx.seed,
+    bind,
   ).catch((err) => {
     deployError = String(err);
   });

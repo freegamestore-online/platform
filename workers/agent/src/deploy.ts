@@ -176,6 +176,9 @@ export async function deployApp(
   onStatus: (status: DeployStatus) => void,
   creatorLogin?: string,
   seed?: Record<string, string>,
+  /** Called once the id is confirmed as this creator's (never for an id that
+   *  belongs to someone else) — the point at which the session may bind it. */
+  onProvisioned?: () => void,
 ): Promise<void> {
   const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
   const steps: DeployStep[] = [];
@@ -187,8 +190,9 @@ export async function deployApp(
   // game source it authored on top (delta vs. the seed template), so admin's
   // generated scaffold survives. No agent repo-creation, no CF Pages.
   if (config.pathB) {
-    return deployPathB(deployConfig, files, env, config, onStatus, creatorLogin, seed);
+    return deployPathB(deployConfig, files, env, config, onStatus, creatorLogin, seed, onProvisioned);
   }
+  onProvisioned?.();
 
   // Step 1: Create GitHub repo (FAS apps — CF Pages flow)
   let repoCreated = false;
@@ -368,7 +372,7 @@ async function registerViaAdmin(
   env: DeployEnv,
   config: StoreConfig,
   creatorLogin?: string,
-): Promise<DeployStep> {
+): Promise<DeployStep & { conflict?: boolean }> {
   if (!env.ADMIN || !env.INTERNAL_TOKEN) {
     return { name: "Store registry", status: "fail", detail: "admin binding / internal token not configured" };
   }
@@ -391,12 +395,18 @@ async function registerViaAdmin(
       success?: boolean;
       steps?: { name: string; status: string; detail: string }[];
       error?: string;
+      conflict?: boolean;
     };
     if (res.ok && data.success) {
       return { name: "Store registry", status: "ok", detail: `${deployConfig.id} listed + host route written` };
     }
     const failed = data.steps?.find((s) => s.status === "fail");
-    return { name: "Store registry", status: "fail", detail: failed?.detail || data.error || `admin returned HTTP ${res.status}` };
+    return {
+      name: "Store registry",
+      status: "fail",
+      detail: failed?.detail || data.error || `admin returned HTTP ${res.status}`,
+      ...(res.status === 409 || data.conflict === true ? { conflict: true } : {}),
+    };
   } catch (err) {
     return { name: "Store registry", status: "fail", detail: String(err) };
   }
@@ -507,14 +517,25 @@ async function deployPathB(
   onStatus: (status: DeployStatus) => void,
   creatorLogin?: string,
   seed?: Record<string, string>,
+  onProvisioned?: () => void,
 ): Promise<void> {
   const steps: DeployStep[] = [];
   onStatus({ phase: "provisioning", steps: [] });
 
   // 1. Provision via admin (idempotent — skips repo creation on re-deploy).
-  const reg = await registerViaAdmin(deployConfig, env, config, creatorLogin);
+  const { conflict, ...reg } = await registerViaAdmin(deployConfig, env, config, creatorLogin);
   steps.push(reg);
   onStatus({ phase: "provisioning", steps: [...steps] });
+  // Admin is the arbiter of who owns an id (#88). If it belongs to another
+  // creator — including a concurrent deploy that won the race — never bind it,
+  // or the session would be authorized to push_update someone else's game.
+  if (conflict) {
+    onStatus({ phase: "error", error: `The ${config.noun} ID "${deployConfig.id}" belongs to another creator: ${reg.detail}` });
+    return;
+  }
+  // Bound even if provisioning failed for another reason: the id is this
+  // creator's, and keeping it lets a failed first deploy recover via push_update.
+  onProvisioned?.();
   if (reg.status === "fail") {
     onStatus({ phase: "error", error: `Could not provision the ${config.noun}: ${reg.detail}` });
     return;

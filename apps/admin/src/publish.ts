@@ -556,13 +556,40 @@ function decodeGhContent(b64: string): string {
   );
 }
 
-/** Returns why an already-existing repo must not be (re-)provisioned, or null.
- *  A registry-listed id keeps today's heal/skip behaviour. An unlisted id is
- *  only accepted when GitHub says the repo was generated from one of our
- *  `template-game-*` repos and is not archived — the signature of a provision
- *  that was cut off before its registry write. Infra repos (platform, console,
- *  …) and archived repos of deleted games fail that test. Fails closed when
- *  the registry cannot be read. */
+/** Whether `login` already has access to (or a pending invite on) a repo. The
+ *  provision that GENERATES a repo invites its creator straight away, so this is
+ *  what separates a creator retrying their own cut-off provision from a racer
+ *  who lost the generate (#88). Throws on an inconclusive GitHub answer. */
+async function hasRepoAccessOrInvite(
+  env: PublishEnv,
+  org: string,
+  id: string,
+  login: string,
+): Promise<boolean> {
+  const collab = await ghApi(env, `/repos/${org}/${id}/collaborators/${login}`);
+  if (collab.__status === 204) return true;
+  if (collab.__status !== 404) throw new Error(`collaborator check returned ${collab.__status}`);
+  const invites = await ghApi(env, `/repos/${org}/${id}/invitations?per_page=100`);
+  if (invites.__status !== 200 || !Array.isArray(invites)) {
+    throw new Error(`invitation check returned ${invites.__status}`);
+  }
+  return invites.some(
+    (inv: { invitee?: { login?: unknown } }) =>
+      typeof inv?.invitee?.login === 'string' &&
+      inv.invitee.login.toLowerCase() === login.toLowerCase(),
+  );
+}
+
+/** Why an already-existing repo must not be (re-)provisioned for `owner`, or
+ *  null. `conflict` marks "this id belongs to someone else" so callers (the
+ *  agent's deploy) can refuse to bind to it.
+ *   - Listed with a recorded creator: only that creator may re-provision.
+ *     Listed legacy entries (no creator) keep their heal/skip behaviour.
+ *   - Unlisted: must be generated from one of our `template-game-*` repos, not
+ *     archived (#61), AND `owner` must already have access or an invite — i.e.
+ *     it is their own provision that was cut off before its registry write,
+ *     not a concurrent provision that won the generate (#88).
+ *  Fails closed when the registry or GitHub cannot give a clear answer. */
 async function existingRepoClaimError(
   env: PublishEnv,
   config: typeof STORE_CONFIG,
@@ -571,7 +598,8 @@ async function existingRepoClaimError(
     archived?: unknown;
     template_repository?: { name?: unknown; owner?: { login?: unknown } } | null;
   },
-): Promise<string | null> {
+  owner: string | undefined,
+): Promise<{ error: string; conflict: boolean } | null> {
   const registryFile = await ghApi(
     env,
     `/repos/${config.org}/${config.storeRepo}/contents/registry.json`,
@@ -584,17 +612,49 @@ async function existingRepoClaimError(
     items = null;
   }
   if (!Array.isArray(items)) {
-    return `Could not read registry.json to verify ${config.org}/${id} — aborting to avoid claiming an existing repo. Please retry.`;
+    return {
+      error: `Could not read registry.json to verify ${config.org}/${id} — aborting to avoid claiming an existing repo. Please retry.`,
+      conflict: false,
+    };
   }
-  if (items.some((g) => (g as { id?: unknown })?.id === id)) return null;
+  const listed = items.find((g) => (g as { id?: unknown })?.id === id) as
+    | { creatorGithub?: unknown }
+    | undefined;
+  if (listed) {
+    if (typeof listed.creatorGithub !== 'string' || !listed.creatorGithub) return null;
+    if (owner && listed.creatorGithub.toLowerCase() === owner.toLowerCase()) return null;
+    return {
+      error: `"${id}" is already taken by another creator — choose a different id`,
+      conflict: true,
+    };
+  }
 
   const template = repo.template_repository;
   const fromGameTemplate =
     template?.owner?.login === config.org &&
     typeof template?.name === 'string' &&
     template.name.startsWith('template-game-');
-  if (fromGameTemplate && repo.archived !== true) return null;
-  return `${config.org}/${id} already exists and is not a game this service provisioned — choose a different id`;
+  if (!fromGameTemplate || repo.archived === true) {
+    return {
+      error: `${config.org}/${id} already exists and is not a game this service provisioned — choose a different id`,
+      conflict: true,
+    };
+  }
+  if (!owner) {
+    return { error: `"${id}" is already taken — choose a different id`, conflict: true };
+  }
+  try {
+    if (await hasRepoAccessOrInvite(env, config.org, id, owner)) return null;
+  } catch (e) {
+    return {
+      error: `Could not verify ownership of ${config.org}/${id} (${e instanceof Error ? e.message : String(e)}) — aborting. Please retry.`,
+      conflict: false,
+    };
+  }
+  return {
+    error: `"${id}" is already taken by another creator — choose a different id`,
+    conflict: true,
+  };
 }
 
 const REMIX_CREDIT_MARKER = 'fgs-remix-attribution';
@@ -852,7 +912,14 @@ async function getSourceForkAttribution(
 export async function handlePublish(
   req: PublishRequest,
   env: PublishEnv,
-): Promise<{ steps: Step[]; success: boolean; appUrl?: string; repoUrl?: string }> {
+): Promise<{
+  steps: Step[];
+  success: boolean;
+  appUrl?: string;
+  repoUrl?: string;
+  /** The id belongs to another creator — callers must not bind to it (#88). */
+  conflict?: boolean;
+}> {
   const steps: Step[] = [];
 
   if (!req.name) {
@@ -945,10 +1012,10 @@ export async function handlePublish(
     // provably an interrupted provision of one. Otherwise any signed-in caller
     // could register an arbitrary org repo (e.g. `platform`) as their game and
     // then archive it through the owner-checked delete path (#61).
-    const claimError = await existingRepoClaimError(env, config, id, repoCheck);
-    if (claimError) {
-      steps.push({ name: 'GitHub repo', status: 'fail', detail: claimError });
-      return { steps, success: false };
+    const claim = await existingRepoClaimError(env, config, id, repoCheck, req.creatorGithub);
+    if (claim) {
+      steps.push({ name: 'GitHub repo', status: 'fail', detail: claim.error });
+      return { steps, success: false, ...(claim.conflict ? { conflict: true } : {}) };
     }
     steps.push({
       name: 'GitHub repo',
@@ -1015,12 +1082,18 @@ export async function handlePublish(
         }
       }
     } else {
+      // 422 "already exists": a concurrent provision generated this id between
+      // our existence check and now — it is theirs, not ours (#88).
+      const lostRace =
+        createRepo.__status === 422 && /already exists/i.test(String(createRepo.message ?? ''));
       steps.push({
         name: 'GitHub repo',
         status: 'fail',
-        detail: createRepo.message || 'Failed to create repo',
+        detail: lostRace
+          ? `"${id}" was just taken by another creator — choose a different id`
+          : createRepo.message || 'Failed to create repo',
       });
-      return { steps, success: false };
+      return { steps, success: false, ...(lostRace ? { conflict: true } : {}) };
     }
   }
 
@@ -1077,6 +1150,7 @@ export async function handlePublish(
   // writeRegistryWithRetry (vendored, not shared).
   const registryPath = `/repos/${config.org}/${config.storeRepo}/contents/registry.json`;
   const key = config.registryKey;
+  let registryConflict = false;
   const attemptRegistry = async (isRetry: boolean): Promise<Step | null> => {
     const registryFile = await ghApi(env, registryPath);
     if (!registryFile.content) {
@@ -1087,7 +1161,20 @@ export async function handlePublish(
     );
     const content = JSON.parse(rawContent);
     const items: Array<Record<string, unknown>> = Array.isArray(content[key]) ? content[key] : [];
-    if (items.some((a: any) => a.id === id)) {
+    const existing = items.find((a: any) => a.id === id);
+    if (existing) {
+      // A concurrent provision may have listed this id first. If it recorded a
+      // different creator, this caller lost the race and must not proceed as
+      // though the game were theirs (#88).
+      const listedOwner = typeof existing.creatorGithub === 'string' ? existing.creatorGithub : '';
+      if (listedOwner && listedOwner.toLowerCase() !== (req.creatorGithub ?? '').toLowerCase()) {
+        registryConflict = true;
+        return {
+          name: 'Store registry',
+          status: 'fail',
+          detail: `"${id}" was just taken by another creator — choose a different id`,
+        };
+      }
       return {
         name: 'Store registry',
         status: 'skip',
@@ -1173,6 +1260,7 @@ export async function handlePublish(
     return {
       steps,
       success: false,
+      ...(registryConflict ? { conflict: true } : {}),
       appUrl: `https://${subdomain}`,
       repoUrl: `https://github.com/${config.org}/${id}`,
     };

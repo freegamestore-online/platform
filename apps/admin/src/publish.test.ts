@@ -348,6 +348,9 @@ describe('handlePublish interrupted-provision heal', () => {
       if (method === 'GET' && url.includes('/contents/package.json')) {
         return new Response(JSON.stringify({ content: btoa(pkgJson) }), { status: 200 });
       }
+      if (method === 'GET' && url.includes('/collaborators/')) {
+        return new Response(null, { status: 204 }); // the creator was invited by their own provision
+      }
       if (method === 'GET' && url.includes('/freegamestore/contents/registry.json')) {
         // Unlisted: the provision was cut off before its registry write.
         return new Response(
@@ -943,7 +946,12 @@ describe('handlePublish existing-repo claim guard (#61)', () => {
 
   // `repo` is the GET /repos/{org}/{id} body; `registry` is registry.json (or
   // null for an unreadable registry).
-  function stub(id: string, repo: Record<string, unknown>, registry: unknown) {
+  function stub(
+    id: string,
+    repo: Record<string, unknown>,
+    registry: unknown,
+    access: { collaborator?: number; invitees?: string[] } = { collaborator: 204 },
+  ) {
     const writes: string[] = [];
     vi.stubGlobal('fetch', async (input: unknown, init?: { method?: string }) => {
       const url = typeof input === 'string' ? input : (input as Request).url;
@@ -951,6 +959,14 @@ describe('handlePublish existing-repo claim guard (#61)', () => {
       if (method !== 'GET') writes.push(`${method} ${url}`);
       if (method === 'GET' && url.endsWith(`/repos/freegamestore-online/${id}`)) {
         return new Response(JSON.stringify({ id: 1, ...repo }), { status: 200 });
+      }
+      if (method === 'GET' && url.includes(`/repos/freegamestore-online/${id}/collaborators/`)) {
+        const status = access.collaborator ?? 404;
+        return new Response(status === 204 ? null : JSON.stringify({}), { status });
+      }
+      if (method === 'GET' && url.includes(`/repos/freegamestore-online/${id}/invitations`)) {
+        const invites = (access.invitees ?? []).map((login) => ({ invitee: { login } }));
+        return new Response(JSON.stringify(invites), { status: 200 });
       }
       if (method === 'GET' && url.includes('/freegamestore/contents/registry.json')) {
         return registry === null
@@ -1045,6 +1061,152 @@ describe('handlePublish existing-repo claim guard (#61)', () => {
     );
     expect(res.steps).not.toContainEqual(
       expect.objectContaining({ name: 'GitHub repo', status: 'fail' }),
+    );
+  });
+});
+
+describe('handlePublish ownership of an existing id (#88)', () => {
+  const env = { GITHUB_TOKEN: 'x', DB: undefined } as unknown as Parameters<
+    typeof handlePublish
+  >[1];
+  const req = (id: string, creatorGithub: string) => ({
+    id,
+    name: 'Space Invaders',
+    category: 'arcade',
+    creatorGithub,
+  });
+
+  function stub(opts: {
+    repoStatus: number;
+    repo?: Record<string, unknown>;
+    registry: unknown;
+    collaborator?: number;
+    invitees?: string[];
+    generate?: { status: number; body: Record<string, unknown> };
+  }) {
+    const writes: string[] = [];
+    vi.stubGlobal('fetch', async (input: unknown, init?: { method?: string }) => {
+      const url = typeof input === 'string' ? input : (input as Request).url;
+      const method = init?.method ?? 'GET';
+      if (method !== 'GET') writes.push(`${method} ${url}`);
+      if (method === 'POST' && url.endsWith('/generate')) {
+        const g = opts.generate ?? { status: 201, body: { id: 9 } };
+        return new Response(JSON.stringify(g.body), { status: g.status });
+      }
+      if (method === 'GET' && url.endsWith('/repos/freegamestore-online/space-invaders')) {
+        return new Response(
+          JSON.stringify({ id: 1, template_repository: GAME_TEMPLATE, ...opts.repo }),
+          { status: opts.repoStatus },
+        );
+      }
+      if (method === 'GET' && url.includes('/git/ref/heads/main')) {
+        return new Response(JSON.stringify({ object: { sha: 'headsha' } }), { status: 200 });
+      }
+      if (method === 'GET' && url.includes('/git/commits/')) {
+        return new Response(JSON.stringify({ tree: { sha: 'basetree' } }), { status: 200 });
+      }
+      if (method === 'POST' && /\/git\/(blobs|trees|commits)$/.test(url)) {
+        return new Response(JSON.stringify({ sha: 'newsha' }), { status: 201 });
+      }
+      if (method === 'GET' && url.includes('/space-invaders/collaborators/')) {
+        const status = opts.collaborator ?? 404;
+        return new Response(status === 204 ? null : JSON.stringify({}), { status });
+      }
+      if (method === 'GET' && url.includes('/space-invaders/invitations')) {
+        return new Response(
+          JSON.stringify((opts.invitees ?? []).map((login) => ({ invitee: { login } }))),
+          { status: 200 },
+        );
+      }
+      if (method === 'GET' && url.includes('/freegamestore/contents/registry.json')) {
+        return new Response(
+          JSON.stringify({ content: btoa(JSON.stringify(opts.registry)), sha: 's' }),
+          { status: 200 },
+        );
+      }
+      if (method === 'GET' && url.includes('/contents/')) {
+        return new Response(JSON.stringify({}), { status: 404 });
+      }
+      return new Response(JSON.stringify({ ok: true, content: {} }), { status: 200 });
+    });
+    return writes;
+  }
+
+  it('refuses an id listed under another creator, with nothing written', async () => {
+    const writes = stub({
+      repoStatus: 200,
+      registry: { games: [{ id: 'space-invaders', creatorGithub: 'alice' }] },
+    });
+    const res = await handlePublish(req('space-invaders', 'bob'), env);
+    expect(res.success).toBe(false);
+    expect(res.conflict).toBe(true);
+    expect(writes).toHaveLength(0);
+  });
+
+  it('lets the recorded creator re-provision their own game (case-insensitive)', async () => {
+    stub({
+      repoStatus: 200,
+      registry: { games: [{ id: 'space-invaders', creatorGithub: 'Alice' }] },
+    });
+    const res = await handlePublish(req('space-invaders', 'alice'), env);
+    expect(res.conflict).toBeUndefined();
+    expect(res.steps).toContainEqual(
+      expect.objectContaining({ name: 'Store registry', status: 'skip' }),
+    );
+  });
+
+  it('refuses an unlisted repo the caller did not create (race: they lost the generate)', async () => {
+    const writes = stub({
+      repoStatus: 200,
+      registry: { games: [] },
+      collaborator: 404,
+      invitees: ['alice'],
+    });
+    const res = await handlePublish(req('space-invaders', 'bob'), env);
+    expect(res.success).toBe(false);
+    expect(res.conflict).toBe(true);
+    expect(writes).toHaveLength(0);
+  });
+
+  it('accepts an unlisted repo the caller holds a pending invite on (their own cut-off provision)', async () => {
+    stub({ repoStatus: 200, registry: { games: [] }, collaborator: 404, invitees: ['Bob'] });
+    const res = await handlePublish(req('space-invaders', 'bob'), env);
+    expect(res.conflict).toBeUndefined();
+    expect(res.steps).toContainEqual(
+      expect.objectContaining({ name: 'GitHub repo', status: 'skip' }),
+    );
+  });
+
+  it('fails closed (not as a conflict) when GitHub cannot confirm access', async () => {
+    const writes = stub({ repoStatus: 200, registry: { games: [] }, collaborator: 502 });
+    const res = await handlePublish(req('space-invaders', 'bob'), env);
+    expect(res.success).toBe(false);
+    expect(res.conflict).toBeUndefined();
+    expect(res.steps.at(-1)?.detail).toMatch(/Could not verify ownership/);
+    expect(writes).toHaveLength(0);
+  });
+
+  it('flags a lost generate race (422 already exists) as a conflict', async () => {
+    stub({
+      repoStatus: 404,
+      registry: { games: [] },
+      generate: { status: 422, body: { message: 'Name already exists on this account' } },
+    });
+    const res = await handlePublish(req('space-invaders', 'bob'), env);
+    expect(res.success).toBe(false);
+    expect(res.conflict).toBe(true);
+  });
+
+  it('fails as a conflict when a concurrent provision listed the id for someone else', async () => {
+    stub({
+      repoStatus: 404,
+      registry: { games: [{ id: 'space-invaders', creatorGithub: 'alice' }] },
+    });
+    const res = await handlePublish(req('space-invaders', 'bob'), env);
+    expect(res.success).toBe(false);
+    expect(res.conflict).toBe(true);
+    expect(res.steps).toContainEqual(
+      expect.objectContaining({ name: 'Store registry', status: 'fail' }),
     );
   });
 });

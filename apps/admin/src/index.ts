@@ -1393,7 +1393,7 @@ export default {
             stack: JSON.stringify(result).slice(0, 1500),
           });
         }
-        return jsonResponse(result, result.success ? 200 : 400, request);
+        return jsonResponse(result, result.success ? 200 : result.conflict ? 409 : 400, request);
       } catch (e) {
         await recordError(env.DB, {
           source: 'admin/provision',

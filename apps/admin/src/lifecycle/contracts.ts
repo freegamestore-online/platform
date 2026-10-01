@@ -5,7 +5,14 @@ export interface ProvisionGame {
   provision(
     request: PublishRequest,
     env: PublishEnv,
-  ): Promise<{ steps: Step[]; success: boolean; appUrl?: string; repoUrl?: string }>;
+  ): Promise<{
+    steps: Step[];
+    success: boolean;
+    appUrl?: string;
+    repoUrl?: string;
+    /** The id belongs to another creator; the HTTP layer answers 409. */
+    conflict?: boolean;
+  }>;
 }
 
 export interface UpdateGame {

@@ -42,7 +42,12 @@ function deployResolvingTo(...statuses: DeployStatus[]) {
     _env: unknown,
     _config: unknown,
     onStatus: (s: DeployStatus) => void,
+    _creatorLogin?: string,
+    _seed?: unknown,
+    onProvisioned?: () => void,
   ) => {
+    // Real contract: admin confirms the id is this creator's, THEN the build runs.
+    onProvisioned?.();
     for (const s of statuses) onStatus(s);
   }) as unknown as typeof deployApp);
 }
@@ -139,6 +144,40 @@ describe("executeDeploy — deployed state is gated on CI success (#9)", () => {
     const ctx = makeCtx();
     const result = await runDeploy(ctx);
     expect(result).toContain("Deploy FAILED");
+    expect(ctx.onAppDeployed).not.toHaveBeenCalled();
+  });
+});
+
+describe("executeDeploy — never binds an id it does not own (#88)", () => {
+  it("does not treat an inconclusive GitHub answer (403/5xx) as a free id", async () => {
+    for (const status of [401, 403, 500, 502]) {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        status,
+        json: () => Promise.resolve({ message: "nope" }),
+      }) as unknown as typeof fetch;
+      const ctx = makeCtx();
+      const result = await runDeploy(ctx);
+      expect(result).toMatch(/couldn't confirm whether/i);
+      expect(deployApp).not.toHaveBeenCalled();
+      expect(ctx.onAppBound).not.toHaveBeenCalled();
+    }
+  });
+
+  it("does not bind the session when provisioning reports the id belongs to someone else", async () => {
+    // deployApp never calls onProvisioned on an ownership conflict.
+    vi.mocked(deployApp).mockImplementation((async (
+      _cfg: unknown,
+      _files: unknown,
+      _env: unknown,
+      _config: unknown,
+      onStatus: (s: DeployStatus) => void,
+    ) => {
+      onStatus({ phase: "error", error: 'The game ID "my-game" belongs to another creator' });
+    }) as unknown as typeof deployApp);
+    const ctx = makeCtx();
+    const result = await runDeploy(ctx);
+    expect(result).toMatch(/FAILED/);
+    expect(ctx.onAppBound).not.toHaveBeenCalled();
     expect(ctx.onAppDeployed).not.toHaveBeenCalled();
   });
 });
