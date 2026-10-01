@@ -65,24 +65,27 @@ export async function routeSessionRequest(request: Request, deps: SessionRouterD
       else if (owner !== caller) return jsonResponse({ error: "forbidden" }, 403, request, config.domain);
     }
 
+    // `return await`, not `return`: an un-awaited promise returned from inside
+    // `try` rejects past this catch, escaping the DO as an opaque CF 500 with no
+    // CORS headers instead of the JSON error below (#85).
     const route = `${request.method} ${path}`;
     switch (route) {
       case "POST /chat":
-        return handlers.chat(request);
+        return await handlers.chat(request);
       case "GET /status":
-        return handlers.status(request);
+        return await handlers.status(request);
       case "GET /files":
-        return handlers.files(request);
+        return await handlers.files(request);
       case "GET /history":
-        return handlers.history(request);
+        return await handlers.history(request);
       case "GET /errors":
-        return handlers.errors(request);
+        return await handlers.errors(request);
       case "POST /import":
-        return handlers.import(request);
+        return await handlers.import(request);
       case "POST /reset":
-        return handlers.reset(request);
+        return await handlers.reset(request);
       case "POST /push-subscribe":
-        return handlers.pushSubscribe(request);
+        return await handlers.pushSubscribe(request);
       default:
         return jsonResponse({ error: "not found" }, 404, request, config.domain);
     }

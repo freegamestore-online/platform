@@ -51,4 +51,32 @@ describe("routeSessionRequest", () => {
     expect(res.status).toBe(404);
     expect(handlers.status).not.toHaveBeenCalled();
   });
+
+  it("turns a rejecting handler into a JSON 500 with CORS headers on every route (#85)", async () => {
+    const routes: [string, string, keyof SessionRouteHandlers][] = [
+      ["POST", "/chat", "chat"],
+      ["GET", "/status", "status"],
+      ["GET", "/files", "files"],
+      ["GET", "/history", "history"],
+      ["GET", "/errors", "errors"],
+      ["POST", "/import", "import"],
+      ["POST", "/reset", "reset"],
+      ["POST", "/push-subscribe", "pushSubscribe"],
+    ];
+    for (const [method, path, name] of routes) {
+      const { deps, handlers } = setup();
+      vi.mocked(handlers[name]).mockRejectedValueOnce(new Error(`template fetch failed (${name})`));
+      const res = await routeSessionRequest(
+        new Request(`https://do${path}`, {
+          method,
+          headers: { "X-Auth-User": "alice", Origin: "https://console.freegamestore.online" },
+        }),
+        deps,
+      );
+      expect(res.status, `${method} ${path}`).toBe(500);
+      expect(res.headers.get("Content-Type")).toBe("application/json");
+      expect(res.headers.get("Access-Control-Allow-Origin")).toBe("https://console.freegamestore.online");
+      expect(((await res.json()) as { error: string }).error).toContain(`template fetch failed (${name})`);
+    }
+  });
 });
