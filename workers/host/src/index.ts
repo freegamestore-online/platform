@@ -281,8 +281,10 @@ function respond(obj: R2ObjectBody, ct: string, req: Request, revalidate: boolea
   headers.set("content-type", ct);
   headers.set("etag", obj.httpEtag);
   headers.set("accept-ranges", "bytes");
-  // Partial content: R2 populated obj.range because the request carried a Range.
-  if (obj.range && req.method === "GET") {
+  // Partial content only when the request asked for a range. R2 can report
+  // obj.range for a plain GET too (the whole object), which answered every
+  // asset with 206 + a full Content-Range instead of a normal 200.
+  if (obj.range && req.method === "GET" && req.headers.has("range")) {
     const { offset, length } = rangeBounds(obj.range, obj.size);
     headers.set("content-range", `bytes ${offset}-${offset + length - 1}/${obj.size}`);
     return new Response(obj.body, { status: 206, headers });

@@ -40,7 +40,8 @@ function bucket(): R2Bucket {
           body = DATA.slice(offset, offset + length);
         }
       }
-      return { size: SIZE, httpEtag: '"e"', range, body } as unknown as R2ObjectBody;
+      // Production R2 reports the whole-object range even for a plain GET.
+      return { size: SIZE, httpEtag: '"e"', range: range ?? { offset: 0, length: SIZE }, body } as unknown as R2ObjectBody;
     },
   } as unknown as R2Bucket;
 }
@@ -67,6 +68,16 @@ describe("Range responses (#74)", () => {
 
   it("still answers an explicit range", async () => {
     expect((await get("bytes=100-199")).headers.get("content-range")).toBe("bytes 100-199/1000");
+  });
+
+  it("answers a plain GET (no Range) with 200, not 206", async () => {
+    __clearRouteCache();
+    const req = new Request("https://space.freegamestore.online/clip.mp4", {
+      headers: { host: "space.freegamestore.online" },
+    });
+    const res = await worker.fetch(req, { DB: db(), APPS: bucket() } as never, ctx);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-range")).toBeNull();
   });
 
   it("still answers an open-ended range", async () => {
