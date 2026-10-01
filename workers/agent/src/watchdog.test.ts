@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { armWatchdog, lockIsStale } from "./watchdog";
+import { armWatchdog, createTurnFence, lockIsStale } from "./watchdog";
 
 describe("lockIsStale — recovery endpoints must be able to break a leaked lock", () => {
   const HUNG = 5 * 60_000; // mirrors HUNG_TURN_MS
@@ -53,5 +53,29 @@ describe("armWatchdog", () => {
     w.clear();
     vi.advanceTimersByTime(5000);
     expect(cb).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("createTurnFence — a superseded turn cannot write (#82)", () => {
+  it("runs guarded writes only while the turn's epoch is current", () => {
+    let current = 1;
+    const fence = createTurnFence(1, () => current);
+    const write = vi.fn();
+    const guarded = fence.guard(write);
+
+    guarded("first");
+    expect(fence.isCurrent()).toBe(true);
+    expect(write).toHaveBeenCalledWith("first");
+
+    // The alarm fences the slow turn off and starts a replacement (epoch 2).
+    current = 2;
+    guarded("stale checkpoint");
+    expect(fence.isCurrent()).toBe(false);
+    expect(write).toHaveBeenCalledTimes(1);
+
+    // The replacement's own fence is unaffected.
+    const replacement = vi.fn();
+    createTurnFence(2, () => current).guard(replacement)("fresh");
+    expect(replacement).toHaveBeenCalledWith("fresh");
   });
 });

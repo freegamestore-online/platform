@@ -20,7 +20,7 @@ import { activityFromDeployStatus, bumpSessionTokens, updateSessionActivity, ups
 import { ENGINE_TEMPLATE_REPOS } from "./template";
 import { clampToolResultForHistory } from "./tools";
 import { TurnOrchestrator } from "./turn-orchestrator";
-import { armWatchdog, lockIsStale } from "./watchdog";
+import { armWatchdog, createTurnFence, lockIsStale } from "./watchdog";
 
 interface ErrorEntry {
   timestamp: string;
@@ -623,7 +623,13 @@ export class AgentSession implements DurableObject {
     const { aiConfig, initialMessage, history, session, files, userId, creatorLogin, sessionId, writer } = opts;
     const config = this.config;
     const epoch = ++this.turnEpoch;
+    const fence = createTurnFence(epoch, () => this.turnEpoch);
     this.lastTurnEventAt = Date.now();
+    // Liveness for the hung-turn detector. Fenced: a superseded turn that is
+    // still streaming must not keep refreshing the replacement's clock.
+    const markActive = fence.guard(() => {
+      this.lastTurnEventAt = Date.now();
+    });
     // Build deploy env directly from DO's env bindings (no header passing)
     const deployEnv: DeployEnv | null =
       this.env.GITHUB_TOKEN && this.env.CF_API_TOKEN
@@ -648,7 +654,7 @@ export class AgentSession implements DurableObject {
       );
     };
     const sendSSE = (evt: { type: string; data: string }) => {
-      this.lastTurnEventAt = Date.now();
+      markActive();
       writer.write(encoder.encode(`data: ${JSON.stringify(evt)}\n\n`)).catch(() => {});
     };
 
@@ -709,15 +715,18 @@ export class AgentSession implements DurableObject {
         // the transcript durable continuously; an interruption at worst loses the
         // in-flight token stream, never a finished reply. Fire-and-forget inside
         // persistNow so it never blocks the stream.
-        const checkpoint = (msgs: typeof session.messages) => {
+        const checkpoint = fence.guard((msgs: typeof session.messages) => {
           this.lastTurnEventAt = Date.now();
           session.messages = preTurn.concat(msgs);
           if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
           session.files = Object.fromEntries(files);
           this.persistNow().catch((e) => this.logError("storage", `checkpoint persist: ${String(e)}`));
-        };
-        const result = await runAgentTurn(aiConfig, preTurn, resumeMsg, files, writer, config, sessionCtx, checkpoint).catch(
+        });
+        const result = await runAgentTurn(aiConfig, preTurn, resumeMsg, files, writer, config, sessionCtx, checkpoint, markActive).catch(
           async (err) => {
+            // Superseded while the provider call was in flight: the replacement
+            // owns the transcript now, so record nothing.
+            if (!fence.isCurrent()) throw err;
             this.logError("agent", String(err));
             // The user message is already pre-saved above; rebuild from the
             // pre-turn snapshot (so it's never doubled) and record the failure so
@@ -734,6 +743,14 @@ export class AgentSession implements DurableObject {
             throw err;
           },
         );
+
+        // The alarm declared this turn hung and resumed it while this round was
+        // still streaming: the replacement owns the session. Writing here would
+        // overwrite its transcript and files, so stop without touching state.
+        if (!fence.isCurrent()) {
+          this.logError("hung", `superseded turn (epoch ${epoch}) finished a round — discarding its output`);
+          return { hasInfraRequests: false, successfulDeploy: false };
+        }
 
         // Rebuild from the pre-turn snapshot: newMessages already begins with
         // the user message we pre-saved, so this supersedes the provisional save
@@ -771,6 +788,8 @@ export class AgentSession implements DurableObject {
 
           const infraResults: { id: string; content: string }[] = [];
           for (const req of result.infraRequests) {
+            // A superseded turn must not deploy or push over the replacement.
+            if (!fence.isCurrent()) return { hasInfraRequests: false, successfulDeploy: false };
             const tc = req.toolCall;
             let toolResult: string;
 
@@ -842,7 +861,7 @@ export class AgentSession implements DurableObject {
                 creatorLogin,
                 seed: session.seed,
                 engine: session.engine,
-                onDeployStatus: (status) => {
+                onDeployStatus: fence.guard((status: DeployStatus) => {
                   session.deployStatus = status;
                   setActivity(activityFromDeployStatus(status));
                   this.logDeploy(status);
@@ -891,22 +910,22 @@ export class AgentSession implements DurableObject {
                     // push_update against the existing repo and re-runs CI.
                     this.persistNow().catch((e) => this.logError("deploy", `persist error: ${String(e)}`));
                   }
-                },
-                onAppBound: (id, name) => {
+                }),
+                onAppBound: fence.guard((id: string, name: string) => {
                   session.appId = id;
                   session.appName = name;
                   session.deployStatus = { phase: "provisioning", steps: [] };
                   setActivity({ phase: "provisioning", detail: "Provisioning" });
                   this.persistNow().catch((e) => this.logError("deploy", `persist provision: ${String(e)}`));
-                },
-                onAppDeployed: () => {
+                }),
+                onAppDeployed: fence.guard(() => {
                   // Reached only on a CI-confirmed live build. `deployed` is the
                   // session's own record that this game genuinely shipped at least
                   // once — distinct from appId, which is set at bind time and
                   // survives a failed build so the agent can push_update a fix.
                   session.deployed = true;
                   this.persistNow().catch((e) => this.logError("deploy", `persist deployed: ${String(e)}`));
-                },
+                }),
               });
             } catch (err) {
               toolResult = `Tool ${tc.name} threw an error: ${String(err)}`;
@@ -932,6 +951,7 @@ export class AgentSession implements DurableObject {
             session.messages.push({ role: "tool_result", content: "", toolResults: infraResults, ts: Date.now() });
           }
 
+          if (!fence.isCurrent()) return { hasInfraRequests: false, successfulDeploy: false };
           // Persist state after all infra tools complete
           session.files = Object.fromEntries(files);
           await this.save();
@@ -958,6 +978,12 @@ export class AgentSession implements DurableObject {
       sendSSE({ type: "done", data: "" });
     } catch (err) {
       const message = String(err);
+      // A superseded turn's failure belongs to nobody — the replacement owns the
+      // transcript, so don't append to or save over it.
+      if (!fence.isCurrent()) {
+        this.logError("hung", `superseded turn (epoch ${epoch}) failed: ${message}`);
+        return;
+      }
       this.appendAssistantError("chat", message);
       setActivity({ phase: "error", detail: message });
       // Surface the error to the client FIRST, then persist best-effort. If

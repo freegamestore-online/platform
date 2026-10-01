@@ -9,7 +9,7 @@ export class GoogleAdapter implements ProviderAdapter {
     private maxTokens: number = 16384,
   ) {}
 
-  async *run(systemPrompt: string, messages: Message[], tools: ToolDef[]): AsyncGenerator<StreamEvent> {
+  async *run(systemPrompt: string, messages: Message[], tools: ToolDef[], onActivity?: () => void): AsyncGenerator<StreamEvent> {
     const body: Record<string, unknown> = {
       system_instruction: { parts: [{ text: systemPrompt }] },
       contents: toGoogleContents(messages),
@@ -45,7 +45,10 @@ export class GoogleAdapter implements ProviderAdapter {
         return;
       }
 
-      yield* parseGoogleSSE(res.body!, timeout.reset);
+      yield* parseGoogleSSE(res.body!, () => {
+        timeout.reset();
+        onActivity?.();
+      });
     } catch (err) {
       yield {
         type: "error",

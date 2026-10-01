@@ -41,8 +41,11 @@ export interface StreamEvent {
 
 /** What the provider adapter must implement */
 export interface ProviderAdapter {
-  /** Run one turn of the agent loop. Yields StreamEvents. */
-  run(systemPrompt: string, messages: Message[], tools: ToolDef[]): AsyncGenerator<StreamEvent>;
+  /** Run one turn of the agent loop. Yields StreamEvents. `onActivity` fires on
+   *  every content chunk received from the provider — including chunks that
+   *  yield no event, such as a tool call's input streaming in — so the session
+   *  can tell a long legitimate stream from a hung one (#82). */
+  run(systemPrompt: string, messages: Message[], tools: ToolDef[], onActivity?: () => void): AsyncGenerator<StreamEvent>;
 }
 
 export interface Message {

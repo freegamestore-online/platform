@@ -30,6 +30,29 @@ export function lockIsStale(chatInProgress: boolean, lastTurnEventAt: number, no
   return chatInProgress && now - lastTurnEventAt >= hungMs;
 }
 
+/** Fence for a turn's side effects. A turn the alarm declared hung is replaced
+ *  by a resumed turn with a newer epoch, but the old one may still be running
+ *  (it was only slow). Every write it could make — transcript checkpoints, the
+ *  end-of-round save, deploy callbacks, liveness pings — goes through `guard`,
+ *  which turns it into a no-op once the turn is no longer current, so a stale
+ *  turn can never overwrite the replacement's transcript and files (#82). */
+export interface TurnFence {
+  isCurrent: () => boolean;
+  guard: <A extends unknown[]>(fn: (...args: A) => void) => (...args: A) => void;
+}
+
+export function createTurnFence(epoch: number, currentEpoch: () => number): TurnFence {
+  const isCurrent = () => currentEpoch() === epoch;
+  return {
+    isCurrent,
+    guard:
+      (fn) =>
+      (...args) => {
+        if (isCurrent()) fn(...args);
+      },
+  };
+}
+
 export function armWatchdog(ms: number, onExpire: () => void): Watchdog {
   let done = false;
   const timer = setTimeout(() => {

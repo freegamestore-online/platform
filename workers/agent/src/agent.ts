@@ -88,6 +88,11 @@ export async function runAgentTurn(
    *  user's messages with no agent replies. Called with the running newMessages;
    *  the session persists best-effort (fire-and-forget). */
   onCheckpoint?: (newMessages: Message[]) => void,
+  /** Liveness signal: fires whenever the turn makes progress — every provider
+   *  chunk (tool-call input included, which streams for minutes with no SSE
+   *  event) and every event written to the client. The session's hung-turn
+   *  detector keys on this, so silence here must mean a genuine stall (#82). */
+  onActivity?: () => void,
 ): Promise<AgentTurnResult> {
   const encoder = new TextEncoder();
   const adapter = createAdapter(config);
@@ -201,6 +206,7 @@ export async function runAgentTurn(
   const tokenUsage: TokenUsage = { input: 0, output: 0 };
 
   async function send(event: StreamEvent) {
+    onActivity?.();
     const line = `data: ${JSON.stringify(event)}\n\n`;
     // Swallow write failures. If the client disconnected mid-generation (a
     // refresh), the stream write rejects — but that MUST NOT abort the turn.
@@ -247,7 +253,7 @@ export async function runAgentTurn(
     let rateLimited = false;
 
     try {
-      for await (const event of adapter.run(systemPrompt, messages, toolDefinitions)) {
+      for await (const event of adapter.run(systemPrompt, messages, toolDefinitions, onActivity)) {
         if (event.type === "done") continue;
         // Catch rate limit errors and retry after delay
         if (event.type === "error" && (event.data.includes("429") || event.data.includes("Rate limited"))) {

@@ -9,7 +9,7 @@ export class AnthropicAdapter implements ProviderAdapter {
     private maxTokens: number = 16384,
   ) {}
 
-  async *run(systemPrompt: string, messages: Message[], tools: ToolDef[]): AsyncGenerator<StreamEvent> {
+  async *run(systemPrompt: string, messages: Message[], tools: ToolDef[], onActivity?: () => void): AsyncGenerator<StreamEvent> {
     const body: Record<string, unknown> = {
       model: this.model,
       max_tokens: this.maxTokens,
@@ -43,7 +43,10 @@ export class AnthropicAdapter implements ProviderAdapter {
         return;
       }
 
-      yield* parseAnthropicSSE(res.body!, timeout.reset);
+      yield* parseAnthropicSSE(res.body!, () => {
+        timeout.reset();
+        onActivity?.();
+      });
     } catch (err) {
       yield {
         type: "error",
