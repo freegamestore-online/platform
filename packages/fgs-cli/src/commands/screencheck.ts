@@ -7,7 +7,7 @@ import { extname, join, normalize, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Command } from 'commander';
 import type { ViewportTest } from './screencheck-matrix.js';
-import { computeCoverage, pickMatrix } from './screencheck-matrix.js';
+import { computeCoverage, pickMatrix, supportedFailures } from './screencheck-matrix.js';
 import { renderCoverage, renderResult } from './screencheck-render.js';
 
 /**
@@ -17,11 +17,11 @@ import { renderCoverage, renderResult } from './screencheck-render.js';
  * whether `scrollWidth/Height` exceeds `clientWidth/Height`. Returns
  * non-zero if the app actually scrolls at the size it claims to support.
  *
- * Why a separate command (not folded into `fas check`):
+ * Why a separate command (not folded into `fgs check`):
  * - Playwright + Chromium download is ~300 MB; making it a peer dep
  *   keeps the main CLI install light.
- * - A real browser run takes seconds, not the ms `fas check` aims for.
- * - Most creators run `fas check` constantly during dev; runtime
+ * - A real browser run takes seconds, not the ms `fgs check` aims for.
+ * - Most creators run `fgs check` constantly during dev; runtime
  *   checks are a pre-publish step.
  */
 
@@ -114,12 +114,19 @@ export const screencheckCommand = new Command('screencheck')
         url: raw.url ?? null,
       };
 
+      if (!opts.url && !isValidPort(opts.port)) {
+        process.stdout.write(
+          `\n✗ --port must be a whole number from 1 to 65535 (got "${raw.port}").\n`,
+        );
+        process.exit(1);
+      }
+
       const playwright = await loadPlaywright(opts.dir);
       if (!playwright) {
         process.stdout.write(
           '\n⚠  Playwright not installed.\n' +
             '   Run: pnpm add -D playwright && npx playwright install chromium\n' +
-            '   Then re-run: fas screencheck\n',
+            '   Then re-run: fgs screencheck\n',
         );
         process.exit(1);
       }
@@ -152,35 +159,35 @@ export const screencheckCommand = new Command('screencheck')
         `Testing ${matrix.length} reference viewports across the device matrix.\n`,
       );
 
-      let url: string;
-      let server: { close: () => void } | null = null;
-      if (opts.url) {
-        url = opts.url;
-      } else {
-        if (!opts.skipBuild) {
-          process.stdout.write('\nBuilding web/dist…\n');
-          await runShell('pnpm', ['build'], opts.dir);
-        }
-        const distDir = resolve(opts.dir, 'web', 'dist');
-        if (!existsSync(distDir)) {
-          process.stdout.write(`\n✗ ${distDir} doesn't exist. Run \`pnpm build\` first.\n`);
-          process.exit(1);
-        }
-        server = await startServer(distDir, opts.port);
-        url = `http://localhost:${opts.port}/`;
-        process.stdout.write(`Serving ${distDir} at ${url}\n\n`);
-      }
-
       const shotsDir = resolve(opts.dir, 'screencheck-out');
-      if (opts.screenshots) {
-        const { mkdirSync } = await import('node:fs');
-        mkdirSync(shotsDir, { recursive: true });
-        process.stdout.write(`Saving screenshots to ${shotsDir}\n\n`);
-      }
-
+      let server: { close: () => void } | null = null;
+      let browser: Browser | null = null;
       let exitCode = 0;
       try {
-        const browser = await playwright.launch();
+        let url: string;
+        if (opts.url) {
+          url = opts.url;
+        } else {
+          if (!opts.skipBuild) {
+            process.stdout.write('\nBuilding web/dist…\n');
+            await runShell('pnpm', ['build'], opts.dir);
+          }
+          const distDir = resolve(opts.dir, 'web', 'dist');
+          if (!existsSync(distDir)) {
+            throw new Error(`${distDir} doesn't exist. Run \`pnpm build\` first.`);
+          }
+          server = await startServer(distDir, opts.port);
+          url = `http://localhost:${opts.port}/`;
+          process.stdout.write(`Serving ${distDir} at ${url}\n\n`);
+        }
+
+        if (opts.screenshots) {
+          const { mkdirSync } = await import('node:fs');
+          mkdirSync(shotsDir, { recursive: true });
+          process.stdout.write(`Saving screenshots to ${shotsDir}\n\n`);
+        }
+
+        browser = await playwright.launch();
         const results: MeasureResult[] = [];
         const passing = new Set<string>();
         for (const t of matrix) {
@@ -192,12 +199,9 @@ export const screencheckCommand = new Command('screencheck')
             passing.add(t.label);
           }
         }
-        await browser.close();
 
         const cov = computeCoverage(matrix, passing);
-        const failed = results.filter(
-          (r) => r.scrollsX || r.scrollsY || r.clippingElements.length > 0,
-        ).length;
+        const failed = results.length - passing.size;
         process.stdout.write('\n');
         renderCoverage(cov, matrix);
         process.stdout.write('\n');
@@ -205,18 +209,13 @@ export const screencheckCommand = new Command('screencheck')
           process.stdout.write(
             `✗ ${failed}/${results.length} reference viewports have layout issues.\n`,
           );
-          // Coverage failure is a fail. But: failing only at the very
-          // top end of the matrix (1024+ desktop) above what the manifest
-          // claims doesn't necessarily warrant a non-zero exit; the
-          // creator can opt out via orientation=portrait, and the badge
-          // already conveys reality. So we exit non-zero only if the
-          // *declared* min fails.
-          const declaredMinFails = matrix.some(
-            (t) => t.width === minWidth && !passing.has(t.label),
-          );
-          if (declaredMinFails) {
+          // Exit non-zero when ANY viewport the app claims to support (at or
+          // above the declared min, in a declared orientation) fails (#91).
+          // Failures below the declared min are expected and only informative.
+          const supported = supportedFailures(matrix, passing, minWidth);
+          if (supported.length > 0) {
             process.stdout.write(
-              `  At least one failing viewport is at or below your declared min_viewport_width (${minWidth}px).\n`,
+              `  ${supported.length} failing viewport(s) are at or above your declared min_viewport_width (${minWidth}px): ${supported.map((t) => t.label).join(', ')}.\n`,
             );
             process.stdout.write(
               '  Either fix the layout or raise min_viewport_width in your manifest.\n',
@@ -224,21 +223,26 @@ export const screencheckCommand = new Command('screencheck')
             exitCode = 1;
           } else {
             process.stdout.write(
-              `  All failures are above your declared min (${minWidth}px). Consider raising it to claim coverage that's actually true.\n`,
+              `  All failures are below your declared min (${minWidth}px), which is expected.\n`,
             );
           }
         } else {
           process.stdout.write(`✓ All ${results.length} reference viewports fit cleanly.\n`);
-          const minPassing = Math.min(
-            ...matrix.filter((t) => passing.has(t.label)).map((t) => t.width),
-          );
+          const minPassing = Math.min(...matrix.map((t) => t.width));
           if (minPassing < minWidth) {
             process.stdout.write(
               `  You could lower min_viewport_width to ${minPassing} — your app actually fits there.\n`,
             );
           }
         }
+      } catch (err) {
+        // A failed build, busy port or browser crash must end the run with a
+        // clear message and a non-zero exit — not an unhandled rejection that
+        // leaves Chromium (and the CLI) running.
+        process.stdout.write(`\n✗ ${err instanceof Error ? err.message : String(err)}\n`);
+        exitCode = 1;
       } finally {
+        await browser?.close().catch(() => {});
         server?.close();
       }
       process.exit(exitCode);
@@ -373,15 +377,27 @@ async function loadPlaywright(
   }
 }
 
-function runShell(cmd: string, args: string[], cwd: string): Promise<void> {
+export function isValidPort(port: number): boolean {
+  return Number.isInteger(port) && port >= 1 && port <= 65535;
+}
+
+/** Run a command, resolving on exit 0. On Windows `pnpm` is `pnpm.cmd`, which
+ *  spawn() cannot start without a shell (ENOENT, or EINVAL on patched Node), so
+ *  the build step failed there (#91). */
+export function runShell(
+  cmd: string,
+  args: string[],
+  cwd: string,
+  platform: NodeJS.Platform = process.platform,
+): Promise<void> {
   return new Promise((res, rej) => {
-    const child = spawn(cmd, args, { cwd, stdio: 'inherit' });
+    const child = spawn(cmd, args, { cwd, stdio: 'inherit', shell: platform === 'win32' });
     child.on('exit', (code) => (code === 0 ? res() : rej(new Error(`${cmd} exited ${code}`))));
     child.on('error', rej);
   });
 }
 
-async function startServer(rootDir: string, port: number): Promise<{ close: () => void }> {
+export async function startServer(rootDir: string, port: number): Promise<{ close: () => void }> {
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://x');
     let p = decodeURIComponent(url.pathname);
@@ -401,6 +417,16 @@ async function startServer(rootDir: string, port: number): Promise<{ close: () =
       res.end('not found');
     }
   });
-  await new Promise<void>((resolve) => server.listen(port, '127.0.0.1', resolve));
+  // Without an 'error' listener a busy port crashed the CLI with a raw stack (#91).
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', (err: NodeJS.ErrnoException) => {
+      reject(
+        err.code === 'EADDRINUSE'
+          ? new Error(`Port ${port} is already in use. Pass --port <n> to use a different one.`)
+          : err,
+      );
+    });
+    server.listen(port, '127.0.0.1', () => resolve());
+  });
   return { close: () => server.close() };
 }

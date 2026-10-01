@@ -6,7 +6,7 @@ export const whoamiCommand = new Command('whoami')
   .action(async () => {
     const config = await readConfig();
     if (!config.github?.login) {
-      process.stdout.write('Not signed in. Run: fas login\n');
+      process.stdout.write('Not signed in. Run: fgs login\n');
       process.exit(1);
     }
     process.stdout.write(`@${config.github.login}\n`);

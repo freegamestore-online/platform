@@ -31,7 +31,7 @@ export const listCommand = new Command('list')
   .action(async (opts: { json?: boolean; verbose?: boolean }) => {
     const config = await readConfig();
     if (!config.session?.token) {
-      process.stdout.write('\n⚠  Not signed in. Run: fas login\n');
+      process.stdout.write('\n⚠  Not signed in. Run: fgs login\n');
       process.exit(1);
     }
 
@@ -39,7 +39,7 @@ export const listCommand = new Command('list')
       headers: { Authorization: `Bearer ${config.session.token}` },
     });
     if (res.status === 401) {
-      process.stdout.write('\n⚠  Session expired. Run: fas login\n');
+      process.stdout.write('\n⚠  Session expired. Run: fgs login\n');
       process.exit(1);
     }
     if (!res.ok) {
@@ -66,7 +66,7 @@ export const listCommand = new Command('list')
     }
 
     if (apps.length === 0) {
-      process.stdout.write('\nNo apps yet. Run `fas init` to start one.\n');
+      process.stdout.write('\nNo games yet. Run `fgs init` to start one.\n');
       return;
     }
 

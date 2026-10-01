@@ -12,7 +12,7 @@ export interface DoctorCheckResult {
 
 /**
  * Runs every local + remote health check, in parallel where it's safe to.
- * Returns the full result list. The CLI's `fas doctor` and the TUI's
+ * Returns the full result list. The CLI's `fgs doctor` and the TUI's
  * Doctor screen both render this same data.
  */
 export async function runDoctor(): Promise<DoctorCheckResult[]> {
@@ -73,13 +73,13 @@ async function checkSignedIn(): Promise<DoctorCheckResult> {
   try {
     const config = await readConfig();
     if (!config.session?.token) {
-      return { name: 'Signed in', status: 'warn', detail: 'Not signed in. Run `fas login`.' };
+      return { name: 'Signed in', status: 'warn', detail: 'Not signed in. Run `fgs login`.' };
     }
     if (!config.github?.login) {
       return {
         name: 'Signed in',
         status: 'warn',
-        detail: 'Session present but missing GitHub login — run `fas login` again.',
+        detail: 'Session present but missing GitHub login — run `fgs login` again.',
       };
     }
     return { name: 'Signed in', status: 'pass', detail: `@${config.github.login}` };

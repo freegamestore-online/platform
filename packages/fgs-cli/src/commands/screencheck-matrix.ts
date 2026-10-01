@@ -120,3 +120,21 @@ export function computeCoverage(
   else overall = landscape;
   return { portrait, landscape, overall, brokenSizes: broken };
 }
+
+/**
+ * Viewports the app CLAIMS to support (width at or above the manifest's
+ * `min_viewport_width`, in the declared orientation(s) — `matrix` is already
+ * orientation-filtered) that failed. Any of these makes `fgs screencheck` exit
+ * non-zero (#91). Failures below the declared min are expected and don't count.
+ *
+ * The old rule only failed when a viewport's width EXACTLY equalled the min, so
+ * a min of 375/390 (no such reference width) or any landscape-only app could
+ * never fail, and failures at 360/414 with the default 320 passed.
+ */
+export function supportedFailures(
+  matrix: ViewportTestExpanded[],
+  passing: Set<string>,
+  minWidth: number,
+): ViewportTestExpanded[] {
+  return matrix.filter((t) => t.width >= minWidth && !passing.has(t.label));
+}

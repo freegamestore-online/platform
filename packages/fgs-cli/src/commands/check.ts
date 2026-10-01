@@ -55,7 +55,7 @@ export interface CheckSummary {
 }
 
 /**
- * Print compliance results in the standard format. Reused by `fas check`
+ * Print compliance results in the standard format. Reused by `fgs check`
  * and by `fas publish`'s pre-flight gate so output stays identical.
  */
 export function renderCheckResults(results: CheckResult[]): CheckSummary {

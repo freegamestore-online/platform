@@ -1,5 +1,5 @@
 /**
- * GitHub commit history helper, used by `fas list` (and any future
+ * GitHub commit history helper, used by `fgs list` (and any future
  * command that needs "what changed recently" per app).
  *
  * Reads GH_TOKEN / GITHUB_TOKEN from env to lift the 60/hr anonymous
