@@ -720,9 +720,11 @@ export function Create() {
           onDelete={(id) => {
             const deletingCurrent = id === agent.currentProjectId;
             const next = agent.projects.find((p) => p.id !== id) ?? null;
-            // deleteProject already promotes the survivor to current, so this is
-            // a self-write catching the URL up — not a request to open it.
-            agent.deleteProject(id);
+            // deleteProject already promotes the survivor to current (and clears
+            // the deleted chat from view), so this is a self-write catching the
+            // URL up — not a request to open it. Nothing to catch up if the
+            // delete was refused (the open session is mid-stream).
+            if (!agent.deleteProject(id)) return;
             if (deletingCurrent) navigateToProject(next, { replace: true, alreadyOpen: true });
           }}
           onFreshChat={(appId) => {

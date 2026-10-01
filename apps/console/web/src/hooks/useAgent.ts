@@ -149,6 +149,25 @@ export function useAgent() {
     [projectsMgr, resetUI],
   );
 
+  // Delete a session. Deleting the OPEN one must also clear its chat from the
+  // screen: passing projectsMgr.deleteProject straight through promoted the next
+  // session to current while the deleted chat's messages and deploy state stayed
+  // visible, so the next prompt went to session B under A's context (#79). The
+  // survivor's transcript is then loaded by Create's history effect. Refused for
+  // the open session mid-stream (the reader would keep appending to the reset
+  // view, as with switchProject). Returns whether the delete happened.
+  const deleteProject = useCallback(
+    (id: string): boolean => {
+      const deletingCurrent = id === sessionIdRef.current;
+      if (deletingCurrent && isStreamingRef.current) return false;
+      addBreadcrumb('session_delete', id);
+      projectsMgr.deleteProject(id);
+      if (deletingCurrent) resetUI();
+      return true;
+    },
+    [projectsMgr, resetUI],
+  );
+
   // Open an existing game in the studio (import its files if not already local).
   // Surfaces any failure on the sticky error banner instead of silently no-op'ing.
   const openGame = useCallback(
@@ -583,7 +602,7 @@ export function useAgent() {
     openGame,
     startFreshChat,
     loadHistory,
-    deleteProject: projectsMgr.deleteProject,
+    deleteProject,
   };
 }
 

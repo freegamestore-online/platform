@@ -11,7 +11,7 @@
 
 const CAPACITY = 20;
 
-export type BreadcrumbKind = 'route' | 'game_open' | 'game_switch' | 'deploy';
+export type BreadcrumbKind = 'route' | 'game_open' | 'game_switch' | 'session_delete' | 'deploy';
 
 export interface Breadcrumb {
   /** Unix ms timestamp. */
