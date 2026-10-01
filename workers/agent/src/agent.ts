@@ -277,13 +277,17 @@ export async function runAgentTurn(
     let assistantText = "";
     const toolCalls: ToolCall[] = [];
     let rateLimited = false;
+    let overloaded = false;
 
     try {
       for await (const event of adapter.run(systemPrompt, messages, toolDefinitions, onActivity)) {
         if (event.type === "done") continue;
         // Catch rate limit errors and retry after delay
-        if (event.type === "error" && (event.data.includes("429") || event.data.includes("Rate limited"))) {
+        // Retry only on the adapter's structured verdict (429 / 529), never on
+        // the message text (#90).
+        if (event.type === "error" && event.retryable) {
           rateLimited = true;
+          overloaded = event.status === 529;
           break;
         }
         await send(event);
@@ -326,7 +330,9 @@ export async function runAgentTurn(
       retries++;
       if (retries > MAX_RETRIES) {
         const note =
-          "Error: the AI provider rate-limited this key repeatedly, so the build stopped here. " +
+          (overloaded
+            ? "Error: the AI provider stayed overloaded, so the build stopped here. "
+            : "Error: the AI provider rate-limited this key repeatedly, so the build stopped here. ") +
           'Progress so far is saved. Wait a minute or two and say "continue" — or switch provider in settings.';
         await send({ type: "error", data: note });
         // PERSIST the failure — this used to go only to the live stream, so a
@@ -340,7 +346,8 @@ export async function runAgentTurn(
       // them while each retry re-sent the FULL context (burning the budget
       // faster). Back off in window-sized steps instead.
       const retryDelay = 20_000 * retries; // 20s, 40s, 60s
-      await send({ type: "text", data: `\n_Rate limited — retrying in ${retryDelay / 1000}s (attempt ${retries}/${MAX_RETRIES})..._\n` });
+      const why = overloaded ? "The AI provider is overloaded" : "Rate limited";
+      await send({ type: "text", data: `\n_${why} — retrying in ${retryDelay / 1000}s (attempt ${retries}/${MAX_RETRIES})..._\n` });
       await new Promise((r) => setTimeout(r, retryDelay));
       loop--; // retry same iteration
       continue;

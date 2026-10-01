@@ -1,5 +1,5 @@
 import { createStreamTimeout } from "./timeout";
-import type { Message, ProviderAdapter, StreamEvent, ToolCall, ToolDef } from "./types";
+import { isRetryableStatus, type Message, type ProviderAdapter, type StreamEvent, type ToolCall, type ToolDef } from "./types";
 
 export class GoogleAdapter implements ProviderAdapter {
   constructor(
@@ -41,7 +41,12 @@ export class GoogleAdapter implements ProviderAdapter {
 
       if (!res.ok) {
         const err = await res.text();
-        yield { type: "error", data: `Google AI API error ${res.status}: ${err}` };
+        yield {
+          type: "error",
+          data: `Google AI API error ${res.status}: ${err}`,
+          status: res.status,
+          retryable: isRetryableStatus(res.status),
+        };
         return;
       }
 

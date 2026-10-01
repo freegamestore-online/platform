@@ -37,6 +37,19 @@ export interface StreamEvent {
   type: "text" | "tool_call" | "tool_result" | "done" | "error" | "usage";
   /** For text: the delta. For tool_call: JSON of ToolCall. For usage: JSON of TokenUsage. */
   data: string;
+  /** error only: the provider's HTTP status, when the failure had one. */
+  status?: number;
+  /** error only: a transient capacity error worth retrying after a back-off.
+   *  The agent loop retries on THIS flag — never by searching the message
+   *  text, which matched "429" inside e.g. "prompt is too long: 204291
+   *  tokens" (#90). */
+  retryable?: boolean;
+}
+
+/** 429 = rate limited; 529 = provider overloaded (Anthropic). Both clear on
+ *  their own; anything else (bad request, auth, context too long) won't. */
+export function isRetryableStatus(status: number | undefined): boolean {
+  return status === 429 || status === 529;
 }
 
 /** What the provider adapter must implement */

@@ -1,5 +1,5 @@
 import { createStreamTimeout } from "./timeout";
-import type { Message, ProviderAdapter, StreamEvent, ToolCall, ToolDef } from "./types";
+import { isRetryableStatus, type Message, type ProviderAdapter, type StreamEvent, type ToolCall, type ToolDef } from "./types";
 
 export class OpenAIAdapter implements ProviderAdapter {
   constructor(
@@ -45,9 +45,16 @@ export class OpenAIAdapter implements ProviderAdapter {
           yield {
             type: "error",
             data: `Rate limited (429). You've hit the usage limit for this model. Wait a moment and try again, or switch to a different model/provider.\n\nDetails: ${err.slice(0, 300)}`,
+            status: 429,
+            retryable: true,
           };
         } else {
-          yield { type: "error", data: `API error ${res.status}: ${err.slice(0, 500)}` };
+          yield {
+            type: "error",
+            data: `API error ${res.status}: ${err.slice(0, 500)}`,
+            status: res.status,
+            retryable: isRetryableStatus(res.status),
+          };
         }
         return;
       }

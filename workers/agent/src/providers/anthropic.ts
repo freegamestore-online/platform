@@ -1,5 +1,5 @@
 import { createStreamTimeout } from "./timeout";
-import type { Message, ProviderAdapter, StreamEvent, ToolCall, ToolDef } from "./types";
+import { isRetryableStatus, type Message, type ProviderAdapter, type StreamEvent, type ToolCall, type ToolDef } from "./types";
 
 export class AnthropicAdapter implements ProviderAdapter {
   constructor(
@@ -39,7 +39,12 @@ export class AnthropicAdapter implements ProviderAdapter {
 
       if (!res.ok) {
         const err = await res.text();
-        yield { type: "error", data: `Anthropic API error ${res.status}: ${err}` };
+        yield {
+          type: "error",
+          data: `Anthropic API error ${res.status}: ${err}`,
+          status: res.status,
+          retryable: isRetryableStatus(res.status),
+        };
         return;
       }
 
@@ -120,6 +125,19 @@ async function* parseAnthropicSSE(body: ReadableStream, onChunk?: () => void): A
           continue;
         }
 
+        if (evt.type === "error") {
+          // A mid-stream error event (e.g. overloaded_error once streaming has
+          // begun) used to be ignored, ending the turn silently. Surface it;
+          // overload is Anthropic's 529 and is worth retrying (#90).
+          const kind = String(evt.error?.type ?? "error");
+          const overloaded = kind === "overloaded_error";
+          yield {
+            type: "error",
+            data: `Anthropic stream error: ${kind}${evt.error?.message ? ` — ${evt.error.message}` : ""}`,
+            ...(overloaded ? { status: 529, retryable: true } : {}),
+          };
+          return;
+        }
         if (evt.type === "content_block_start") {
           const block = evt.content_block;
           if (block.type === "tool_use") {
