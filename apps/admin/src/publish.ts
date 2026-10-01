@@ -98,6 +98,65 @@ function displayName(name: string, id: string): string {
     .join(' ');
 }
 
+/** Fields a creator may edit, and the limits PATCH enforces on them (#65). */
+const EDITABLE_FIELDS = ['name', 'description', 'category', 'icon', 'iconBg'] as const;
+type EditableField = (typeof EDITABLE_FIELDS)[number];
+const MAX_NAME = 60;
+const MAX_DESCRIPTION = 300;
+const MAX_CATEGORY = 32;
+const MAX_ICON = 24; // an emoji (incl. ZWJ sequences) or an HTML entity like &#128290;
+const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+const CATEGORY_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
+ * Validate and normalize a metadata PATCH the way provisioning normalizes a new
+ * game (#65). PATCH used to copy any string straight into registry.json: an
+ * empty name/description made the storefront build DROP the game from the store
+ * and search, a "Brain Training" category reintroduced the mixed-case problem
+ * provisioning normalizes away, and values had no length limit. Only the fields
+ * present in `updates` are checked; absent fields are left as they are.
+ */
+export function validateGameUpdates(
+  updates: Record<string, unknown>,
+  gameId: string,
+): { values: Partial<Record<EditableField, string>> } | { error: string } {
+  const values: Partial<Record<EditableField, string>> = {};
+  for (const key of EDITABLE_FIELDS) {
+    if (!(key in updates)) continue;
+    const raw = updates[key];
+    if (typeof raw !== 'string') return { error: `${key} must be a string` };
+    const v = raw.trim();
+    if (!v) return { error: `${key} can't be empty` };
+    switch (key) {
+      case 'name':
+        if (v.length > MAX_NAME) return { error: `name must be ${MAX_NAME} characters or less` };
+        values.name = displayName(v, gameId);
+        break;
+      case 'description':
+        if (v.length > MAX_DESCRIPTION)
+          return { error: `description must be ${MAX_DESCRIPTION} characters or less` };
+        values.description = v;
+        break;
+      case 'category': {
+        const c = normalizeCategory(v);
+        if (c.length > MAX_CATEGORY || !CATEGORY_SLUG.test(c))
+          return { error: 'category must be letters, numbers and dashes (e.g. "brain-training")' };
+        values.category = c;
+        break;
+      }
+      case 'icon':
+        if (v.length > MAX_ICON) return { error: `icon must be ${MAX_ICON} characters or less` };
+        values.icon = v;
+        break;
+      case 'iconBg':
+        if (!HEX_COLOR.test(v)) return { error: 'iconBg must be a hex colour like #ecfdf5' };
+        values.iconBg = v;
+        break;
+    }
+  }
+  return { values };
+}
+
 export interface Step {
   name: string;
   status: 'ok' | 'skip' | 'fail';
@@ -1338,12 +1397,13 @@ export async function handleUpdateGame(
     };
   }
 
-  // Allow updating these fields only
-  const allowed = ['name', 'description', 'category', 'icon', 'iconBg'];
+  // Allow updating these fields only, validated + normalized like provision.
+  const checked = validateGameUpdates(updates, gameId);
+  if ('error' in checked) return { error: checked.error };
   let changed = false;
-  for (const key of allowed) {
-    if (key in updates && typeof updates[key] === 'string' && updates[key] !== game[key]) {
-      game[key] = updates[key];
+  for (const [key, value] of Object.entries(checked.values)) {
+    if (value !== game[key]) {
+      game[key] = value;
       changed = true;
     }
   }
@@ -1358,7 +1418,7 @@ export async function handleUpdateGame(
   content[config.registryKey] = items;
 
   const updateResult = await ghApi(env, registryPath, 'PUT', {
-    message: `Update ${gameId} metadata (${allowed.filter((k) => k in updates).join(', ')})`,
+    message: `Update ${gameId} metadata (${Object.keys(checked.values).join(', ')})`,
     content: btoa(
       Array.from(new TextEncoder().encode(JSON.stringify(content, null, 2)))
         .map((b) => String.fromCharCode(b))

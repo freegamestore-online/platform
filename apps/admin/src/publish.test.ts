@@ -1210,3 +1210,101 @@ describe('handlePublish ownership of an existing id (#88)', () => {
     );
   });
 });
+
+describe('handleUpdateGame validates like provision (#65)', () => {
+  const env = { GITHUB_TOKEN: 'x' } as unknown as Parameters<typeof handleUpdateGame>[3];
+  const original = {
+    id: 'space-rescue',
+    name: 'Space Rescue',
+    description: 'Rescue astronauts',
+    category: 'arcade',
+    icon: '🚀',
+    iconBg: '#0a0a1a',
+    creatorGithub: 'grace',
+  };
+
+  // GitHub serves file content as base64 of the UTF-8 bytes (btoa alone can't
+  // encode the emoji icon).
+  const utf8B64 = (text: string) =>
+    btoa(Array.from(new TextEncoder().encode(text), (b) => String.fromCharCode(b)).join(''));
+
+  /** Stub GitHub: serves the registry, records the PUT body (if any). */
+  function stub() {
+    const put: { game?: Record<string, unknown> } = {};
+    vi.stubGlobal('fetch', async (_input: unknown, init?: { method?: string; body?: string }) => {
+      if (init?.method === 'PUT') {
+        const body = JSON.parse(init.body!);
+        const registry = JSON.parse(
+          new TextDecoder().decode(Uint8Array.from(atob(body.content), (c) => c.charCodeAt(0))),
+        );
+        put.game = registry.games[0];
+        return new Response(JSON.stringify({ content: {} }), { status: 200 });
+      }
+      return new Response(
+        JSON.stringify({
+          content: utf8B64(JSON.stringify({ games: [{ ...original }] })),
+          sha: 's',
+        }),
+        { status: 200 },
+      );
+    });
+    return put;
+  }
+  const update = (updates: Record<string, unknown>) =>
+    handleUpdateGame('space-rescue', 'grace', updates, env);
+
+  it.each([
+    [{ name: '' }, /name can't be empty/],
+    [{ name: '   ' }, /name can't be empty/],
+    [{ description: '' }, /description can't be empty/],
+    [{ category: '' }, /category can't be empty/],
+    [{ icon: '' }, /icon can't be empty/],
+    [{ name: 'x'.repeat(61) }, /60 characters/],
+    [{ description: 'x'.repeat(301) }, /300 characters/],
+    [{ icon: 'x'.repeat(25) }, /24 characters/],
+    [{ iconBg: 'red' }, /hex colour/],
+    [{ iconBg: '#fff;background:url(x)' }, /hex colour/],
+    [{ category: 'Arcade!!' }, /category must be/],
+    [{ name: 42 }, /name must be a string/],
+  ])('rejects %j without writing the registry', async (updates, message) => {
+    const put = stub();
+    const res = await update(updates);
+    expect(res.error).toMatch(message);
+    expect(put.game).toBeUndefined();
+  });
+
+  it('normalizes the category the way provision does', async () => {
+    const put = stub();
+    expect((await update({ category: 'Brain Training' })).ok).toBe(true);
+    expect(put.game?.category).toBe('brain-training');
+  });
+
+  it('title-cases a slug-shaped name the way provision does', async () => {
+    const put = stub();
+    expect((await update({ name: 'space-rescue-2' })).ok).toBe(true);
+    expect(put.game?.name).toBe('Space Rescue 2');
+  });
+
+  it('trims and saves valid values, leaving other fields untouched', async () => {
+    const put = stub();
+    const res = await update({
+      description: '  Save the crew  ',
+      iconBg: '#ECFDF5',
+      icon: '&#128640;',
+    });
+    expect(res.ok).toBe(true);
+    expect(put.game).toMatchObject({
+      name: 'Space Rescue',
+      category: 'arcade',
+      description: 'Save the crew',
+      iconBg: '#ECFDF5',
+      icon: '&#128640;',
+    });
+  });
+
+  it('reports no change when the normalized value is already stored', async () => {
+    const put = stub();
+    expect((await update({ category: 'Arcade' })).error).toBe('No changes');
+    expect(put.game).toBeUndefined();
+  });
+});
