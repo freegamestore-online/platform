@@ -72,6 +72,11 @@ function adminEmails(env: Env): string[] {
     .filter(Boolean);
 }
 
+// Session audiences /me may accept for each kind of caller (#69).
+const ADMIN_AUDIENCES = 'https://admin.freegamestore.online,https://mcp.freegamestore.online';
+const LOGIN_AUDIENCES =
+  'https://admin.freegamestore.online,https://console.freegamestore.online,https://mcp.freegamestore.online';
+
 /** Resolve the signed-in user's verified email via the auth worker, and whether
  *  they're an admin. Returns `email: null` when not signed in at all (so the
  *  sign-in page can tell "sign in" from "wrong account"). */
@@ -87,8 +92,10 @@ async function authenticateAdmin(
   if (!fgsToken) return { email: null, isAdmin: false };
   try {
     // X-FGS-Token so /me returns the email (it withholds it on other paths).
+    // X-FGS-Audience: admin rights come only from an admin- or MCP-issued
+    // session, never another site's session or a handoff (#69).
     const meRes = await env.AUTH.fetch('https://auth.freegamestore.online/me', {
-      headers: { 'X-FGS-Token': fgsToken },
+      headers: { 'X-FGS-Token': fgsToken, 'X-FGS-Audience': ADMIN_AUDIENCES },
     });
     if (!meRes.ok) return { email: null, isAdmin: false };
     const user = (await meRes.json()) as { email?: string | null };
@@ -170,8 +177,10 @@ async function authenticateLogin(request: Request, env: Env): Promise<string | n
   if (fgsToken) {
     try {
       // Service binding (not a public-hostname fetch — that loops back, CF 522).
+      // The console forwards its session for creator actions (provision, game
+      // edits), and MCP calls with its own; any other site's session is refused.
       const meRes = await env.AUTH.fetch('https://auth.freegamestore.online/me', {
-        headers: { 'X-FGS-Token': fgsToken },
+        headers: { 'X-FGS-Token': fgsToken, 'X-FGS-Audience': LOGIN_AUDIENCES },
       });
       if (meRes.ok) {
         const user = (await meRes.json()) as { id?: string };

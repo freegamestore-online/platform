@@ -160,8 +160,9 @@ async function verifySession(
 ): Promise<{ token: string; login: string | undefined } | Response> {
   const token = getCookie(request, SESSION_COOKIE);
   if (!token) return new Response('sign-in did not complete (no session cookie)', { status: 401 });
+  // MCP's own session only — never a handoff or another site's session (#69).
   const verify = await env.AUTH.fetch('https://auth.freegamestore.online/me', {
-    headers: { 'X-FGS-Token': token },
+    headers: { 'X-FGS-Token': token, 'X-FGS-Audience': 'https://mcp.freegamestore.online' },
   });
   if (!verify.ok) return new Response('invalid or expired session token', { status: 401 });
   return { token, login: decodeLogin(token) };

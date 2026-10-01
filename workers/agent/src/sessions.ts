@@ -296,7 +296,11 @@ export async function resolveUser(request: Request, auth: Fetcher): Promise<{ id
   const token = xfgs || (authz.startsWith("Bearer ") ? authz.slice(7).trim() : "") || cookieToken;
   if (!token) return null;
   try {
-    const r = await auth.fetch("https://auth.freegamestore.online/me", { headers: { "X-FGS-Token": token } });
+    // Only the agent's own session (the Studio) or MCP's may act here — never a
+    // handoff or another site's session (#69).
+    const r = await auth.fetch("https://auth.freegamestore.online/me", {
+      headers: { "X-FGS-Token": token, "X-FGS-Audience": "https://agent.freegamestore.online,https://mcp.freegamestore.online" },
+    });
     if (!r.ok) return null;
     const u = (await r.json()) as { id?: string; name?: string; login?: string | null };
     return u?.id ? { id: u.id, name: u.name || "", login: u.login ?? null } : null;

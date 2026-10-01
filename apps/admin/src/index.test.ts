@@ -15,6 +15,9 @@ afterEach(() => {
 });
 
 /** Build an env whose AUTH service binding resolves `/me` to a chosen email. */
+/** Headers of every /me call the worker made through the AUTH binding. */
+const authHeaders: Headers[] = [];
+
 function makeEnv(opts: {
   meEmail?: string | null;
   meOk?: boolean;
@@ -25,7 +28,8 @@ function makeEnv(opts: {
   DB?: unknown;
 }) {
   const AUTH = {
-    fetch: async () => {
+    fetch: async (_url: unknown, init?: RequestInit) => {
+      authHeaders.push(new Headers(init?.headers));
       if (opts.authThrows) throw new Error('auth worker down');
       if (opts.meOk === false) return new Response('bad gateway', { status: 502 });
       return new Response(JSON.stringify({ email: opts.meEmail ?? null }), { status: 200 });
@@ -385,5 +389,34 @@ describe('GET /api/games/:id/detail fork attribution (#44)', () => {
       creatorGithub: 'original-creator',
       forkedAt: '2026-09-25T00:00:00.000Z',
     });
+  });
+});
+
+describe('/me audience binding (#69)', () => {
+  it('admin rights are only checked against admin- or MCP-issued sessions', async () => {
+    authHeaders.length = 0;
+    await worker.fetch(
+      req('/api/allusers', { headers: { 'X-FGS-Token': 'tok' } }),
+      makeEnv({ meEmail: ADMIN, adminEmails: ADMIN, DB: undefined }),
+    );
+    expect(authHeaders[0]?.get('X-FGS-Audience')).toBe(
+      'https://admin.freegamestore.online,https://mcp.freegamestore.online',
+    );
+  });
+
+  it('creator actions accept admin, console (forwarded) and MCP sessions only', async () => {
+    authHeaders.length = 0;
+    vi.stubGlobal('fetch', async () => new Response('{}', { status: 404 }));
+    await worker.fetch(
+      req('/api/provision', {
+        method: 'POST',
+        headers: { 'X-FGS-Token': 'tok', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: 'bad id!', name: 'x', category: 'arcade' }),
+      }),
+      makeEnv({ adminEmails: ADMIN, DB: undefined }),
+    );
+    expect(authHeaders.at(-1)?.get('X-FGS-Audience')).toBe(
+      'https://admin.freegamestore.online,https://console.freegamestore.online,https://mcp.freegamestore.online',
+    );
   });
 });

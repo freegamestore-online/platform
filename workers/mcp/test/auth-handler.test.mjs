@@ -740,3 +740,14 @@ test('an unrouted path 404s', async () => {
   const res = await handler.fetch(get('/nope'), makeEnv());
   assert.equal(res.status, 404);
 });
+
+// #69: /me must only vouch for MCP's own session — never a handoff or a session
+// issued to another site — so the consent step names the audience it accepts.
+test('the consent step verifies the session as an MCP-issued one', async () => {
+  const env = makeEnv();
+  const { reqId, csrf } = await startFlow(env);
+  await consent(env, reqId, cookies(csrf, `fgs_token=${GRACE}`));
+  const me = env.AUTH.calls.find((c) => c.url.endsWith('/me'));
+  assert.ok(me, 'expected a /me verification call');
+  assert.equal(new Headers(me.headers).get('X-FGS-Audience'), 'https://mcp.freegamestore.online');
+});

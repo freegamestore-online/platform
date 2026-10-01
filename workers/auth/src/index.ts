@@ -235,7 +235,11 @@ async function mintHandoff(
       sub: payload.sub,
       name: payload.name,
       avatar: payload.avatar,
-      email: payload.email,
+      // Leaderboard handoffs are held by game pages (untrusted content) and only
+      // need identity for the score row; never hand them the player's email
+      // (#69). Session handoffs keep it: admin's allowlist reads it from the
+      // per-site session minted at consume time.
+      ...(target === LEADERBOARD_ORIGIN ? {} : { email: payload.email }),
       login: payload.login,
       ...(game ? { game } : {}),
       iat: now,
@@ -402,9 +406,34 @@ export async function handleMe(request: Request, env: Env): Promise<Response> {
     return json({ error: 'Not signed in' }, 401, request);
   }
 
-  const payload = await jwtVerify(token, env.JWT_SECRET);
+  // A malformed token makes jwtVerify throw; that is a 401, not a 500.
+  const payload = await jwtVerify(token, env.JWT_SECRET).catch(() => null);
   if (!payload) {
     return json({ error: 'Invalid or expired token' }, 401, request);
+  }
+
+  // /me must only accept SESSION credentials, and only for the service asking
+  // (#69). A handoff is a 5-minute exchange token — a game legitimately holds a
+  // leaderboard one — so presenting it here as X-FGS-Token used to return the
+  // player's identity and email, and admin granted admin rights from that email.
+  if (payload.typ === 'fgs_handoff') {
+    return json({ error: 'Invalid or expired token' }, 401, request);
+  }
+  // Per-site sessions carry the site they were issued for. A caller lists the
+  // audiences it accepts in X-FGS-Audience (comma-separated origins); a session
+  // for any other site is rejected. Sign-in and CLI tokens carry no aud and are
+  // unaffected. A caller that sends no header gets no audience check, so the
+  // auth worker can deploy ahead of its callers without breaking them.
+  const accepted = (request.headers.get('X-FGS-Audience') ?? '')
+    .split(',')
+    .map((a) => a.trim())
+    .filter(Boolean);
+  if (
+    payload.typ === 'fgs_session' &&
+    accepted.length > 0 &&
+    (typeof payload.aud !== 'string' || !accepted.includes(payload.aud))
+  ) {
+    return json({ error: 'Token not valid for this service' }, 401, request);
   }
 
   // Email is PII, so expose it only on the worker-to-worker path (X-FGS-Token —

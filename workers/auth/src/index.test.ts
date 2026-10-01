@@ -669,3 +669,96 @@ test('games can still mint their own leaderboard handoff with the cookie (#68)',
   );
   assert.equal(wrongGame.status, 403);
 });
+
+// --- /me token kind + audience (#69) ---
+// /me checked only signature and expiry. A game legitimately holds a
+// leaderboard handoff; sent to admin as X-FGS-Token it returned the player's
+// email, and admin granted admin rights from that email (likewise agent/MCP).
+
+const LB = 'https://leaderboard.freegamestore.online';
+const ADMIN_ORIGIN = 'https://admin.freegamestore.online';
+
+function meReq(token: string, audience?: string): Request {
+  const headers: Record<string, string> = { 'X-FGS-Token': token };
+  if (audience) headers['X-FGS-Audience'] = audience;
+  return new Request('https://auth.freegamestore.online/me', { headers });
+}
+
+async function leaderboardHandoff(): Promise<string> {
+  const res = await handleHandoffIssue(
+    new Request(
+      `https://auth.freegamestore.online/handoff/issue?target=${encodeURIComponent(LB)}&game=chess`,
+      {
+        method: 'POST',
+        headers: {
+          Origin: 'https://chess.freegamestore.online',
+          Cookie: `${COOKIE_NAME}=${await mintToken()}`,
+        },
+      },
+    ),
+    ME_ENV,
+  );
+  return ((await res.json()) as { token: string }).token;
+}
+
+async function sessionFor(aud: string): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  return jwtSign(
+    {
+      typ: 'fgs_session',
+      aud,
+      sub: 'github:1',
+      login: 'octo',
+      email: 'octo@example.com',
+      iat: now,
+      exp: now + 3600,
+    },
+    SECRET,
+  );
+}
+
+test('/me rejects a leaderboard handoff presented as a credential (#69)', async () => {
+  const handoff = await leaderboardHandoff();
+  assert.equal((await handleMe(meReq(handoff), ME_ENV)).status, 401);
+  assert.equal((await handleMe(meReq(handoff, ADMIN_ORIGIN), ME_ENV)).status, 401);
+});
+
+test('/me rejects a session issued for another service (#69)', async () => {
+  const res = await handleMe(meReq(await sessionFor(LB), ADMIN_ORIGIN), ME_ENV);
+  assert.equal(res.status, 401);
+});
+
+test('/me accepts a session for a listed audience and returns its email (#69)', async () => {
+  const res = await handleMe(
+    meReq(await sessionFor(ADMIN_ORIGIN), `${ADMIN_ORIGIN},https://mcp.freegamestore.online`),
+    ME_ENV,
+  );
+  assert.equal(res.status, 200);
+  assert.equal(((await res.json()) as { email?: string }).email, 'octo@example.com');
+});
+
+test('/me still accepts sign-in/CLI tokens (no aud) whatever the audience header (#69)', async () => {
+  const signIn = await mintToken();
+  assert.equal((await handleMe(meReq(signIn, ADMIN_ORIGIN), ME_ENV)).status, 200);
+  assert.equal((await handleMe(meReq(signIn), ME_ENV)).status, 200);
+});
+
+test('/me answers a malformed token with 401, not a crash (#69)', async () => {
+  assert.equal((await handleMe(meReq('not.a.jwt!!'), ME_ENV)).status, 401);
+});
+
+test('leaderboard handoffs carry no email; session handoffs still do (#69)', async () => {
+  const lb = await jwtVerify(await leaderboardHandoff(), SECRET);
+  assert.equal(lb?.typ, 'fgs_handoff');
+  assert.equal('email' in (lb ?? {}), false);
+
+  const res = await handleHandoffIssue(
+    new Request(
+      `https://auth.freegamestore.online/handoff/issue?target=${encodeURIComponent('https://agent.freegamestore.online')}`,
+      { method: 'POST', headers: { 'X-FGS-Token': await mintToken() } },
+    ),
+    ME_ENV,
+  );
+  const agent = await jwtVerify(((await res.json()) as { token: string }).token, SECRET);
+  assert.ok(agent && 'email' in agent);
+});

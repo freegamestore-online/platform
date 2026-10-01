@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activityFromDeployStatus, bumpSessionTokens, updateSessionActivity, upsertSessionIndex } from "./sessions";
+import { activityFromDeployStatus, bumpSessionTokens, resolveUser, updateSessionActivity, upsertSessionIndex } from "./sessions";
 
 /** Minimal D1 stub that records prepare/bind/run calls. */
 function mockDb() {
@@ -92,5 +92,20 @@ describe("activityFromDeployStatus", () => {
     expect(activityFromDeployStatus({ phase: "pushing", progress: "x" })).toEqual({ phase: "pushing", detail: "Pushing code" });
     expect(activityFromDeployStatus({ phase: "live", appUrl: "https://x" })).toEqual({ phase: "live", detail: "Live" });
     expect(activityFromDeployStatus({ phase: "error", error: "boom" })).toEqual({ phase: "error", detail: "boom" });
+  });
+});
+
+describe("resolveUser /me audience (#69)", () => {
+  it("accepts only agent- or MCP-issued sessions", async () => {
+    const seen: Headers[] = [];
+    const auth = {
+      fetch: async (_u: unknown, init?: RequestInit) => {
+        seen.push(new Headers(init?.headers));
+        return new Response(JSON.stringify({ id: "github:1", name: "Octo", login: "octo" }));
+      },
+    } as unknown as Fetcher;
+    const user = await resolveUser(new Request("https://agent.test/sessions", { headers: { "X-FGS-Token": "tok" } }), auth);
+    expect(user?.login).toBe("octo");
+    expect(seen[0]?.get("X-FGS-Audience")).toBe("https://agent.freegamestore.online,https://mcp.freegamestore.online");
   });
 });
