@@ -206,7 +206,12 @@ export function useAuthProvider(): AuthContextValue {
 
   const signOut = useCallback(async () => {
     clearLegacyLocalKeys(user?.sub);
-    await fetch(`${AUTH_BASE}/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
+    // The console session is a host-only cookie on this origin, so it has to be
+    // cleared here; the auth worker's /logout only ends the auth-origin session.
+    await Promise.all([
+      fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {}),
+      fetch(`${AUTH_BASE}/logout`, { method: 'POST', credentials: 'include' }).catch(() => {}),
+    ]);
     setUser(null);
     setCreator(null);
     window.location.href = '/';
