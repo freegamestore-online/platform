@@ -59,6 +59,12 @@ export function useAgent() {
   const [tokensIn, setTokensIn] = useState(0);
   const [tokensOut, setTokensOut] = useState(0);
   const [deployState, setDeployState] = useState<DeployState | null>(null);
+  // Which session's history has finished loading (successfully, with an error,
+  // or skipped because a stream was already live). Keyed by session id so a
+  // project switch automatically reads as "not loaded yet" until its own
+  // loadHistory completes — callers that must not act before the transcript is
+  // known (the first-build auto-send, #76) gate on `historyLoaded`.
+  const [historyLoadedFor, setHistoryLoadedFor] = useState<string | null>(null);
   // Deploy state is updated ONLY through commitDeployState: it computes the next
   // value once, synchronously, against the latest value (not the last render),
   // so callers can act on it without side effects inside a React updater —
@@ -200,8 +206,8 @@ export function useAgent() {
       commitDeployState(null);
       return;
     }
-    if (isStreamingRef.current) return;
     try {
+      if (isStreamingRef.current) return;
       const historyRes = await fetch(`${AGENT_URL}/session/${sessionId}/history`, {
         credentials: 'include',
       });
@@ -242,6 +248,9 @@ export function useAgent() {
       }
     } catch {
       // The composer remains usable; the next focus/reload can retry history.
+    } finally {
+      // Completed for this session (unless the user has since switched away).
+      if (sessionIdRef.current === sessionId) setHistoryLoadedFor(sessionId);
     }
   }, [sessionId, projectsMgr.markDeployed, projectsMgr.rename, commitDeployState]);
 
@@ -553,6 +562,7 @@ export function useAgent() {
   const dismissError = useCallback(() => setError(null), []);
 
   return {
+    historyLoaded: !!sessionId && historyLoadedFor === sessionId,
     messages,
     visibleCount,
     showEarlier,

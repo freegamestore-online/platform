@@ -220,6 +220,10 @@ export function Create() {
     const key = `${gameId}:${initialBuild.createdAt}`;
     if (
       autoInitialPromptRef.current === key ||
+      // Never decide before this session's transcript is known: on a reload or
+      // revisit the user message is only visible once history has loaded, and
+      // sending before that re-ran the whole first build (#76).
+      !agent.historyLoaded ||
       agent.isStreaming ||
       loading ||
       !user ||
@@ -242,11 +246,19 @@ export function Create() {
     autoInitialPromptRef.current = key;
     setInputValue('');
     void sendPrompt(initialBuild.prompt);
+    // Sent: from here the agent's transcript is the record, so drop the queued
+    // prompt now rather than only when a live/error phase is seen in this same
+    // page session — otherwise a reload mid-build re-sent it (#76). The
+    // in-memory `initialBuild` is kept so this session's first-build UI (status,
+    // template-preview suppression, deploy nudge) still works; the ref above
+    // stops a second send in this session.
+    clearInitialBuild(gameId);
   }, [
     currentProject?.appId,
     initialBuild,
     agent.deployState?.phase,
     agent.isStreaming,
+    agent.historyLoaded,
     agent.messages,
     agent.projectsLoading,
     loading,
