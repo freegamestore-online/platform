@@ -563,3 +563,109 @@ test('POST /logout clears the __Host- session and the legacy cookie as separate 
   assert.match(legacy, /Domain=\.freegamestore\.online/);
   assert.match(legacy, /Max-Age=0/);
 });
+
+// --- /handoff/issue origin binding (#68) ---
+// A game at <x>.freegamestore.online could POST /handoff/issue with the
+// player's session cookie (same-site, so it is sent) and read a console /
+// admin / mcp / agent handoff from the CORS-enabled response, then redeem it
+// for a session as that player. Privileged handoffs must only be mintable by
+// their own trusted origin(s), from an explicit token, never the cookie.
+
+function issueReq(
+  target: string,
+  opts: { origin?: string; cookie?: string; token?: string; game?: string } = {},
+): Request {
+  const headers: Record<string, string> = {};
+  if (opts.origin) headers.Origin = opts.origin;
+  if (opts.cookie) headers.Cookie = `${COOKIE_NAME}=${opts.cookie}`;
+  if (opts.token) headers['X-FGS-Token'] = opts.token;
+  const game = opts.game ? `&game=${encodeURIComponent(opts.game)}` : '';
+  return new Request(
+    `https://auth.freegamestore.online/handoff/issue?target=${encodeURIComponent(target)}${game}`,
+    { method: 'POST', headers },
+  );
+}
+
+const PRIVILEGED = [
+  'https://console.freegamestore.online',
+  'https://admin.freegamestore.online',
+  'https://mcp.freegamestore.online',
+  'https://agent.freegamestore.online',
+];
+const EVIL = 'https://evil-game.freegamestore.online';
+
+test('a game origin cannot mint a privileged handoff with the player cookie (#68)', async () => {
+  const session = await mintToken();
+  for (const target of PRIVILEGED) {
+    const res = await handleHandoffIssue(
+      issueReq(target, { origin: EVIL, cookie: session }),
+      ME_ENV,
+    );
+    assert.equal(res.status, 403, target);
+    assert.equal(((await res.json()) as { token?: string }).token, undefined, target);
+  }
+});
+
+test('a game origin cannot mint a privileged handoff even with an explicit token (#68)', async () => {
+  const session = await mintToken();
+  for (const target of PRIVILEGED) {
+    const res = await handleHandoffIssue(
+      issueReq(target, { origin: EVIL, token: session }),
+      ME_ENV,
+    );
+    assert.equal(res.status, 403, target);
+  }
+});
+
+test('the session cookie alone never authorizes a privileged handoff (#68)', async () => {
+  const session = await mintToken();
+  for (const target of PRIVILEGED) {
+    const res = await handleHandoffIssue(issueReq(target, { cookie: session }), ME_ENV);
+    assert.equal(res.status, 401, target);
+  }
+});
+
+test('server-to-server issuance (explicit token, no Origin) still works (#68)', async () => {
+  const session = await mintToken();
+  // The console's /auth/agent-handoff function calls exactly like this.
+  const res = await handleHandoffIssue(
+    issueReq('https://agent.freegamestore.online', { token: session }),
+    ME_ENV,
+  );
+  assert.equal(res.status, 200);
+  assert.ok(((await res.json()) as { token?: string }).token);
+});
+
+test('a privileged target accepts its own trusted origin (#68)', async () => {
+  const session = await mintToken();
+  const res = await handleHandoffIssue(
+    issueReq('https://agent.freegamestore.online', {
+      origin: 'https://console.freegamestore.online',
+      token: session,
+    }),
+    ME_ENV,
+  );
+  assert.equal(res.status, 200);
+});
+
+test('games can still mint their own leaderboard handoff with the cookie (#68)', async () => {
+  const session = await mintToken();
+  const ok = await handleHandoffIssue(
+    issueReq('https://leaderboard.freegamestore.online', {
+      origin: 'https://chess.freegamestore.online',
+      cookie: session,
+      game: 'chess',
+    }),
+    ME_ENV,
+  );
+  assert.equal(ok.status, 200);
+  const wrongGame = await handleHandoffIssue(
+    issueReq('https://leaderboard.freegamestore.online', {
+      origin: EVIL,
+      cookie: session,
+      game: 'chess',
+    }),
+    ME_ENV,
+  );
+  assert.equal(wrongGame.status, 403);
+});

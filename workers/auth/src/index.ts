@@ -24,6 +24,21 @@ const HANDOFF_TARGETS = new Set([
   'https://agent.freegamestore.online',
   'https://leaderboard.freegamestore.online',
 ]);
+const LEADERBOARD_ORIGIN = 'https://leaderboard.freegamestore.online';
+// Browser origins allowed to request a handoff for each privileged target via
+// /handoff/issue (#68). Server-to-server callers send no Origin. Games
+// (*.freegamestore.online) are untrusted user content and only ever need
+// leaderboard handoffs, which are checked separately against the game id.
+const HANDOFF_ISSUER_ORIGINS: Record<string, ReadonlySet<string>> = {
+  'https://console.freegamestore.online': new Set(['https://console.freegamestore.online']),
+  'https://admin.freegamestore.online': new Set(['https://admin.freegamestore.online']),
+  'https://mcp.freegamestore.online': new Set(['https://mcp.freegamestore.online']),
+  // The console establishes the Studio's agent session (/auth/agent-handoff).
+  'https://agent.freegamestore.online': new Set([
+    'https://agent.freegamestore.online',
+    'https://console.freegamestore.online',
+  ]),
+};
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo';
@@ -617,25 +632,48 @@ export async function handleHandoffConsume(request: Request, env: Env): Promise<
  */
 export async function handleHandoffIssue(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
-  const token = request.headers.get('X-FGS-Token') || getCookie(request, COOKIE_NAME) || '';
   const target =
     request.headers.get('X-FGS-Handoff-Target') || url.searchParams.get('target') || '';
   const game = request.headers.get('X-FGS-Game') || url.searchParams.get('game') || undefined;
-  const payload = await jwtVerify(token, env.JWT_SECRET);
-  if (!payload || typeof payload.sub !== 'string' || !HANDOFF_TARGETS.has(target)) {
-    return json({ error: 'not signed in' }, 401, request);
-  }
-  if (target === 'https://leaderboard.freegamestore.online') {
-    const origin = request.headers.get('Origin') ?? '';
+  const origin = request.headers.get('Origin');
+
+  if (target === LEADERBOARD_ORIGIN) {
+    // Browser games request their own leaderboard credential with the session
+    // cookie; the Origin must be that game's own hostname.
+    const token = request.headers.get('X-FGS-Token') || getCookie(request, COOKIE_NAME) || '';
+    const payload = await jwtVerify(token, env.JWT_SECRET).catch(() => null);
+    if (!payload || typeof payload.sub !== 'string') {
+      return json({ error: 'not signed in' }, 401, request);
+    }
     let host = '';
     try {
-      host = new URL(origin).hostname;
+      host = new URL(origin ?? '').hostname;
     } catch {
       /* rejected below */
     }
-    if (!game || host !== `${game}.freegamestore.online` || !ALLOWED_ORIGIN.test(origin)) {
+    if (!game || host !== `${game}.freegamestore.online` || !ALLOWED_ORIGIN.test(origin ?? '')) {
       return json({ error: 'invalid game handoff request' }, 403, request);
     }
+    return json({ token: await mintHandoff(token, target, env.JWT_SECRET, game) }, 200, request);
+  }
+
+  // Privileged targets (console, admin, mcp, agent) — #68. These used to accept
+  // the session COOKIE from ANY *.freegamestore.online origin, and cors()
+  // reflects those origins with credentials, so a game could mint e.g. a
+  // console handoff for the player and redeem it as their session. Now:
+  //  - a browser Origin must be one of that target's own trusted origins
+  //    (server-to-server callers send none), and
+  //  - the session must come from an explicit X-FGS-Token header, never the
+  //    cookie a same-site game page gets sent automatically.
+  const trusted = HANDOFF_ISSUER_ORIGINS[target];
+  if (!trusted) return json({ error: 'not signed in' }, 401, request);
+  if (origin !== null && !trusted.has(origin)) {
+    return json({ error: 'handoff not allowed from this origin' }, 403, request);
+  }
+  const token = request.headers.get('X-FGS-Token') || '';
+  const payload = await jwtVerify(token, env.JWT_SECRET).catch(() => null);
+  if (!payload || typeof payload.sub !== 'string') {
+    return json({ error: 'not signed in' }, 401, request);
   }
   return json({ token: await mintHandoff(token, target, env.JWT_SECRET, game) }, 200, request);
 }
