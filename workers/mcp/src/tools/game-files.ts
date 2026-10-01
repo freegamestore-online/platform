@@ -1,8 +1,39 @@
 import { z } from 'zod';
-import { listRepoFiles, pushFiles, type RepoFile, readRepoFile, textToB64 } from '../github.js';
+import {
+  listRepoFiles,
+  pushFiles,
+  type RepoFile,
+  readRegistryGames,
+  readRepoFile,
+  textToB64,
+  validateGameId,
+} from '../github.js';
 import { fgsPost } from '../http.js';
 import { audit, dryRun, requireWritable } from '../safety.js';
 import { errText, type RegistrationContext, txt } from './registration.js';
+
+/** Why `game_id` must not be read with the org token, or null if it may.
+ *  list_files/read_file call GitHub with the ORG token, which can read every
+ *  repo in the org — including private platform repos such as `platform`. So a
+ *  read is only allowed for a well-formed id that is a game in the store
+ *  registry; anything else is refused before any request to that repo (#70). */
+async function readableGameError(ctx: RegistrationContext, game_id: string) {
+  if (!validateGameId(game_id)) return errText(`"${game_id}" is not a valid game id.`);
+  const registry = await readRegistryGames(
+    ctx.env.GITHUB_ORG,
+    ctx.env.STORE_REPO,
+    ctx.env.GITHUB_TOKEN,
+  );
+  if (registry.status === 'unavailable') {
+    return errText(
+      `Couldn't verify "${game_id}" — the store registry is unavailable (${registry.detail}). Try again shortly.`,
+    );
+  }
+  if (registry.status === 'missing' || !registry.games.some((g) => g.id === game_id)) {
+    return errText(`"${game_id}" is not a game on FreeGameStore.`);
+  }
+  return null;
+}
 
 export function registerGameFilesTools(ctx: RegistrationContext): void {
   // -- create_game (provision + scaffold + go live) --
@@ -133,6 +164,8 @@ export function registerGameFilesTools(ctx: RegistrationContext): void {
     "List the files in a game's repo (so you know what to read/edit).",
     { game_id: z.string().describe('Game ID') },
     async ({ game_id }) => {
+      const refused = await readableGameError(ctx, game_id);
+      if (refused) return refused;
       const files = await listRepoFiles(ctx.env.GITHUB_ORG, game_id, ctx.env.GITHUB_TOKEN);
       if (files.length === 0)
         return txt(`No files found for ${game_id} (repo empty or not found).`);
@@ -151,6 +184,8 @@ export function registerGameFilesTools(ctx: RegistrationContext): void {
       path: z.string().describe('File path relative to repo root'),
     },
     async ({ game_id, path }) => {
+      const refused = await readableGameError(ctx, game_id);
+      if (refused) return refused;
       const content = await readRepoFile(ctx.env.GITHUB_ORG, game_id, ctx.env.GITHUB_TOKEN, path);
       if (content === null) return errText(`${path} not found in ${game_id}.`);
       const ext = path.split('.').pop() ?? '';

@@ -311,7 +311,8 @@ async function pushFilesOnce(
  *  Returns [] only for confirmed absence — no repo/main ref (404) or an empty
  *  repo (409). Any other failure throws GitHubError. */
 export async function listRepoFiles(org: string, repo: string, token?: string): Promise<string[]> {
-  const base = `https://api.github.com/repos/${org}/${repo}`;
+  // Encoded: a repo name must never be able to reshape the API path (#70).
+  const base = `https://api.github.com/repos/${encodeURIComponent(org)}/${encodeURIComponent(repo)}`;
   const ref = await gh(token, `${base}/git/ref/heads/main`);
   if (ref.__status === 404 || ref.__status === 409) return [];
   const headSha = ref?.object?.sha;
@@ -331,7 +332,8 @@ export async function readRepoFile(
   token: string | undefined,
   path: string,
 ): Promise<string | null> {
-  const base = `https://api.github.com/repos/${org}/${repo}`;
+  // Encoded: a repo name must never be able to reshape the API path (#70).
+  const base = `https://api.github.com/repos/${encodeURIComponent(org)}/${encodeURIComponent(repo)}`;
   const res = await gh(
     token,
     `${base}/contents/${path.split('/').map(encodeURIComponent).join('/')}`,
