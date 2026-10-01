@@ -176,30 +176,17 @@ export const publishCommand = new Command('publish')
       // Issue-form fallback.
       if (!opts.issue) {
         const autoResult = await tryAutoProvision(input);
-        if (autoResult.kind === 'success') {
-          const injected = await ensureDeployWorkflow();
-
-          process.stdout.write(`\n✓ Provisioned!\n`);
-          process.stdout.write(`  Live at:  ${autoResult.appUrl}\n`);
-          process.stdout.write(`  Repo:     ${autoResult.repoUrl}\n`);
-          process.stdout.write(`  Listing:  https://freegamestore.online/games/${input.name}\n\n`);
-          if (injected) {
-            process.stdout.write(`  Added .github/workflows/deploy.yml (R2 deploy workflow)\n\n`);
-          }
-          process.stdout.write(`Push your code so the live URL serves it:\n\n`);
-          process.stdout.write(`  git remote add upstream ${autoResult.repoUrl}.git\n`);
-          process.stdout.write(`  git push upstream main\n\n`);
-          process.stdout.write(`Future commits to main auto-deploy in ~30s.\n`);
-          process.stdout.write(`Run \`fgs list\` any time to see your games.\n`);
+        const injected = autoResult.kind === 'success' ? await ensureDeployWorkflow() : false;
+        const outcome = provisionOutcome(autoResult, input.name, injected);
+        for (const line of outcome.lines) process.stdout.write(`${line}\n`);
+        // Only an unavailable provisioning service falls through to the Issue
+        // form. Auth and validation failures are hard errors (#92): exiting 0
+        // made `fgs publish --yes` in CI read as success, and the Issue fallback
+        // filed a second, manual request for an id admin had just rejected.
+        if (outcome.exitCode !== null) {
+          if (outcome.exitCode !== 0) process.exit(outcome.exitCode);
           return;
         }
-        if (autoResult.kind === 'unauthorized') {
-          process.stdout.write(`\n⚠  Not signed in. Run: fgs login\n`);
-          return;
-        }
-        process.stdout.write(
-          `\n⚠  Auto-provision unavailable (${autoResult.reason}); falling back to Issue form.\n`,
-        );
       }
 
       // Fallback: prefilled GitHub Issue form for admin review.
@@ -215,51 +202,146 @@ export const publishCommand = new Command('publish')
     },
   );
 
-interface AutoProvisionSuccess {
-  kind: 'success';
-  appUrl: string;
-  repoUrl: string;
-}
-interface AutoProvisionFailure {
-  kind: 'unconfigured' | 'failed' | 'unauthorized';
-  reason: string;
-}
-type AutoProvisionResult = AutoProvisionSuccess | AutoProvisionFailure;
+export type AutoProvisionResult =
+  | {
+      kind: 'success';
+      appUrl: string;
+      repoUrl: string;
+      /** Admin generated the repo just now (vs. it already existed). */
+      created: boolean;
+    }
+  /** No session, or admin rejected it (401). */
+  | { kind: 'unauthorized'; reason: string }
+  /** Admin refused the request (validation, id taken, ownership conflict). */
+  | { kind: 'rejected'; reason: string }
+  /** Provisioning service unreachable / not configured / 5xx — retryable. */
+  | { kind: 'unavailable'; reason: string };
 
-async function tryAutoProvision(input: SubmissionInput): Promise<AutoProvisionResult> {
+export async function tryAutoProvision(input: SubmissionInput): Promise<AutoProvisionResult> {
   const config = await readConfig();
   const sessionToken = config.session?.token;
   if (!sessionToken) return { kind: 'unauthorized', reason: 'no session' };
 
   const typeShort = input.type.startsWith('Standalone') ? 'standalone' : 'connected';
-  const res = await fetch(`${config.apiBase}/api/provision`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${sessionToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      name: input.name,
-      store: STORE,
-      category: input.category,
-      type: typeShort,
-      oneliner: input.oneliner,
-      description: input.description,
-      repo: input.repo,
-      demo: input.demo,
-    }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${config.apiBase}/api/provision`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: input.name,
+        store: STORE,
+        category: input.category,
+        type: typeShort,
+        oneliner: input.oneliner,
+        description: input.description,
+        repo: input.repo,
+        demo: input.demo,
+      }),
+    });
+  } catch (err) {
+    return { kind: 'unavailable', reason: err instanceof Error ? err.message : String(err) };
+  }
   if (res.status === 401) return { kind: 'unauthorized', reason: 'session expired' };
-  if (res.status === 503) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    return { kind: 'unconfigured', reason: body.error ?? '503' };
+
+  const text = await res.text().catch(() => '');
+  let body: {
+    error?: string;
+    appUrl?: string;
+    repoUrl?: string;
+    success?: boolean;
+    steps?: { name?: string; status?: string; detail?: string }[];
+  } = {};
+  try {
+    body = text ? JSON.parse(text) : {};
+  } catch {
+    // Non-JSON body: reported as-is below.
   }
-  if (!res.ok) {
-    const body = await res.text();
-    return { kind: 'failed', reason: `${res.status}: ${body}` };
+  const failedSteps = (body.steps ?? [])
+    .filter((st) => st.status === 'fail')
+    .map((st) => `${st.name}: ${st.detail}`)
+    .join('; ');
+  const reason = body.error || failedSteps || text.slice(0, 300) || `HTTP ${res.status}`;
+
+  if (res.status >= 500) return { kind: 'unavailable', reason };
+  if (!res.ok) return { kind: 'rejected', reason };
+  if (!body.appUrl || !body.repoUrl) {
+    return { kind: 'unavailable', reason: 'provision returned an unexpected response' };
   }
-  const result = (await res.json()) as { appUrl: string; repoUrl: string };
-  return { kind: 'success', appUrl: result.appUrl, repoUrl: result.repoUrl };
+  const created = (body.steps ?? []).some((st) => st.name === 'GitHub repo' && st.status === 'ok');
+  return { kind: 'success', appUrl: body.appUrl, repoUrl: body.repoUrl, created };
+}
+
+/** What `fgs publish` prints and how it exits for an auto-provision result.
+ *  `exitCode: null` means "fall through to the GitHub Issue form". Pure, so the
+ *  exit-code and push-instruction rules are unit-testable (#92). */
+export function provisionOutcome(
+  result: AutoProvisionResult,
+  gameName: string,
+  deployWorkflowAdded: boolean,
+): { lines: string[]; exitCode: number | null } {
+  switch (result.kind) {
+    case 'unauthorized':
+      return {
+        lines: ['', `✗ Not signed in (${result.reason}). Run: fgs login`],
+        exitCode: 1,
+      };
+    case 'rejected':
+      return {
+        lines: ['', `✗ Publish was rejected: ${result.reason}`, '  Nothing was published.'],
+        exitCode: 1,
+      };
+    case 'unavailable':
+      return {
+        lines: [
+          '',
+          `⚠  Auto-provision unavailable (${result.reason}); falling back to Issue form.`,
+        ],
+        exitCode: null,
+      };
+    case 'success': {
+      const lines = [
+        '',
+        '✓ Provisioned!',
+        `  Live at:  ${result.appUrl}`,
+        `  Repo:     ${result.repoUrl}`,
+        `  Listing:  https://freegamestore.online/games/${gameName}`,
+        '',
+      ];
+      if (deployWorkflowAdded) {
+        lines.push('  Added .github/workflows/deploy.yml (R2 deploy workflow) — commit it:', '');
+        lines.push('  git add .github/workflows/deploy.yml');
+        lines.push('  git commit -m "Add FreeGameStore deploy workflow"', '');
+      }
+      if (result.created) {
+        // The repo was generated server-side from the template, so it has its
+        // own history, unrelated to this checkout's (`fgs init` makes a fresh
+        // first commit). A plain push is rejected; replace the scaffold.
+        lines.push(
+          'Push your code so the live URL serves it. The new repo only holds the template',
+          "scaffold and doesn't share history with this checkout, so replace it:",
+          '',
+          `  git remote add upstream ${result.repoUrl}.git`,
+          '  git push --force upstream main',
+          '',
+        );
+      } else {
+        lines.push(
+          "This game's repo already existed, so it was left as it is. Push to it only from a",
+          "clone of that repo (don't force-push — it would overwrite the game's history):",
+          '',
+          `  git push ${result.repoUrl}.git main`,
+          '',
+        );
+      }
+      lines.push('Future commits to main auto-deploy in ~30s.');
+      lines.push('Run `fgs list` any time to see your games.');
+      return { lines, exitCode: 0 };
+    }
+  }
 }
 
 /**
