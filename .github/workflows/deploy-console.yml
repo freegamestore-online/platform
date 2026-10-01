@@ -38,6 +38,12 @@ jobs:
       # apps/console has its own pnpm-workspace.yaml (console + web) that must
       # stay intact so the web build resolves. See 9c82339 / issue #33.
       - run: pnpm install --frozen-lockfile
+      # Gate the deploy on the console's own checks (#97). The console has real
+      # users; until this, a commit that broke its tests shipped to them anyway.
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Test (web + functions)
+        run: pnpm test
       - name: Build
         run: cd web && pnpm build
       - name: Deploy to Cloudflare Pages

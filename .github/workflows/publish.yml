@@ -49,6 +49,18 @@ jobs:
       - name: Build all packages
         run: pnpm -r build
 
+      # Gate publishing on the package's own checks (#97). ci.yml runs in
+      # parallel but is not a dependency of this workflow, so without these a
+      # version bump that broke tests was published to npm anyway (the agent
+      # consumes @freegamestore/compliance from npm).
+      - name: Typecheck
+        working-directory: packages/${{ matrix.package }}
+        run: pnpm typecheck
+
+      - name: Test
+        working-directory: packages/${{ matrix.package }}
+        run: pnpm test
+
       - name: Decide whether to publish
         id: decide
         working-directory: packages/${{ matrix.package }}

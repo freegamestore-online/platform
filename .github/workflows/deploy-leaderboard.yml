@@ -38,6 +38,9 @@ jobs:
       # THAT workspace and silently skips workers/leaderboard's own node_modules —
       # exiting 0 while leaving wrangler missing. Pin the install to this unit.
       - run: pnpm install --frozen-lockfile --ignore-workspace
+      # Gate the deploy on the worker's own checks (#97).
+      - run: pnpm typecheck
+      - run: pnpm test
       - run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

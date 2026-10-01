@@ -28,7 +28,10 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: workers/mcp/package-lock.json
-      - run: npm install
+      # npm ci, not npm install: deploy exactly the dependency tree the lockfile
+      # (and Packages CI) tested, and fail if package.json and the lock disagree
+      # instead of silently re-resolving (#97).
+      - run: npm ci
       - run: npm run typecheck
       - run: npm test
       - run: npx wrangler deploy
