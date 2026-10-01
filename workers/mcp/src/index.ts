@@ -12,6 +12,7 @@ import { registerBuildSessionTools } from './tools/build-session.js';
 import { registerCatalogTools } from './tools/catalog.js';
 import { registerGameFilesTools } from './tools/game-files.js';
 import {
+  createRegistrationContext,
   type Env,
   errText,
   type McpProps,
@@ -118,18 +119,17 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
   }
 
   async init(): Promise<void> {
-    const ctx: RegistrationContext = {
+    // Live view of the props: they can arrive (setAuth) after init() (#72).
+    const ctx = createRegistrationContext({
       server: this.server,
       env: this.env,
-      session: this.session,
-      login: this.session.userId,
-      accessToken: this.session.token,
       ownerSlug: this.env.GITHUB_ORG,
-      safetyCtx: this.safety(),
       safeTool: this.safeTool.bind(this) as RegistrationContext['safeTool'],
       ownsGame: this.ownsGame.bind(this),
       sessionPrefix,
-    };
+      session: () => this.session,
+      safety: () => this.safety(),
+    });
     registerCatalogTools(ctx);
     registerGameFilesTools(ctx);
     registerBuildSessionTools(ctx);
