@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
-import { chromium } from 'playwright';
+import { type Browser, chromium } from 'playwright';
 
 // ---------------------------------------------------------------------------
 // Reference viewports — mirrors quality.js REFERENCE exactly
@@ -185,8 +185,106 @@ interface AuditResult {
   securityIssues: string[];
 }
 
-async function auditUrl(url: string): Promise<AuditResult> {
-  const browser = await chromium.launch();
+// ---------------------------------------------------------------------------
+// Tracker detection (#95)
+// ---------------------------------------------------------------------------
+
+/** What the page exposes that can reveal a tracking SDK. Collected in the
+ *  browser; judged in Node by detectTrackers so the rules are unit-testable. */
+export interface TrackerSignals {
+  /** Absolute src of every <script src>. */
+  scriptSrcs: string[];
+  /** Text of inline <script> blocks (capped). */
+  inlineScripts: string[];
+  /** Tracker names whose SDK global is present with its real API shape. */
+  globals: string[];
+}
+
+/** SDK hosts, by tracker. A script loaded from one of these is that tracker. */
+const TRACKER_HOSTS: Array<[string, RegExp]> = [
+  ['google-analytics', /(^|\.)google-analytics\.com$/],
+  ['googletagmanager', /(^|\.)googletagmanager\.com$/],
+  ['amplitude', /(^|\.)amplitude\.com$/],
+  ['mixpanel', /(^|\.)(mixpanel\.com|mxpnl\.com)$/],
+  ['segment', /(^|\.)(segment\.com|segment\.io)$/],
+  ['hotjar', /(^|\.)hotjar\.com$/],
+  ['plausible', /(^|\.)plausible\.io$/],
+  ['posthog', /(^|\.)posthog\.com$/],
+  ['facebook-pixel', /(^|\.)facebook\.net$/],
+  ['clarity', /(^|\.)clarity\.ms$/],
+  ['sentry', /(^|\.)(sentry-cdn\.com|sentry\.io)$/],
+  ['newrelic', /(^|\.)(newrelic\.com|nr-data\.net)$/],
+  ['datadog', /(^|\.)(datadoghq\.com|datadoghq-browser-agent\.com)$/],
+  ['logrocket', /(^|\.)(logrocket\.io|logrocket\.com|lr-ingest\.io)$/],
+  ['fullstory', /(^|\.)fullstory\.com$/],
+  ['heap', /(^|\.)heapanalytics\.com$/],
+];
+
+/** SDK install/init calls and loader URLs as they appear in inline scripts. */
+const TRACKER_INLINE: Array<[string, RegExp]> = [
+  ['google-analytics', /google-analytics\.com|googletagmanager\.com/],
+  ['gtag', /\bgtag\s*\(\s*['"](?:config|event|js)['"]/],
+  ['facebook-pixel', /\bfbq\s*\(\s*['"]init['"]|connect\.facebook\.net/],
+  ['amplitude', /\bamplitude\s*\.\s*(?:init|getInstance)\s*\(|cdn\.amplitude\.com/],
+  ['mixpanel', /\bmixpanel\s*\.\s*init\s*\(|cdn\.mxpnl\.com/],
+  ['segment', /\banalytics\s*\.\s*load\s*\(|cdn\.segment\.com/],
+  ['hotjar', /static\.hotjar\.com|\bhjid\s*:/],
+  ['plausible', /plausible\.io/],
+  ['posthog', /\bposthog\s*\.\s*init\s*\(/],
+  ['clarity', /clarity\.ms/],
+  ['sentry', /\bSentry\s*\.\s*init\s*\(/],
+  ['newrelic', /\bNREUM\b/],
+  ['datadog', /\bDD_RUM\s*\.\s*init\s*\(/],
+  ['logrocket', /\bLogRocket\s*\.\s*init\s*\(/],
+  ['fullstory', /edge\.fullstory\.com|\b_fs_org\b/],
+  ['heap', /\bheap\s*\.\s*load\s*\(|cdn\.heapanalytics\.com/],
+];
+
+/**
+ * Tracking SDKs a page actually loads (#95). The old scan did
+ * `outerHTML.includes(word)` for words like `pixel`, `segment`, `heap`,
+ * `sentry` and `amplitude`, so a pixel-art game (`image-rendering: pixelated`,
+ * class `pixel-grid`), snake segments or a binary heap were published as
+ * "Tracking/analytics" security issues. Only SDK evidence counts now: a script
+ * from an SDK host, an SDK init call in an inline script, or an SDK global
+ * with its real API.
+ */
+export function detectTrackers(signals: TrackerSignals): string[] {
+  const found = new Set<string>(signals.globals);
+  for (const src of signals.scriptSrcs) {
+    let host = '';
+    try {
+      host = new URL(src).hostname;
+    } catch {
+      continue;
+    }
+    for (const [name, re] of TRACKER_HOSTS) if (re.test(host)) found.add(name);
+  }
+  for (const text of signals.inlineScripts) {
+    for (const [name, re] of TRACKER_INLINE) if (re.test(text)) found.add(name);
+  }
+  return [...found].sort();
+}
+
+/**
+ * Audit one game URL. The browser is closed on EVERY path (#95): it used to be
+ * closed only after a fully successful audit, so each down or slow game (a
+ * page.goto timeout, a crash mid-audit) leaked a Chromium process for the rest
+ * of the weekly `--all` run, until memory ran out and later games failed too.
+ */
+export async function auditUrl(
+  url: string,
+  launch: () => Promise<Browser> = () => chromium.launch(),
+): Promise<AuditResult> {
+  const browser = await launch();
+  try {
+    return await auditWithBrowser(browser, url);
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
+async function auditWithBrowser(browser: Browser, url: string): Promise<AuditResult> {
   const viewports: ViewportResult[] = [];
   const consoleErrors: string[] = [];
   let loadTimeMs = 0;
@@ -432,33 +530,37 @@ async function auditUrl(url: string): Promise<AuditResult> {
       securityIssues.push(`Third-party script: ${u.hostname}`);
     }
 
-    // 2. Tracking / analytics SDKs
-    const trackers = [
-      'google-analytics',
-      'googletagmanager',
-      'gtag',
-      'ga.js',
-      'analytics.js',
-      'amplitude',
-      'mixpanel',
-      'segment',
-      'hotjar',
-      'plausible',
-      'posthog',
-      'facebook.net',
-      'fbevents',
-      'pixel',
-      'clarity.ms',
-      'sentry',
-      'newrelic',
-      'datadog',
-      'logrocket',
-      'fullstory',
-      'heap',
+    // 2. Tracking / analytics SDKs: collect evidence here, judge in Node
+    // (detectTrackers) — never by searching the page text for words (#95).
+    const w = window as unknown as Record<string, any>;
+    const isFn = (v: unknown) => typeof v === 'function';
+    const sdkGlobals: Array<[string, boolean]> = [
+      ['gtag', isFn(w.gtag)],
+      ['facebook-pixel', isFn(w.fbq)],
+      ['amplitude', isFn(w.amplitude?.init) || isFn(w.amplitude?.getInstance)],
+      ['mixpanel', isFn(w.mixpanel?.track) && isFn(w.mixpanel?.init)],
+      [
+        'segment',
+        isFn(w.analytics?.track) && isFn(w.analytics?.identify) && isFn(w.analytics?.page),
+      ],
+      ['hotjar', isFn(w.hj) && w._hjSettings !== undefined],
+      ['plausible', isFn(w.plausible)],
+      ['posthog', isFn(w.posthog?.capture) && isFn(w.posthog?.init)],
+      ['clarity', isFn(w.clarity)],
+      ['sentry', isFn(w.Sentry?.captureException)],
+      ['newrelic', isFn(w.newrelic?.addPageAction)],
+      ['datadog', isFn(w.DD_RUM?.init)],
+      ['logrocket', isFn(w.LogRocket?.init)],
+      ['fullstory', isFn(w.FS) && typeof w._fs_namespace === 'string'],
+      ['heap', isFn(w.heap?.track) && isFn(w.heap?.load)],
     ];
-    for (const t of trackers) {
-      if (html.includes(t)) securityIssues.push(`Tracking/analytics: ${t}`);
-    }
+    const trackerSignals = {
+      scriptSrcs: [...scripts].map((sc) => sc.src).filter(Boolean),
+      inlineScripts: [...scripts]
+        .filter((sc) => !sc.src)
+        .map((sc) => (sc.textContent ?? '').slice(0, 20_000)),
+      globals: sdkGlobals.filter(([, present]) => present).map(([name]) => name),
+    };
 
     // 3. Inline event handlers (XSS vector)
     const inlineHandlers = document.querySelectorAll(
@@ -553,6 +655,7 @@ async function auditUrl(url: string): Promise<AuditResult> {
       extraNavbars,
       bannedLibs: [...new Set(bannedLibs)],
       securityIssues: [...new Set(securityIssues)],
+      trackerSignals,
     };
   });
   await checkContext.close();
@@ -561,9 +664,12 @@ async function auditUrl(url: string): Promise<AuditResult> {
   const hasNoSelect = compliance.hasNoSelect;
   const extraNavbars = compliance.extraNavbars;
   const bannedLibs = compliance.bannedLibs;
-  const securityIssues = compliance.securityIssues;
-
-  await browser.close();
+  const securityIssues = [
+    ...new Set([
+      ...compliance.securityIssues,
+      ...detectTrackers(compliance.trackerSignals).map((t) => `Tracking/analytics: ${t}`),
+    ]),
+  ];
 
   // Compute score
   const passing = new Set<string>();

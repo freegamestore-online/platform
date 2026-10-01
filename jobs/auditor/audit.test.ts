@@ -1,5 +1,6 @@
+import type { Browser } from 'playwright';
 import { describe, expect, it } from 'vitest';
-import { computeIndex, REFERENCE } from './audit.ts';
+import { auditUrl, computeIndex, detectTrackers, REFERENCE } from './audit.ts';
 
 // ---------------------------------------------------------------------------
 // Unit tests for the scoring algorithm
@@ -55,5 +56,98 @@ describe('computeIndex', () => {
     const passing = new Set(['p-414', 'l-667']);
     // Portrait: 88, Landscape: 96 -> min(88, 96) = 88
     expect(computeIndex(passing)).toBe(88);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #95: Chromium leak + tracker false positives
+// ---------------------------------------------------------------------------
+
+describe('auditUrl closes the browser on every path (#95)', () => {
+  function fakeBrowser(gotoError: Error) {
+    let closed = 0;
+    const page = {
+      on: () => {},
+      goto: async () => {
+        throw gotoError;
+      },
+    };
+    const browser = {
+      newContext: async () => ({ newPage: async () => page, close: async () => {} }),
+      close: async () => {
+        closed++;
+      },
+    };
+    return { browser: browser as unknown as Browser, closed: () => closed };
+  }
+
+  it('closes the browser when the game fails to load', async () => {
+    const fake = fakeBrowser(new Error('page.goto: Timeout 30000ms exceeded'));
+    await expect(
+      auditUrl('https://down.freegamestore.online', async () => fake.browser),
+    ).rejects.toThrow(/Timeout/);
+    expect(fake.closed()).toBe(1);
+  });
+});
+
+describe('detectTrackers (#95)', () => {
+  const none = { scriptSrcs: [], inlineScripts: [], globals: [] };
+
+  it('does not flag ordinary game words', () => {
+    expect(
+      detectTrackers({
+        scriptSrcs: ['https://space-rescue.freegamestore.online/assets/index-abc.js'],
+        inlineScripts: [
+          'const pixelSize = 4; canvas.style.imageRendering = "pixelated"; // pixel-grid',
+          'segments.push(head); const heap = new MinHeap(); let amplitude = 0.3;',
+          'function sentry(){ /* guard tower AI */ } const segment = 2;',
+        ],
+        globals: [],
+      }),
+    ).toEqual([]);
+    expect(detectTrackers(none)).toEqual([]);
+  });
+
+  it('flags SDK scripts by host', () => {
+    expect(
+      detectTrackers({
+        ...none,
+        scriptSrcs: [
+          'https://www.googletagmanager.com/gtag/js?id=G-1',
+          'https://cdn.segment.com/analytics.js/v1/x/analytics.min.js',
+          'https://connect.facebook.net/en_US/fbevents.js',
+          'https://browser.sentry-cdn.com/7.0.0/bundle.min.js',
+        ],
+      }),
+    ).toEqual(['facebook-pixel', 'googletagmanager', 'segment', 'sentry']);
+  });
+
+  it('flags SDK init calls in inline scripts', () => {
+    expect(
+      detectTrackers({
+        ...none,
+        inlineScripts: [
+          "gtag('config', 'G-XXXX');",
+          "fbq('init', '123');",
+          "posthog.init('phc_x')",
+        ],
+      }),
+    ).toEqual(['facebook-pixel', 'gtag', 'posthog']);
+  });
+
+  it('flags bundled SDKs exposed as globals', () => {
+    expect(detectTrackers({ ...none, globals: ['mixpanel', 'heap'] })).toEqual([
+      'heap',
+      'mixpanel',
+    ]);
+  });
+
+  it('ignores a script host that merely contains a tracker word', () => {
+    expect(
+      detectTrackers({
+        ...none,
+        scriptSrcs: ['https://pixel-runner.freegamestore.online/sentry.js'],
+      }),
+    ).toEqual([]);
   });
 });
