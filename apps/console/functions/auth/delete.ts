@@ -1,27 +1,22 @@
-interface Env {
-  SESSIONS: KVNamespace;
-}
-
-const COOKIE_NAME = 'fgs_pub_session';
-const COOKIE_DOMAIN = '.freegamestore.online';
-
-function parseCookie(request: Request): string | null {
-  const cookie = request.headers.get('Cookie');
-  if (!cookie) return null;
-  const match = cookie.match(new RegExp(`${COOKIE_NAME}=([^;]+)`));
-  return match?.[1] ?? null;
-}
-
-export const onRequestPost: PagesFunction<Env> = async (context) => {
-  const token = parseCookie(context.request);
-  if (token) {
-    await context.env.SESSIONS.delete(`sessions:${token}`);
-  }
-
-  return new Response(JSON.stringify({ ok: true }), {
-    headers: {
-      'Content-Type': 'application/json',
-      'Set-Cookie': `${COOKIE_NAME}=; Domain=${COOKIE_DOMAIN}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
+/**
+ * Self-service account deletion is not implemented (#77).
+ *
+ * This endpoint used to delete only the legacy `fgs_pub_session` KV entry and
+ * then answer `{ ok: true }`, so the Profile page told users "all your data" was
+ * permanently removed while their session, agent sessions, stored provider keys
+ * and auth record all survived. A real deletion spans the console KV stores, the
+ * agent (D1 rows + per-session Durable Object storage + key vault) and the auth
+ * worker, so until that exists this fails loudly and touches nothing — it must
+ * never report success for data it did not delete.
+ */
+export const onRequestPost: PagesFunction = async () =>
+  new Response(
+    JSON.stringify({
+      error:
+        "Account deletion isn't available yet. Nothing was deleted and you are still signed in.",
+    }),
+    {
+      status: 501,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
     },
-  });
-};
+  );

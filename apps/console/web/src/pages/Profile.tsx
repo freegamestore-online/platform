@@ -11,35 +11,6 @@ import { formatTokens } from '../lib/sessions';
 export function Profile() {
   const { user, creator, loading, signIn, signOut } = useAuth();
   const { totals, games: usageGames } = useUsage();
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  async function handleDeleteAccount() {
-    if (!confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
-    if (!confirm('This will permanently remove all your data. Last chance -- continue?')) return;
-    setDeleting(true);
-    setDeleteError(null);
-    try {
-      const res = await fetch('/auth/delete', { method: 'POST', credentials: 'include' });
-      if (!res.ok) {
-        // Never redirect as if it worked — a silent "/" redirect made a failed
-        // delete look successful, so the account was actually still live.
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        setDeleteError(
-          data.error || `Couldn't delete your account (${res.status}). Please try again.`,
-        );
-        setDeleting(false);
-        return;
-      }
-      window.location.href = '/';
-    } catch (e) {
-      setDeleteError(
-        `Couldn't delete your account: ${e instanceof Error ? e.message : 'network error'}`,
-      );
-      setDeleting(false);
-    }
-  }
-
   if (loading) return <LoadingShell />;
   if (!user) return <SignInShell onSignIn={signIn} message="Sign in to view your profile." />;
 
@@ -191,41 +162,17 @@ export function Profile() {
           </button>
         </div>
 
-        {/* Danger zone */}
+        {/* Account deletion — not self-service yet (#77). The old button reported
+            success while deleting nothing, so say plainly what is available. */}
         <div
           className="rounded-2xl border p-6"
-          style={{
-            background: 'color-mix(in srgb, var(--error) 6%, var(--surface))',
-            borderColor: 'color-mix(in srgb, var(--error) 25%, var(--border))',
-          }}
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
         >
-          <h3 className="text-base font-bold mb-1" style={{ color: 'var(--error)' }}>
-            Danger Zone
-          </h3>
-          <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
-            Permanently delete your account and all stored data. Your published games will remain
-            live but you will lose creator access.
+          <h3 className="text-base font-bold mb-1">Delete account</h3>
+          <p className="text-sm" style={{ color: 'var(--muted)' }}>
+            Self-service account deletion isn't available yet, so nothing can be deleted from this
+            page. You can remove saved AI keys above and delete individual chats from the Studio.
           </p>
-          <button
-            onClick={handleDeleteAccount}
-            disabled={deleting}
-            className="px-5 py-2 rounded-xl text-sm font-semibold text-white"
-            style={{
-              minHeight: 44,
-              background: 'var(--error)',
-              border: 'none',
-              cursor: deleting ? 'not-allowed' : 'pointer',
-              opacity: deleting ? 0.6 : 1,
-              fontFamily: 'inherit',
-            }}
-          >
-            {deleting ? 'Deleting...' : 'Delete my account'}
-          </button>
-          {deleteError && (
-            <p className="text-sm mt-3 font-medium" style={{ color: 'var(--error)' }}>
-              {deleteError}
-            </p>
-          )}
         </div>
       </div>
     </>
