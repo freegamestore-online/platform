@@ -185,18 +185,25 @@ export function scanContent(
     const start = m.index + m[0].length;
     const value = sliceFontValue(content, start, isJsx);
     const quotedStrings = [...value.matchAll(quotedRe)].map((x) => x[2]!);
+    // A JSX value with no string literal is an expression (`FONT_STACK`,
+    // `theme.fonts.body`), not a font name; the strings it resolves to are
+    // audited wherever they're defined (#94).
+    if (isJsx && quotedStrings.length === 0) continue;
     const candidates = quotedStrings.length > 0 ? quotedStrings : [value];
     let flagged = false;
     for (const cand of candidates) {
-      const tokens = cand
-        .split(',')
+      const tokens = splitFontList(cand)
         .map((t) =>
           t
+            // `!important` is a declaration flag, not part of the font (#94).
+            .replace(/\s*!\s*important\s*$/i, '')
             .trim()
             .replace(/^["']|["']$/g, '')
             .toLowerCase(),
         )
-        .filter(Boolean);
+        // `var(--font-display)` resolves to a design token, not a font name;
+        // its definition is what the protected-variable check guards (#94).
+        .filter((t) => t && !t.startsWith('var('));
       for (const t of tokens) {
         if (!ALLOWED_FONT_TOKENS.has(t)) {
           const line = lineNumberAt(content, m.index);
@@ -209,6 +216,26 @@ export function scanContent(
     }
   }
 
+  return out;
+}
+
+/** Split a font-family list on top-level commas, keeping `var(--a, Fallback)`
+ *  whole so its fallback isn't mistaken for a separate font (#94). */
+function splitFontList(value: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let cur = '';
+  for (const c of value) {
+    if (c === '(') depth++;
+    else if (c === ')') depth = Math.max(0, depth - 1);
+    if (c === ',' && depth === 0) {
+      out.push(cur);
+      cur = '';
+    } else {
+      cur += c;
+    }
+  }
+  out.push(cur);
   return out;
 }
 

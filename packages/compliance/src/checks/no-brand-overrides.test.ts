@@ -209,3 +209,57 @@ describe('checkNoBrandOverrides (integration)', () => {
     expect(r.status).toBe('pass');
   });
 });
+
+describe('font-family values that are not font names (#94)', () => {
+  it.each([
+    ['a CSS variable', 'web/src/index.css', `h1 { font-family: var(--font-display); }`],
+    [
+      'a variable with a brand fallback',
+      'web/src/index.css',
+      `h1 { font-family: var(--font-display, Manrope), sans-serif; }`,
+    ],
+    [
+      '!important on a brand stack',
+      'web/src/index.css',
+      `body { font-family: Manrope, sans-serif !important; }`,
+    ],
+    [
+      '!important on a quoted brand font',
+      'web/src/index.css',
+      `h1 { font-family: "Fraunces" !important; }`,
+    ],
+    ['a JSX style using a constant', 'web/src/App.tsx', `<p style={{ fontFamily: FONT_STACK }} />`],
+    [
+      'a JSX style using a member expression',
+      'web/src/App.tsx',
+      `<p style={{ fontFamily: theme.fonts.body }} />`,
+    ],
+  ])('does not flag %s', (_label, file, src) => {
+    expect(scanContent(file, src)).toEqual([]);
+  });
+
+  it.each([
+    [
+      'a non-brand font beside !important',
+      'web/src/index.css',
+      `p { font-family: "Comic Sans MS" !important; }`,
+      /comic sans ms/,
+    ],
+    [
+      'a non-brand font after a variable',
+      'web/src/index.css',
+      `p { font-family: var(--x), Papyrus; }`,
+      /papyrus/,
+    ],
+    [
+      'a quoted non-brand font in JSX',
+      'web/src/App.tsx',
+      `<p style={{ fontFamily: 'Papyrus' }} />`,
+      /papyrus/,
+    ],
+  ])('still flags %s', (_label, file, src, font) => {
+    const issues = scanContent(file, src);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatch(font);
+  });
+});

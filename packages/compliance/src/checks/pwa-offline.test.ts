@@ -518,3 +518,83 @@ describe('checkPwaOffline', () => {
     expect(r.status).toBe('pass');
   });
 });
+
+describe('checkPwaOffline ignores commented-out service-worker code (#94)', () => {
+  const files = (o: Record<string, string>) => mapFileSource(new Map(Object.entries(o)));
+  const HTML = '<html><head><link rel="manifest" href="/manifest.webmanifest" /></head></html>';
+  const NO_PWA_CONFIG =
+    'import { defineConfig } from "vite";\nexport default defineConfig({ plugins: [] });\n';
+
+  it('fails when main.tsx only has a commented-out register call', async () => {
+    const result = await checkPwaOffline(
+      files({
+        [VITE_CONFIG]: NO_PWA_CONFIG,
+        [INDEX_HTML]: HTML,
+        'web/src/main.tsx': `// TODO: navigator.serviceWorker.register('/sw.js');\ncreateRoot(el).render(<App />);\n`,
+      }),
+    );
+    expect(result.status).toBe('fail');
+  });
+
+  it('fails when the only register call is in a block comment', async () => {
+    const result = await checkPwaOffline(
+      files({
+        [VITE_CONFIG]: NO_PWA_CONFIG,
+        [INDEX_HTML]: HTML,
+        'web/src/main.ts': `/*\n  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');\n*/\n`,
+      }),
+    );
+    expect(result.status).toBe('fail');
+  });
+
+  it('fails when index.html only registers inside an HTML comment', async () => {
+    const result = await checkPwaOffline(
+      files({
+        [VITE_CONFIG]: NO_PWA_CONFIG,
+        [INDEX_HTML]: `${HTML}<!-- <script>navigator.serviceWorker.register('/sw.js')</script> -->`,
+      }),
+    );
+    expect(result.status).toBe('fail');
+  });
+
+  it('fails when index.html only registers inside a commented-out line of an inline script', async () => {
+    const result = await checkPwaOffline(
+      files({
+        [VITE_CONFIG]: NO_PWA_CONFIG,
+        [INDEX_HTML]: `${HTML}<script>\n// navigator.serviceWorker.register('/sw.js');\n</script>`,
+      }),
+    );
+    expect(result.status).toBe('fail');
+  });
+
+  it('does not trust a commented-out injectManifest strategy', async () => {
+    const config = `import { defineConfig } from "vite";
+import { VitePWA } from "vite-plugin-pwa";
+export default defineConfig({
+  plugins: [VitePWA({
+    // strategies: 'injectManifest',
+    workbox: { globPatterns: ["**/*.{js,css,html}"] },
+  })],
+});`;
+    const withPublicAsset = files({ [VITE_CONFIG]: config, [INDEX_HTML]: HTML });
+    const commented = await checkPwaOffline(withPublicAsset);
+    const live = await checkPwaOffline(
+      files({ [VITE_CONFIG]: config.replace('// strategies', 'strategies'), [INDEX_HTML]: HTML }),
+    );
+    // The live injectManifest config is trusted outright; the commented one is
+    // checked like any workbox config, so the two must not be indistinguishable.
+    expect(live.status).toBe('pass');
+    expect(commented.detail).not.toBe(live.detail);
+  });
+
+  it('still passes a real, uncommented register call', async () => {
+    const result = await checkPwaOffline(
+      files({
+        [VITE_CONFIG]: NO_PWA_CONFIG,
+        [INDEX_HTML]: HTML,
+        'web/src/main.tsx': `if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');\n`,
+      }),
+    );
+    expect(result.status).not.toBe('fail');
+  });
+});

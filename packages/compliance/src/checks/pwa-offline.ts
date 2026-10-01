@@ -1,5 +1,5 @@
 import type { FileSource } from '../lib/file-source.js';
-import { stripCommentsAndStrings, stripHtmlComments } from '../lib/strip.js';
+import { stripCommentsAndStrings, stripCommentsOnly, stripHtmlComments } from '../lib/strip.js';
 import type { CheckResult } from '../types.js';
 
 const VITE_CONFIG = 'web/vite.config.ts';
@@ -65,14 +65,20 @@ export async function checkPwaOffline(source: FileSource): Promise<CheckResult> 
   // inapplicable. Trust the dev's manual SW. (Matched against `config`
   // — not `configCode` — because the string-stripping would erase
   // `"injectManifest"` from the latter.)
+  // Comments ARE stripped (strings kept): a commented-out
+  // `// strategies: 'injectManifest'` is not a live setting (#94).
   const usesInjectManifest =
-    config !== null && /strategies\s*:\s*["']injectManifest["']/.test(config);
+    config !== null && /strategies\s*:\s*["']injectManifest["']/.test(stripCommentsOnly(config));
   // Hand-rolled SW registration (e.g. an inline <script> calling
   // navigator.serviceWorker.register) is a legitimate alternative to
   // vite-plugin-pwa. If it exists, we trust the dev to manage their own
   // precache and limit ourselves to the install-claim check.
+  // Matched against comment-stripped code only (#94): a commented-out
+  // `// navigator.serviceWorker.register('/sw.js')` — in an HTML comment, or a
+  // JS comment in an inline <script> or entry file — registers nothing, so it
+  // must not satisfy the installable-PWA mandate.
   const hasManualSw =
-    (html !== null && /serviceWorker\.register/.test(html)) ||
+    (htmlCode !== null && /serviceWorker\.register/.test(stripCommentsOnly(htmlCode))) ||
     (await sourceHasSwRegistration(source));
   const hasServiceWorker = hasVitePwa || hasManualSw;
 
@@ -389,7 +395,7 @@ async function sourceHasSwRegistration(source: FileSource): Promise<boolean> {
   ];
   for (const p of candidates) {
     const text = await source.read(p);
-    if (text !== null && /serviceWorker\.register/.test(text)) return true;
+    if (text !== null && /serviceWorker\.register/.test(stripCommentsOnly(text))) return true;
   }
   return false;
 }
