@@ -5,6 +5,7 @@ import { AnthropicAdapter } from "./providers/anthropic";
 import { GitHubModelsAdapter } from "./providers/github";
 import { GoogleAdapter } from "./providers/google";
 import { OpenAIAdapter } from "./providers/openai";
+import { OpenRouterAdapter } from "./providers/openrouter";
 import type { AIConfig, Message, ProviderAdapter, StreamEvent, TokenUsage, ToolCall, ToolResult } from "./providers/types";
 import { fitLiveContext, healPoisonedHistory } from "./session-budget";
 import { detectEngine, getSystemPrompt } from "./template";
@@ -38,6 +39,10 @@ function createAdapter(config: AIConfig): ProviderAdapter {
       return new GoogleAdapter(config.apiKey, config.model, temp, maxTok);
     case "github":
       return new GitHubModelsAdapter(config.apiKey, config.model, temp, maxTok);
+    // Offered in the Studio and stored in the key vault, but previously had no
+    // case here, so every OpenRouter turn failed "Unknown AI provider" (#89).
+    case "openrouter":
+      return new OpenRouterAdapter(config.apiKey, config.model, temp, maxTok);
     default:
       // config originates from the request/stored config, so an unknown
       // provider can slip past the type. Fail loudly instead of returning

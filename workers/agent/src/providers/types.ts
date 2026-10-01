@@ -1,6 +1,6 @@
 /** Unified types across AI providers */
 
-export type Provider = "anthropic" | "openai" | "google" | "github";
+export type Provider = "anthropic" | "openai" | "google" | "github" | "openrouter";
 
 export interface AIConfig {
   provider: Provider;

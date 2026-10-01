@@ -47,7 +47,7 @@ export function registerBuildSessionTools(ctx: RegistrationContext): void {
           'Override key. Optional — defaults to the key saved for your account in the vault. Provider must match the saved key (or pass provider).',
         ),
       provider: z
-        .enum(['anthropic', 'openai', 'google', 'github'])
+        .enum(['anthropic', 'openai', 'google', 'github', 'openrouter'])
         .optional()
         .describe('AI provider (default anthropic). Must match the saved/override key.'),
       model: z.string().optional().describe('Model id'),
@@ -79,6 +79,7 @@ export function registerBuildSessionTools(ctx: RegistrationContext): void {
         openai: 'gpt-4o',
         google: 'gemini-2.5-flash',
         github: 'openai/gpt-4o',
+        openrouter: 'anthropic/claude-sonnet-4',
       };
       const prefix = ctx.sessionPrefix(ctx.session.userId);
       const sid = session_id
@@ -215,7 +216,7 @@ export function registerBuildSessionTools(ctx: RegistrationContext): void {
           'Override key. Optional — defaults to the key saved for your account in the vault.',
         ),
       provider: z
-        .enum(['anthropic', 'openai', 'google', 'github'])
+        .enum(['anthropic', 'openai', 'google', 'github', 'openrouter'])
         .optional()
         .describe('AI provider (default anthropic). Must match the saved/override key.'),
       model: z.string().optional().describe('Model id'),
@@ -310,6 +311,7 @@ export function registerBuildSessionTools(ctx: RegistrationContext): void {
         openai: 'gpt-4o',
         google: 'gemini-2.5-flash',
         github: 'openai/gpt-4o',
+        openrouter: 'anthropic/claude-sonnet-4',
       };
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 110_000);

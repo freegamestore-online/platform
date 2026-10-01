@@ -87,8 +87,9 @@ const DEFAULT_MODELS: Record<AIConfig["provider"], string> = {
   openai: "gpt-4o",
   google: "gemini-2.5-flash",
   github: "openai/gpt-4o",
+  openrouter: "anthropic/claude-sonnet-4",
 };
-const SAVED_KEY_PRIORITY: AIConfig["provider"][] = ["anthropic", "openai", "google", "github"];
+const SAVED_KEY_PRIORITY: AIConfig["provider"][] = ["anthropic", "openai", "google", "openrouter", "github"];
 
 // The whole session is persisted as ONE Durable Object value, and a
 // SQLite-backed DO caps a single key+value at ~2 MB. Guard the blob so save()

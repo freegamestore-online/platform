@@ -11,9 +11,9 @@
  */
 import type { Env } from "./index";
 
-// Only providers the agent's createAdapter (agent.ts) can actually run — a comp
-// grant must resolve to a working turn. openrouter is intentionally excluded
-// (no adapter case for it), so we never fund a provider that throws at runtime.
+// Only providers the platform holds a funding key for (compKeyFor) — a comp
+// grant must resolve to a working turn. openrouter runs fine with a creator's
+// own key (#89) but is excluded here: there is no platform OpenRouter key.
 export const COMP_PROVIDERS = new Set(["github", "anthropic", "openai", "google"]);
 
 const SCHEMA = `CREATE TABLE IF NOT EXISTS complimentary_grants (

@@ -241,6 +241,7 @@ export async function handleAdminCompApi(
       openai: "gpt-4o",
       google: "gemini-2.5-flash",
       github: "openai/gpt-4o",
+      openrouter: "anthropic/claude-sonnet-4",
     };
     const model = body.model ? String(body.model) : DEFAULT_MODELS[provider] || DEFAULT_MODELS.github!;
 
