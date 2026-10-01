@@ -535,3 +535,31 @@ test('worker routes POST /v1/token/github', async () => {
     globalThis.fetch = realFetch;
   }
 });
+
+// --- logout (#71) ---
+
+test('POST /logout clears the __Host- session and the legacy cookie as separate Set-Cookie headers', async () => {
+  const env = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<typeof worker.fetch>[1];
+  const res = await worker.fetch(
+    new Request('https://auth.freegamestore.online/logout', {
+      method: 'POST',
+      headers: { Referer: 'https://console.freegamestore.online/profile' },
+    }),
+    env,
+  );
+  assert.equal(res.status, 302);
+  const cookies = res.headers.getSetCookie();
+  // Comma-joining both into one header made browsers reject the __Host- clear
+  // (it inherited the legacy cookie's Domain attribute).
+  assert.equal(cookies.length, 2);
+  const host = cookies.find((c) => c.startsWith(`${COOKIE_NAME}=;`));
+  assert.ok(host, 'clears the __Host- session cookie');
+  assert.match(host, /Max-Age=0/);
+  assert.match(host, /Path=\//);
+  assert.match(host, /Secure/);
+  assert.doesNotMatch(host, /Domain=/i, '__Host- cookies must not carry a Domain');
+  const legacy = cookies.find((c) => c.startsWith('fgs_token=;'));
+  assert.ok(legacy, 'clears the legacy shared-domain cookie');
+  assert.match(legacy, /Domain=\.freegamestore\.online/);
+  assert.match(legacy, /Max-Age=0/);
+});

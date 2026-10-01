@@ -415,13 +415,13 @@ export async function handleMe(request: Request, env: Env): Promise<Response> {
 
 function handleLogout(request: Request): Response {
   const referrer = safeRedirect(request.headers.get('Referer'));
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: referrer,
-      'Set-Cookie': `${clearTokenCookie()}, ${clearLegacyTokenCookie()}`,
-    },
-  });
+  // One Set-Cookie header per cookie. Comma-joining them into one header makes
+  // browsers read a single cookie carrying the legacy cookie's Domain attribute,
+  // and a __Host- cookie with a Domain is rejected — so it was never cleared.
+  const headers = new Headers({ Location: referrer, 'Cache-Control': 'no-store' });
+  headers.append('Set-Cookie', clearTokenCookie());
+  headers.append('Set-Cookie', clearLegacyTokenCookie());
+  return new Response(null, { status: 302, headers });
 }
 
 // --- GitHub OAuth handlers ---
