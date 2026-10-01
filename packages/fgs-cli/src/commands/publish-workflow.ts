@@ -1,6 +1,16 @@
 import { access, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+/** Tracker SDKs the game deploy workflow refuses in web/src (#93). Mirrors the
+ *  SDK-context patterns of @freegamestore/compliance's no-tracking check:
+ *  distinctive SDK names need word boundaries, and ordinary words — `segment`
+ *  (snake/line segments), `amplitude` (audio, physics), `gtag` — only count in
+ *  SDK context (scoped package, host, call site). The old bare-word grep failed
+ *  the compliance job for any snake or audio game, so it never deployed.
+ *  POSIX bracket classes instead of \b so GNU (CI) and BSD grep agree. Used
+ *  inside a double-quoted bash string: `\"` is a literal quote. */
+export const TRACKER_GREP_ERE = String.raw`google-analytics|googletagmanager\.com|gtag[[:space:]]*\([[:space:]]*[\"']|window\.gtag([^[:alnum:]_]|$)|gtag\.js|@amplitude/|amplitude\.com|(^|[^[:alnum:]_])amplitude[[:space:]]*\.[[:space:]]*(init|track|getInstance|setUserId|logEvent)([^[:alnum:]_]|$)|require\([\"']amplitude|from[[:space:]]+[\"']amplitude|(^|[^[:alnum:]_])mixpanel([^[:alnum:]_]|$)|@segment/|segment\.io|segment\.com/analytics|cdn\.segment\.com|window\.analytics[[:space:]]*\.[[:space:]]*(track|identify|page|group)([^[:alnum:]_]|$)|(^|[^[:alnum:]_])AnalyticsBrowser\.load([^[:alnum:]_]|$)|(^|[^[:alnum:]_])hotjar([^[:alnum:]_]|$)|(^|[^[:alnum:]_])plausible([^[:alnum:]_]|$)|(^|[^[:alnum:]_])posthog([^[:alnum:]_]|$)`;
+
 export const DEPLOY_YML = `name: Deploy to R2
 
 on:
@@ -31,7 +41,7 @@ jobs:
           fi
       - name: No tracking SDKs in source
         run: |
-          if grep -rE 'google-analytics|gtag\\(|amplitude|mixpanel|segment|hotjar|plausible|posthog' web/src/ 2>/dev/null; then
+          if grep -rEi "${TRACKER_GREP_ERE}" web/src/ 2>/dev/null; then
             echo "::error::tracking SDK found in web/src — analytics is platform-provided"; exit 1
           fi
 
