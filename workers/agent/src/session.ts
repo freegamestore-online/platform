@@ -1127,18 +1127,43 @@ export class AgentSession implements DurableObject {
    *  push_update updates the game rather than overwriting it with a fresh
    *  scaffold. Ownership-gated (registry creatorGithub / member / legacy
    *  collaborator). Refuses to re-point a session already bound elsewhere. */
+  /** Claim the turn lock for a non-turn mutation (/import, /reset) for its whole
+   *  duration. Must be called synchronously after the guard, before any await:
+   *  checking the flag but never setting it let a /chat claim the lock during
+   *  the handler's GitHub awaits and later checkpoint its stale `files` over the
+   *  import, or persist its messages over a reset (#83). Refreshes the liveness
+   *  clock so a concurrent request's breakStaleLock() can't treat the old turn's
+   *  timestamp as a hang, and bumps the epoch so any zombie turn is fenced off.
+   *  Returns null if another request claimed the lock while the guard awaited. */
+  private claimMutationLock(): number | null {
+    if (this.chatInProgress) return null;
+    this.chatInProgress = true;
+    this.lastTurnEventAt = Date.now();
+    return ++this.turnEpoch;
+  }
+
+  /** Release a lock taken by claimMutationLock — only if it is still ours. */
+  private releaseMutationLock(epoch: number): void {
+    if (this.turnEpoch === epoch) this.chatInProgress = false;
+  }
+
   private async handleImport(request: Request): Promise<Response> {
     // Refuse while a turn is streaming: import replaces session.files/appId, but
     // the in-flight turn holds the old `session` and keeps persisting it — the
     // import would be silently clobbered (or corrupt a half-written deploy).
-    if (this.chatInProgress && !(await this.breakStaleLock())) {
-      return json(
-        { error: "A build is in progress — wait for it to finish before opening another game." },
-        409,
-        request,
-        this.config.domain,
-      );
+    const busy = () =>
+      json({ error: "A build is in progress — wait for it to finish before opening another game." }, 409, request, this.config.domain);
+    if (this.chatInProgress && !(await this.breakStaleLock())) return busy();
+    const lock = this.claimMutationLock();
+    if (lock === null) return busy();
+    try {
+      return await this.importLocked(request);
+    } finally {
+      this.releaseMutationLock(lock);
     }
+  }
+
+  private async importLocked(request: Request): Promise<Response> {
     const body = await request.json<{ id?: string }>().catch(() => ({}) as { id?: string });
     const id = (body.id || "").trim();
     // GAME id grammar (lowercase slug, ≤58) — the registry lookup is the real
@@ -1248,12 +1273,18 @@ export class AgentSession implements DurableObject {
     // Refuse while a turn is streaming: the in-flight turn's deploy callbacks
     // still hold the pre-reset `session` and would persist it back over the
     // fresh one, silently undoing the reset.
-    if (this.chatInProgress && !(await this.breakStaleLock())) {
-      return json({ error: "A build is in progress — wait for it to finish before resetting." }, 409, request, this.config.domain);
+    const busy = () =>
+      json({ error: "A build is in progress — wait for it to finish before resetting." }, 409, request, this.config.domain);
+    if (this.chatInProgress && !(await this.breakStaleLock())) return busy();
+    const lock = this.claimMutationLock();
+    if (lock === null) return busy();
+    try {
+      this.session = await this.freshSession();
+      await this.save();
+      return json({ ok: true }, 200, request, this.config.domain);
+    } finally {
+      this.releaseMutationLock(lock);
     }
-    this.session = await this.freshSession();
-    await this.save();
-    return json({ ok: true }, 200, request, this.config.domain);
   }
 
   /** POST /push-subscribe — store push subscription for notifications */
