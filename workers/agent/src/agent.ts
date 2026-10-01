@@ -63,6 +63,8 @@ export interface SessionContext {
   appName: string | null;
   fileCount: number;
   fileList: string;
+  /** Session-scoped record of deleted paths, applied by the next push (#86). */
+  deletedFiles?: Set<string>;
 }
 
 /**
@@ -390,7 +392,7 @@ export async function runAgentTurn(
     // Execute file tools
     const results: ToolResult[] = [];
     for (const tc of fileToolCalls) {
-      const result = await executeTool(tc, files, storeConfig);
+      const result = await executeTool(tc, files, storeConfig, ctx?.deletedFiles);
       // Cap tool results kept in the conversation so one call can't dominate the
       // context — read_file gets a large budget so the agent can actually see a
       // whole game file (see clampToolResultForHistory). The live SSE preview to

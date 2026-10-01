@@ -37,6 +37,9 @@ interface DeployLogEntry {
 interface SessionState {
   messages: Message[];
   files: Record<string, string>;
+  /** Paths deleted in this session but not yet removed from the repo; applied
+   *  (and cleared) by the next successful push (#86). */
+  deletedFiles?: string[];
   /** Public engine key this session was seeded from ("pixi", "3d", …) — passed
    *  through to admin at deploy time so the generated repo's template matches. */
   engine?: string;
@@ -624,6 +627,9 @@ export class AgentSession implements DurableObject {
     const config = this.config;
     const epoch = ++this.turnEpoch;
     const fence = createTurnFence(epoch, () => this.turnEpoch);
+    // Pending repo deletions, shared by the file tools (delete_file records,
+    // write_file un-records) and push_update (applies, then clears) (#86).
+    const deletedFiles = new Set(session.deletedFiles ?? []);
     this.lastTurnEventAt = Date.now();
     // Liveness for the hung-turn detector. Fenced: a superseded turn that is
     // still streaming must not keep refreshing the replacement's clock.
@@ -702,6 +708,7 @@ export class AgentSession implements DurableObject {
           appName: session.appName,
           fileCount: files.size,
           fileList: [...files.keys()].sort().join(", "),
+          deletedFiles,
         };
         // Checkpoint the transcript to durable storage as EACH message is
         // produced, not only at end-of-turn. The user message is saved up-front
@@ -720,6 +727,7 @@ export class AgentSession implements DurableObject {
           session.messages = preTurn.concat(msgs);
           if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
           session.files = Object.fromEntries(files);
+          session.deletedFiles = [...deletedFiles];
           this.persistNow().catch((e) => this.logError("storage", `checkpoint persist: ${String(e)}`));
         });
         const result = await runAgentTurn(aiConfig, preTurn, resumeMsg, files, writer, config, sessionCtx, checkpoint, markActive).catch(
@@ -758,6 +766,7 @@ export class AgentSession implements DurableObject {
         session.messages = preTurn.concat(result.newMessages);
         if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
         session.files = Object.fromEntries(files);
+        session.deletedFiles = [...deletedFiles];
         // Accumulate this turn's token usage into the persisted running total
         // so /status and /history report real figures (not {input:0,output:0}).
         session.tokenUsage.input += result.tokenUsage.input;
@@ -856,6 +865,7 @@ export class AgentSession implements DurableObject {
               toolResult = await executeInfraTool(tc, {
                 appId: session.appId,
                 files,
+                deletedFiles,
                 env: deployEnv,
                 config,
                 creatorLogin,
@@ -954,6 +964,7 @@ export class AgentSession implements DurableObject {
           if (!fence.isCurrent()) return { hasInfraRequests: false, successfulDeploy: false };
           // Persist state after all infra tools complete
           session.files = Object.fromEntries(files);
+          session.deletedFiles = [...deletedFiles];
           await this.save();
 
           // A SUCCESSFUL deploy/push_update is terminal (its progress streams
@@ -1252,6 +1263,7 @@ export class AgentSession implements DurableObject {
     }
 
     session.files = Object.fromEntries(files);
+    session.deletedFiles = []; // fresh copy of the repo: nothing pending
     session.appId = id;
     session.appName = game.name || id;
     session.importedSha = headSha ?? undefined;

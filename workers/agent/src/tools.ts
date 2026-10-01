@@ -342,7 +342,15 @@ export const INFRA_TOOLS = new Set([
   "get_audit_results",
 ]);
 
-export async function executeTool(toolCall: ToolCall, files: Map<string, string>, config: StoreConfig): Promise<ToolResult> {
+export async function executeTool(
+  toolCall: ToolCall,
+  files: Map<string, string>,
+  config: StoreConfig,
+  /** Paths deleted this session and not yet pushed. push_update builds on the
+   *  repo's base tree, which keeps every path it isn't told about, so a
+   *  deletion must be recorded to reach the repo (#86). */
+  deletedFiles?: Set<string>,
+): Promise<ToolResult> {
   const { name, input, id } = toolCall;
 
   switch (name) {
@@ -445,6 +453,7 @@ export async function executeTool(toolCall: ToolCall, files: Map<string, string>
       }
 
       files.set(path, content);
+      deletedFiles?.delete(path); // re-created: no longer a pending deletion
       // Pre-build validation: cheap static checks that catch the failure class
       // that otherwise only surfaces in CI ~60s after push (bad relative
       // imports, missing named exports — every 2026-07-11 build failure).
@@ -471,6 +480,7 @@ export async function executeTool(toolCall: ToolCall, files: Map<string, string>
       const path = input.path as string;
       if (!files.has(path)) return { id, content: `Error: file not found: ${path}`, isError: true };
       files.delete(path);
+      deletedFiles?.add(path);
       return { id, content: `Deleted ${path}` };
     }
 

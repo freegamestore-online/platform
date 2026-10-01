@@ -14,6 +14,9 @@ export interface DeployConfig {
   /** Engine key the session was seeded from — admin generates the repo from the
    *  matching template so the committed lockfile fits the session's code. */
   template?: string;
+  /** Paths the session deleted from the seed/scaffold, removed from the repo by
+   *  the first push (#86). */
+  deletedFiles?: Iterable<string>;
 }
 
 export interface DeployEnv {
@@ -554,7 +557,14 @@ async function deployPathB(
   const delta = gameSourceDelta(files, config, deployConfig.id, deployConfig.name, seed);
   if (delta.size > 0) {
     onStatus({ phase: "pushing", progress: `Pushing ${delta.size} file${delta.size === 1 ? "" : "s"}...` });
-    const push = await pushUpdate(deployConfig.id, delta, `Build ${deployConfig.name} — ${config.storeName} AI agent`, env, config);
+    const push = await pushUpdate(
+      deployConfig.id,
+      delta,
+      `Build ${deployConfig.name} — ${config.storeName} AI agent`,
+      env,
+      config,
+      deployConfig.deletedFiles,
+    );
     if (push.startsWith("Error")) {
       steps.push({ name: "Pushing code", status: "fail", detail: push });
       onStatus({ phase: "error", error: push });
@@ -717,6 +727,11 @@ export async function pushUpdate(
   commitMessage: string,
   env: DeployEnv,
   config: StoreConfig,
+  /** Paths to remove from the repo. A base_tree commit keeps every path it
+   *  isn't given, so without explicit `sha: null` entries a delete_file never
+   *  left the session (#86). Only paths present in the parent tree are sent,
+   *  so stale or never-committed entries are harmless. */
+  deletions: Iterable<string> = [],
 ): Promise<string> {
   const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
   const repo = `${config.org}/${appId}`;
@@ -725,7 +740,7 @@ export async function pushUpdate(
   const parentSha = ref.object?.sha;
   if (!parentSha) return `Error: could not find HEAD for ${repo}. Is the ${config.noun} deployed?`;
 
-  const treeItems: { path: string; mode: string; type: string; sha: string }[] = [];
+  const treeItems: { path: string; mode: string; type: string; sha: string | null }[] = [];
   for (const [path, content] of files) {
     const blob = await ghApi(`/repos/${repo}/git/blobs`, "POST", {
       content,
@@ -737,6 +752,28 @@ export async function pushUpdate(
 
   const parentCommit = await ghApi(`/repos/${repo}/git/commits/${parentSha}`);
   if (!parentCommit.tree?.sha) return `Error: could not read parent commit tree for ${repo}.`;
+
+  const pending = [...new Set(deletions)].filter((path) => !files.has(path));
+  let deleted = 0;
+  if (pending.length > 0) {
+    let base: { tree?: unknown; truncated?: boolean; message?: string };
+    try {
+      base = await ghApi(`/repos/${repo}/git/trees/${parentCommit.tree.sha}?recursive=1`);
+    } catch (err) {
+      base = { message: String(err) };
+    }
+    // Fail rather than push without the deletions: silently keeping a deleted
+    // file is exactly the bug this guards against.
+    if (!Array.isArray(base.tree) || base.truncated) {
+      return `Error: could not read the repo tree for ${repo} to apply file deletions: ${base.message || "tree unavailable or truncated"}`;
+    }
+    const present = new Set((base.tree as { path?: string; type?: string }[]).filter((e) => e.type === "blob").map((e) => e.path));
+    for (const path of pending) {
+      if (!present.has(path)) continue;
+      treeItems.push({ path, mode: "100644", type: "blob", sha: null });
+      deleted++;
+    }
+  }
 
   const tree = await ghApi(`/repos/${repo}/git/trees`, "POST", {
     base_tree: parentCommit.tree.sha,
@@ -760,7 +797,8 @@ export async function pushUpdate(
   });
   if (!refUpdate.ref) return `Error: failed to update ref for ${repo}: ${refUpdate.message || "unknown"}`;
 
-  return `Pushed update to ${repo} (${commit.sha?.slice(0, 7)}). CI will build and deploy.`;
+  const removed = deleted > 0 ? `, removed ${deleted} deleted file${deleted === 1 ? "" : "s"}` : "";
+  return `Pushed update to ${repo} (${commit.sha?.slice(0, 7)}${removed}). CI will build and deploy.`;
 }
 
 // ── Repo import (open-existing) — read a game's committed text source so a

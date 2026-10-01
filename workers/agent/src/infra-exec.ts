@@ -11,6 +11,8 @@ import { validateGameId } from "./registry";
 interface ExecContext {
   appId: string | null;
   files: Map<string, string>;
+  /** Paths deleted this session and not yet pushed (#86). */
+  deletedFiles?: Set<string>;
   env: DeployEnv;
   config: StoreConfig;
   /** GitHub login of the signed-in creator; added as a repo collaborator on deploy. */
@@ -160,6 +162,7 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
       iconBg: tc.input.iconBg as string,
       description: tc.input.description as string,
       template: ctx.engine,
+      deletedFiles: ctx.deletedFiles,
     },
     ctx.files,
     ctx.env,
@@ -205,7 +208,8 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
 async function executePushUpdate(tc: ToolCall, ctx: ExecContext): Promise<string> {
   const id = tc.input.id as string;
   ctx.onDeployStatus({ phase: "pushing", progress: "Pushing update..." });
-  const result = await pushUpdate(id, ctx.files, (tc.input.message as string) || "Update", ctx.env, ctx.config);
+  const result = await pushUpdate(id, ctx.files, (tc.input.message as string) || "Update", ctx.env, ctx.config, ctx.deletedFiles);
+  if (!result.startsWith("Error")) ctx.deletedFiles?.clear(); // applied to the repo
   if (result.startsWith("Error")) {
     ctx.onDeployStatus({ phase: "error", error: result });
     return result;
