@@ -7,6 +7,7 @@ import { DeployLog } from '../components/DeployLog';
 import { GameVersion } from '../components/GameVersion';
 import { Nav } from '../components/Nav';
 import { NewGameModal } from '../components/NewGameModal';
+import { ErrorShell } from '../components/PageShell';
 import { ProjectPicker } from '../components/ProjectPicker';
 import { StatusBar } from '../components/StatusBar';
 import { StudioToolbar } from '../components/StudioToolbar';
@@ -30,7 +31,7 @@ import { resolveModel } from '../lib/models';
 import { resolveProvider } from '../lib/providerResolution';
 
 export function Create() {
-  const { user, loading, signIn } = useAuth();
+  const { user, loading, signIn, agentError, retryAgentSession } = useAuth();
   const agent = useAgent();
   const keys = useKeys();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -301,6 +302,12 @@ export function Create() {
   // even when the FIRST build fails — which is exactly when retry matters most.
   const deployFailed = agent.deployState?.phase === 'error';
   const canRetryDeploy = deployFailed && !agent.isStreaming && !!currentProject?.appId;
+
+  // The Studio is the one surface that needs the agent session: show the
+  // handoff failure here, with a retry, rather than failing every agent call.
+  if (user && agentError) {
+    return <ErrorShell message={agentError} onRetry={() => void retryAgentSession()} />;
+  }
 
   if (!user) {
     return (

@@ -13,8 +13,17 @@ import { decodeIcon, formatDate, formatRelative } from '../lib/format';
 import { activityLabel, activityTone, type SessionActivity } from '../lib/sessions';
 
 export function Dashboard() {
-  const { user, creator, creatorError, loading, error, fetchCreator, reloadCreator, signIn } =
-    useAuth();
+  const {
+    user,
+    creator,
+    creatorError,
+    loading,
+    error,
+    refetch,
+    fetchCreator,
+    reloadCreator,
+    signIn,
+  } = useAuth();
   const { drafts, activity, discard } = useDraftSessions();
   const [showForm, setShowForm] = useState(false);
   const navigate = useNavigate();
@@ -24,7 +33,10 @@ export function Dashboard() {
   }, [fetchCreator]);
 
   if (loading) return <LoadingShell />;
-  if (error) return <ErrorShell message={error} />;
+  // Only an identity failure blocks the Dashboard (an agent handoff failure no
+  // longer does — the game list is served by console functions) and it can be
+  // retried in place (#78).
+  if (error) return <ErrorShell message={error} onRetry={refetch} />;
   // Only prompt sign-in when genuinely signed out. A signed-in user whose game
   // list failed to load is NOT signed out — show the error (with retry), never
   // "Sign in to publish."

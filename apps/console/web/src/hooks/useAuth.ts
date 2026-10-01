@@ -80,8 +80,13 @@ interface AuthContextValue {
   creator: CreatorRecord | null;
   creatorError: string | null;
   loading: boolean;
+  /** Identity could not be loaded (auth unreachable) — blocks signed-in pages. */
   error: string | null;
+  /** The agent session handoff failed. Only the Studio needs the agent, so this
+   *  never blocks the Dashboard/Profile; the Studio offers retryAgentSession. */
+  agentError: string | null;
   refetch: () => Promise<void>;
+  retryAgentSession: () => Promise<void>;
   fetchCreator: () => Promise<void>;
   reloadCreator: () => Promise<void>;
   signIn: () => Promise<void>;
@@ -94,7 +99,9 @@ export const AuthContext = createContext<AuthContextValue>({
   creatorError: null,
   loading: true,
   error: null,
+  agentError: null,
   refetch: async () => {},
+  retryAgentSession: async () => {},
   fetchCreator: async () => {},
   reloadCreator: async () => {},
   signIn: async () => {},
@@ -113,6 +120,25 @@ export function useAuthProvider(): AuthContextValue {
   const [creatorError, setCreatorError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [agentError, setAgentError] = useState<string | null>(null);
+
+  // The agent is a separate origin with its own HttpOnly host cookie. A failed
+  // handoff (agent down, handoff rejected) used to share `error` with the
+  // identity fetch, so an agent outage blanked the whole Dashboard with no way
+  // out (#78). It is now its own, retryable state.
+  const connectAgent = useCallback(async () => {
+    try {
+      await establishAgentSession();
+      setAgentError(null);
+    } catch (e) {
+      console.error('[auth] agent session error:', e);
+      reportError({
+        message: (e as Error).message || 'Agent session handoff failed',
+        context: JSON.stringify({ op: 'agent-handoff' }),
+      });
+      setAgentError("Couldn't connect to the AI studio. Please try again.");
+    }
+  }, []);
 
   const refetch = useCallback(async () => {
     try {
@@ -129,9 +155,11 @@ export function useAuthProvider(): AuthContextValue {
         } | null;
       };
 
+      setError(null);
       if (!meData.user) {
         setUser(null);
         setCreator(null);
+        setAgentError(null);
         return;
       }
 
@@ -149,7 +177,7 @@ export function useAuthProvider(): AuthContextValue {
       });
       // Agent is a separate origin. Establish its own HttpOnly host cookie
       // before Studio mounts any credentialed agent requests.
-      await establishAgentSession();
+      await connectAgent();
     } catch (e) {
       console.error('[auth] error:', e);
       reportError({
@@ -160,7 +188,7 @@ export function useAuthProvider(): AuthContextValue {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [connectAgent]);
 
   // Lazy fetch creator/game list — only called by pages that need it (Dashboard).
   // A failure here must NOT be silently swallowed: the dashboard used to gate its
@@ -223,7 +251,9 @@ export function useAuthProvider(): AuthContextValue {
     creatorError,
     loading,
     error,
+    agentError,
     refetch,
+    retryAgentSession: connectAgent,
     fetchCreator,
     reloadCreator,
     signIn,
