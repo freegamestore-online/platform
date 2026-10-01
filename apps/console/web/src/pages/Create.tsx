@@ -14,7 +14,7 @@ import { StudioToolbar } from '../components/StudioToolbar';
 import { Button, buttonClass } from '../components/ui';
 import { type AIConfig, useAgent } from '../hooks/useAgent';
 import { useAuth } from '../hooks/useAuth';
-import { useCreateRouteSync } from '../hooks/useCreateRouteSync';
+import { UUID_RE, useCreateRouteSync } from '../hooks/useCreateRouteSync';
 import { useKeys } from '../hooks/useKeys';
 import { useLegacyDeepLinkMigration } from '../hooks/useLegacyDeepLinkMigration';
 import { useStudioViewportLock } from '../hooks/useStudioViewportLock';
@@ -83,6 +83,32 @@ export function Create() {
     switchProject: agent.switchProject,
     navigate,
   });
+
+  // Restore the open session's transcript, deploy state and token totals from
+  // the agent whenever the open project changes (open from My Games / picker /
+  // URL, or a reload). a2bc968 dropped this effect when route handling moved
+  // into hooks, so every opened game showed an empty chat (#75). Waits until the
+  // URL has resolved to the routed project, so a stale project's history is
+  // never loaded into the view; loadHistory itself skips while streaming.
+  useEffect(() => {
+    if (!agent.currentProjectId || agent.projectsLoading || resolvingUrl) return;
+    if (hasLegacyDeepLink) return; // the migration switches projects first
+    if (urlKey) {
+      const routedSessionOpen = UUID_RE.test(urlKey) && agent.currentProjectId === urlKey;
+      const routedGameOpen = currentProject?.appId === urlKey || currentProject?.id === urlKey;
+      if (!routedSessionOpen && !routedGameOpen) return;
+    }
+    void agent.loadHistory();
+  }, [
+    agent.currentProjectId,
+    agent.projectsLoading,
+    agent.loadHistory,
+    resolvingUrl,
+    hasLegacyDeepLink,
+    urlKey,
+    currentProject?.appId,
+    currentProject?.id,
+  ]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll only when messages change; re-running when isStreaming flips would jump a reader who has scrolled up.
   useEffect(() => {

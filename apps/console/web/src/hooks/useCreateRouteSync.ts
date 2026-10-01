@@ -18,7 +18,7 @@ interface RouteSyncOptions<T extends RouteProject> {
   navigate(path: string, options?: { replace?: boolean }): void;
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function routeKey(project: RouteProject | null | undefined): string | null {
   return project?.appId || project?.id || null;
