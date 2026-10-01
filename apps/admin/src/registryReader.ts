@@ -16,7 +16,14 @@ export interface RegistryGame {
 }
 
 export type RegistryReadResult =
-  | { status: 'available'; games: RegistryGame[] }
+  | {
+      status: 'available';
+      games: RegistryGame[];
+      /** Where the games came from. `raw` is the public CDN copy, cached for
+       *  minutes after a write, so it can lag a just-provisioned or
+       *  just-deleted game; destructive reconciliation must not act on it (#64). */
+      source: 'contents' | 'raw';
+    }
   | { status: 'missing' }
   | { status: 'unavailable' };
 
@@ -79,10 +86,11 @@ export async function readRegistry(githubToken?: string): Promise<RegistryReadRe
         }
       : undefined,
   );
-  if (contents.state === 'available') return { status: 'available', games: contents.games! };
+  if (contents.state === 'available')
+    return { status: 'available', games: contents.games!, source: 'contents' };
 
   const raw = await readAttempt(RAW_URL, { headers: { 'User-Agent': 'freegamestore-admin' } });
-  if (raw.state === 'available') return { status: 'available', games: raw.games! };
+  if (raw.state === 'available') return { status: 'available', games: raw.games!, source: 'raw' };
   if (contents.state === 'missing' && raw.state === 'missing') return { status: 'missing' };
   return { status: 'unavailable' };
 }

@@ -598,6 +598,9 @@ interface ReconcileReport {
   /** True when the registry read FAILED (not merely empty). In this state the
    *  comparison is untrustworthy, so no drift is claimed and no healing runs. */
   registryError?: boolean;
+  /** Set when route healing was skipped because the registry read was not
+   *  fresh (it came from the cached raw copy) (#64). */
+  healSkipped?: 'stale-registry';
   /** Registry entries still `pending` — provisioned, first build not yet confirmed. */
   pending?: string[];
   /** Populated only on the scheduled (heal=true) path: what was actually fixed. */
@@ -615,16 +618,25 @@ interface ReconcileReport {
  *    - orphanRoute  → delete the route (registry is truth; the game is delisted).
  *  It never archives/deletes a repo. If the registry read failed it heals
  *  NOTHING — a bad read must never delete a live route. */
+/** Routes created or updated this recently are never deleted as orphans (#64). */
+const ORPHAN_GRACE_MS = 10 * 60_000;
+
 async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
-  const items = await fetchRegistryItems(env);
+  const registry = await readRegistry(env.GITHUB_TOKEN);
+  const items = registry.status === 'available' ? (registry.games as any[]) : null;
   const ts = new Date().toISOString();
 
   const routeRows = env.DB
-    ? await env.DB.prepare(`SELECT slug FROM routes WHERE zone = ? AND hosted_on = 'r2'`)
+    ? await env.DB.prepare(
+        `SELECT slug, updated_at FROM routes WHERE zone = ? AND hosted_on = 'r2'`,
+      )
         .bind(DOMAIN)
-        .all<{ slug: string }>()
-    : { results: [] as { slug: string }[] };
+        .all<{ slug: string; updated_at?: number | null }>()
+    : { results: [] as { slug: string; updated_at?: number | null }[] };
   const routeSlugs = new Set((routeRows.results ?? []).map((r) => r.slug));
+  const routeUpdatedAt = new Map(
+    (routeRows.results ?? []).map((r) => [r.slug, Number(r.updated_at) || 0]),
+  );
 
   // Registry read failed → do NOT treat every route as orphan drift (that would
   // delete the whole fleet's routes once healing runs). Report the error, act on
@@ -669,7 +681,18 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
     drift: missingRoute.length > 0 || orphanRoute.length > 0,
   };
 
-  if (heal && env.DB && report.drift) {
+  // Route healing acts only on a FRESH registry read (#64). The raw CDN copy can
+  // lag a write by minutes, and the Contents API falls back to it on a 403 —
+  // e.g. when the fleet sweep exhausts GITHUB_TOKEN's rate limit. Healing from
+  // it deleted a just-provisioned game's route as an "orphan" (404 until the
+  // next run) and re-inserted the route of a just-deleted game, which the host
+  // then served again from R2. Drift is still reported; it heals next run.
+  const freshRegistry = registry.status === 'available' && registry.source === 'contents';
+  if (heal && report.drift && !freshRegistry) {
+    report.healSkipped = 'stale-registry';
+    console.warn('[reconcile] registry came from the cached raw copy — route heal skipped');
+  }
+  if (heal && env.DB && report.drift && freshRegistry) {
     const insertedRoutes: string[] = [];
     const deletedRoutes: string[] = [];
     // Re-insert routes for listed-but-unrouted games (idempotent, same shape as
@@ -681,6 +704,9 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
     // Delete routes with no registry entry — the game is delisted, so the route
     // should stop resolving. Repos are left untouched (archive is not automatic).
     for (const slug of orphanRoute) {
+      // Extra guard: never delete a route touched in the last few minutes;
+      // if it is truly orphaned, a later run removes it.
+      if (Date.now() - (routeUpdatedAt.get(slug) ?? 0) < ORPHAN_GRACE_MS) continue;
       try {
         await env.DB.prepare('DELETE FROM routes WHERE slug = ? AND zone = ?')
           .bind(slug, DOMAIN)

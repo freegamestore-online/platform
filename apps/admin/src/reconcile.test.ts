@@ -31,7 +31,7 @@ function makeDB(routeSlugs: string[]) {
       },
       all: async () => {
         calls.push({ sql, binds });
-        if (/SELECT slug FROM routes/i.test(sql))
+        if (/SELECT slug\b[^;]*FROM routes/i.test(sql))
           return { results: routeSlugs.map((s) => ({ slug: s })) };
         return { results: [] };
       },
@@ -1384,5 +1384,114 @@ describe('reconcile backstop ignores the template scaffold build (#67)', () => {
       { head_sha: C, conclusion: 'success', message: 'Add a boss level' },
     ]);
     expect(await statusAfter(puts)).toBe('live');
+  });
+});
+
+// #64: when the Contents API fails (e.g. 403 after the fleet sweep exhausts
+// GITHUB_TOKEN's rate limit), readRegistry falls back to the raw CDN copy,
+// cached for minutes. Healing from it deleted a just-provisioned game's route
+// and re-inserted a just-deleted game's route.
+describe('reconcile heals only from a fresh registry read (#64)', () => {
+  /** Contents API → `contents` (null = 403 rate-limited); raw CDN → `raw`. */
+  function twoSourceFetch(contents: unknown[] | null, raw: unknown[]) {
+    return async (input: unknown) => {
+      const url = typeof input === 'string' ? input : (input as Request).url;
+      if (url.includes('api.github.com') && url.includes('/contents/registry.json')) {
+        return contents === null
+          ? new Response(JSON.stringify({ message: 'API rate limit exceeded' }), { status: 403 })
+          : new Response(JSON.stringify({ games: contents }), { status: 200 });
+      }
+      if (url.includes('raw.githubusercontent')) {
+        return new Response(JSON.stringify({ games: raw }), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+  }
+
+  /** D1 stub whose routes carry an updated_at (epoch ms). */
+  function dbWithRoutes(routes: Array<{ slug: string; updated_at: number }>) {
+    const calls: { sql: string; binds: unknown[] }[] = [];
+    const mk = (sql: string) => {
+      let binds: unknown[] = [];
+      const stmt: any = {
+        bind: (...a: unknown[]) => {
+          binds = a;
+          return stmt;
+        },
+        run: async () => {
+          calls.push({ sql, binds });
+          return {};
+        },
+        all: async () => ({ results: /FROM routes/i.test(sql) ? routes : [] }),
+        first: async () => ({ c: 0 }),
+      };
+      return stmt;
+    };
+    return { calls, db: { prepare: (sql: string) => mk(sql) } };
+  }
+
+  const longAgo = Date.now() - 24 * 3600_000;
+  const deletes = (calls: { sql: string; binds: unknown[] }[]) =>
+    calls.filter((c) => /DELETE FROM routes/i.test(c.sql)).map((c) => c.binds[0]);
+  const inserts = (calls: { sql: string; binds: unknown[] }[]) =>
+    calls.filter((c) => /INSERT INTO routes/i.test(c.sql)).map((c) => c.binds[0]);
+
+  it("does not delete a just-provisioned game's route from a stale raw registry", async () => {
+    // Fresh truth: chess + new-game. Raw CDN copy still predates new-game.
+    vi.stubGlobal('fetch', twoSourceFetch(null, [{ id: 'chess' }]));
+    const { calls, db } = dbWithRoutes([
+      { slug: 'chess', updated_at: longAgo },
+      { slug: 'new-game', updated_at: longAgo },
+    ]);
+    await runScheduled({ GITHUB_TOKEN: 'x', DB: db });
+    expect(deletes(calls)).toEqual([]);
+  });
+
+  it('does not resurrect a just-deleted game from a stale raw registry', async () => {
+    // Fresh truth: chess only (old-game deleted). Raw copy still lists old-game.
+    vi.stubGlobal('fetch', twoSourceFetch(null, [{ id: 'chess' }, { id: 'old-game' }]));
+    const { calls, db } = dbWithRoutes([{ slug: 'chess', updated_at: longAgo }]);
+    await runScheduled({ GITHUB_TOKEN: 'x', DB: db });
+    expect(inserts(calls)).toEqual([]);
+  });
+
+  it('still heals from a fresh Contents API read', async () => {
+    vi.stubGlobal('fetch', twoSourceFetch([{ id: 'chess' }, { id: 'tetris' }], []));
+    const { calls, db } = dbWithRoutes([
+      { slug: 'chess', updated_at: longAgo },
+      { slug: 'gone', updated_at: longAgo },
+    ]);
+    await runScheduled({ GITHUB_TOKEN: 'x', DB: db });
+    expect(inserts(calls)).toEqual(['tetris']);
+    expect(deletes(calls)).toEqual(['gone']);
+  });
+
+  it('never deletes an orphan route touched in the last few minutes', async () => {
+    vi.stubGlobal('fetch', twoSourceFetch([{ id: 'chess' }], []));
+    const { calls, db } = dbWithRoutes([
+      { slug: 'chess', updated_at: longAgo },
+      { slug: 'brand-new', updated_at: Date.now() - 60_000 },
+      { slug: 'stale', updated_at: longAgo },
+    ]);
+    await runScheduled({ GITHUB_TOKEN: 'x', DB: db });
+    expect(deletes(calls)).toEqual(['stale']);
+  });
+});
+
+describe('readRegistry reports its source (#64)', () => {
+  it('marks a Contents API read as contents and a CDN fallback as raw', async () => {
+    const { readRegistry } = await import('./registryReader');
+    vi.stubGlobal('fetch', async (input: unknown) =>
+      String(input).includes('api.github.com')
+        ? new Response(JSON.stringify({ games: [{ id: 'a' }] }), { status: 200 })
+        : new Response('{}', { status: 500 }),
+    );
+    expect(await readRegistry('t')).toMatchObject({ status: 'available', source: 'contents' });
+    vi.stubGlobal('fetch', async (input: unknown) =>
+      String(input).includes('api.github.com')
+        ? new Response('{}', { status: 403 })
+        : new Response(JSON.stringify({ games: [{ id: 'a' }] }), { status: 200 }),
+    );
+    expect(await readRegistry('t')).toMatchObject({ status: 'available', source: 'raw' });
   });
 });
