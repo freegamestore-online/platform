@@ -71,6 +71,44 @@ export interface SessionContext {
  * Infra tools (deploy, push_update, etc.) are collected and returned
  * for the session to execute with env access.
  */
+/** Tool result stored for a tool call whose real result was never recorded. */
+export const INTERRUPTED_TOOL_RESULT =
+  "Interrupted: the server restarted before this tool finished, so its outcome is unknown. " +
+  "Do not assume it succeeded — check (e.g. check_deploy_status, or re-read the file) before retrying.";
+
+/** Make tool_use/tool_result pairing valid for the provider, which rejects any
+ *  tool_use id without a matching tool_result (and vice versa) with a hard 400.
+ *
+ *  A checkpoint can legitimately hold an INCOMPLETE pair: when one assistant
+ *  message calls file tools and infra tools (`[write_file, deploy]`), the file
+ *  results are checkpointed first and the infra results merged in only after
+ *  the deploy finishes — up to ~10 minutes later. If the Durable Object is
+ *  evicted in between, the resumed transcript has a tool_use with no result,
+ *  and every later turn failed until /reset (#84). Instead of dropping the
+ *  exchange (losing what the model said and did), each missing result is filled
+ *  with INTERRUPTED_TOOL_RESULT so the model knows to verify, and results whose
+ *  id matches no tool call are dropped. A tool_result with no preceding tool
+ *  calls is dropped. Pure: never mutates the input messages. */
+export function repairToolPairs(history: Message[]): Message[] {
+  const out: Message[] = [];
+  for (let i = 0; i < history.length; i++) {
+    const m = history[i];
+    if (m.role === "tool_result") continue; // orphan: no preceding tool calls
+    out.push(m);
+    if (m.role !== "assistant" || !m.toolCalls?.length) continue;
+
+    const next = history[i + 1];
+    const recorded = next?.role === "tool_result" ? (next.toolResults ?? []) : [];
+    if (next?.role === "tool_result") i++;
+    const byId = new Map(recorded.map((r) => [r.id, r]));
+    out.push({
+      ...(next?.role === "tool_result" ? next : { role: "tool_result" as const, content: "" }),
+      toolResults: m.toolCalls.map((tc) => byId.get(tc.id) ?? { id: tc.id, content: INTERRUPTED_TOOL_RESULT, isError: true }),
+    });
+  }
+  return out;
+}
+
 export async function runAgentTurn(
   config: AIConfig,
   conversationHistory: Message[],
@@ -160,27 +198,8 @@ export async function runAgentTurn(
     trimmedHistory.shift();
   }
 
-  // Fix orphaned tool_use/tool_result pairs:
-  // Every assistant message with toolCalls must be followed by a tool_result.
-  // Every tool_result must follow an assistant with toolCalls.
-  // Drop any that don't have their pair.
-  const cleaned: Message[] = [];
-  for (let i = 0; i < trimmedHistory.length; i++) {
-    const m = trimmedHistory[i];
-    if (m.role === "assistant" && m.toolCalls?.length) {
-      // Check if next message is tool_result
-      const next = trimmedHistory[i + 1];
-      if (next?.role === "tool_result") {
-        cleaned.push(m, next);
-        i++; // skip the tool_result
-      }
-      // else: orphaned tool_use — drop both
-    } else if (m.role === "tool_result") {
-      // Orphaned tool_result without preceding tool_use — drop it
-    } else {
-      cleaned.push(m);
-    }
-  }
+  // Every tool_use must have exactly one matching tool_result (#84).
+  const cleaned = repairToolPairs(trimmedHistory);
 
   // Heal poisoned history BEFORE the model sees it: remove any write turn whose
   // content is a placeholder (the model imitates content values from its own
