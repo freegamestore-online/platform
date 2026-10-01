@@ -474,7 +474,59 @@ function jsonResponse(data: unknown, status: number, request: Request): Response
  *  `concurrency: cancel-in-progress` cancels the earlier runs by design, so a
  *  cancelled run says nothing about the build. Mirrors the agent's
  *  waitForActionsDeploy. */
-async function latestDeployConclusion(env: Env, id: string): Promise<'success' | 'failure' | null> {
+/** Commit messages of provisioning's own commits (GitHub's template generate,
+ *  then admin's naming / remix commits). Used to recognise scaffold runs for
+ *  registry entries that predate `provisionedSha`. */
+const PROVISIONING_COMMIT =
+  /^(?:Initial commit$|Set game name to "|Remix source from |Add immutable Remix attribution)/;
+
+type DeployRun = {
+  status: string;
+  conclusion: string | null;
+  head_sha?: string;
+  head_commit?: { message?: string } | null;
+};
+
+/** Whether a deploy run built only the unbuilt template scaffold (#67): a commit
+ *  at or before `provisionedSha`, the repo HEAD when provisioning finished. A
+ *  run on a later commit, or on unrelated history (the creator force-pushed
+ *  their own project over the scaffold), is real creator code. When GitHub
+ *  can't answer, the run is treated as scaffold, so the game stays pending
+ *  rather than being declared live on a guess. */
+export async function isScaffoldRun(
+  env: Pick<Env, 'GITHUB_TOKEN'>,
+  id: string,
+  run: DeployRun,
+  provisionedSha?: string,
+): Promise<boolean> {
+  if (!provisionedSha) return PROVISIONING_COMMIT.test(run.head_commit?.message ?? '');
+  if (!run.head_sha) return true;
+  if (run.head_sha === provisionedSha) return true;
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${ORG}/${id}/compare/${provisionedSha}...${run.head_sha}`,
+      {
+        headers: {
+          Accept: 'application/vnd.github+json',
+          'User-Agent': 'freegamestore-admin',
+          ...(env.GITHUB_TOKEN ? { Authorization: `Bearer ${env.GITHUB_TOKEN}` } : {}),
+        },
+      },
+    );
+    if (res.status === 404) return false; // no common history: a force-pushed project
+    if (!res.ok) return true;
+    const { status } = (await res.json()) as { status?: string };
+    return status === 'identical' || status === 'behind';
+  } catch {
+    return true;
+  }
+}
+
+async function latestDeployConclusion(
+  env: Env,
+  id: string,
+  provisionedSha?: string,
+): Promise<'success' | 'failure' | null> {
   try {
     const res = await fetch(
       `https://api.github.com/repos/${ORG}/${id}/actions/workflows/deploy.yml/runs?per_page=5`,
@@ -487,11 +539,12 @@ async function latestDeployConclusion(env: Env, id: string): Promise<'success' |
       },
     );
     if (!res.ok) return null;
-    const data = (await res.json()) as {
-      workflow_runs?: Array<{ status: string; conclusion: string | null }>;
-    };
+    const data = (await res.json()) as { workflow_runs?: DeployRun[] };
     for (const run of data.workflow_runs ?? []) {
       if (run.status !== 'completed' || run.conclusion === 'cancelled') continue;
+      // The template scaffold's own build says nothing about the game (#67):
+      // it succeeds for a game whose code was never pushed.
+      if (await isScaffoldRun(env, id, run, provisionedSha)) continue;
       if (run.conclusion === 'success') return 'success';
       if (run.conclusion === 'failure' || run.conclusion === 'timed_out') return 'failure';
     }
@@ -650,7 +703,10 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
   if (heal && pending.length > 0) {
     const flips: Array<{ id: string; status: 'live' | 'failed' }> = [];
     for (const id of pending) {
-      const conclusion = await latestDeployConclusion(env, id);
+      const entry = items.find((g) => g?.id === id);
+      const provisionedSha =
+        typeof entry?.provisionedSha === 'string' ? entry.provisionedSha : undefined;
+      const conclusion = await latestDeployConclusion(env, id, provisionedSha);
       if (conclusion === 'success') flips.push({ id, status: 'live' });
       else if (conclusion === 'failure') flips.push({ id, status: 'failed' });
       // null → nothing concluded yet; leave pending for the next run.

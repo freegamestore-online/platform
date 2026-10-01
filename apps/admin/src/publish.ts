@@ -1210,6 +1210,14 @@ export async function handlePublish(
   const registryPath = `/repos/${config.org}/${config.storeRepo}/contents/registry.json`;
   const key = config.registryKey;
   let registryConflict = false;
+  // The repo's HEAD once provisioning's own commits (template generate, naming,
+  // remix overlay/attribution) have landed. Every deploy.yml run up to here is
+  // the UNBUILT template scaffold, so the status backstop must not treat its
+  // success as the game going live (#67). Best-effort: absent → backstop falls
+  // back to recognising provisioning commits by message.
+  const headRef = await ghApi(env, `/repos/${config.org}/${id}/git/ref/heads/main`);
+  const provisionedSha =
+    typeof headRef?.object?.sha === 'string' ? (headRef.object.sha as string) : undefined;
   const attemptRegistry = async (isRetry: boolean): Promise<Step | null> => {
     const registryFile = await ghApi(env, registryPath);
     if (!registryFile.content) {
@@ -1275,6 +1283,7 @@ export async function handlePublish(
       // 200" (it answers 200 for the template scaffold). `pending` until a
       // deploy.yml run concludes success; see setGameStatuses.
       status: 'pending' satisfies GameStatus,
+      ...(provisionedSha ? { provisionedSha } : {}),
     });
     content[key] = items;
 

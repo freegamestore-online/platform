@@ -822,6 +822,17 @@ describe('handlePublish build status', () => {
     });
     expect(games.find((g: any) => g.id === 'chess').status).toBe('pending');
   });
+
+  it('records the provisioned HEAD so the scaffold build is never read as live (#67)', async () => {
+    const games = await firstRegistryPut({
+      id: 'chess',
+      name: 'Chess',
+      category: 'arcade',
+      creatorGithub: 'someone',
+    });
+    // firstRegistryPut's stub answers the main ref with sha "headsha".
+    expect(games.find((g: any) => g.id === 'chess').provisionedSha).toBe('headsha');
+  });
 });
 
 // #44 snapshots immutable source credit at the moment a remix is created.

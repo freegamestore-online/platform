@@ -1264,3 +1264,125 @@ describe('GET /api/games/:id/traffic (#23 item 6)', () => {
     expect((await get(e)).status).not.toBe(200);
   });
 });
+
+// #67: provisioning's own commits (template generate, naming) trigger deploy.yml
+// too. The backstop took the newest completed run of ANY commit, so a game whose
+// creator code was never pushed went `live` showing the blank template.
+describe('reconcile backstop ignores the template scaffold build (#67)', () => {
+  const P = 'p'.repeat(40); // provisionedSha: HEAD when provisioning finished
+  const C = 'c'.repeat(40); // a later (creator) commit
+
+  type Run = { head_sha: string; conclusion: string; message?: string };
+
+  /** Fake GitHub: registry + deploy.yml runs (newest first) + compare API. */
+  function fakeGitHub(
+    game: Record<string, unknown>,
+    runs: Run[],
+    compare: Record<string, number | string> = {},
+  ) {
+    const puts: Array<any[]> = [];
+    vi.stubGlobal(
+      'fetch',
+      async (
+        input: unknown,
+        init?: { method?: string; body?: string; headers?: Record<string, string> },
+      ) => {
+        const url = typeof input === 'string' ? input : (input as Request).url;
+        const method = init?.method ?? 'GET';
+        if (url.includes('/actions/workflows/deploy.yml/runs')) {
+          return new Response(
+            JSON.stringify({
+              workflow_runs: runs.map((r) => ({
+                status: 'completed',
+                conclusion: r.conclusion,
+                head_sha: r.head_sha,
+                head_commit: { message: r.message ?? 'x' },
+              })),
+            }),
+            { status: 200 },
+          );
+        }
+        const cmp = /\/compare\/([^./]+)\.\.\.([^./]+)$/.exec(url);
+        if (cmp) {
+          const answer = compare[cmp[2]!] ?? 'ahead';
+          return typeof answer === 'number'
+            ? new Response('{}', { status: answer })
+            : new Response(JSON.stringify({ status: answer }), { status: 200 });
+        }
+        if (url.includes('/contents/registry.json')) {
+          if (method === 'GET') {
+            const raw = (init?.headers?.Accept ?? '').includes('raw');
+            return new Response(
+              raw
+                ? JSON.stringify({ games: [game] })
+                : JSON.stringify({ content: btoa(JSON.stringify({ games: [game] })), sha: 'sha1' }),
+              { status: 200 },
+            );
+          }
+          puts.push(JSON.parse(atob(JSON.parse(init!.body!).content)).games);
+          return new Response(JSON.stringify({ content: { sha: 'sha2' } }), { status: 200 });
+        }
+        return new Response('{}', { status: 200 });
+      },
+    );
+    return puts;
+  }
+
+  const statusAfter = async (puts: Array<any[]>) => {
+    const { db } = makeDB(['space-rescue']);
+    await runScheduled({ GITHUB_TOKEN: 'x', DB: db });
+    return puts.length ? puts[0]!.find((g: any) => g.id === 'space-rescue').status : 'pending';
+  };
+  const pending = { id: 'space-rescue', status: 'pending', provisionedSha: P };
+
+  it('keeps a game pending when the only successful build is the scaffold', async () => {
+    const puts = fakeGitHub(pending, [{ head_sha: P, conclusion: 'success' }]);
+    expect(await statusAfter(puts)).toBe('pending');
+  });
+
+  it('keeps a game pending for a scaffold commit before the provisioned HEAD', async () => {
+    const early = 'e'.repeat(40);
+    const puts = fakeGitHub(pending, [{ head_sha: early, conclusion: 'success' }], {
+      [early]: 'behind',
+    });
+    expect(await statusAfter(puts)).toBe('pending');
+  });
+
+  it('goes live once a build on a later (creator) commit succeeds', async () => {
+    const puts = fakeGitHub(pending, [
+      { head_sha: C, conclusion: 'success' },
+      { head_sha: P, conclusion: 'success' },
+    ]);
+    expect(await statusAfter(puts)).toBe('live');
+  });
+
+  it('fails when the creator build fails even though the scaffold built', async () => {
+    const puts = fakeGitHub(pending, [
+      { head_sha: C, conclusion: 'failure' },
+      { head_sha: P, conclusion: 'success' },
+    ]);
+    expect(await statusAfter(puts)).toBe('failed');
+  });
+
+  it('counts a force-pushed project (no common history) as creator code', async () => {
+    const puts = fakeGitHub(pending, [{ head_sha: C, conclusion: 'success' }], { [C]: 404 });
+    expect(await statusAfter(puts)).toBe('live');
+  });
+
+  it('stays pending when GitHub cannot say whether a run is past the scaffold', async () => {
+    const puts = fakeGitHub(pending, [{ head_sha: C, conclusion: 'success' }], { [C]: 500 });
+    expect(await statusAfter(puts)).toBe('pending');
+  });
+
+  it('legacy entries without provisionedSha skip runs of provisioning commits', async () => {
+    const legacy = { id: 'space-rescue', status: 'pending' };
+    for (const message of ['Initial commit', 'Set game name to "Space Rescue"']) {
+      const puts = fakeGitHub(legacy, [{ head_sha: P, conclusion: 'success', message }]);
+      expect(await statusAfter(puts)).toBe('pending');
+    }
+    const puts = fakeGitHub(legacy, [
+      { head_sha: C, conclusion: 'success', message: 'Add a boss level' },
+    ]);
+    expect(await statusAfter(puts)).toBe('live');
+  });
+});
