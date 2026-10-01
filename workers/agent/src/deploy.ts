@@ -555,9 +555,11 @@ async function deployPathB(
   //    nothing beyond the scaffold, admin's generate/substitution commit already
   //    triggered the deploy workflow — skip the push and go straight to waiting.
   const delta = gameSourceDelta(files, config, deployConfig.id, deployConfig.name, seed);
+  // The commit whose deploy run decides this deploy's outcome (#87).
+  let deploySha: string | null = null;
   if (delta.size > 0) {
     onStatus({ phase: "pushing", progress: `Pushing ${delta.size} file${delta.size === 1 ? "" : "s"}...` });
-    const push = await pushUpdate(
+    const push = await pushCommit(
       deployConfig.id,
       delta,
       `Build ${deployConfig.name} — ${config.storeName} AI agent`,
@@ -565,21 +567,24 @@ async function deployPathB(
       config,
       deployConfig.deletedFiles,
     );
-    if (push.startsWith("Error")) {
-      steps.push({ name: "Pushing code", status: "fail", detail: push });
-      onStatus({ phase: "error", error: push });
+    if (!push.sha) {
+      steps.push({ name: "Pushing code", status: "fail", detail: push.message });
+      onStatus({ phase: "error", error: push.message });
       return;
     }
+    deploySha = push.sha;
     steps.push({ name: "Pushing code", status: "ok", detail: `${delta.size} file${delta.size === 1 ? "" : "s"} pushed` });
   } else {
     steps.push({ name: "Pushing code", status: "skip", detail: "No changes beyond the template scaffold" });
+    // Nothing pushed: admin's latest provisioning commit is what deploys.
+    deploySha = await fetchRepoHeadSha(deployConfig.id, env.GITHUB_TOKEN, config);
   }
   onStatus({ phase: "provisioning", steps: [...steps] });
 
   // 4. Wait for the Actions deploy (build → R2 sync).
   const appUrl = `https://${deployConfig.id}.${config.domain}`;
   onStatus({ phase: "building", deployUrl: appUrl });
-  await waitForActionsDeploy(deployConfig.id, env, config, onStatus, appUrl);
+  await waitForActionsDeploy(deployConfig.id, env, config, onStatus, appUrl, deploySha);
 }
 
 /** Path B: poll the repo's GitHub Actions runs until the deploy workflow (build
@@ -591,8 +596,16 @@ export async function waitForActionsDeploy(
   config: StoreConfig,
   onStatus: (s: DeployStatus) => void,
   appUrl: string,
+  /** SHA of the commit just pushed. Its run is the one to wait for: polling
+   *  "the latest deploy.yml run" read the PREVIOUS run whenever GitHub had not
+   *  registered the new one yet (an old failure with stale logs, or an old
+   *  success reported as live before the new build passed) (#87). */
+  headSha?: string | null,
 ): Promise<void> {
   const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
+  // Which commit's run to follow; null = the latest run (no SHA known, or our
+  // run was superseded by a newer push).
+  let follow: string | null = headSha ?? null;
   // The loop exits when the RUN reaches a conclusion, not when a wall-clock timer
   // fires. The ceiling is only a hang guard (see ACTIONS_DEPLOY_CEILING_MS).
   const deadline = Date.now() + ACTIONS_DEPLOY_CEILING_MS;
@@ -606,7 +619,8 @@ export async function waitForActionsDeploy(
       // Filter to the deploy workflow specifically — a repo can carry several
       // workflows (ci/compliance/deploy), so "latest run of any workflow" would
       // read the wrong conclusion.
-      const runs = await ghApi(`/repos/${config.org}/${repoId}/actions/workflows/deploy.yml/runs?per_page=1`);
+      const filter = follow ? `head_sha=${encodeURIComponent(follow)}&per_page=1` : "per_page=1";
+      const runs = await ghApi(`/repos/${config.org}/${repoId}/actions/workflows/deploy.yml/runs?${filter}`);
       sawPollError = false; // this poll returned cleanly
       const run = runs.workflow_runs?.[0];
       if (!run) {
@@ -633,6 +647,9 @@ export async function waitForActionsDeploy(
       // that as a deploy failure — keep polling for the final run to finish.
       if (run.conclusion === "cancelled") {
         lastRunState = "cancelled";
+        // Our commit's run being cancelled means a NEWER push superseded it;
+        // that newer run is what will actually ship, so follow it from here.
+        follow = null;
         continue;
       }
       if (["failure", "timed_out"].includes(run.conclusion)) {
@@ -721,7 +738,16 @@ async function pushFilesToGitHub(repoId: string, files: Map<string, string>, tok
 }
 
 /** Push an update to an existing repo (new commit on top of existing). */
-export async function pushUpdate(
+export interface PushResult {
+  /** Human-readable outcome; starts with "Error" on failure. */
+  message: string;
+  /** Full SHA of the commit that was pushed (null on failure). The deploy
+   *  waiter needs it to follow THIS commit's run, not the latest one (#87). */
+  sha: string | null;
+}
+
+/** Push the session's files as one commit on main; see pushUpdate. */
+export async function pushCommit(
   appId: string,
   files: Map<string, string>,
   commitMessage: string,
@@ -732,13 +758,13 @@ export async function pushUpdate(
    *  left the session (#86). Only paths present in the parent tree are sent,
    *  so stale or never-committed entries are harmless. */
   deletions: Iterable<string> = [],
-): Promise<string> {
+): Promise<PushResult> {
   const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
   const repo = `${config.org}/${appId}`;
 
   const ref = await ghApi(`/repos/${repo}/git/ref/heads/main`);
   const parentSha = ref.object?.sha;
-  if (!parentSha) return `Error: could not find HEAD for ${repo}. Is the ${config.noun} deployed?`;
+  if (!parentSha) return { message: `Error: could not find HEAD for ${repo}. Is the ${config.noun} deployed?`, sha: null };
 
   const treeItems: { path: string; mode: string; type: string; sha: string | null }[] = [];
   for (const [path, content] of files) {
@@ -746,12 +772,12 @@ export async function pushUpdate(
       content,
       encoding: "utf-8",
     });
-    if (!blob.sha) return `Error: failed to create blob for ${path}: ${blob.message || "unknown"}`;
+    if (!blob.sha) return { message: `Error: failed to create blob for ${path}: ${blob.message || "unknown"}`, sha: null };
     treeItems.push({ path, mode: "100644", type: "blob", sha: blob.sha });
   }
 
   const parentCommit = await ghApi(`/repos/${repo}/git/commits/${parentSha}`);
-  if (!parentCommit.tree?.sha) return `Error: could not read parent commit tree for ${repo}.`;
+  if (!parentCommit.tree?.sha) return { message: `Error: could not read parent commit tree for ${repo}.`, sha: null };
 
   const pending = [...new Set(deletions)].filter((path) => !files.has(path));
   let deleted = 0;
@@ -765,7 +791,10 @@ export async function pushUpdate(
     // Fail rather than push without the deletions: silently keeping a deleted
     // file is exactly the bug this guards against.
     if (!Array.isArray(base.tree) || base.truncated) {
-      return `Error: could not read the repo tree for ${repo} to apply file deletions: ${base.message || "tree unavailable or truncated"}`;
+      return {
+        message: `Error: could not read the repo tree for ${repo} to apply file deletions: ${base.message || "tree unavailable or truncated"}`,
+        sha: null,
+      };
     }
     const present = new Set((base.tree as { path?: string; type?: string }[]).filter((e) => e.type === "blob").map((e) => e.path));
     for (const path of pending) {
@@ -783,22 +812,30 @@ export async function pushUpdate(
   // base_tree) returns a body with no sha. Without this, we POST the commit with
   // tree:undefined → the failure surfaces as a misleading "failed to update ref"
   // that hides the real cause (tree creation).
-  if (!tree.sha) return `Error: failed to create tree for ${repo}: ${tree.message || "unknown"}`;
+  if (!tree.sha) return { message: `Error: failed to create tree for ${repo}: ${tree.message || "unknown"}`, sha: null };
 
   const commit = await ghApi(`/repos/${repo}/git/commits`, "POST", {
     message: commitMessage,
     tree: tree.sha,
     parents: [parentSha],
   });
-  if (!commit.sha) return `Error: failed to create commit for ${repo}: ${commit.message || "unknown"}`;
+  if (!commit.sha) return { message: `Error: failed to create commit for ${repo}: ${commit.message || "unknown"}`, sha: null };
 
   const refUpdate = await ghApi(`/repos/${repo}/git/refs/heads/main`, "PATCH", {
     sha: commit.sha,
   });
-  if (!refUpdate.ref) return `Error: failed to update ref for ${repo}: ${refUpdate.message || "unknown"}`;
+  if (!refUpdate.ref) return { message: `Error: failed to update ref for ${repo}: ${refUpdate.message || "unknown"}`, sha: null };
 
   const removed = deleted > 0 ? `, removed ${deleted} deleted file${deleted === 1 ? "" : "s"}` : "";
-  return `Pushed update to ${repo} (${commit.sha?.slice(0, 7)}${removed}). CI will build and deploy.`;
+  return {
+    message: `Pushed update to ${repo} (${commit.sha.slice(0, 7)}${removed}). CI will build and deploy.`,
+    sha: commit.sha,
+  };
+}
+
+/** pushCommit, returning only the outcome message. */
+export async function pushUpdate(...args: Parameters<typeof pushCommit>): Promise<string> {
+  return (await pushCommit(...args)).message;
 }
 
 // ── Repo import (open-existing) — read a game's committed text source so a

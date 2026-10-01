@@ -3,7 +3,7 @@
 import { checkBuildSanity, formatSanityBlock } from "./build-sanity";
 import type { StoreConfig } from "./config";
 import type { DeployEnv, DeployStatus } from "./deploy";
-import { ACTIONS_DEPLOY_CEILING_MS, deployApp, pushUpdate, substituteAppName, waitForActionsDeploy } from "./deploy";
+import { ACTIONS_DEPLOY_CEILING_MS, deployApp, pushCommit, substituteAppName, waitForActionsDeploy } from "./deploy";
 import { checkDeployStatus, fetchUrl, getAuditResults, getBuildLogs, getCIResults, listDeployed } from "./infra";
 import type { ToolCall } from "./providers/types";
 import { validateGameId } from "./registry";
@@ -208,9 +208,10 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
 async function executePushUpdate(tc: ToolCall, ctx: ExecContext): Promise<string> {
   const id = tc.input.id as string;
   ctx.onDeployStatus({ phase: "pushing", progress: "Pushing update..." });
-  const result = await pushUpdate(id, ctx.files, (tc.input.message as string) || "Update", ctx.env, ctx.config, ctx.deletedFiles);
-  if (!result.startsWith("Error")) ctx.deletedFiles?.clear(); // applied to the repo
-  if (result.startsWith("Error")) {
+  const pushed = await pushCommit(id, ctx.files, (tc.input.message as string) || "Update", ctx.env, ctx.config, ctx.deletedFiles);
+  const result = pushed.message;
+  if (pushed.sha) ctx.deletedFiles?.clear(); // applied to the repo
+  if (!pushed.sha) {
     ctx.onDeployStatus({ phase: "error", error: result });
     return result;
   }
@@ -235,6 +236,7 @@ async function executePushUpdate(tc: ToolCall, ctx: ExecContext): Promise<string
       else if (s.phase === "error") outcome = `Update pushed but the build FAILED: ${s.error}`;
     },
     appUrl,
+    pushed.sha,
   ).catch((err) => {
     outcome = `Update pushed; couldn't confirm the build status: ${String(err)}. Use check_deploy_status.`;
   });

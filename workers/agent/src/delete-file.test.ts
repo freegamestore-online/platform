@@ -134,3 +134,25 @@ describe("push_update tool clears pending deletions once applied (#86)", () => {
     expect([...deleted]).toEqual(["web/src/OldScene.tsx"]);
   });
 });
+
+describe("push_update waits for its own commit's run (#87)", () => {
+  it("passes the pushed commit SHA to the deploy waiter", async () => {
+    fakeGitHub(["web/src/App.tsx"]);
+    const { waitForActionsDeploy } = await import("./deploy");
+    vi.mocked(waitForActionsDeploy).mockClear();
+    await executeInfraTool(
+      { id: "p", name: "push_update", input: { id: "my-game", message: "Update" } },
+      {
+        appId: "my-game",
+        files: new Map([["web/src/App.tsx", "export default 1;\n"]]),
+        env,
+        config: games,
+        onDeployStatus: vi.fn(),
+        onAppBound: vi.fn(),
+        onAppDeployed: vi.fn(),
+      },
+    );
+    // The fake GitHub's commit endpoint returns sha "newcommit1234".
+    expect(vi.mocked(waitForActionsDeploy).mock.calls[0]?.[5]).toBe("newcommit1234");
+  });
+});
