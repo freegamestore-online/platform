@@ -8,7 +8,7 @@ import { driftReportFrom, type FleetRow, recentRuns, sweepFleet } from './drift'
 import { errorStats, listErrors, pruneErrors, recordError } from './errlog';
 import { createGameLifecycle } from './lifecycle/game-lifecycle';
 import { createRegistryState, createRemixSource } from './lifecycle/registry-state';
-import { type GameStatus, insertHostRoute } from './publish';
+import { type GameStatus, insertHostRoute, lifecycleStatus, provisionStatus } from './publish';
 import { createReconciliationService } from './reconciliation-service';
 import { readRegistry } from './registryReader';
 
@@ -1041,10 +1041,16 @@ export default {
       if (!login) {
         return jsonResponse({ error: 'unauthorized' }, 401, request);
       }
+      let body: Record<string, unknown>;
       try {
-        const body = (await request.json()) as Record<string, unknown>;
+        body = (await request.json()) as Record<string, unknown>;
+      } catch {
+        return jsonResponse({ error: 'Request body must be JSON' }, 400, request);
+      }
+      try {
         const result = await gameLifecycle.update(gameMatch[1]!, login, body, env as any);
-        return jsonResponse(result, result.error ? 400 : 200, request);
+        // 403 not creator, 404 unknown game, 502 GitHub/registry failure (#66).
+        return jsonResponse(result, result.error ? lifecycleStatus(result.code) : 200, request);
       } catch (e) {
         await recordError(env.DB, {
           source: 'admin/games.patch',
@@ -1075,7 +1081,7 @@ export default {
         const result = await gameLifecycle.delete(gameMatch[1]!, actor, env as any, {
           adminOverride: isAdmin,
         });
-        return jsonResponse(result, result.error ? 400 : 200, request);
+        return jsonResponse(result, result.error ? lifecycleStatus(result.code) : 200, request);
       } catch (e) {
         await recordError(env.DB, {
           source: 'admin/games.delete',
@@ -1402,7 +1408,7 @@ export default {
             stack: JSON.stringify(result).slice(0, 1500),
           });
         }
-        return jsonResponse(result, result.success ? 200 : result.conflict ? 409 : 400, request);
+        return jsonResponse(result, provisionStatus(result), request);
       } catch (e) {
         await recordError(env.DB, {
           source: 'admin/provision',

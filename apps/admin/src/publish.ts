@@ -1354,81 +1354,153 @@ export async function handlePublish(
   };
 }
 
+/** Why a lifecycle operation failed, so the HTTP layer can answer with the
+ *  right status instead of 400 for everything (#66). */
+export type LifecycleErrorCode = 'invalid' | 'forbidden' | 'not_found' | 'conflict' | 'upstream';
+
+/** HTTP status for a lifecycle error. Unknown/absent codes stay 400. */
+export function lifecycleStatus(code?: LifecycleErrorCode): number {
+  switch (code) {
+    case 'forbidden':
+      return 403;
+    case 'not_found':
+      return 404;
+    case 'conflict':
+      return 409;
+    case 'upstream':
+      return 502;
+    default:
+      return 400;
+  }
+}
+
+/** HTTP status for a provision result: validation problems are the caller's
+ *  (400), an id owned by someone else is a conflict (409), and everything else
+ *  — GitHub, the registry, D1 — is an upstream failure the caller can retry
+ *  (502), not a "bad request" (#66). */
+export function provisionStatus(result: {
+  success: boolean;
+  conflict?: boolean;
+  steps: Step[];
+}): number {
+  if (result.success) return 200;
+  if (result.conflict) return 409;
+  const failed = result.steps.find((st) => st.status === 'fail');
+  return failed && (failed.name === 'Validation' || failed.name === 'Fork attribution') ? 400 : 502;
+}
+
+type RegistryMutation<T> =
+  | { ok: true; value: T }
+  | { ok: false; error: string; code: LifecycleErrorCode };
+
+/**
+ * Read registry.json, apply `mutate` to its games array, and write it back with
+ * the sha that was read. If another writer committed in between (GitHub 409 —
+ * the hourly reconcile, a provision, another edit), re-read and re-apply ONCE,
+ * so the mutation's checks (existence, ownership) run against the fresh state.
+ * update/delete used to write once and surface the raw sha mismatch as a 400
+ * (#66); provision and setGameStatuses already retried.
+ */
+async function mutateRegistry<T>(
+  env: PublishEnv,
+  message: string,
+  mutate: (items: Array<Record<string, unknown>>) => RegistryMutation<T>,
+): Promise<RegistryMutation<T>> {
+  const config = STORE_CONFIG;
+  const registryPath = `/repos/${config.org}/${config.storeRepo}/contents/registry.json`;
+  for (let attempt = 0; ; attempt++) {
+    const file = await ghApi(env, registryPath);
+    if (!file.content) {
+      return { ok: false, error: 'Could not read registry.json', code: 'upstream' };
+    }
+    let content: Record<string, unknown>;
+    try {
+      content = JSON.parse(decodeGhContent(file.content));
+    } catch {
+      return { ok: false, error: 'registry.json is not valid JSON', code: 'upstream' };
+    }
+    const items: Array<Record<string, unknown>> = Array.isArray(content[config.registryKey])
+      ? (content[config.registryKey] as Array<Record<string, unknown>>)
+      : [];
+    const outcome = mutate(items);
+    if (!outcome.ok) return outcome;
+    content[config.registryKey] = items;
+    const put = await ghApi(env, registryPath, 'PUT', {
+      message,
+      content: btoa(
+        Array.from(new TextEncoder().encode(JSON.stringify(content, null, 2)))
+          .map((b) => String.fromCharCode(b))
+          .join(''),
+      ),
+      sha: file.sha,
+    });
+    if (put.content) return outcome;
+    if (put.__status === 409 && attempt === 0) continue; // contended: re-read, re-apply
+    return {
+      ok: false,
+      error: put.message || 'Failed to update registry',
+      code: put.__status === 409 ? 'conflict' : 'upstream',
+    };
+  }
+}
+
 /** Update a game's metadata in registry.json. Only the game's creator can update. */
 export async function handleUpdateGame(
   gameId: string,
   login: string,
   updates: Record<string, unknown>,
   env: PublishEnv,
-): Promise<{ ok?: boolean; error?: string }> {
-  const config = STORE_CONFIG;
-  const registryPath = `/repos/${config.org}/${config.storeRepo}/contents/registry.json`;
-  const registryFile = await ghApi(env, registryPath);
-  if (!registryFile.content) return { error: 'Could not read registry.json' };
-
-  const rawContent = new TextDecoder().decode(
-    Uint8Array.from(atob(registryFile.content.replace(/\n/g, '')), (c) => c.charCodeAt(0)),
-  );
-  const content = JSON.parse(rawContent);
-  const items: Array<Record<string, unknown>> = Array.isArray(content[config.registryKey])
-    ? content[config.registryKey]
-    : [];
-  const idx = items.findIndex((g) => g.id === gameId);
-  if (idx < 0) return { error: `Game "${gameId}" not found in registry` };
-
-  const game = items[idx]!;
-  // Only the creator can update. Default-deny: a game with no recorded
-  // creatorGithub (legacy / dashboard-provisioned without the field) is NOT
-  // editable via this self-service path — otherwise any authenticated user
-  // could deface unowned listings. Such games must be fixed by backfilling
-  // ownership (or an admin editing the registry directly).
-  // Case-insensitive match, consistent with the view path (me.ts) — GitHub logins
-  // are case-insensitive, so a casing difference must not make an owned game
-  // uneditable.
-  const owner = typeof game.creatorGithub === 'string' ? game.creatorGithub : '';
-  if (
-    !ownershipFacts(game, login, { isOrgMember: false, isLegacyAcceptedCollaborator: false })
-      .isCreator
-  ) {
-    return {
-      error: owner
-        ? `Only the creator (${owner}) can update this game`
-        : `This game has no recorded owner and can't be edited here`,
-    };
-  }
-
+): Promise<{ ok?: boolean; error?: string; code?: LifecycleErrorCode }> {
   // Allow updating these fields only, validated + normalized like provision.
   const checked = validateGameUpdates(updates, gameId);
-  if ('error' in checked) return { error: checked.error };
-  let changed = false;
-  for (const [key, value] of Object.entries(checked.values)) {
-    if (value !== game[key]) {
-      game[key] = value;
-      changed = true;
-    }
-  }
-  if (!changed) return { error: 'No changes' };
-  // Opportunistically freeze only legacy strings that can be reconstructed
-  // from concrete registry facts. The edited game's own forkedFrom is never an
-  // allowed input and therefore remains immutable.
-  migrateLegacyForkAttribution(items);
-  game.updatedAt = new Date().toISOString();
+  if ('error' in checked) return { error: checked.error, code: 'invalid' };
 
-  items[idx] = game;
-  content[config.registryKey] = items;
-
-  const updateResult = await ghApi(env, registryPath, 'PUT', {
-    message: `Update ${gameId} metadata (${Object.keys(checked.values).join(', ')})`,
-    content: btoa(
-      Array.from(new TextEncoder().encode(JSON.stringify(content, null, 2)))
-        .map((b) => String.fromCharCode(b))
-        .join(''),
-    ),
-    sha: registryFile.sha,
-  });
-
-  if (!updateResult.content) return { error: updateResult.message || 'Failed to update registry' };
-  return { ok: true };
+  const result = await mutateRegistry(
+    env,
+    `Update ${gameId} metadata (${Object.keys(checked.values).join(', ')})`,
+    (items) => {
+      const game = items.find((g) => g.id === gameId);
+      if (!game) {
+        return { ok: false, error: `Game "${gameId}" not found in registry`, code: 'not_found' };
+      }
+      // Only the creator can update. Default-deny: a game with no recorded
+      // creatorGithub (legacy / dashboard-provisioned without the field) is NOT
+      // editable via this self-service path — otherwise any authenticated user
+      // could deface unowned listings. Such games must be fixed by backfilling
+      // ownership (or an admin editing the registry directly).
+      // Case-insensitive match, consistent with the view path (me.ts) — GitHub
+      // logins are case-insensitive, so a casing difference must not make an
+      // owned game uneditable.
+      const owner = typeof game.creatorGithub === 'string' ? game.creatorGithub : '';
+      if (
+        !ownershipFacts(game, login, { isOrgMember: false, isLegacyAcceptedCollaborator: false })
+          .isCreator
+      ) {
+        return {
+          ok: false,
+          error: owner
+            ? `Only the creator (${owner}) can update this game`
+            : `This game has no recorded owner and can't be edited here`,
+          code: 'forbidden',
+        };
+      }
+      let changed = false;
+      for (const [key, value] of Object.entries(checked.values)) {
+        if (value !== game[key]) {
+          game[key] = value;
+          changed = true;
+        }
+      }
+      if (!changed) return { ok: false, error: 'No changes', code: 'invalid' };
+      // Opportunistically freeze only legacy strings that can be reconstructed
+      // from concrete registry facts. The edited game's own forkedFrom is never
+      // an allowed input and therefore remains immutable.
+      migrateLegacyForkAttribution(items);
+      game.updatedAt = new Date().toISOString();
+      return { ok: true, value: undefined };
+    },
+  );
+  return result.ok ? { ok: true } : { error: result.error, code: result.code };
 }
 
 /**
@@ -1448,58 +1520,48 @@ export async function handleDeleteGame(
    *  Deprovision button could only ever delete the admin's own games, which is
    *  not what an ops console is for. */
   opts: { adminOverride?: boolean } = {},
-): Promise<{ ok?: boolean; error?: string; steps?: Step[] }> {
+): Promise<{ ok?: boolean; error?: string; code?: LifecycleErrorCode; steps?: Step[] }> {
   const config = STORE_CONFIG;
-  const registryPath = `/repos/${config.org}/${config.storeRepo}/contents/registry.json`;
-  const registryFile = await ghApi(env, registryPath);
-  if (!registryFile.content) return { error: 'Could not read registry.json' };
-
-  const rawContent = new TextDecoder().decode(
-    Uint8Array.from(atob(registryFile.content.replace(/\n/g, '')), (c) => c.charCodeAt(0)),
-  );
-  const content = JSON.parse(rawContent);
-  const items: Array<Record<string, unknown>> = content[config.registryKey] || [];
-  const idx = items.findIndex((g) => g.id === gameId);
-  if (idx < 0) return { error: `Game "${gameId}" not found in registry` };
-
-  const game = items[idx]!;
-  const owner = typeof game.creatorGithub === 'string' ? game.creatorGithub : '';
-  if (opts.adminOverride) {
-    console.log(`[deprovision] ADMIN override by ${login} on ${gameId} (owner=${owner || 'none'})`);
-  }
-  if (
-    !opts.adminOverride &&
-    !ownershipFacts(game, login, { isOrgMember: false, isLegacyAcceptedCollaborator: false })
-      .isCreator
-  ) {
-    return {
-      error: owner
-        ? `Only the creator (${owner}) can delete this game`
-        : `This game has no recorded owner and can't be deleted here`,
-    };
-  }
 
   const steps: Step[] = [];
 
   // 1. Remove the registry entry (delists it from the store + the dashboard).
-  items.splice(idx, 1);
-  content[config.registryKey] = items;
-  const updateResult = await ghApi(env, registryPath, 'PUT', {
-    message: `Delete ${gameId} from games registry`,
-    content: btoa(
-      Array.from(new TextEncoder().encode(JSON.stringify(content, null, 2)))
-        .map((b) => String.fromCharCode(b))
-        .join(''),
-    ),
-    sha: registryFile.sha,
+  //    Existence and ownership are checked inside the mutation so a retry after
+  //    a concurrent registry write re-checks them against the fresh state.
+  const delisted = await mutateRegistry(env, `Delete ${gameId} from games registry`, (items) => {
+    const idx = items.findIndex((g) => g.id === gameId);
+    if (idx < 0) {
+      return { ok: false, error: `Game "${gameId}" not found in registry`, code: 'not_found' };
+    }
+    const game = items[idx]!;
+    const owner = typeof game.creatorGithub === 'string' ? game.creatorGithub : '';
+    if (opts.adminOverride) {
+      console.log(
+        `[deprovision] ADMIN override by ${login} on ${gameId} (owner=${owner || 'none'})`,
+      );
+    }
+    if (
+      !opts.adminOverride &&
+      !ownershipFacts(game, login, { isOrgMember: false, isLegacyAcceptedCollaborator: false })
+        .isCreator
+    ) {
+      return {
+        ok: false,
+        error: owner
+          ? `Only the creator (${owner}) can delete this game`
+          : `This game has no recorded owner and can't be deleted here`,
+        code: 'forbidden',
+      };
+    }
+    items.splice(idx, 1);
+    return { ok: true, value: undefined };
   });
-  if (!updateResult.content) {
-    steps.push({
-      name: 'Store registry',
-      status: 'fail',
-      detail: updateResult.message || 'Failed to update',
-    });
-    return { error: updateResult.message || 'Failed to update registry', steps };
+  if (!delisted.ok) {
+    if (delisted.code === 'upstream' || delisted.code === 'conflict') {
+      steps.push({ name: 'Store registry', status: 'fail', detail: delisted.error });
+      return { error: delisted.error, code: delisted.code, steps };
+    }
+    return { error: delisted.error, code: delisted.code };
   }
   steps.push({ name: 'Store registry', status: 'ok', detail: `${gameId} delisted` });
 

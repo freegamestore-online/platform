@@ -4,7 +4,9 @@ import {
   handleDeleteGame,
   handlePublish,
   handleUpdateGame,
+  lifecycleStatus,
   normalizeForkedFrom,
+  provisionStatus,
   readGameStatus,
   renderRemixAttributionShell,
   setGameStatuses,
@@ -1306,5 +1308,130 @@ describe('handleUpdateGame validates like provision (#65)', () => {
     const put = stub();
     expect((await update({ category: 'Arcade' })).error).toBe('No changes');
     expect(put.game).toBeUndefined();
+  });
+});
+
+describe('registry write retry and lifecycle error codes (#66)', () => {
+  const env = {
+    GITHUB_TOKEN: 'x',
+    DB: { prepare: () => ({ bind: () => ({ run: async () => {} }) }) },
+  } as unknown as Parameters<typeof handleUpdateGame>[3];
+  const b64 = (text: string) =>
+    btoa(Array.from(new TextEncoder().encode(text), (b) => String.fromCharCode(b)).join(''));
+  const game = { id: 'chess', name: 'Chess', creatorGithub: 'grace' };
+
+  /**
+   * Stub GitHub. `reads` = the registry served on each successive GET;
+   * `puts` = the status of each successive registry PUT.
+   */
+  function stub(reads: unknown[][], puts: number[]) {
+    const calls = { gets: 0, puts: 0 };
+    vi.stubGlobal('fetch', async (input: unknown, init?: { method?: string }) => {
+      const url = typeof input === 'string' ? input : (input as Request).url;
+      const method = init?.method ?? 'GET';
+      if (url.includes('/contents/registry.json')) {
+        if (method === 'PUT') {
+          const status = puts[calls.puts++] ?? 200;
+          return status === 200
+            ? new Response(JSON.stringify({ content: {} }), { status })
+            : new Response(JSON.stringify({ message: 'sha mismatch' }), { status });
+        }
+        const games = reads[Math.min(calls.gets++, reads.length - 1)];
+        return new Response(
+          JSON.stringify({ content: b64(JSON.stringify({ games })), sha: `s${calls.gets}` }),
+          {
+            status: 200,
+          },
+        );
+      }
+      if (method === 'PATCH')
+        return new Response(JSON.stringify({ archived: true }), { status: 200 });
+      return new Response('{}', { status: 200 });
+    });
+    return calls;
+  }
+
+  it('update retries once after a concurrent registry write (409) and succeeds', async () => {
+    const calls = stub([[game], [game, { id: 'new-game' }]], [409, 200]);
+    const res = await handleUpdateGame('chess', 'grace', { name: 'Chess Pro' }, env);
+    expect(res).toEqual({ ok: true });
+    expect(calls).toEqual({ gets: 2, puts: 2 });
+  });
+
+  it('update reports a conflict, not a raw 400, if the registry stays contended', async () => {
+    stub([[game]], [409, 409]);
+    const res = await handleUpdateGame('chess', 'grace', { name: 'Chess Pro' }, env);
+    expect(res.code).toBe('conflict');
+    expect(lifecycleStatus(res.code)).toBe(409);
+  });
+
+  it('the retry re-checks against the fresh registry (game deleted meanwhile)', async () => {
+    const calls = stub([[game], []], [409]);
+    const res = await handleUpdateGame('chess', 'grace', { name: 'Chess Pro' }, env);
+    expect(res.code).toBe('not_found');
+    expect(calls.puts).toBe(1); // nothing written on the retry
+  });
+
+  it('delete retries once after a 409 and finishes the deprovision', async () => {
+    const calls = stub([[game], [game]], [409, 200]);
+    const res = await handleDeleteGame('chess', 'grace', env);
+    expect(res.ok).toBe(true);
+    expect(calls.puts).toBe(2);
+    expect(res.steps).toContainEqual(
+      expect.objectContaining({ name: 'Store registry', status: 'ok' }),
+    );
+  });
+
+  it.each([
+    [
+      'update by a non-owner',
+      'forbidden',
+      () => handleUpdateGame('chess', 'mallory', { name: 'X' }, env),
+    ],
+    ['delete by a non-owner', 'forbidden', () => handleDeleteGame('chess', 'mallory', env)],
+    [
+      'update of an unknown game',
+      'not_found',
+      () => handleUpdateGame('nope', 'grace', { name: 'X' }, env),
+    ],
+    ['delete of an unknown game', 'not_found', () => handleDeleteGame('nope', 'grace', env)],
+    [
+      'update with an empty name',
+      'invalid',
+      () => handleUpdateGame('chess', 'grace', { name: '' }, env),
+    ],
+  ])('%s is %s', async (_label, code, run) => {
+    stub([[game]], []);
+    expect((await run()).code).toBe(code);
+  });
+
+  it('an unreadable registry is an upstream failure', async () => {
+    vi.stubGlobal(
+      'fetch',
+      async () => new Response(JSON.stringify({ message: 'Server Error' }), { status: 500 }),
+    );
+    expect((await handleUpdateGame('chess', 'grace', { name: 'X' }, env)).code).toBe('upstream');
+    expect((await handleDeleteGame('chess', 'grace', env)).code).toBe('upstream');
+  });
+
+  it('maps codes and provision results to HTTP statuses', () => {
+    expect([
+      lifecycleStatus('invalid'),
+      lifecycleStatus('forbidden'),
+      lifecycleStatus('not_found'),
+      lifecycleStatus('conflict'),
+      lifecycleStatus('upstream'),
+      lifecycleStatus(undefined),
+    ]).toEqual([400, 403, 404, 409, 502, 400]);
+    const fail = (name: string) => ({
+      success: false,
+      steps: [{ name, status: 'fail' as const, detail: '' }],
+    });
+    expect(provisionStatus({ success: true, steps: [] })).toBe(200);
+    expect(provisionStatus({ ...fail('GitHub repo'), conflict: true })).toBe(409);
+    expect(provisionStatus(fail('Validation'))).toBe(400);
+    expect(provisionStatus(fail('Fork attribution'))).toBe(400);
+    expect(provisionStatus(fail('GitHub repo'))).toBe(502);
+    expect(provisionStatus(fail('Store registry'))).toBe(502);
   });
 });

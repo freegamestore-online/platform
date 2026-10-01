@@ -250,8 +250,8 @@ describe('creator self-serve routes are NOT behind the admin gate', () => {
       req('/api/games/chess', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }),
       makeEnv({ signingKey: key, adminEmails: ADMIN, DB: undefined }),
     );
-    // Reached handleDeleteGame (400 ownership), NOT the admin gate's 401.
-    expect(res.status).toBe(400);
+    // Reached handleDeleteGame (403 ownership), NOT the admin gate's 401.
+    expect(res.status).toBe(403); // not the creator → forbidden (#66)
     expect(((await res.json()) as { error?: string }).error).toMatch(/only the creator/i);
   });
 
@@ -281,7 +281,7 @@ describe('creator self-serve routes are NOT behind the admin gate', () => {
       }),
       makeEnv({ signingKey: key, adminEmails: ADMIN, DB: undefined }),
     );
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(403); // not the creator → forbidden (#66)
     expect(((await res.json()) as { error?: string }).error).toMatch(/only the creator/i);
   });
 
@@ -418,5 +418,75 @@ describe('/me audience binding (#69)', () => {
     expect(authHeaders.at(-1)?.get('X-FGS-Audience')).toBe(
       'https://admin.freegamestore.online,https://console.freegamestore.online,https://mcp.freegamestore.online',
     );
+  });
+});
+
+describe('lifecycle HTTP statuses (#66)', () => {
+  const b64 = (text: string) =>
+    btoa(Array.from(new TextEncoder().encode(text), (b) => String.fromCharCode(b)).join(''));
+
+  async function patch(
+    body: string,
+    registry: { status: number; games?: unknown[] },
+    putStatus = 200,
+  ) {
+    const key = 'creator-key';
+    const token = await mintSessionToken('grace', key);
+    vi.stubGlobal('fetch', async (_input: unknown, init?: { method?: string }) => {
+      if (init?.method === 'PUT')
+        return new Response(
+          JSON.stringify(putStatus === 200 ? { content: {} } : { message: 'boom' }),
+          { status: putStatus },
+        );
+      if (registry.status !== 200) return new Response('{}', { status: registry.status });
+      return new Response(
+        JSON.stringify({ content: b64(JSON.stringify({ games: registry.games })), sha: 's' }),
+        { status: 200 },
+      );
+    });
+    return worker.fetch(
+      req('/api/games/chess', {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body,
+      }),
+      makeEnv({ signingKey: key, adminEmails: ADMIN, DB: undefined }),
+    );
+  }
+  const owned = [{ id: 'chess', name: 'Chess', creatorGithub: 'grace' }];
+
+  it('404 for a game that is not in the registry', async () => {
+    expect((await patch('{"name":"X"}', { status: 200, games: [] })).status).toBe(404);
+  });
+
+  it('400 (not 500) for a body that is not JSON', async () => {
+    expect((await patch('{not json', { status: 200, games: owned })).status).toBe(400);
+  });
+
+  it('502 when GitHub fails the registry write', async () => {
+    expect((await patch('{"name":"Chess Pro"}', { status: 200, games: owned }, 503)).status).toBe(
+      502,
+    );
+  });
+
+  it('502 (not 400) when provisioning hits a GitHub failure', async () => {
+    vi.stubGlobal(
+      'fetch',
+      async () => new Response(JSON.stringify({ message: 'rate limited' }), { status: 403 }),
+    );
+    const res = await worker.fetch(
+      req('/api/provision', {
+        method: 'POST',
+        headers: { 'X-Internal-Token': 'secret', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: 'space-rescue',
+          name: 'Space Rescue',
+          category: 'arcade',
+          creatorGithub: 'grace',
+        }),
+      }),
+      makeEnv({ internalToken: 'secret', adminEmails: ADMIN, DB: undefined }),
+    );
+    expect(res.status).toBe(502);
   });
 });
