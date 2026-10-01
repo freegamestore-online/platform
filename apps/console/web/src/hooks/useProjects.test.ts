@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // useProjects only needs { user, loading } from useAuth — stub a signed-in user.
@@ -194,5 +195,47 @@ describe('useProjects — openGame', () => {
     expect(result.current.currentId).toBe(openedId);
     const p = result.current.projects.find((x) => x.id === openedId);
     expect(p?.appId).toBe('new-game');
+  });
+});
+
+describe('useProjects — no side effects inside state updaters (#80)', () => {
+  const calls = () =>
+    vi.mocked(globalThis.fetch).mock.calls.map(([input, init]) => ({
+      url: String(input),
+      method: (init?.method || 'GET').toUpperCase(),
+    }));
+
+  async function strictMounted() {
+    const hook = renderHook(() => useProjects(), { wrapper: StrictMode });
+    await waitFor(() => expect(hook.result.current.loading).toBe(false));
+    return hook;
+  }
+
+  it('rename sends exactly one PUT under StrictMode', async () => {
+    sessionsResponse = { sessions: [srv('sess-a', 'Game A')] };
+    const { result } = await strictMounted();
+    act(() => result.current.rename('sess-a', 'Renamed'));
+    expect(result.current.projects.find((p) => p.id === 'sess-a')?.name).toBe('Renamed');
+    expect(calls().filter((c) => c.method === 'PUT')).toHaveLength(1);
+  });
+
+  it('markDeployed sends exactly one PUT under StrictMode', async () => {
+    sessionsResponse = { sessions: [srv('sess-a', 'Game A')] };
+    const { result } = await strictMounted();
+    act(() =>
+      result.current.markDeployed('sess-a', 'game-a', 'https://game-a.freegamestore.online'),
+    );
+    expect(result.current.projects.find((p) => p.id === 'sess-a')?.deployed).toBe(true);
+    expect(calls().filter((c) => c.method === 'PUT')).toHaveLength(1);
+  });
+
+  it('deleting the open session moves to the next one (setCurrentId outside the updater)', async () => {
+    sessionsResponse = { sessions: [srv('sess-a', 'Game A'), srv('sess-b', 'Game B')] };
+    const { result } = await strictMounted();
+    act(() => result.current.switchTo('sess-a'));
+    act(() => result.current.deleteProject('sess-a'));
+    expect(result.current.projects.map((p) => p.id)).toEqual(['sess-b']);
+    expect(result.current.currentId).toBe('sess-b');
+    expect(calls().filter((c) => c.method === 'DELETE')).toHaveLength(1);
   });
 });

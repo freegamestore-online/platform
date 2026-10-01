@@ -76,6 +76,21 @@ async function putSession(project: Project, attempt = 0): Promise<void> {
 export function useProjects() {
   const { user, loading: authLoading } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
+  // Projects are updated ONLY through commitProjects: the transition runs once,
+  // synchronously, against the latest list, and callers do their side effects
+  // (putSession, setCurrentId) AFTER it returns. Side effects inside a React
+  // updater run twice under StrictMode (and can in concurrent rendering), which
+  // double-sent every PUT (#80).
+  const projectsRef = useRef<Project[]>([]);
+  const commitProjects = useCallback(
+    (update: Project[] | ((prev: Project[]) => Project[])): Project[] => {
+      const next = typeof update === 'function' ? update(projectsRef.current) : update;
+      projectsRef.current = next;
+      setProjects(next);
+      return next;
+    },
+    [],
+  );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -114,7 +129,7 @@ export function useProjects() {
     }
 
     if (!user) {
-      setProjects([]);
+      commitProjects([]);
       setCurrentId(null);
       setLoading(false);
       return;
@@ -147,12 +162,12 @@ export function useProjects() {
         // picker/toolbar have an entry; loadHistory() fills in the real
         // transcript + name from the DO.
         if (stored && !storedInList) {
-          setProjects([placeholderProject(stored), ...server]);
+          commitProjects([placeholderProject(stored), ...server]);
           setCurrentId(stored);
           return;
         }
 
-        setProjects(server);
+        commitProjects(server);
         // Only auto-open the session the user actually left open (stored). With no
         // valid stored id — first visit, cleared storage, or a deleted session —
         // land on the empty "start or open a game" state instead of silently
@@ -189,22 +204,22 @@ export function useProjects() {
         appId,
         appUrl: appId ? `https://${appId}.freegamestore.online` : undefined,
       };
-      setProjects((prev) => [project, ...prev]);
+      commitProjects((prev) => [project, ...prev]);
       setCurrentId(id);
       putSession(project);
       return id;
     },
-    [setCurrentId],
+    [setCurrentId, commitProjects],
   );
 
   const switchTo = useCallback(
     (id: string) => {
-      setProjects((prev) =>
+      commitProjects((prev) =>
         prev.some((project) => project.id === id) ? prev : [placeholderProject(id), ...prev],
       );
       setCurrentId(id);
     },
-    [setCurrentId],
+    [setCurrentId, commitProjects],
   );
 
   // Open an EXISTING game in the studio. If a local session is already bound to
@@ -271,14 +286,14 @@ export function useProjects() {
       // Always update the project row (keeps the local list in sync with the import
       // result), but only switch the active session if the user hasn't already moved
       // on to a different game in the time the async import was in flight.
-      setProjects((prev) => [project, ...prev.filter((p) => p.id !== id)]);
+      commitProjects((prev) => [project, ...prev.filter((p) => p.id !== id)]);
       if (openTokenRef.current === token) {
         setCurrentId(id);
       }
       putSession(project);
       return id;
     },
-    [projects, setCurrentId],
+    [projects, setCurrentId, commitProjects],
   );
 
   // Start a FRESH chat for an already-built game: mint a brand-new session id
@@ -330,7 +345,7 @@ export function useProjects() {
         appUrl: data.appUrl || `https://${gameId}.freegamestore.online`,
       };
       // Swap in the fresh session and drop every stale one for this game.
-      setProjects((prev) => [project, ...prev.filter((p) => !stale.has(p.id))]);
+      commitProjects((prev) => [project, ...prev.filter((p) => !stale.has(p.id))]);
       if (openTokenRef.current === token) {
         setCurrentId(id);
       }
@@ -344,22 +359,24 @@ export function useProjects() {
       }
       return id;
     },
-    [projects, setCurrentId],
+    [projects, setCurrentId, commitProjects],
   );
 
-  const rename = useCallback((id: string, name: string) => {
-    setProjects((prev) => {
+  const rename = useCallback(
+    (id: string, name: string) => {
+      const prev = projectsRef.current;
       const existing = prev.find((project) => project.id === id);
-      if (!existing) return [placeholderProject(id, name), ...prev];
-      if (existing.name === name) return prev;
-      const updated = prev.map((project) =>
-        project.id === id ? { ...project, name, updatedAt: Date.now() } : project,
-      );
-      const project = updated.find((candidate) => candidate.id === id);
-      if (project) putSession(project);
-      return updated;
-    });
-  }, []);
+      if (!existing) {
+        commitProjects([placeholderProject(id, name), ...prev]);
+        return;
+      }
+      if (existing.name === name) return;
+      const project = { ...existing, name, updatedAt: Date.now() };
+      commitProjects(prev.map((candidate) => (candidate.id === id ? project : candidate)));
+      putSession(project);
+    },
+    [commitProjects],
+  );
 
   // Remove a session (a draft, or any session you no longer want in the studio).
   // Deletes the D1 index row; the DO transcript is left orphaned but unreachable.
@@ -367,26 +384,22 @@ export function useProjects() {
   // pointed at a session that no longer exists.
   const deleteProject = useCallback(
     (id: string) => {
-      setProjects((prev) => {
-        const remaining = prev.filter((p) => p.id !== id);
-        if (currentId === id) setCurrentId(remaining[0]?.id ?? null);
-        return remaining;
-      });
+      const remaining = commitProjects((prev) => prev.filter((p) => p.id !== id));
+      if (currentId === id) setCurrentId(remaining[0]?.id ?? null);
       fetch(`${AGENT_URL}/sessions/${id}`, { method: 'DELETE', credentials: 'include' }).catch(
         () => {
           // Best-effort; the next reload reconciles from the server.
         },
       );
     },
-    [currentId, setCurrentId],
+    [currentId, setCurrentId, commitProjects],
   );
 
-  const markDeployed = useCallback((sessionId: string, appId: string, appUrl: string) => {
-    setProjects((prev) => {
+  const markDeployed = useCallback(
+    (sessionId: string, appId: string, appUrl: string) => {
+      const prev = projectsRef.current;
       const existing = prev.find((project) => project.id === sessionId);
-      if (existing?.deployed && existing.appId === appId && existing.appUrl === appUrl) {
-        return prev;
-      }
+      if (existing?.deployed && existing.appId === appId && existing.appUrl === appUrl) return;
       if (!existing) {
         const project: Project = {
           ...placeholderProject(sessionId, appId),
@@ -394,20 +407,17 @@ export function useProjects() {
           appUrl,
           deployed: true,
         };
+        commitProjects([project, ...prev]);
         putSession(project);
-        return [project, ...prev];
+        return;
       }
       // Keep the user's chosen project name — don't overwrite it with the repo id.
-      const updated = prev.map((project) =>
-        project.id === sessionId
-          ? { ...project, appId, appUrl, deployed: true, updatedAt: Date.now() }
-          : project,
-      );
-      const project = updated.find((candidate) => candidate.id === sessionId);
-      if (project) putSession(project);
-      return updated;
-    });
-  }, []);
+      const project = { ...existing, appId, appUrl, deployed: true, updatedAt: Date.now() };
+      commitProjects(prev.map((candidate) => (candidate.id === sessionId ? project : candidate)));
+      putSession(project);
+    },
+    [commitProjects],
+  );
 
   return {
     projects,

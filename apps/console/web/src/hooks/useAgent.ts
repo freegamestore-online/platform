@@ -59,6 +59,26 @@ export function useAgent() {
   const [tokensIn, setTokensIn] = useState(0);
   const [tokensOut, setTokensOut] = useState(0);
   const [deployState, setDeployState] = useState<DeployState | null>(null);
+  // Deploy state is updated ONLY through commitDeployState: it computes the next
+  // value once, synchronously, against the latest value (not the last render),
+  // so callers can act on it without side effects inside a React updater —
+  // which React may invoke twice (StrictMode always does), double-starting
+  // pollers (#80).
+  const deployStateRef = useRef<DeployState | null>(null);
+  const commitDeployState = useCallback(
+    (update: DeployState | null | ((prev: DeployState | null) => DeployState | null)) => {
+      const next = typeof update === 'function' ? update(deployStateRef.current) : update;
+      deployStateRef.current = next;
+      setDeployState(next);
+    },
+    [],
+  );
+  // At most one deploy-status poller; a new poll, a new send, a session switch
+  // and unmount all abort the previous one so stale pollers can't overwrite
+  // newer state (#80).
+  const pollRef = useRef<AbortController | null>(null);
+  // The in-flight chat stream, aborted on unmount.
+  const streamRef = useRef<AbortController | null>(null);
   // Sticky error banner. Chat/deploy errors used to live only as a chat bubble,
   // so any session reset (e.g. the jump to a fresh "New Game") wiped them and
   // the user never saw what failed. This survives loadHistory/auto-reset and is
@@ -71,12 +91,17 @@ export function useAgent() {
   // Stops background loops (deploy polling) from running + calling setState after
   // the studio unmounts — otherwise pollDeployStatus keeps fetching for ~3 min.
   const mountedRef = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // Set on (re)mount, not only initialised: StrictMode's simulated
+    // unmount/remount runs the cleanup once, which used to leave this false for
+    // the component's whole life — so deploy polling silently never ran.
+    mountedRef.current = true;
+    return () => {
       mountedRef.current = false;
-    },
-    [],
-  );
+      pollRef.current?.abort();
+      streamRef.current?.abort();
+    };
+  }, []);
 
   // No client-side message persistence: the agent worker's Durable Object saves
   // the authoritative transcript on every turn, and loadHistory() restores it
@@ -84,13 +109,14 @@ export function useAgent() {
   // store only forked the transcript and raced the DO.
 
   const resetUI = useCallback(() => {
+    pollRef.current?.abort(); // a poll for the previous session must not land here
     setMessages(DEFAULT_MESSAGES);
     setVisibleCount(INITIAL_VISIBLE);
-    setDeployState(null);
+    commitDeployState(null);
     setTokensIn(0);
     setTokensOut(0);
     setError(null);
-  }, []);
+  }, [commitDeployState]);
 
   // Switching sessions mid-stream is unsafe: resetUI() clears messages and
   // loadHistory() refuses to run while streaming, so the still-open SSE reader
@@ -171,7 +197,7 @@ export function useAgent() {
   const loadHistory = useCallback(async () => {
     if (!sessionId) {
       setMessages(DEFAULT_MESSAGES);
-      setDeployState(null);
+      commitDeployState(null);
       return;
     }
     if (isStreamingRef.current) return;
@@ -195,7 +221,7 @@ export function useAgent() {
         if (restored.length > 0) {
           setMessages(restored);
           setVisibleCount(INITIAL_VISIBLE); // show the last 20 on restore
-          setDeployState(normalizeDeployState(historyData.deployStatus));
+          commitDeployState(normalizeDeployState(historyData.deployStatus));
           // Restore the running token totals too — /history reports them, but
           // they weren't being read, so a reloaded session always showed
           // "In 0 · Out 0" even after a long build.
@@ -217,49 +243,69 @@ export function useAgent() {
     } catch {
       // The composer remains usable; the next focus/reload can retry history.
     }
-  }, [sessionId, projectsMgr.markDeployed, projectsMgr.rename]);
+  }, [sessionId, projectsMgr.markDeployed, projectsMgr.rename, commitDeployState]);
 
   // After the SSE stream drops mid-deploy, the game's GitHub Actions build keeps
   // running (it's independent of the connection). Poll the session status so a
   // successful deploy resolves to "live" instead of a scary "unknown" — the DO
   // writes deployStatus as the build finishes.
-  const pollDeployStatus = useCallback(async (sid: string, deployUrl?: string) => {
-    for (let i = 0; i < 18; i++) {
-      // ~3 min at 10s
-      await new Promise((r) => setTimeout(r, 10000));
-      if (!mountedRef.current) return; // studio unmounted — stop polling
-      if (sessionIdRef.current !== sid) return; // user switched projects
+  const pollDeployStatus = useCallback(
+    async (sid: string, deployUrl?: string) => {
+      pollRef.current?.abort();
+      const ctrl = new AbortController();
+      pollRef.current = ctrl;
+      // Still the current poller, for a mounted studio on the same session?
+      const current = () =>
+        !ctrl.signal.aborted && mountedRef.current && sessionIdRef.current === sid;
       try {
-        const res = await fetch(`${AGENT_URL}/session/${sid}/status`, { credentials: 'include' });
-        if (!res.ok) continue;
-        const ds = normalizeDeployState(
-          ((await res.json()) as { deployStatus?: DeployState | null }).deployStatus,
-        );
-        if (ds?.phase === 'live') {
-          setDeployState(ds);
-          setError(null);
-          return;
+        for (let i = 0; i < 18; i++) {
+          // ~3 min at 10s
+          await new Promise((r) => setTimeout(r, 10000));
+          if (!current()) return;
+          try {
+            const res = await fetch(`${AGENT_URL}/session/${sid}/status`, {
+              credentials: 'include',
+              signal: ctrl.signal,
+            });
+            if (!res.ok) continue;
+            const ds = normalizeDeployState(
+              ((await res.json()) as { deployStatus?: DeployState | null }).deployStatus,
+            );
+            if (!current()) return;
+            if (ds?.phase === 'live') {
+              commitDeployState(ds);
+              setError(null);
+              return;
+            }
+            if (ds?.phase === 'error') {
+              commitDeployState(ds);
+              setError(ds.error || 'Deploy failed.');
+              return;
+            }
+          } catch {
+            /* keep polling (an abort is caught by current() above) */
+          }
         }
-        if (ds?.phase === 'error') {
-          setDeployState(ds);
-          setError(ds.error || 'Deploy failed.');
-          return;
-        }
-      } catch {
-        /* keep polling */
+        // Polling gave up, but the build is almost certainly still running — this
+        // is NOT an error. Keep the deploy state in "building" with a hint so the
+        // UI shows a calm status, not a red banner. Never downgrade a deploy that
+        // has meanwhile reached live/error (e.g. via a newer stream).
+        if (!current()) return;
+        const prev = deployStateRef.current;
+        if (prev?.phase === 'live' || prev?.phase === 'error') return;
+        const where = deployUrl ? ` at ${deployUrl.replace('https://', '')}` : '';
+        commitDeployState({
+          phase: 'building',
+          steps: prev?.steps ?? [],
+          appUrl: deployUrl ?? prev?.appUrl,
+          hint: `Still building${where} — this can take a minute or two. It flips to Live automatically, or reload to check.`,
+        });
+      } finally {
+        if (pollRef.current === ctrl) pollRef.current = null;
       }
-    }
-    // Polling gave up, but the build is almost certainly still running — this is
-    // NOT an error. Keep the deploy state in "building" with a hint so the UI
-    // shows a calm "Building & deploying" status, not a red error banner.
-    const where = deployUrl ? ` at ${deployUrl.replace('https://', '')}` : '';
-    setDeployState((prev) => ({
-      phase: 'building',
-      steps: prev?.steps ?? [],
-      appUrl: deployUrl ?? prev?.appUrl,
-      hint: `Still building${where} — this can take a minute or two. It flips to Live automatically, or reload to check.`,
-    }));
-  }, []);
+    },
+    [commitDeployState],
+  );
 
   const sendMessage = useCallback(
     async (message: string, aiConfig: AIConfig) => {
@@ -269,6 +315,10 @@ export function useAgent() {
       let lastStreamEventAt = streamStartedAt;
       let releasedByTerminalStatus = false;
       const controller = new AbortController();
+      streamRef.current = controller;
+      // This turn streams its own deploy_status; a leftover poll from the last
+      // turn must not overwrite it.
+      pollRef.current?.abort();
       setIsStreaming(true);
       setError(null);
       setMessages((prev) => [
@@ -411,7 +461,7 @@ export function useAgent() {
                   const tr = JSON.parse(evt.data);
                   if (tr.tool === 'deploy') {
                     addBreadcrumb('deploy', sessionId ?? '');
-                    setDeployState({ phase: 'provisioning', steps: [] });
+                    commitDeployState({ phase: 'provisioning', steps: [] });
                   } else if (
                     !['write_file', 'read_file', 'list_files', 'delete_file'].includes(tr.tool) &&
                     tr.result
@@ -436,7 +486,7 @@ export function useAgent() {
                   // The server's error event carries only { phase, error } — no
                   // steps and no indication of which step failed. Preserve the
                   // in-progress steps/phase so DeployLog can highlight the failure.
-                  setDeployState((prev) =>
+                  commitDeployState((prev) =>
                     ds.phase === 'error' && prev
                       ? { ...ds, steps: ds.steps ?? prev.steps, failedPhase: prev.phase }
                       : ds,
@@ -478,26 +528,26 @@ export function useAgent() {
       } finally {
         window.clearInterval(terminalPoll);
         setIsStreaming(false);
+        if (streamRef.current === controller) streamRef.current = null;
         // If the stream ended (cleanly or by a dropped connection) while a deploy
         // was still provisioning/pushing/building — with no terminal live/error
-        // deploy_status — don't leave the spinner stuck forever. Resolve it to a
-        // recoverable error state. Terminal phases (live/error) are left as-is.
-        setDeployState((prev) => {
-          if (prev && prev.phase !== 'live' && prev.phase !== 'error') {
-            // Don't declare failure — the Actions build finishes independent of
-            // this stream. Keep the in-progress view and poll status; the poll
-            // resolves it to live/error or a friendly "still building" note.
-            // Deploy status is normalized to appUrl, including server-side
-            // building statuses that arrive as deployUrl.
-            const deployUrl = prev.appUrl;
-            if (sessionId) void pollDeployStatus(sessionId, deployUrl);
-            return prev;
-          }
-          return prev;
-        });
+        // deploy_status — don't leave the spinner stuck: poll status (outside any
+        // state updater, so it starts exactly once). The Actions build finishes
+        // independent of this stream; the poll resolves it to live/error or a
+        // friendly "still building" note.
+        const pending = deployStateRef.current;
+        if (
+          pending &&
+          pending.phase !== 'live' &&
+          pending.phase !== 'error' &&
+          mountedRef.current &&
+          sessionIdRef.current === streamSession
+        ) {
+          void pollDeployStatus(streamSession, pending.appUrl);
+        }
       }
     },
-    [sessionId, isStreaming, projectsMgr, pollDeployStatus, loadHistory],
+    [sessionId, isStreaming, projectsMgr, pollDeployStatus, loadHistory, commitDeployState],
   );
 
   const dismissError = useCallback(() => setError(null), []);
