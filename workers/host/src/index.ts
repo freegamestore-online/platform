@@ -182,11 +182,25 @@ async function dispatchPlatform(req: Request, env: Env, slug: string, host: stri
   if (mapping.type === "proxy") {
     const headers = new Headers(req.headers);
     headers.delete("host");
-    return await fetch(`${mapping.target}${url.pathname}${url.search}`, {
+    // redirect: "manual" — a 3xx from the upstream must reach the browser as-is.
+    // Following it here (fetch's default) swallowed redirects that set cookies,
+    // e.g. /auth/handoff's 302 + session Set-Cookie, and served the final page
+    // at the original URL (#74).
+    const upstream = await fetch(`${mapping.target}${url.pathname}${url.search}`, {
       method: req.method,
       headers,
       body: req.body,
+      redirect: "manual",
     });
+    // Keep the browser on the public host if the upstream redirects to its own
+    // origin (e.g. Pages' canonical-URL redirects on the pages.dev host).
+    const location = upstream.headers.get("location");
+    if (location?.startsWith(`${mapping.target}/`) || location === mapping.target) {
+      const rewritten = new Response(upstream.body, upstream);
+      rewritten.headers.set("location", `https://${host}${location.slice(mapping.target.length) || "/"}`);
+      return rewritten;
+    }
+    return upstream;
   }
   if (mapping.type === "redirect") {
     return Response.redirect(`${mapping.to}${url.pathname}${url.search}`, mapping.status ?? 301);
@@ -268,14 +282,26 @@ function respond(obj: R2ObjectBody, ct: string, req: Request, revalidate: boolea
   headers.set("etag", obj.httpEtag);
   headers.set("accept-ranges", "bytes");
   // Partial content: R2 populated obj.range because the request carried a Range.
-  const range = obj.range as { offset?: number; length?: number } | undefined;
-  if (range && req.method === "GET") {
-    const offset = range.offset ?? 0;
-    const length = range.length ?? obj.size - offset;
+  if (obj.range && req.method === "GET") {
+    const { offset, length } = rangeBounds(obj.range, obj.size);
     headers.set("content-range", `bytes ${offset}-${offset + length - 1}/${obj.size}`);
     return new Response(obj.body, { status: 206, headers });
   }
   return new Response(req.method === "HEAD" ? null : obj.body, { headers });
+}
+
+/** Absolute byte bounds of an R2 range. R2 reports `bytes=-N` as `{ suffix: N }`
+ *  (the LAST N bytes); treating it as offset 0 sent a Content-Range for the
+ *  whole file with only N bytes of body, corrupting tail reads such as an MP4's
+ *  trailing moov atom (#74). */
+function rangeBounds(range: R2Range, size: number): { offset: number; length: number } {
+  if ("suffix" in range && range.suffix !== undefined) {
+    const length = Math.min(range.suffix, size);
+    return { offset: size - length, length };
+  }
+  const offset = "offset" in range && range.offset !== undefined ? range.offset : 0;
+  const length = "length" in range && range.length !== undefined ? range.length : size - offset;
+  return { offset, length: Math.min(length, size - offset) };
 }
 
 function notFound(domain: string, path?: string): Response {
