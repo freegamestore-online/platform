@@ -53,8 +53,15 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   // KV for ban status.
   const raw = await context.env.CREATORS.get(user);
-  const kvRecord = raw ? JSON.parse(raw) : null;
-  const banned = kvRecord?.banned ?? false;
+  let banned = false;
+  if (raw) {
+    try {
+      banned = (JSON.parse(raw) as { banned?: boolean } | null)?.banned === true;
+    } catch {
+      // Malformed record: same handling as create.ts — ignore it rather than
+      // 500 the whole dashboard.
+    }
+  }
   const maxGames = parseInt(context.env.MAX_APPS_PER_USER || '10');
 
   const creator: CreatorInfo = {

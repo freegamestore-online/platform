@@ -62,17 +62,21 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   }
   let allowed = owned.some((g) => g.id === id);
   if (!allowed) {
-    const collabRes = await fetch(
-      `https://api.github.com/repos/${CONFIG.org}/${id}/collaborators/${user}`,
-      {
-        headers: {
-          Authorization: `Bearer ${context.env.GITHUB_TOKEN}`,
-          Accept: 'application/vnd.github+json',
-          'User-Agent': 'freegamestore-publisher',
+    try {
+      const collabRes = await fetch(
+        `https://api.github.com/repos/${CONFIG.org}/${id}/collaborators/${user}`,
+        {
+          headers: {
+            Authorization: `Bearer ${context.env.GITHUB_TOKEN}`,
+            Accept: 'application/vnd.github+json',
+            'User-Agent': 'freegamestore-publisher',
+          },
         },
-      },
-    );
-    allowed = collabRes.status === 204;
+      );
+      allowed = collabRes.status === 204;
+    } catch {
+      return json({ error: "Couldn't verify access to this game. Please retry." }, 502);
+    }
   }
   if (!allowed) {
     return json({ error: "You don't have access to this game" }, 403);
@@ -80,17 +84,27 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   // Console's host-only session is forwarded explicitly to the admin service.
   const token = getCookie(context.request, SESSION_COOKIE) ?? '';
-  const provRes = await fetch(CONFIG.adminProvision, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-FGS-Token': token },
-    body: JSON.stringify({
-      id,
-      name: body.name,
-      category: body.category,
-      description: body.description,
-      creatorGithub: user,
-    }),
-  });
+  let provRes: Response;
+  try {
+    provRes = await fetch(CONFIG.adminProvision, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-FGS-Token': token },
+      body: JSON.stringify({
+        id,
+        name: body.name,
+        category: body.category,
+        description: body.description,
+        creatorGithub: user,
+      }),
+    });
+  } catch (e) {
+    return json(
+      {
+        error: `Couldn't reach the provisioning service: ${e instanceof Error ? e.message : String(e)}`,
+      },
+      502,
+    );
+  }
   const provData = await provRes
     .json()
     .catch(() => ({ error: 'Provision returned a non-JSON response' }));

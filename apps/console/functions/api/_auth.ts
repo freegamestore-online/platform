@@ -1,8 +1,9 @@
 // Shared auth + CORS for publisher API functions.
 //
-// Accepts either the publisher's own session (fgs_pub_session -> KV) OR the
-// creator console's auth JWT (fgs_token), so the console can call /api/create
-// and /api/publish directly without a second sign-in. The fgs_token is a
+// Authenticates the creator console's auth JWT (__Host-fgs_token), so the
+// console can call /api/create and /api/publish directly without a second
+// sign-in. (The legacy fgs_pub_session KV session is retired — see
+// resolveCreatorUser.) The fgs_token is a
 // GitHub-OAuth JWT minted by the auth worker; its `login` claim is the GitHub
 // username, which is exactly the creator identity these endpoints need.
 //
@@ -101,44 +102,22 @@ export interface CreatorUser {
 }
 
 /**
- * Resolve the signed-in creator from either the legacy publisher KV session
- * (`fgs_pub_session`) or — the canonical path since auth consolidation — the
- * `fgs_token` JWT minted by the freegamestore-auth worker. The auth worker is
- * the single identity provider; its JWT carries `sub: "github:<id>"`, `login`,
- * `name`, and `avatar` (scope is read:user, so there is no email claim).
+ * Resolve the signed-in creator from the `__Host-fgs_token` JWT minted by the
+ * freegamestore-auth worker (the single identity provider). Its JWT carries
+ * `sub: "github:<id>"`, `login`, `name`, and `avatar` (scope is read:user, so
+ * there is no email claim).
+ *
+ * The legacy publisher KV session (`fgs_pub_session`) is no longer accepted
+ * (#81). It used to be checked FIRST, so a stale legacy session for account A
+ * overrode a fresh sign-in as B; and a legacy-only browser looked signed in but
+ * had no token to forward, so every create/save/delete was rejected by admin.
+ * Such a browser is now simply signed out and signs in again through the auth
+ * worker. /auth/logout still retires the legacy cookie and KV entry.
  */
 export async function resolveCreatorUser(
   request: Request,
   env: SessionEnv,
 ): Promise<CreatorUser | null> {
-  // Legacy: publisher's own KV session (pre-consolidation sign-ins).
-  const pub = getCookie(request, 'fgs_pub_session');
-  if (pub) {
-    const raw = await env.SESSIONS.get(`sessions:${pub}`);
-    if (raw) {
-      try {
-        const s = JSON.parse(raw) as {
-          github: string;
-          githubId?: number;
-          sub?: string;
-          name?: string | null;
-          avatarUrl: string;
-          email?: string | null;
-        };
-        return {
-          github: s.github,
-          githubId: s.githubId ?? null,
-          sub: s.sub ?? (s.githubId != null ? `github:${s.githubId}` : null),
-          name: s.name ?? null,
-          avatarUrl: s.avatarUrl,
-          email: s.email ?? null,
-        };
-      } catch {
-        // fall through to JWT
-      }
-    }
-  }
-
   // Canonical: auth-worker JWT.
   const tok = getCookie(request, SESSION_COOKIE);
   if (tok && env.JWT_SECRET) {
@@ -159,7 +138,7 @@ export async function resolveCreatorUser(
   return null;
 }
 
-/** GitHub login of the signed-in creator, from either session source, or null. */
+/** GitHub login of the signed-in creator, or null. */
 export async function resolveCreator(request: Request, env: SessionEnv): Promise<string | null> {
   return (await resolveCreatorUser(request, env))?.github ?? null;
 }

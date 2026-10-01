@@ -42,7 +42,17 @@ async function proxy(
   };
   if (method === 'PATCH') init.body = await context.request.text();
 
-  const res = await fetch(`${ADMIN_GAMES}/${id}`, init);
+  let res: Response;
+  try {
+    res = await fetch(`${ADMIN_GAMES}/${id}`, init);
+  } catch (e) {
+    // Network failure reaching admin: answer with JSON + CORS rather than an
+    // uncaught exception (an opaque 500 the browser reports as a CORS error).
+    return json(
+      { error: `Couldn't reach the game service: ${e instanceof Error ? e.message : String(e)}` },
+      502,
+    );
+  }
   const data = await res.json().catch(() => ({ error: 'Admin returned a non-JSON response' }));
   return json(data, res.status);
 }
