@@ -20,3 +20,10 @@ pattern = "leaderboard.freegamestore.online/*"
 zone_name = "freegamestore.online"
 
 # JWT_SECRET must be set via `wrangler secret put JWT_SECRET`
+
+# The shared FGS database (host routes), read-only here: a game id is valid for
+# the leaderboard if it has a host route, i.e. it is a published game (#73).
+[[d1_databases]]
+binding = "ROUTES_DB"
+database_name = "freegamestore"
+database_id = "a122751e-11a2-466e-b403-4696f3f4a698"

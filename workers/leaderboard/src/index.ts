@@ -1,5 +1,8 @@
 interface Env {
   DB: D1Database;
+  /** The shared `freegamestore` D1 (host routes) — read-only here, to tell
+   *  whether a game id is a published game. */
+  ROUTES_DB: D1Database;
   JWT_SECRET: string;
 }
 
@@ -29,38 +32,57 @@ const PER_GAME_MAX: Record<string, number> = {
   '2048': 5_000_000,
 };
 
-// Valid game IDs — update when adding new games
-const VALID_GAMES = new Set([
-  'chess',
-  'puzzle',
-  'tetris',
-  'snake',
-  'minesweeper',
-  '2048',
-  'slither',
-  'racing',
-  'bowling',
-  'spaceshooter',
-  'breakout',
-  'platformer',
-  'sudoku',
-  'pacman',
-  'pong',
-  'flappy',
-  'solitaire',
-  'connect4',
-  'wordle',
-  'simon',
-  'mahjong',
-  'checkers',
-  'hangman',
-  'memory',
-  'frogger',
-  'match3',
-  'whackamole',
-  'wordsearch',
-  'asteroids',
-]);
+// A game is valid if it is PUBLISHED: it has a host route in the shared
+// `freegamestore` D1, the same row the host serves it from. Provisioning writes
+// it (before the first build, by design) and deleting a game removes it. This
+// replaced a hardcoded list of 29 legacy ids ("update when adding new games"),
+// which could never keep up with on-demand provisioning, so every game created
+// in the console, through MCP or by the agent got "Invalid game" (#73).
+const GAME_ID_RE = /^[a-z0-9](?:[a-z0-9-]{0,56}[a-z0-9])?$/;
+const GAME_ZONE = 'freegamestore.online';
+const PUBLISHED_TTL_MS = 5 * 60_000;
+const UNPUBLISHED_TTL_MS = 30_000; // short, so a just-published game works quickly
+const publishedCache = new Map<string, { published: boolean; until: number }>();
+
+/** Test hook: clear the in-isolate cache. */
+export function __clearPublishedGameCache(): void {
+  publishedCache.clear();
+}
+
+/** Whether `game` is a published FreeGameStore game. Throws if the routes
+ *  database can't be read (the caller answers 503, not "invalid game"). */
+export async function isPublishedGame(db: D1Database, game: string): Promise<boolean> {
+  if (!GAME_ID_RE.test(game)) return false;
+  const now = Date.now();
+  const cached = publishedCache.get(game);
+  if (cached && cached.until > now) return cached.published;
+  const row = await db
+    .prepare(
+      "SELECT 1 AS ok FROM routes WHERE slug = ?1 AND zone = ?2 AND hosted_on = 'r2' LIMIT 1",
+    )
+    .bind(game, GAME_ZONE)
+    .first();
+  const published = row !== null;
+  publishedCache.set(game, {
+    published,
+    until: now + (published ? PUBLISHED_TTL_MS : UNPUBLISHED_TTL_MS),
+  });
+  return published;
+}
+
+/** Null when `game` is published; otherwise the error response to send. */
+async function gameError(
+  game: string,
+  env: Env,
+  reply: (data: unknown, status: number) => Response,
+): Promise<Response | null> {
+  try {
+    if (await isPublishedGame(env.ROUTES_DB, game)) return null;
+  } catch {
+    return reply({ error: 'Leaderboard temporarily unavailable — please retry.' }, 503);
+  }
+  return reply({ error: 'Invalid game' }, 400);
+}
 
 // Exported so the test suite exercises the REAL allowlist (not a re-implemented
 // copy that could silently drift from this one).
@@ -263,9 +285,9 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
 
   const { game, score } = body as Record<string, unknown>;
 
-  if (typeof game !== 'string' || !VALID_GAMES.has(game)) {
-    return j({ error: 'Invalid game' }, 400);
-  }
+  if (typeof game !== 'string') return j({ error: 'Invalid game' }, 400);
+  const invalid = await gameError(game, env, j);
+  if (invalid) return invalid;
   if (!isValidScore(score)) {
     return j({ error: 'Invalid score' }, 400);
   }
@@ -324,9 +346,8 @@ async function getLeaderboard(
   request: Request,
   env: Env,
 ): Promise<Response> {
-  if (!VALID_GAMES.has(game)) {
-    return json({ error: 'Invalid game' }, 400, request);
-  }
+  const invalid = await gameError(game, env, (data, status) => json(data, status, request));
+  if (invalid) return invalid;
 
   const limitParam = url.searchParams.get('limit');
   const limit = Math.min(Math.max(parseInt(limitParam ?? '10', 10) || 10, 1), LEADERBOARD_LIMIT);
@@ -358,9 +379,8 @@ async function getLeaderboard(
 
 // GET /api/leaderboard/:game/recent?limit=10
 async function getRecent(game: string, url: URL, request: Request, env: Env): Promise<Response> {
-  if (!VALID_GAMES.has(game)) {
-    return json({ error: 'Invalid game' }, 400, request);
-  }
+  const invalid = await gameError(game, env, (data, status) => json(data, status, request));
+  if (invalid) return invalid;
 
   const limitParam = url.searchParams.get('limit');
   const limit = Math.min(Math.max(parseInt(limitParam ?? '10', 10) || 10, 1), LEADERBOARD_LIMIT);
@@ -424,9 +444,8 @@ async function getUserGameScore(
   request: Request,
   env: Env,
 ): Promise<Response> {
-  if (!VALID_GAMES.has(game)) {
-    return json({ error: 'Invalid game' }, 400, request);
-  }
+  const invalid = await gameError(game, env, (data, status) => json(data, status, request));
+  if (invalid) return invalid;
 
   // Get user's best score
   const best = await env.DB.prepare(
