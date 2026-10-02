@@ -183,16 +183,16 @@ async function authenticateLogin(request: Request, env: Env): Promise<string | n
         headers: { 'X-FGS-Token': fgsToken, 'X-FGS-Audience': LOGIN_AUDIENCES },
       });
       if (meRes.ok) {
-        const user = (await meRes.json()) as { id?: string };
+        await meRes.json();
         const parts = fgsToken.split('.');
         if (parts.length === 3) {
           const payload = JSON.parse(atob(parts[1]!.replace(/-/g, '+').replace(/_/g, '/'))) as {
             login?: string;
             sub?: string;
           };
-          return payload.login ?? payload.sub ?? null;
+          return typeof payload.login === 'string' ? payload.login : null;
         }
-        return user.id ?? null;
+        return null;
       }
     } catch {
       /* fall through */
@@ -1443,8 +1443,9 @@ export default {
       // creatorGithub (validated downstream against GitHub's username grammar).
       const internal = request.headers.get('X-Internal-Token');
       const trusted = !!(internal && env.INTERNAL_TOKEN && safeEqual(internal, env.INTERNAL_TOKEN));
-      const login = trusted ? null : await authenticateLogin(request, env);
-      if (!trusted && !login) {
+      const { isAdmin } = trusted ? { isAdmin: false } : await authenticateAdmin(request, env);
+      const login = trusted || isAdmin ? null : await authenticateLogin(request, env);
+      if (!trusted && !isAdmin && !login) {
         return jsonResponse({ error: 'unauthorized' }, 401, request);
       }
       const t0 = Date.now();
@@ -1457,13 +1458,13 @@ export default {
         // authenticated caller must NOT be able to register a game owned by an
         // arbitrary `creatorGithub` they put in the body (that would be ownership
         // spoofing once registry `creatorGithub` becomes the ownership signal).
-        // Only the trusted worker-to-worker path (agent deploy, internal token)
-        // may specify the owner in the body — it passes the real creator's login.
-        const owner = trusted ? body.creatorGithub : login;
+        // Trusted workers and allowlisted admins may specify the real creator's
+        // GitHub login in the body; handlePublish validates its grammar.
+        const owner = trusted || isAdmin ? body.creatorGithub : login;
         ownerForLog = owner;
-        if (trusted && !owner) {
+        if ((trusted || isAdmin) && !owner) {
           return jsonResponse(
-            { error: 'creatorGithub required for internal provision' },
+            { error: 'creatorGithub required for admin/internal provision' },
             400,
             request,
           );
