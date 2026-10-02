@@ -39,3 +39,67 @@ describe('admin request router contract', () => {
     expect(h.static).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('mutation guards', () => {
+  it.each([
+    '/api/comp',
+    '/api/userkey',
+    '/api/sessionchat',
+    '/api/provision',
+    '/api/games/test/heal-route',
+  ])('blocks game-origin cookie mutations at %s', async (path) => {
+    const h = handlers();
+    const response = await routeAdminRequest(
+      new Request(`https://admin.test${path}`, {
+        method: 'POST',
+        headers: { Cookie: '__Host-fgs_token=t', Origin: 'https://evil.freegamestore.online' },
+        body: '{}',
+      }),
+      h,
+    );
+    expect(response?.status).toBe(403);
+    expect(h.api).not.toHaveBeenCalled();
+  });
+  it('requires origin evidence for cookies', async () => {
+    const response = await routeAdminRequest(
+      new Request('https://admin.test/api/comp', {
+        method: 'POST',
+        headers: { Cookie: '__Host-fgs_token=t', 'Content-Type': 'application/json' },
+        body: '{}',
+      }),
+      handlers(),
+    );
+    expect(response?.status).toBe(403);
+  });
+  it.each<Record<string, string>>([
+    { Origin: 'https://admin.freegamestore.online', Cookie: '__Host-fgs_token=t' },
+    { 'Sec-Fetch-Site': 'same-origin', Cookie: '__Host-fgs_token=t' },
+    { 'X-FGS-Token': 't' },
+    { Authorization: 'Bearer t' },
+  ])('accepts trusted mutation transport %j', async (headers) => {
+    const h = handlers();
+    await routeAdminRequest(
+      new Request('https://admin.test/api/comp', {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+        body: '{}',
+      }),
+      h,
+    );
+    expect(h.api).toHaveBeenCalled();
+  });
+  it('rejects text bodies even from the admin origin', async () => {
+    const response = await routeAdminRequest(
+      new Request('https://admin.test/api/comp', {
+        method: 'POST',
+        headers: { Origin: 'https://admin.freegamestore.online', Cookie: '__Host-fgs_token=t' },
+        body: '{}',
+      }),
+      handlers(),
+    );
+    expect(response?.status).toBe(415);
+  });
+});
