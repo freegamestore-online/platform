@@ -28,9 +28,10 @@ jobs:
           # GH_ADMIN_TOKEN. The default GITHUB_TOKEN only sees this repo.
           GH_TOKEN: ${{ secrets.FLEET_HEALTH_GH_TOKEN }}
         run: |
+          set -euo pipefail
           {
             echo '## FreeGameStore fleet health'
             echo '```'
-            node scripts/fleet-health.mjs || true
+            node scripts/fleet-health.mjs
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"

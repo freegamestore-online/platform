@@ -44,7 +44,7 @@ const headers = {
 async function gh(path) {
   const res = await fetch(path.startsWith('http') ? path : `${GH}${path}`, { headers });
   if (res.status === 404) return { __status: 404 };
-  if (!res.ok) return { __status: res.status, __error: await res.text().catch(() => '') };
+  if (res.status !== 200) throw new Error(`GitHub API HTTP ${res.status} at ${path}`);
   return res.json();
 }
 

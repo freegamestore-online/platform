@@ -30,3 +30,4 @@ jobs:
       # which let the compliance suite sit red unnoticed after checks were
       # accidentally unwired from runChecksOn.
       - run: pnpm -r test
+      - run: node --test scripts/*.test.mjs
