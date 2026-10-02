@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mintSessionToken } from './auth';
 import worker from './index';
+import * as publish from './publish';
 
 // Real coverage for the security-critical admin sign-in gate (src/index.ts):
 //  - ADMIN_PATHS observability/console routes require an allowlisted Google email
@@ -488,5 +489,75 @@ describe('lifecycle HTTP statuses (#66)', () => {
       makeEnv({ internalToken: 'secret', adminEmails: ADMIN, DB: undefined }),
     );
     expect(res.status).toBe(502);
+  });
+});
+
+describe('provision creator identity (#63)', () => {
+  const token = (claims: Record<string, string>) => `e30.${btoa(JSON.stringify(claims))}.sig`;
+  it('uses the specified creator for an allowlisted Google admin', async () => {
+    const provision = vi
+      .spyOn(publish, 'handlePublish')
+      .mockResolvedValue({ success: true, steps: [] } as any);
+    const response = await worker.fetch(
+      req('/api/provision', {
+        method: 'POST',
+        headers: {
+          'X-FGS-Token': token({ sub: '112233445566778899001' }),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: 'chess', creatorGithub: 'real-creator' }),
+      }),
+      makeEnv({ meEmail: ADMIN, adminEmails: ADMIN }),
+    );
+    expect(response.status).toBe(200);
+    expect(provision.mock.calls[0]?.[0].creatorGithub).toBe('real-creator');
+  });
+  it('rejects a Google identity without admin rights', async () => {
+    const response = await worker.fetch(
+      req('/api/provision', {
+        method: 'POST',
+        headers: {
+          'X-FGS-Token': token({ sub: '112233445566778899001' }),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: 'chess', creatorGithub: 'real-creator' }),
+      }),
+      makeEnv({ meEmail: 'other@example.com', adminEmails: ADMIN }),
+    );
+    expect(response.status).toBe(401);
+  });
+  it('keeps GitHub creator ownership caller-derived', async () => {
+    const provision = vi
+      .spyOn(publish, 'handlePublish')
+      .mockResolvedValue({ success: true, steps: [] } as any);
+    await worker.fetch(
+      req('/api/provision', {
+        method: 'POST',
+        headers: {
+          'X-FGS-Token': token({ login: 'caller', sub: '123' }),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: 'chess', creatorGithub: 'someone-else' }),
+      }),
+      makeEnv({ adminEmails: ADMIN }),
+    );
+    expect(provision.mock.calls[0]?.[0].creatorGithub).toBe('caller');
+  });
+  it('validates admin-supplied GitHub usernames before network calls', async () => {
+    const response = await worker.fetch(
+      req('/api/provision', {
+        method: 'POST',
+        headers: { 'X-FGS-Token': token({ sub: '123' }), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: 'chess',
+          name: 'Chess',
+          category: 'arcade',
+          creatorGithub: 'bad name!',
+        }),
+      }),
+      makeEnv({ meEmail: ADMIN, adminEmails: ADMIN }),
+    );
+    expect(response.status).toBe(400);
+    expect(JSON.stringify(await response.json())).toMatch(/invalid creatorgithub/i);
   });
 });
