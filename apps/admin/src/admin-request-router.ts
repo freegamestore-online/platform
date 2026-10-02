@@ -17,6 +17,31 @@ export async function routeAdminRequest(
   if (request.method === 'OPTIONS') return handlers.preflight(request);
 
   const path = new URL(request.url).pathname;
+  if (!['GET', 'HEAD'].includes(request.method)) {
+    const cookie = request.headers.get('Cookie') ?? '';
+    // Match the credential precedence used by the authentication handlers.
+    const usesCookie =
+      /(?:^|;\s*)__Host-fgs_token=/.test(cookie) && !request.headers.get('X-FGS-Token');
+    const origin = request.headers.get('Origin');
+    const allowedOrigin =
+      origin === 'https://admin.freegamestore.online' || origin === 'http://localhost:5173';
+    if (
+      usesCookie &&
+      !allowedOrigin &&
+      (origin !== null || request.headers.get('Sec-Fetch-Site') !== 'same-origin')
+    ) {
+      return Response.json({ error: 'forbidden origin' }, { status: 403 });
+    }
+    if (
+      (path.startsWith('/api/') || path.startsWith('/v1/')) &&
+      !(path === '/api/ci/test-report' && request.method === 'PUT') &&
+      request.body !== null &&
+      request.headers.get('Content-Type')?.split(';')[0]?.trim().toLowerCase() !==
+        'application/json'
+    ) {
+      return Response.json({ error: 'application/json required' }, { status: 415 });
+    }
+  }
   if (path === '/auth/handoff' || path.startsWith('/v1/auth/')) return handlers.auth(request);
 
   // /docs is a rendered API resource even though it has no /api prefix.
