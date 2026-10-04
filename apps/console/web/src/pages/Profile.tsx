@@ -10,11 +10,41 @@ import { formatTokens } from '../lib/sessions';
 
 export function Profile() {
   const { user, creator, loading, signIn, signOut } = useAuth();
+  const [deleteConfirming, setDeleteConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const { totals, games: usageGames } = useUsage();
   if (loading) return <LoadingShell />;
   if (!user) return <SignInShell onSignIn={signIn} message="Sign in to view your profile." />;
 
   const gamesCount = creator?.games.length ?? 0;
+
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch('/auth/delete', { method: 'POST' });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        agent?: { error?: string };
+        auth?: { error?: string };
+      };
+
+      if (!res.ok || !data.ok) {
+        const errorMsg =
+          data.error || data.agent?.error || data.auth?.error || 'Account deletion failed';
+        setDeleteError(errorMsg);
+        setDeleting(false);
+      } else {
+        // Success: sign out and redirect
+        signOut();
+      }
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Network error during deletion');
+      setDeleting(false);
+    }
+  }
 
   return (
     <>
@@ -162,17 +192,93 @@ export function Profile() {
           </button>
         </div>
 
-        {/* Account deletion — not self-service yet (#77). The old button reported
-            success while deleting nothing, so say plainly what is available. */}
+        {/* Account deletion — permanent and irreversible. */}
         <div
           className="rounded-2xl border p-6"
           style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
         >
           <h3 className="text-base font-bold mb-1">Delete account</h3>
-          <p className="text-sm" style={{ color: 'var(--muted)' }}>
-            Self-service account deletion isn't available yet, so nothing can be deleted from this
-            page. You can remove saved AI keys above and delete individual chats from the Studio.
+          <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
+            Permanently delete your account and all associated data. This action cannot be undone.
+            You will be signed out immediately.
           </p>
+
+          {deleteError && (
+            <div
+              className="rounded-lg p-3 mb-4 text-sm"
+              style={{
+                background: 'rgba(239, 68, 68, 0.1)',
+                borderLeft: '3px solid rgb(239, 68, 68)',
+                color: 'rgb(220, 38, 38)',
+              }}
+            >
+              {deleteError}
+            </div>
+          )}
+
+          {!deleteConfirming ? (
+            <button
+              onClick={() => setDeleteConfirming(true)}
+              className="px-5 py-2 rounded-xl text-sm font-semibold border"
+              style={{
+                minHeight: 44,
+                background: 'rgba(239, 68, 68, 0.1)',
+                color: 'rgb(220, 38, 38)',
+                borderColor: 'rgb(220, 38, 38)',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              Delete my account
+            </button>
+          ) : (
+            <div>
+              <p className="text-sm mb-4 font-semibold">Are you absolutely sure? This will:</p>
+              <ul className="text-sm mb-4 list-disc list-inside" style={{ color: 'var(--muted)' }}>
+                <li>Delete all your AI chat sessions and transcripts</li>
+                <li>Delete your saved API keys</li>
+                <li>Delete your account profile and all personal data</li>
+                <li>Sign you out immediately</li>
+              </ul>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setDeleteConfirming(false);
+                    setDeleteError(null);
+                  }}
+                  disabled={deleting}
+                  className="px-5 py-2 rounded-xl text-sm font-semibold border"
+                  style={{
+                    minHeight: 44,
+                    background: 'transparent',
+                    color: 'var(--ink)',
+                    borderColor: 'var(--border)',
+                    cursor: deleting ? 'not-allowed' : 'pointer',
+                    opacity: deleting ? 0.6 : 1,
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleting}
+                  className="px-5 py-2 rounded-xl text-sm font-semibold border"
+                  style={{
+                    minHeight: 44,
+                    background: deleting ? 'rgba(239, 68, 68, 0.5)' : 'rgb(239, 68, 68)',
+                    color: 'white',
+                    borderColor: 'rgb(220, 38, 38)',
+                    cursor: deleting ? 'not-allowed' : 'pointer',
+                    opacity: deleting ? 0.8 : 1,
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {deleting ? 'Deleting...' : 'Yes, delete everything'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>

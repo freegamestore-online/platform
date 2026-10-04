@@ -468,6 +468,39 @@ function handleLogout(request: Request): Response {
   return new Response(null, { status: 302, headers });
 }
 
+async function handleDeleteAccount(request: Request, env: Env): Promise<Response> {
+  const token =
+    request.headers.get('X-FGS-Token') ||
+    (request.headers.get('Authorization') ?? '').slice('Bearer '.length).trim() ||
+    getCookie(request, COOKIE_NAME);
+
+  if (!token) {
+    return json({ error: 'Not signed in' }, 401, request);
+  }
+
+  const payload = await jwtVerify(token, env.JWT_SECRET).catch(() => null);
+  if (!payload || typeof payload.sub !== 'string') {
+    return json({ error: 'Invalid or expired token' }, 401, request);
+  }
+
+  try {
+    // Delete the user from the database
+    await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(payload.sub).run();
+
+    return json({ ok: true, message: 'Account deleted from auth' }, 200, request);
+  } catch (error) {
+    console.error('Account deletion failed:', error);
+    return json(
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : 'Account deletion failed',
+      },
+      500,
+      request,
+    );
+  }
+}
+
 // --- GitHub OAuth handlers ---
 
 async function handleGitHubLogin(request: Request, env: Env): Promise<Response> {
@@ -756,6 +789,11 @@ export default {
     // POST /logout
     if (request.method === 'POST' && path === '/logout') {
       return handleLogout(request);
+    }
+
+    // DELETE /account (self-service account deletion)
+    if (request.method === 'DELETE' && path === '/account') {
+      return handleDeleteAccount(request, env);
     }
 
     return json({ error: 'Not found' }, 404, request);

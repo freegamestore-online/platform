@@ -1,5 +1,6 @@
 /** Worker entry — routes requests to the correct Durable Object session. */
 
+import { handleAccountDelete } from "./account";
 import { handleAdminCompApi } from "./admin-comp";
 import { getConfig } from "./config";
 import { handleKeysApi } from "./keys";
@@ -91,6 +92,10 @@ export default {
       headers.append("Set-Cookie", "fgs_token=; Domain=.freegamestore.online; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
       return new Response(null, { status: 204, headers });
     }
+
+    // Self-service account deletion — DELETE /v1/account or /account
+    const accountResp = await handleAccountDelete(request, env, config, corsHeaders(request, config.domain));
+    if (accountResp) return accountResp;
 
     // Per-user session list (D1) — /sessions, /sessions/:id
     const sessionsResp = await handleSessionsApi(request, env, corsHeaders(request, config.domain));

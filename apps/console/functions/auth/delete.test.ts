@@ -1,36 +1,109 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { onRequestPost } from './delete';
 
-// Regression for #77: /auth/delete deleted only a legacy KV entry and answered
-// { ok: true }, so the UI promised permanent deletion of data that survived.
-// Until real cross-service deletion exists it must fail loudly and do nothing.
+// Account deletion (#113): orchestrates deletion across agent, auth, and clears cookies.
+// Success requires both agent and auth to succeed; failure at either step rolls back partially
+// with clear error reporting so the user knows what to retry.
 
-async function post(cookie = 'fgs_pub_session=legacy123; __Host-fgs_token=a.b.c') {
-  const kv = { get: vi.fn(), put: vi.fn(), delete: vi.fn(), list: vi.fn() };
+let mockFetch: ReturnType<typeof vi.fn>;
+let originalFetch: typeof global.fetch;
+
+beforeEach(() => {
+  mockFetch = vi.fn().mockImplementation(
+    () =>
+      new Response(JSON.stringify({ ok: true, message: 'OK' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+  );
+  originalFetch = global.fetch;
+  (global as any).fetch = mockFetch;
+});
+
+afterEach(() => {
+  global.fetch = originalFetch;
+});
+
+// biome-ignore lint/suspicious/noExplicitAny: test context parameter
+async function post(cookie = '__Host-fgs_token=valid.token.here') {
   const context = {
     request: new Request('https://console.freegamestore.online/auth/delete', {
       method: 'POST',
       headers: { Cookie: cookie },
     }),
-    env: { SESSIONS: kv, CREATORS: kv },
-  } as unknown as Parameters<typeof onRequestPost>[0];
-  return { res: await onRequestPost(context), kv };
+    env: {},
+  };
+
+  // biome-ignore lint/suspicious/noExplicitAny: test context
+  const res = await onRequestPost(context as any);
+  return { res, mockFetch };
 }
 
 describe('POST /auth/delete', () => {
-  it('reports failure instead of claiming the account was deleted', async () => {
-    const { res } = await post();
-    expect(res.status).toBe(501);
-    expect(res.ok).toBe(false);
-    const body = (await res.json()) as { ok?: boolean; error?: string };
-    expect(body.ok).toBeUndefined();
-    expect(body.error).toMatch(/nothing was deleted/i);
+  it('requires an authenticated session', async () => {
+    const context = {
+      request: new Request('https://console.freegamestore.online/auth/delete', {
+        method: 'POST',
+        headers: { Cookie: '' }, // No token
+      }),
+      env: {},
+    };
+
+    // biome-ignore lint/suspicious/noExplicitAny: test context
+    const res = await onRequestPost(context as any);
+    expect(res.status).toBe(401);
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('does not partially delete data or end the session', async () => {
-    const { res, kv } = await post();
-    expect(kv.delete).not.toHaveBeenCalled();
-    expect(kv.put).not.toHaveBeenCalled();
-    expect(res.headers.getSetCookie()).toHaveLength(0);
+  it('calls agent and auth deletion endpoints', async () => {
+    const { res, mockFetch } = await post();
+    expect(res.status).toBe(200);
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://agent.freegamestore.online/v1/account',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://auth.freegamestore.online/account',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('clears session cookies on successful deletion', async () => {
+    const { res } = await post();
+    expect(res.status).toBe(200);
+    const cookies = res.headers.getSetCookie();
+    expect(cookies.some((c) => c.includes('__Host-fgs_token') && c.includes('Max-Age=0'))).toBe(true);
+    const body = (await res.json()) as { ok?: boolean };
+    expect(body.ok).toBe(true);
+  });
+
+  it('reports failure if agent deletion fails', async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('agent')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ ok: false, error: 'Agent error' }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+    });
+
+    const context = {
+      request: new Request('https://console.freegamestore.online/auth/delete', {
+        method: 'POST',
+        headers: { Cookie: '__Host-fgs_token=token' },
+      }),
+      env: {},
+    };
+
+    // biome-ignore lint/suspicious/noExplicitAny: test context
+    const res = await onRequestPost(context as any);
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { ok?: boolean };
+    expect(body.ok).toBe(false);
   });
 });

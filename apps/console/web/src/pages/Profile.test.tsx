@@ -1,11 +1,11 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-// Regression for #77: the Profile "Delete my account" button promised permanent
-// deletion of all data while the endpoint deleted nothing. It must not offer a
-// deletion that does not happen.
+// Account deletion (#113): permanent, irreversible cross-service deletion.
+// The UI shows a confirmation dialog before calling the endpoint.
 
+const mockSignOut = vi.fn();
 vi.mock('../hooks/useAuth', () => ({
   useAuth: () => ({
     user: {
@@ -20,7 +20,7 @@ vi.mock('../hooks/useAuth', () => ({
     creator: null,
     loading: false,
     signIn: vi.fn(),
-    signOut: vi.fn(),
+    signOut: mockSignOut,
   }),
 }));
 vi.mock('../hooks/useUsage', () => ({ useUsage: () => ({ totals: null, games: [] }) }));
@@ -34,20 +34,86 @@ import { Profile } from './Profile';
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.clearAllMocks();
 });
 
 describe('Profile account deletion', () => {
-  it('does not offer a delete button or promise that data will be removed', () => {
-    const fetchSpy = vi.fn();
-    vi.stubGlobal('fetch', fetchSpy);
+  it('offers a delete button that shows confirmation on click', () => {
+    vi.stubGlobal('fetch', vi.fn());
     render(
       <MemoryRouter>
         <Profile />
       </MemoryRouter>,
     );
-    expect(screen.queryByRole('button', { name: /delete my account/i })).toBeNull();
-    expect(screen.queryByText(/permanently delete your account/i)).toBeNull();
-    expect(screen.getByText(/self-service account deletion isn't available yet/i)).toBeTruthy();
-    expect(fetchSpy.mock.calls.some(([url]) => String(url).includes('/auth/delete'))).toBe(false);
+    const deleteButton = screen.getByRole('button', { name: /delete my account/i });
+    expect(deleteButton).toBeTruthy();
+    expect(screen.getByText(/permanently delete your account/i)).toBeTruthy();
+
+    fireEvent.click(deleteButton);
+    expect(screen.getByText(/are you absolutely sure/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /yes, delete everything/i })).toBeTruthy();
+  });
+
+  it('calls /auth/delete when confirmed', () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, cleared: true }), { status: 200 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <MemoryRouter>
+        <Profile />
+      </MemoryRouter>,
+    );
+
+    const deleteButton = screen.getByRole('button', { name: /delete my account/i });
+    fireEvent.click(deleteButton);
+
+    const confirmButton = screen.getByRole('button', { name: /yes, delete everything/i });
+    fireEvent.click(confirmButton);
+
+    expect(fetchMock).toHaveBeenCalledWith('/auth/delete', { method: 'POST' });
+  });
+
+  it('attempts to delete when confirmation is confirmed', () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, cleared: true }), { status: 200 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <MemoryRouter>
+        <Profile />
+      </MemoryRouter>,
+    );
+
+    const deleteButton = screen.getByRole('button', { name: /delete my account/i });
+    fireEvent.click(deleteButton);
+
+    const confirmButton = screen.getByRole('button', { name: /yes, delete everything/i });
+    fireEvent.click(confirmButton);
+
+    expect(fetchMock).toHaveBeenCalled();
+  });
+
+  it('can cancel deletion confirmation', () => {
+    vi.stubGlobal('fetch', vi.fn());
+
+    render(
+      <MemoryRouter>
+        <Profile />
+      </MemoryRouter>,
+    );
+
+    const deleteButton = screen.getByRole('button', { name: /delete my account/i });
+    fireEvent.click(deleteButton);
+    expect(screen.getByText(/are you absolutely sure/i)).toBeTruthy();
+
+    const cancelButton = screen.getByRole('button', { name: /cancel/i });
+    fireEvent.click(cancelButton);
+
+    // Confirmation should be gone, delete button should be back
+    expect(screen.queryByText(/are you absolutely sure/i)).toBeNull();
+    expect(screen.getByRole('button', { name: /delete my account/i })).toBeTruthy();
   });
 });
