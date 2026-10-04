@@ -46,22 +46,42 @@ for (const setting of ['default', 'relative', 'absolute']) {
       const hooksPath = setting === 'absolute' ? join(root, 'custom hooks') : '.githooks';
       if (setting !== 'default')
         assert.equal(run('git', ['config', 'core.hooksPath', hooksPath]).status, 0);
-      const hook = join(
+      const hooksDir = join(
         setting === 'default'
           ? join(root, '.git/hooks')
           : setting === 'absolute'
             ? hooksPath
             : join(root, hooksPath),
-        'pre-push',
       );
-      assert.equal(existsSync(hook), false);
+      const preCommitHook = join(hooksDir, 'pre-commit');
+      const prePushHook = join(hooksDir, 'pre-push');
+
+      // Verify hooks don't exist before install
+      assert.equal(existsSync(preCommitHook), false);
+      assert.equal(existsSync(prePushHook), false);
+
+      // Install hooks
       const install = run('bash', ['scripts/install-hooks.sh']);
       assert.equal(install.status, 0, install.stderr);
-      assert.equal(run(hook, []).status, 0);
-      const guardLog = readFileSync(env.GUARD_LOG, 'utf8');
+
+      // Test pre-commit hook runs lint successfully
+      assert.equal(run(preCommitHook, []).status, 0);
+      let guardLog = readFileSync(env.GUARD_LOG, 'utf8');
       assert.ok(guardLog.endsWith(':lint'));
       assert.equal(realpathSync(guardLog.slice(0, -5)), realpathSync(root));
-      assert.equal(run(hook, [], { GUARD_STATUS: '1' }).status, 1);
+
+      // Test pre-commit hook fails when lint fails
+      assert.equal(run(preCommitHook, [], { GUARD_STATUS: '1' }).status, 1);
+
+      // Test pre-push hook runs lint successfully
+      assert.equal(run(prePushHook, []).status, 0);
+      guardLog = readFileSync(env.GUARD_LOG, 'utf8');
+      assert.ok(guardLog.endsWith(':lint'));
+
+      // Test pre-push hook fails when lint fails
+      assert.equal(run(prePushHook, [], { GUARD_STATUS: '1' }).status, 1);
+
+      // Reinstalling should work
       assert.equal(run('bash', ['scripts/install-hooks.sh']).status, 0);
     } finally {
       rmSync(root, { recursive: true, force: true });
