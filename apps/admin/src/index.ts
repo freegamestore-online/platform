@@ -1074,11 +1074,11 @@ export default {
             ? // url.search carries ?cursor=&limit= through to the agent (#25). Its
               // absence here was why pagination could not be implemented admin-side:
               // params were dropped before the hop, unlike the session-* paths below.
-              '/v1/admin/sessions' + url.search
+              `/v1/admin/sessions${url.search}`
             : url.pathname === '/api/sessionhistory'
-              ? '/v1/admin/session-history' + url.search
+              ? `/v1/admin/session-history${url.search}`
               : url.pathname === '/api/sessionerrors'
-                ? '/v1/admin/session-errors' + url.search
+                ? `/v1/admin/session-errors${url.search}`
                 : url.pathname === '/api/sessionchat'
                   ? '/v1/admin/session-chat' + url.search
                   : url.pathname.startsWith('/api/userkey')
