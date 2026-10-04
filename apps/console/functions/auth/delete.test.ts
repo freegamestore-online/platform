@@ -72,7 +72,9 @@ describe('POST /auth/delete', () => {
     const { res } = await post();
     expect(res.status).toBe(200);
     const cookies = res.headers.getSetCookie();
-    expect(cookies.some((c) => c.includes('__Host-fgs_token') && c.includes('Max-Age=0'))).toBe(true);
+    expect(cookies.some((c) => c.includes('__Host-fgs_token') && c.includes('Max-Age=0'))).toBe(
+      true,
+    );
     const body = (await res.json()) as { ok?: boolean };
     expect(body.ok).toBe(true);
   });
@@ -87,9 +89,7 @@ describe('POST /auth/delete', () => {
           }),
         );
       }
-      return Promise.resolve(
-        new Response(JSON.stringify({ ok: true }), { status: 200 }),
-      );
+      return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
     });
 
     const context = {

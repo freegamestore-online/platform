@@ -55,9 +55,11 @@ describe('Profile account deletion', () => {
   });
 
   it('calls /auth/delete when confirmed', () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: true, cleared: true }), { status: 200 }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true, cleared: true }), { status: 200 }),
+      );
     vi.stubGlobal('fetch', fetchMock);
 
     render(
@@ -76,9 +78,11 @@ describe('Profile account deletion', () => {
   });
 
   it('attempts to delete when confirmation is confirmed', () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: true, cleared: true }), { status: 200 }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true, cleared: true }), { status: 200 }),
+      );
     vi.stubGlobal('fetch', fetchMock);
 
     render(

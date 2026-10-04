@@ -1080,11 +1080,11 @@ export default {
               : url.pathname === '/api/sessionerrors'
                 ? `/v1/admin/session-errors${url.search}`
                 : url.pathname === '/api/sessionchat'
-                  ? '/v1/admin/session-chat' + url.search
+                  ? `/v1/admin/session-chat${url.search}`
                   : url.pathname.startsWith('/api/userkey')
                     ? url.pathname.replace(/^\/api\/userkey/, '/v1/admin/userkey')
                     : url.pathname.replace(/^\/api\/comp/, '/v1/admin/comp');
-      const res = await env.AGENT.fetch('https://agent.freegamestore.online' + agentPath, {
+      const res = await env.AGENT.fetch(`https://agent.freegamestore.online${agentPath}`, {
         method: request.method,
         headers: {
           'X-Internal-Token': env.INTERNAL_TOKEN,
