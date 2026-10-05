@@ -624,7 +624,7 @@ function registryStub(games: unknown[], opts: { putStatus?: number } = {}) {
   const fetchFn = async (input: unknown, init?: { method?: string; body?: string }) => {
     const url = typeof input === 'string' ? input : (input as Request).url;
     const method = init?.method ?? 'GET';
-    if (url.includes('/contents/registry.json')) {
+    if (url.includes('registry.json')) {
       if (method === 'GET') {
         return new Response(
           JSON.stringify({ content: btoa(JSON.stringify({ games })), sha: 'sha1' }),

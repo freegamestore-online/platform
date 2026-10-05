@@ -157,7 +157,7 @@ function statusFetch(
         { status: 200 },
       );
     }
-    if (url.includes('/contents/registry.json')) {
+    if (url.includes('registry.json')) {
       if (method === 'GET') {
         // Same URL, two shapes: fetchRegistryItems asks for the RAW body
         // (Accept: …raw+json) while publish.ts's ghApi takes the default
@@ -1311,7 +1311,7 @@ describe('reconcile backstop ignores the template scaffold build (#67)', () => {
             ? new Response('{}', { status: answer })
             : new Response(JSON.stringify({ status: answer }), { status: 200 });
         }
-        if (url.includes('/contents/registry.json')) {
+        if (url.includes('registry.json')) {
           if (method === 'GET') {
             const raw = (init?.headers?.Accept ?? '').includes('raw');
             return new Response(
