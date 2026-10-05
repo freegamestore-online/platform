@@ -46,6 +46,7 @@ export { checkUnsafeVh } from './checks/unsafe-vh.js';
 export { checkUsesGameSdk } from './checks/uses-game-sdk.js';
 export { checkUsesLocalStorage } from './checks/uses-localstorage.js';
 export { checkViewportSupport } from './checks/viewport-support.js';
+export { GAME_CI_WORKFLOW, GAME_DEPLOY_WORKFLOW } from './game-deploy-workflow.js';
 export { type FileSource, mapFileSource } from './lib/file-source.js';
 export { isGameProject } from './lib/project-type.js';
 export type { LiveAuditInput, LiveAuditReport } from './live/index.js';

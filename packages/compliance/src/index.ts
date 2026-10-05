@@ -42,6 +42,7 @@ import { isGameProject } from './lib/project-type.js';
 import { runChecksFromFiles, runChecksOn } from './run-checks.js';
 import type { CheckResult } from './types.js';
 
+export { GAME_CI_WORKFLOW, GAME_DEPLOY_WORKFLOW } from './game-deploy-workflow.js';
 export type { FileSource } from './lib/file-source.js';
 export type { LiveAuditInput, LiveAuditReport } from './live/index.js';
 // Live-URL audit (used by the compliance audit Worker; runs in
