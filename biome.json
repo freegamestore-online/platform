@@ -10,8 +10,8 @@
       "!**/.vibe-check",
       "!apps/admin/public",
       "!**/*.min.js",
-      "!workers/**",
-      "!sites/**"
+      "!workers",
+      "!sites"
     ]
   },
   "formatter": {

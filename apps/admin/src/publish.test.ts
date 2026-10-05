@@ -78,7 +78,7 @@ describe('handleUpdateGame ownership', () => {
 
   it('matches the owner case-insensitively (GitHub logins are case-insensitive)', async () => {
     const registry = { games: [{ id: 'chess', name: 'Chess', creatorGithub: 'Serge-The-Dev' }] };
-    let putBody: any = null;
+    let putBody: unknown | null = null;
     vi.stubGlobal('fetch', async (_input: unknown, init?: { method?: string; body?: string }) => {
       if (init?.method === 'PUT') {
         putBody = JSON.parse(init.body!);
@@ -112,7 +112,7 @@ describe('handleUpdateGame ownership', () => {
         },
       ],
     };
-    let written: any;
+    let written: unknown;
     vi.stubGlobal('fetch', async (_input: unknown, init?: { method?: string; body?: string }) => {
       if (init?.method === 'PUT') {
         written = JSON.parse(atob(JSON.parse(init.body!).content));
@@ -197,7 +197,7 @@ describe('handleDeleteGame ownership', () => {
 
   it('deletes a game the caller owns (delists it via a registry PUT)', async () => {
     const registry = { games: [{ id: 'chess', name: 'Chess', creatorGithub: 'serge-the-dev' }] };
-    let putBody: any = null;
+    let putBody: unknown | null = null;
     const dbRun = vi.fn(async () => {});
     vi.stubGlobal('fetch', async (_input: unknown, init?: { method?: string; body?: string }) => {
       if (init?.method === 'PUT') {
@@ -620,7 +620,7 @@ describe('handlePublish Remix truncation regression (#45)', () => {
 /** Registry read/write stub. Returns the games it was given on GET, and records
  *  what a PUT would have committed. */
 function registryStub(games: unknown[], opts: { putStatus?: number } = {}) {
-  const puts: Array<{ games: any[]; message: string }> = [];
+  const puts: Array<{ games: unknown[]; message: string }> = [];
   const fetchFn = async (input: unknown, init?: { method?: string; body?: string }) => {
     const url = typeof input === 'string' ? input : (input as Request).url;
     const method = init?.method ?? 'GET';
@@ -714,10 +714,10 @@ describe('setGameStatuses', () => {
     ]);
     expect(res.updated).toEqual(['a', 'b']);
     expect(puts).toHaveLength(1);
-    expect(puts[0]!.games.find((g: any) => g.id === 'a').status).toBe('live');
-    expect(puts[0]!.games.find((g: any) => g.id === 'b').status).toBe('failed');
+    expect(puts[0]!.games.find((g: unknown) => (g as Record<string, unknown>).id === 'a').status).toBe('live');
+    expect(puts[0]!.games.find((g: unknown) => (g as Record<string, unknown>).id === 'b').status).toBe('failed');
     // The untargeted entry is carried through untouched.
-    expect(puts[0]!.games.find((g: any) => g.id === 'c').status).toBe('live');
+    expect(puts[0]!.games.find((g: unknown) => (g as Record<string, unknown>).id === 'c').status).toBe('live');
   });
 
   it('skips an unknown id rather than failing the batch', async () => {
