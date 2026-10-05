@@ -9,7 +9,9 @@
       "!**/node_modules",
       "!**/.vibe-check",
       "!apps/admin/public",
-      "!**/*.min.js"
+      "!**/*.min.js",
+      "!workers/**",
+      "!sites/**"
     ]
   },
   "formatter": {
