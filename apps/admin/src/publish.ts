@@ -857,14 +857,14 @@ async function resolveSourceEngine(
       devDependencies?: Record<string, string>;
     };
     const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-    if (deps['phaser']) return 'phaser';
-    if (deps['kaplay']) return 'kaplay';
+    if (deps.phaser) return 'phaser';
+    if (deps.kaplay) return 'kaplay';
     if (deps['@react-three/fiber']) return '3d';
     if (deps['pixi.js']) return 'pixi';
     if (deps['@babylonjs/core']) return 'babylon';
-    if (deps['excalibur']) return 'excalibur';
-    if (deps['littlejsengine']) return 'littlejs';
-    if (deps['three']) return '3d';
+    if (deps.excalibur) return 'excalibur';
+    if (deps.littlejsengine) return 'littlejs';
+    if (deps.three) return '3d';
     return 'canvas';
   } catch {
     return '';

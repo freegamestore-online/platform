@@ -131,7 +131,10 @@ describe('handleUpdateGame ownership', () => {
     );
     expect(res.ok).toBe(true);
     const writtenRecord = written as Record<string, unknown>;
-    expect((writtenRecord.games as unknown[])[1] as Record<string, unknown>).toHaveProperty('forkedFrom', attribution);
+    expect((writtenRecord.games as unknown[])[1] as Record<string, unknown>).toHaveProperty(
+      'forkedFrom',
+      attribution,
+    );
   });
 });
 
@@ -721,7 +724,11 @@ describe('setGameStatuses', () => {
     expect(puts).toHaveLength(1);
     const putRecord3 = puts[0] as Record<string, unknown>;
     const games3 = putRecord3.games as unknown[];
-    const findGame = (id: string) => games3.find((g: unknown) => (g as Record<string, unknown>).id === id) as Record<string, unknown>;
+    const findGame = (id: string) =>
+      games3.find((g: unknown) => (g as Record<string, unknown>).id === id) as Record<
+        string,
+        unknown
+      >;
     expect(findGame('a').status).toBe('live');
     expect(findGame('b').status).toBe('failed');
     // The untargeted entry is carried through untouched.

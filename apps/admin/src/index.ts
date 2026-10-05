@@ -296,15 +296,17 @@ async function fetchRegistryItems(env: Env): Promise<RegistryGame[] | null> {
 
 async function fetchRegistry(env: Env): Promise<GameConfig[]> {
   const items = (await fetchRegistryItems(env)) ?? [];
-  return items.map((item: RegistryGame): GameConfig => ({
-    id: item.id,
-    name: item.name || '',
-    org: ORG,
-    cfProject: (item.cfProject as string) || `free${item.id}app`,
-    domain: `${item.id}.${DOMAIN}`,
-    hostedOn: (item.hostedOn as string) || 'pages',
-    status: registryState.readStatus(item),
-  }));
+  return items.map(
+    (item: RegistryGame): GameConfig => ({
+      id: item.id,
+      name: item.name || '',
+      org: ORG,
+      cfProject: (item.cfProject as string) || `free${item.id}app`,
+      domain: `${item.id}.${DOMAIN}`,
+      hostedOn: (item.hostedOn as string) || 'pages',
+      status: registryState.readStatus(item),
+    }),
+  );
 }
 
 /** Raw registry items (keeps fields fetchRegistry() drops, e.g. creatorGithub)
@@ -367,13 +369,19 @@ async function fetchGameStatus(game: GameConfig, env: Env) {
     const customDomain = domains.find((d: string) => d === game.domain);
 
     let deployError: string | null = null;
-    const latestStage = lastDeploy ? (lastDeploy.latest_stage as Record<string, unknown> | undefined) : undefined;
+    const latestStage = lastDeploy
+      ? (lastDeploy.latest_stage as Record<string, unknown> | undefined)
+      : undefined;
     if (latestStage?.status === 'failure') {
       deployError = `${(latestStage.name as string) || 'Build'} failed`;
     }
 
-    const deploymentTrigger = lastDeploy ? (lastDeploy.deployment_trigger as Record<string, unknown> | undefined) : undefined;
-    const sourceConfig = source ? (source.config as Record<string, unknown> | undefined) : undefined;
+    const deploymentTrigger = lastDeploy
+      ? (lastDeploy.deployment_trigger as Record<string, unknown> | undefined)
+      : undefined;
+    const sourceConfig = source
+      ? (source.config as Record<string, unknown> | undefined)
+      : undefined;
 
     return {
       cf: {
@@ -385,7 +393,9 @@ async function fetchGameStatus(game: GameConfig, env: Env) {
               error: deployError,
               trigger: (deploymentTrigger?.type as string) || 'unknown',
               commitMsg:
-                ((deploymentTrigger?.metadata as Record<string, unknown>)?.commit_message as string)?.slice(0, 60) || null,
+                (
+                  (deploymentTrigger?.metadata as Record<string, unknown>)?.commit_message as string
+                )?.slice(0, 60) || null,
             }
           : { status: 'none', time: null, url: null, error: 'No deployments yet' },
         domain: customDomain
@@ -1319,9 +1329,10 @@ export default {
         const viewer = graphqlData?.viewer as Record<string, unknown> | undefined;
         const zones = viewer?.zones as Record<string, unknown>[] | undefined;
         const firstZone = zones?.[0] as Record<string, unknown> | undefined;
-        const groups: Array<Record<string, unknown>> = (firstZone?.httpRequests1dGroups as Record<string, unknown>[]) ?? [];
+        const groups: Array<Record<string, unknown>> =
+          (firstZone?.httpRequests1dGroups as Record<string, unknown>[]) ?? [];
         const days = groups.map((g) => ({
-          date: (g?.dimensions as Record<string, unknown>)?.date as string | null ?? null,
+          date: ((g?.dimensions as Record<string, unknown>)?.date as string | null) ?? null,
           requests: Number((g?.sum as Record<string, unknown>)?.requests) || 0,
           pageViews: Number((g?.sum as Record<string, unknown>)?.pageViews) || 0,
           visitors: Number((g?.uniq as Record<string, unknown>)?.uniques) || 0,
@@ -1478,7 +1489,12 @@ export default {
           );
         }
         console.log(`[provision] id=${body?.id} owner=${owner} trusted=${trusted}`);
-        const result = await gameLifecycle.provision({ ...body, creatorGithub: owner ?? undefined } as unknown as Parameters<typeof gameLifecycle.provision>[0], env);
+        const result = await gameLifecycle.provision(
+          { ...body, creatorGithub: owner ?? undefined } as unknown as Parameters<
+            typeof gameLifecycle.provision
+          >[0],
+          env,
+        );
         console.log(`[provision] id=${body?.id} success=${result.success} +${Date.now() - t0}ms`);
         // Persist a provision failure (handlePublish returns success:false rather
         // than throwing) so it shows on the admin console. Logging only — the
