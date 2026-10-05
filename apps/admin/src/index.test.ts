@@ -319,7 +319,7 @@ describe('creator self-serve routes are NOT behind the admin gate', () => {
       if (url.endsWith('/repos/freegamestore-online/chess')) {
         return new Response(JSON.stringify({ id: 1 }), { status: 200 });
       }
-      if (url.includes('/contents/registry.json')) {
+      if (url.includes('registry.json')) {
         return new Response(
           JSON.stringify({
             content: btoa(JSON.stringify({ games: [{ id: 'chess', creatorGithub: 'alice' }] })),
@@ -352,7 +352,7 @@ describe('GET /api/games/:id/detail fork attribution (#44)', () => {
   it('returns the immutable attribution object from the registry', async () => {
     vi.stubGlobal('fetch', async (input: unknown) => {
       const url = typeof input === 'string' ? input : (input as Request).url;
-      if (url.includes('/contents/registry.json')) {
+      if (url.includes('registry.json')) {
         return new Response(
           JSON.stringify({
             games: [

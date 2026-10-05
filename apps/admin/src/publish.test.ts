@@ -353,7 +353,7 @@ describe('handlePublish interrupted-provision heal', () => {
       if (method === 'GET' && url.includes('/collaborators/')) {
         return new Response(null, { status: 204 }); // the creator was invited by their own provision
       }
-      if (method === 'GET' && url.includes('/freegamestore/contents/registry.json')) {
+      if (method === 'GET' && url.includes('registry.json')) {
         // Unlisted: the provision was cut off before its registry write.
         return new Response(
           JSON.stringify({ content: btoa(JSON.stringify({ games: [] })), sha: 's' }),
@@ -550,7 +550,7 @@ describe('handlePublish Remix truncation regression (#45)', () => {
       if (method === 'GET' && url.includes('/git/commits/')) {
         return new Response(JSON.stringify({ tree: { sha: 'target-tree' } }), { status: 200 });
       }
-      if (method === 'GET' && url.includes('/contents/registry.json')) {
+      if (method === 'GET' && url.includes('registry.json')) {
         return new Response(
           JSON.stringify({
             content: btoa(
@@ -565,7 +565,7 @@ describe('handlePublish Remix truncation regression (#45)', () => {
           },
         );
       }
-      if (method === 'PUT' && url.includes('/contents/registry.json')) {
+      if (method === 'PUT' && url.includes('registry.json')) {
         return new Response(JSON.stringify({ content: {} }), { status: 200 });
       }
       if (method === 'POST' && url.endsWith('/git/trees')) {
@@ -762,7 +762,7 @@ function firstRegistryPut(req: Parameters<typeof handlePublish>[0]): Promise<any
   vi.stubGlobal('fetch', async (input: unknown, init?: { method?: string; body?: string }) => {
     const url = typeof input === 'string' ? input : (input as Request).url;
     const method = init?.method ?? 'GET';
-    if (url.includes('/contents/registry.json')) {
+    if (url.includes('registry.json')) {
       if (method === 'GET') {
         const sourceId = req.cloneFrom?.trim().toLowerCase();
         return new Response(
@@ -875,7 +875,7 @@ function deleteStub(registry: unknown[], opts: { putOk?: boolean } = {}) {
     const url = typeof input === 'string' ? input : (input as Request).url;
     const method = init?.method ?? 'GET';
     if (method !== 'GET') calls.push(`${method} ${url}`);
-    if (url.includes('/contents/registry.json')) {
+    if (url.includes('registry.json')) {
       if (method === 'GET') {
         return new Response(
           JSON.stringify({ content: btoa(JSON.stringify({ games: registry })), sha: 's' }),
@@ -981,7 +981,7 @@ describe('handlePublish existing-repo claim guard (#61)', () => {
         const invites = (access.invitees ?? []).map((login) => ({ invitee: { login } }));
         return new Response(JSON.stringify(invites), { status: 200 });
       }
-      if (method === 'GET' && url.includes('/freegamestore/contents/registry.json')) {
+      if (method === 'GET' && url.includes('registry.json')) {
         return registry === null
           ? new Response(JSON.stringify({ message: 'Server Error' }), { status: 500 })
           : new Response(JSON.stringify({ content: btoa(JSON.stringify(registry)), sha: 's' }), {
@@ -1131,7 +1131,7 @@ describe('handlePublish ownership of an existing id (#88)', () => {
           { status: 200 },
         );
       }
-      if (method === 'GET' && url.includes('/freegamestore/contents/registry.json')) {
+      if (method === 'GET' && url.includes('registry.json')) {
         return new Response(
           JSON.stringify({ content: btoa(JSON.stringify(opts.registry)), sha: 's' }),
           { status: 200 },
@@ -1340,7 +1340,7 @@ describe('registry write retry and lifecycle error codes (#66)', () => {
     vi.stubGlobal('fetch', async (input: unknown, init?: { method?: string }) => {
       const url = typeof input === 'string' ? input : (input as Request).url;
       const method = init?.method ?? 'GET';
-      if (url.includes('/contents/registry.json')) {
+      if (url.includes('registry.json')) {
         if (method === 'PUT') {
           const status = puts[calls.puts++] ?? 200;
           return status === 200
