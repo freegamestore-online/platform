@@ -15,7 +15,7 @@ A free app on FreeAppStore.
 - Deploy: \`git push origin main\` (auto-deploys via Cloudflare Pages)
 
 Free, MIT-licensed, no tracking. For platform conventions, read
-https://raw.githubusercontent.com/freegamestore-online/freegamestore/main/SKILLS.md
+https://raw.githubusercontent.com/freegamestore-online/platform/main/sites/freegamestore/SKILLS.md
 before writing or changing anything.
 `;
 

@@ -296,13 +296,13 @@ async function fetchRegistryItems(env: Env): Promise<RegistryGame[] | null> {
 
 async function fetchRegistry(env: Env): Promise<GameConfig[]> {
   const items = (await fetchRegistryItems(env)) ?? [];
-  return items.map((item: RegistryGame) => ({
+  return items.map((item: RegistryGame): GameConfig => ({
     id: item.id,
-    name: item.name,
+    name: item.name || '',
     org: ORG,
-    cfProject: item.cfProject || `free${item.id}app`,
+    cfProject: (item.cfProject as string) || `free${item.id}app`,
     domain: `${item.id}.${DOMAIN}`,
-    hostedOn: item.hostedOn || 'pages',
+    hostedOn: (item.hostedOn as string) || 'pages',
     status: registryState.readStatus(item),
   }));
 }
@@ -360,28 +360,32 @@ async function fetchGameStatus(game: GameConfig, env: Env) {
       };
     }
 
-    const project = data.result;
-    const lastDeploy = project.latest_deployment;
-    const source = project.source;
-    const domains = project.domains || [];
+    const project = data.result as Record<string, unknown>;
+    const lastDeploy = project.latest_deployment as Record<string, unknown> | undefined;
+    const source = project.source as Record<string, unknown> | undefined;
+    const domains = (project.domains as string[]) || [];
     const customDomain = domains.find((d: string) => d === game.domain);
 
     let deployError: string | null = null;
-    if (lastDeploy?.latest_stage?.status === 'failure') {
-      deployError = `${lastDeploy.latest_stage.name || 'Build'} failed`;
+    const latestStage = lastDeploy ? (lastDeploy.latest_stage as Record<string, unknown> | undefined) : undefined;
+    if (latestStage?.status === 'failure') {
+      deployError = `${(latestStage.name as string) || 'Build'} failed`;
     }
+
+    const deploymentTrigger = lastDeploy ? (lastDeploy.deployment_trigger as Record<string, unknown> | undefined) : undefined;
+    const sourceConfig = source ? (source.config as Record<string, unknown> | undefined) : undefined;
 
     return {
       cf: {
         deploy: lastDeploy
           ? {
-              status: lastDeploy.latest_stage?.status || 'unknown',
-              time: lastDeploy.created_on,
-              url: lastDeploy.url,
+              status: (latestStage?.status as string) || 'unknown',
+              time: lastDeploy.created_on as string | null,
+              url: lastDeploy.url as string | null,
               error: deployError,
-              trigger: lastDeploy.deployment_trigger?.type || 'unknown',
+              trigger: (deploymentTrigger?.type as string) || 'unknown',
               commitMsg:
-                lastDeploy.deployment_trigger?.metadata?.commit_message?.slice(0, 60) || null,
+                ((deploymentTrigger?.metadata as Record<string, unknown>)?.commit_message as string)?.slice(0, 60) || null,
             }
           : { status: 'none', time: null, url: null, error: 'No deployments yet' },
         domain: customDomain
@@ -389,10 +393,10 @@ async function fetchGameStatus(game: GameConfig, env: Env) {
           : { status: 'not_configured', cert: 'none', error: 'Custom domain not in project' },
         source: source
           ? {
-              type: source.type,
-              owner: source.config?.owner,
-              repo: source.config?.repo_name,
-              enabled: source.config?.deployments_enabled,
+              type: sourceConfig?.type as string | undefined,
+              owner: sourceConfig?.owner as string | undefined,
+              repo: sourceConfig?.repo_name as string | undefined,
+              enabled: sourceConfig?.deployments_enabled as boolean | undefined,
             }
           : null,
       },
@@ -698,7 +702,6 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
     // Re-insert routes for listed-but-unrouted games (idempotent, same shape as
     // provision). registry is the source of truth for what SHOULD be served.
     for (const id of missingRoute) {
-      // @ts-expect-error — Env compatible but not identical to PublishEnv
       const step = await insertHostRoute(env, id);
       if (step.status === 'ok') insertedRoutes.push(id);
     }
@@ -739,7 +742,6 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
       // null → nothing concluded yet; leave pending for the next run.
     }
     if (flips.length > 0) {
-      // @ts-expect-error — Env compatible but not identical to PublishEnv
       const res = await registryState.setStatuses(env, flips);
       report.healed = {
         ...(report.healed ?? { insertedRoutes: [], deletedRoutes: [] }),
@@ -1132,7 +1134,6 @@ export default {
         return jsonResponse({ error: 'Request body must be JSON' }, 400, request);
       }
       try {
-        // @ts-expect-error — Env compatible but not identical to PublishEnv
         const result = await gameLifecycle.update(gameMatch[1]!, login, body, env);
         // 403 not creator, 404 unknown game, 502 GitHub/registry failure (#66).
         return jsonResponse(result, result.error ? lifecycleStatus(result.code) : 200, request);
@@ -1163,7 +1164,6 @@ export default {
         return jsonResponse({ error: 'unauthorized' }, 401, request);
       }
       try {
-        // @ts-expect-error — Env compatible but not identical to PublishEnv
         const result = await gameLifecycle.delete(gameMatch[1]!, actor, env, {
           adminOverride: isAdmin,
         });
@@ -1315,13 +1315,16 @@ export default {
             request,
           );
         }
-        const groups: Array<Record<string, unknown>> =
-          data?.data?.viewer?.zones?.[0]?.httpRequests1dGroups ?? [];
+        const graphqlData = data.data as Record<string, unknown> | undefined;
+        const viewer = graphqlData?.viewer as Record<string, unknown> | undefined;
+        const zones = viewer?.zones as Record<string, unknown>[] | undefined;
+        const firstZone = zones?.[0] as Record<string, unknown> | undefined;
+        const groups: Array<Record<string, unknown>> = (firstZone?.httpRequests1dGroups as Record<string, unknown>[]) ?? [];
         const days = groups.map((g) => ({
-          date: g?.dimensions?.date ?? null,
-          requests: Number(g?.sum?.requests) || 0,
-          pageViews: Number(g?.sum?.pageViews) || 0,
-          visitors: Number(g?.uniq?.uniques) || 0,
+          date: (g?.dimensions as Record<string, unknown>)?.date as string | null ?? null,
+          requests: Number((g?.sum as Record<string, unknown>)?.requests) || 0,
+          pageViews: Number((g?.sum as Record<string, unknown>)?.pageViews) || 0,
+          visitors: Number((g?.uniq as Record<string, unknown>)?.uniques) || 0,
         }));
         return jsonResponse(
           {
@@ -1382,7 +1385,6 @@ export default {
           request,
         );
       }
-      // @ts-expect-error — Env compatible but not identical to PublishEnv
       const step = await insertHostRoute(env, id);
       if (step.status === 'fail') {
         await recordError(env.DB, {
@@ -1420,7 +1422,6 @@ export default {
           request,
         );
       }
-      // @ts-expect-error — Env compatible but not identical to PublishEnv
       const step = await registryState.setStatus(env, body.id, body.status);
       if (step.status === 'fail') {
         await recordError(env.DB, {
@@ -1467,8 +1468,8 @@ export default {
         // spoofing once registry `creatorGithub` becomes the ownership signal).
         // Trusted workers and allowlisted admins may specify the real creator's
         // GitHub login in the body; handlePublish validates its grammar.
-        const owner = trusted || isAdmin ? body.creatorGithub : login;
-        ownerForLog = owner;
+        const owner = trusted || isAdmin ? (body.creatorGithub as string | undefined) : login;
+        ownerForLog = owner ?? undefined;
         if ((trusted || isAdmin) && !owner) {
           return jsonResponse(
             { error: 'creatorGithub required for admin/internal provision' },
@@ -1477,8 +1478,7 @@ export default {
           );
         }
         console.log(`[provision] id=${body?.id} owner=${owner} trusted=${trusted}`);
-        // @ts-expect-error — Env compatible but not identical to PublishEnv
-        const result = await gameLifecycle.provision({ ...body, creatorGithub: owner }, env);
+        const result = await gameLifecycle.provision({ ...body, creatorGithub: owner ?? undefined } as unknown as Parameters<typeof gameLifecycle.provision>[0], env);
         console.log(`[provision] id=${body?.id} success=${result.success} +${Date.now() - t0}ms`);
         // Persist a provision failure (handlePublish returns success:false rather
         // than throwing) so it shows on the admin console. Logging only — the

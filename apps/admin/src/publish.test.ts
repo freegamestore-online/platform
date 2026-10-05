@@ -130,7 +130,8 @@ describe('handleUpdateGame ownership', () => {
       env,
     );
     expect(res.ok).toBe(true);
-    expect(written.games[1].forkedFrom).toEqual(attribution);
+    const writtenRecord = written as Record<string, unknown>;
+    expect((writtenRecord.games as unknown[])[1] as Record<string, unknown>).toHaveProperty('forkedFrom', attribution);
   });
 });
 
@@ -216,7 +217,7 @@ describe('handleDeleteGame ownership', () => {
     } as unknown as Parameters<typeof handleDeleteGame>[2];
     const res = await handleDeleteGame('chess', 'serge-the-dev', env);
     expect(res.ok).toBe(true);
-    expect(putBody.content).toBeDefined(); // registry rewritten (entry removed)
+    expect((putBody as Record<string, unknown>).content).toBeDefined(); // registry rewritten (entry removed)
     expect(dbRun).toHaveBeenCalled(); // route deletion attempted
   });
 
@@ -670,7 +671,9 @@ describe('setGameStatuses', () => {
     expect(res.ok).toBe(true);
     expect(res.updated).toEqual(['chess']);
     expect(puts).toHaveLength(1);
-    expect(puts[0]!.games[0].status).toBe('live');
+    const putRecord = puts[0] as Record<string, unknown>;
+    const games = putRecord.games as unknown[];
+    expect((games[0] as Record<string, unknown>).status).toBe('live');
   });
 
   it('flips pending → failed for a game that has never shipped', async () => {
@@ -678,7 +681,9 @@ describe('setGameStatuses', () => {
     vi.stubGlobal('fetch', fetchFn);
     const res = await setGameStatuses(envWithToken(), [{ id: 'chess', status: 'failed' }]);
     expect(res.updated).toEqual(['chess']);
-    expect(puts[0]!.games[0].status).toBe('failed');
+    const putRecord2 = puts[0] as Record<string, unknown>;
+    const games2 = putRecord2.games as unknown[];
+    expect((games2[0] as Record<string, unknown>).status).toBe('failed');
   });
 
   it('REFUSES to move a live game to failed — R2 still serves its last good build', async () => {
@@ -714,16 +719,13 @@ describe('setGameStatuses', () => {
     ]);
     expect(res.updated).toEqual(['a', 'b']);
     expect(puts).toHaveLength(1);
-    expect(
-      puts[0]!.games.find((g: unknown) => (g as Record<string, unknown>).id === 'a').status,
-    ).toBe('live');
-    expect(
-      puts[0]!.games.find((g: unknown) => (g as Record<string, unknown>).id === 'b').status,
-    ).toBe('failed');
+    const putRecord3 = puts[0] as Record<string, unknown>;
+    const games3 = putRecord3.games as unknown[];
+    const findGame = (id: string) => games3.find((g: unknown) => (g as Record<string, unknown>).id === id) as Record<string, unknown>;
+    expect(findGame('a').status).toBe('live');
+    expect(findGame('b').status).toBe('failed');
     // The untargeted entry is carried through untouched.
-    expect(
-      puts[0]!.games.find((g: unknown) => (g as Record<string, unknown>).id === 'c').status,
-    ).toBe('live');
+    expect(findGame('c').status).toBe('live');
   });
 
   it('skips an unknown id rather than failing the batch', async () => {

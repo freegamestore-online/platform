@@ -46,7 +46,7 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
     "suggestions": [
       "Per-repo CLAUDE.md should hold only what is unique to this repo (description, dev/build/deploy, repo-specific setup).",
       "Anything platform-wide (tech stack, brand, mobile rules, deploy flow) belongs in SKILLS.md instead.",
-      "See the "Per-repo CLAUDE.md convention" section of SKILLS.md: https://raw.githubusercontent.com/freegamestore-online/freegamestore/main/SKILLS.md",
+      "See the "Per-repo CLAUDE.md convention" section of SKILLS.md: https://raw.githubusercontent.com/freegamestore-online/platform/main/sites/freegamestore/SKILLS.md",
     ],
   },
   {
