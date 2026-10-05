@@ -152,7 +152,7 @@ function statusFetch(
       const conclusion = runs[id];
       return new Response(
         JSON.stringify({
-          workflow_runs: conclusion ? [{ status: 'completed', conclusion }] : [],
+          workflow_runs: conclusion ? [{ status: 'completed', conclusion, head_sha: 'd'.repeat(40) }] : [],
         }),
         { status: 200 },
       );
