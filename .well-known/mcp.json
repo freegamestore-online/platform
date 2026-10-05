@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "servers": [
+    {
+      "name": "FreeGameStore",
+      "description": "AI agent tools for the FreeGameStore platform. Build, publish, and improve PWA games end-to-end from your editor: scaffold and deploy a new game, write files and auto-redeploy, or hand a prompt to the VibeCode agent — plus inspect games, check deploys, and fetch SDK/platform reference.",
+      "endpoint": "https://mcp.freegamestore.online/mcp",
+      "transport": "streamable-http",
+      "tools": [
+        {"name": "create_game", "description": "Create + publish a new game: provision repo/hosting/listing, scaffold a template (canvas/grid/cards/3d), deploy live at <id>.freegamestore.online"},
+        {"name": "update_files", "description": "Write/overwrite files in a game you own; auto-redeploys"},
+        {"name": "read_file", "description": "Read a file from a game's repo"},
+        {"name": "list_files", "description": "List files in a game's repo"},
+        {"name": "agent_build", "description": "Hand a prompt to the VibeCode agent; it writes the code and deploys it (bring-your-own AI key)"},
+        {"name": "agent_status", "description": "Poll an agent_build session for game id, deploy phase, live URL"},
+        {"name": "list_games", "description": "List your published games"},
+        {"name": "game_info", "description": "Get a game's live URL, repo, store listing, status"},
+        {"name": "deploy_status", "description": "Check recent GitHub Actions deploy runs for a game"},
+        {"name": "game_logs", "description": "Latest deploy/build logs for a game"},
+        {"name": "platform_guide", "description": "Fetch the full SKILLS.md platform guide"},
+        {"name": "sdk_reference", "description": "Quick @freegamestore/games reference"}
+      ]
+    }
+  ]
+}

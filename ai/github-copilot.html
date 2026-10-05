@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="FreeGameStore" />
+  <meta name="application-name" content="FreeGameStore" />
+  <title>GitHub Copilot — FreeGameStore</title>
+  <meta name="description" content="Build a free game on FreeGameStore with GitHub Copilot." />
+  <meta property="og:title" content="GitHub Copilot — FreeGameStore" />
+  <meta property="og:description" content="Build a free game on FreeGameStore with GitHub Copilot." />
+  <meta property="og:type" content="website" />
+  <link rel="canonical" href="https://freegamestore.online/ai/github-copilot.html" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="/" class="logo">Free <span>Games</span></a>
+      <button class="nav-toggle" type="button" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg></button>
+      <nav>
+        <a href="/">Games</a>
+        <a href="https://freeappstore.online">Apps</a>
+        <a href="/about.html">About</a>
+        <a href="/developers.html">Developers</a>
+        <a href="/get-started.html">Get Started</a>
+        <a href="https://console.freegamestore.online">Console</a>
+        <a href="/docs/">Docs</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <h1>GitHub Copilot on FreeGameStore</h1>
+    <p class="ai-lead">Build a free game using GitHub Copilot. The agent reads the platform's <a href="https://freegamestore.online/skills.md">SKILLS.md</a> and knows the brand rules, the CLI, and the deploy flow before it writes a line of code.</p>
+
+    <div class="callout">
+      <strong>Before you start:</strong> install Node 22+ and the FreeGameStore CLI.
+      <div class="cmd">npm i -g @freegamestore/cli
+fgs login</div>
+    </div>
+
+
+    <h2>Set up Copilot in VS Code</h2>
+    <ol class="steps">
+      <li>
+        <strong>Install GitHub Copilot + Copilot Chat extensions</strong>
+        <p>Open VS Code → Extensions → search "GitHub Copilot" and install both. Sign in with your GitHub account.</p>
+      </li>
+      <li>
+        <strong>Scaffold the game</strong>
+        <div class="cmd">fgs init my-game --template canvas
+code my-game</div>
+      </li>
+      <li>
+        <strong>Add platform context to <code>.github/copilot-instructions.md</code></strong>
+        <div class="cmd">mkdir -p .github &amp;&amp; cat &gt; .github/copilot-instructions.md &lt;&lt;'EOF'
+
+# Platform: FreeGameStore
+
+Always follow the conventions in https://freegamestore.online/skills.md.
+
+When editing files in this repo:
+- Use Manrope (body) + Fraunces (display) — no custom display fonts.
+- Use brand CSS tokens: var(--accent), var(--ink), var(--paper). Don't redefine them.
+- Never add Google Analytics, Plausible, Mixpanel, or any tracking SDK.
+- Use the existing Shell component for layout.
+- Push to main triggers auto-deploy; no manual deploy commands.
+EOF</div>
+        <p>Copilot reads <code>.github/copilot-instructions.md</code> automatically and prepends it to every chat turn.</p>
+      </li>
+      <li>
+        <strong>Open Copilot Chat (Ctrl-Cmd-I)</strong>
+        <p>Start prompting. Use <code>@workspace</code> in chat to give the agent broader context.</p>
+      </li>
+    </ol>
+
+    <h2>Prompt the build</h2>
+    <div class="ai-prompt">@workspace Build a unit-converter game with a left-side category picker (length, weight, temperature, …) and right-side input/output. Persist the last unit pair per category. Use the Shell layout.</div>
+    <div class="ai-prompt">@workspace Add export-to-CSV to the laps list in my stopwatch game. Open a Save dialog with the current date in the filename.</div>
+
+    <h2>Iterate</h2>
+    <ol class="steps">
+      <li>
+        <strong>Run the dev server</strong>
+        <div class="cmd">cd my-game &amp;&amp; pnpm install &amp;&amp; pnpm dev</div>
+        <p>The agent will tell you which file it edited; refresh the browser to see the change.</p>
+      </li>
+      <li>
+        <strong>Run compliance checks</strong>
+        <div class="cmd">fgs check</div>
+        <p>Catches missing brand fonts, tracking SDKs, oversized bundles, and missing PWA manifest before publish.</p>
+      </li>
+      <li>
+        <strong>Publish</strong>
+        <div class="cmd">fgs publish --store games</div>
+        <p>Provisions <code>github.com/freegamestore-online/my-game</code>, R2 hosting, the subdomain at <code>my-game.freegamestore.online</code>, and the storefront entry — atomically.</p>
+      </li>
+      <li>
+        <strong>Push your code</strong>
+        <div class="cmd">git push upstream main</div>
+        <p>Auto-deploys via GitHub Actions to Cloudflare R2 in ~30 seconds. Future commits to <code>main</code> deploy automatically.</p>
+      </li>
+    </ol>
+
+    <h2>What the AI knows (and doesn't ask you for)</h2>
+    <p>Once SKILLS.md is loaded, the agent will:</p>
+    <ul>
+      <li>Use the platform's CSS tokens (<code>--accent</code>, <code>--ink</code>, <code>--paper</code>, …) — never redefine them.</li>
+      <li>Use Manrope (body) + Fraunces (display) — never custom display fonts.</li>
+      <li>Refuse to add Google Analytics, Plausible, Mixpanel, or any tracker.</li>
+      <li>Use <code>localStorage</code> for persistence (or <code>@freegamestore/games</code> KV for connected games).</li>
+      <li>Push to <code>main</code> for deploy. Never <code>wrangler pages deploy</code> manually.</li>
+      <li>Never ask you for Cloudflare or GitHub tokens.</li>
+    </ul>
+    <p>The compliance suite (<code>fgs check</code>) enforces all of the above on every push, so even if the AI slips, the platform catches it.</p>
+
+    <h2>Get the source</h2>
+    <p>The CLI, SDK, and compliance package live at <a href="https://github.com/freegamestore-online/public">https://github.com/freegamestore-online/public</a>. Reading the source is allowed — and often illuminating when you're trying to coax a difficult prompt.</p>
+
+
+    <h2>Tips for Copilot specifically</h2>
+    <ul>
+      <li><code>@workspace</code> in chat lets the agent see the whole repo. Without it, it sees only the open file.</li>
+      <li>Copilot's autocomplete (Tab) is tuned for line-level completions; chat is better for multi-file work.</li>
+      <li>The web UI version (github.com → "Ask Copilot") works well when you're reviewing a published game's repo without cloning.</li>
+    </ul>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">
+        <a href="/" class="logo">Free <span>Games</span></a>
+        <p>Free forever, open source, privacy-first.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/about.html">About</a>
+        <a href="/contribute.html">Build</a>
+        <a href="/quality.html">Quality</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="https://github.com/freegamestore-online">GitHub</a>
+        <a href="https://github.com/freegamestore-online/freegamestore/discussions">Support</a>
+      </div>
+    </div>
+  </footer>
+  <script src="/theme.js" defer></script>
+</body>
+</html>

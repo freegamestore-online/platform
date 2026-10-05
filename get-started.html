@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="FreeGameStore" />
+  <meta name="application-name" content="FreeGameStore" />
+  <title>Get Started — FreeGameStore</title>
+  <meta name="description" content="Start building a free game on FreeGameStore in 60 seconds. Three commands." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Get Started — FreeGameStore" />
+  <meta property="og:description" content="Start building a free game on FreeGameStore in 60 seconds. Three commands." />
+  <meta property="og:url" content="https://freegamestore.online/get-started" />
+  <meta property="og:image" content="https://freegamestore.online/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+  <link rel="canonical" href="https://freegamestore.online/get-started" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>(function(){try{var p=localStorage.getItem('stores-theme');var d=p==='dark'||(!p||p==='system')&&matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.dataset.theme='dark';var t=localStorage.getItem('stores-text-size');if(t)document.documentElement.dataset.text=t;}catch(e){}})()</script>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="/" class="logo">Free <span>Games</span></a>
+      <nav>
+        <a href="/">Games</a>
+        <a href="https://freeappstore.online">Apps</a>
+        <a href="/about.html">About</a>
+        <a href="/developers.html">Developers</a>
+        <a href="/get-started.html">Get Started</a>
+        <a href="https://console.freegamestore.online">Console</a>
+        <a href="/docs/">Docs</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="gs-hero">
+      <h1>Start building a game in 60 seconds</h1>
+      <p>Three commands. Free hosting. Auto-deploy. Pick a template and start coding.</p>
+      <p style="margin-top:0.75rem;font-size:0.95rem;color:var(--muted);">No install, no editor? <a href="https://console.freegamestore.online/create" style="color:var(--accent);font-weight:600;">Describe your game in the browser</a> — sign in with GitHub and the AI builds + deploys it, free.</p>
+    </div>
+
+    <div class="terminal">
+      <div class="terminal-bar">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span class="terminal-title">Terminal</span>
+      </div>
+      <div class="terminal-body" id="term"></div>
+      <div class="terminal-replay-wrap">
+        <button class="replay-btn" id="replayBtn" type="button">Replay</button>
+      </div>
+    </div>
+
+    <div class="gs-after">
+      <h2>Your game is running locally.</h2>
+      <p>Now use your AI tool to build the game, then submit it to get listed in the store with free hosting.</p>
+      <div class="gs-cta-group">
+        <a href="/docs/" class="gs-btn">Read the docs</a>
+        <a href="/build-with-ai.html" class="gs-btn-outline">Build with AI</a>
+        <a href="/docs/guidelines/" class="gs-btn-outline">Guidelines</a>
+      </div>
+    </div>
+
+    <!-- AI TOOL EXAMPLES -->
+    <h2 class="gs-section-title">Now use any AI tool to build</h2>
+    <p class="gs-section-sub">Your project has a <code>CLAUDE.md</code> pointing to the platform guide. Open any AI tool and describe your game.</p>
+
+    <!-- Claude Code -->
+    <div class="terminal terminal-example">
+      <div class="terminal-bar">
+        <span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span>
+        <span class="terminal-title">Claude Code</span>
+      </div>
+      <div class="terminal-body terminal-body-compact">
+        <div class="terminal-line visible"><span class="prompt">my-game $</span> <span class="cmd">claude</span></div>
+        <div class="terminal-line visible"><span class="output"></span></div>
+        <div class="terminal-line visible"><span class="success">  Claude reads CLAUDE.md automatically.</span></div>
+        <div class="terminal-line visible"><span class="success">  It knows the game templates, design system, and deploy flow.</span></div>
+        <div class="terminal-line visible"><span class="output"></span></div>
+        <div class="terminal-line visible"><span class="highlight">  &gt; Build a Snake game with arrow key controls.</span></div>
+        <div class="terminal-line visible"><span class="highlight">    Track high score in localStorage. 60fps canvas rendering.</span></div>
+      </div>
+    </div>
+
+    <!-- Cursor -->
+    <div class="terminal terminal-example">
+      <div class="terminal-bar">
+        <span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span>
+        <span class="terminal-title">Cursor</span>
+      </div>
+      <div class="terminal-body terminal-body-compact">
+        <div class="terminal-line visible"><span class="output">  1. Open the project folder in Cursor</span></div>
+        <div class="terminal-line visible"><span class="output">  2. Create <span class="highlight">.cursorrules</span> in the root with one line:</span></div>
+        <div class="terminal-line visible"><span class="output"></span></div>
+        <div class="terminal-line visible"><span class="url">     See https://freegamestore.online/skills.md for platform conventions.</span></div>
+        <div class="terminal-line visible"><span class="output"></span></div>
+        <div class="terminal-line visible"><span class="output">  3. Open Composer (Cmd+I) and describe your game.</span></div>
+      </div>
+    </div>
+
+    <!-- Codex CLI -->
+    <div class="terminal terminal-example">
+      <div class="terminal-bar">
+        <span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span>
+        <span class="terminal-title">Codex CLI (OpenAI)</span>
+      </div>
+      <div class="terminal-body terminal-body-compact">
+        <div class="terminal-line visible"><span class="prompt">my-game $</span> <span class="cmd">codex</span></div>
+        <div class="terminal-line visible"><span class="output"></span></div>
+        <div class="terminal-line visible"><span class="output">  Create <span class="highlight">AGENTS.md</span> in the root with one line:</span></div>
+        <div class="terminal-line visible"><span class="url">  See https://freegamestore.online/skills.md for platform conventions.</span></div>
+        <div class="terminal-line visible"><span class="output"></span></div>
+        <div class="terminal-line visible"><span class="highlight">  &gt; Build a Tetris clone with rotation, line clearing, and scoring.</span></div>
+      </div>
+    </div>
+
+    <!-- Any tool -->
+    <div class="terminal terminal-example">
+      <div class="terminal-bar">
+        <span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span>
+        <span class="terminal-title">GitHub Copilot / Windsurf / Cline / Zed / Continue / Aider</span>
+      </div>
+      <div class="terminal-body terminal-body-compact">
+        <div class="terminal-line visible"><span class="output">  Add this one line to your tool's instruction file:</span></div>
+        <div class="terminal-line visible"><span class="output"></span></div>
+        <div class="terminal-line visible"><span class="url">  See https://freegamestore.online/skills.md for platform conventions.</span></div>
+        <div class="terminal-line visible"><span class="output"></span></div>
+        <div class="terminal-line visible"><span class="output">  <span class="highlight">.cursorrules</span>  — Cursor</span></div>
+        <div class="terminal-line visible"><span class="output">  <span class="highlight">.github/copilot-instructions.md</span> — Copilot</span></div>
+        <div class="terminal-line visible"><span class="output">  <span class="highlight">AGENTS.md</span>      — Codex CLI</span></div>
+        <div class="terminal-line visible"><span class="output">  <span class="highlight">.windsurfrules</span>  — Windsurf</span></div>
+        <div class="terminal-line visible"><span class="output">  <span class="highlight">CONVENTIONS.md</span>  — Aider</span></div>
+        <div class="terminal-line visible"><span class="output">  <span class="highlight">Custom instructions</span> — Cline</span></div>
+        <div class="terminal-line visible"><span class="output"></span></div>
+        <div class="terminal-line visible"><span class="success">  The AI reads skills.md and knows the game platform.</span></div>
+      </div>
+    </div>
+
+    <!-- Templates -->
+    <h2 class="gs-section-title">Game templates</h2>
+    <p class="gs-section-sub">Pick the template that matches your game type. Each one is pre-configured with the right engine.</p>
+
+    <div class="gs-features gs-features-wide">
+      <div class="gs-feature">
+        <strong>Canvas</strong>
+        <p>Platformers, shooters, Snake, Pac-Man. Direct HTML5 canvas drawing.</p>
+      </div>
+      <div class="gs-feature">
+        <strong>Grid</strong>
+        <p>Minesweeper, Sudoku, 2048, Match-3, Word Search. Grid-based layout.</p>
+      </div>
+      <div class="gs-feature">
+        <strong>Cards</strong>
+        <p>Solitaire, Memory, card-based games. Card deck mechanics.</p>
+      </div>
+      <div class="gs-feature">
+        <strong>3D</strong>
+        <p>Racing, bowling, 3D puzzles. Three.js with React Three Fiber.</p>
+      </div>
+      <div class="gs-feature">
+        <strong>Phaser</strong>
+        <p>2D arcade games with physics. Phaser engine pre-configured.</p>
+      </div>
+      <div class="gs-feature">
+        <strong>Kaplay</strong>
+        <p>Simple, fun 2D games. Kaplay engine ready to go.</p>
+      </div>
+      <div class="gs-feature">
+        <strong>PixiJS</strong>
+        <p>Fast 2D rendering for sprite-heavy games. PixiJS pre-configured.</p>
+      </div>
+      <div class="gs-feature">
+        <strong>Babylon</strong>
+        <p>Full-featured 3D engine with physics and advanced rendering.</p>
+      </div>
+      <div class="gs-feature">
+        <strong>Excalibur</strong>
+        <p>TypeScript-native 2D — game objects are typed Actor classes, physics built in.</p>
+      </div>
+      <div class="gs-feature">
+        <strong>LittleJS</strong>
+        <p>Tiny all-in-one arcade — particles and procedural sound built in, zero assets.</p>
+      </div>
+    </div>
+
+    <div class="gs-template-hint">
+      <p class="text-muted-sm">Use <code>--template</code> flag: <code>fgs init my-game --template 3d</code></p>
+    </div>
+
+    <div class="gs-features">
+      <div class="gs-feature">
+        <strong>Free forever</strong>
+        <p>No charges, no trial. Hosting included.</p>
+      </div>
+      <div class="gs-feature">
+        <strong>Auto-deploy</strong>
+        <p>Push to main, live in 30 seconds.</p>
+      </div>
+      <div class="gs-feature">
+        <strong>Your subdomain</strong>
+        <p>my-game.freegamestore.online</p>
+      </div>
+      <div class="gs-feature">
+        <strong>AI-ready</strong>
+        <p>CLAUDE.md included. Any AI tool works.</p>
+      </div>
+      <div class="gs-feature">
+        <strong>Leaderboards</strong>
+        <p>Built-in leaderboard API for high scores.</p>
+      </div>
+      <div class="gs-feature">
+        <strong>Open source</strong>
+        <p>MIT licensed. Your code, your game.</p>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">
+        <a href="/" class="logo">Free <span>Games</span></a>
+        <p>Free forever, open source, privacy-first.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/about.html">About</a>
+        <a href="/get-started.html">Get Started</a>
+        <a href="/build-with-ai.html">Build with AI</a>
+        <a href="/docs/">Docs</a>
+        <a href="https://console.freegamestore.online">Console</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="https://github.com/freegamestore-online">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/get-started.js" defer></script>
+</body>
+</html>

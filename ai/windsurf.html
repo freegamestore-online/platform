@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="FreeGameStore" />
+  <meta name="application-name" content="FreeGameStore" />
+  <title>Windsurf — FreeGameStore</title>
+  <meta name="description" content="Build a free game on FreeGameStore with Windsurf." />
+  <meta property="og:title" content="Windsurf — FreeGameStore" />
+  <meta property="og:description" content="Build a free game on FreeGameStore with Windsurf." />
+  <meta property="og:type" content="website" />
+  <link rel="canonical" href="https://freegamestore.online/ai/windsurf.html" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="/" class="logo">Free <span>Games</span></a>
+      <button class="nav-toggle" type="button" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg></button>
+      <nav>
+        <a href="/">Games</a>
+        <a href="https://freeappstore.online">Apps</a>
+        <a href="/about.html">About</a>
+        <a href="/developers.html">Developers</a>
+        <a href="/get-started.html">Get Started</a>
+        <a href="https://console.freegamestore.online">Console</a>
+        <a href="/docs/">Docs</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <h1>Windsurf on FreeGameStore</h1>
+    <p class="ai-lead">Build a free game using Windsurf. The agent reads the platform's <a href="https://freegamestore.online/skills.md">SKILLS.md</a> and knows the brand rules, the CLI, and the deploy flow before it writes a line of code.</p>
+
+    <div class="callout">
+      <strong>Before you start:</strong> install Node 22+ and the FreeGameStore CLI.
+      <div class="cmd">npm i -g @freegamestore/cli
+fgs login</div>
+    </div>
+
+
+    <h2>Set up Windsurf</h2>
+    <ol class="steps">
+      <li>
+        <strong>Install Windsurf</strong>
+        <p>Download from <a href="https://windsurf.com">windsurf.com</a> and install. Sign in with your Codeium account.</p>
+      </li>
+      <li>
+        <strong>Scaffold the game</strong>
+        <div class="cmd">fgs init my-game --template canvas
+windsurf my-game</div>
+        <p>The <code>windsurf</code> CLI ships with the desktop app (similar to <code>code</code> for VS Code).</p>
+      </li>
+      <li>
+        <strong>Add platform context to <code>.windsurfrules</code></strong>
+        <p>Windsurf reads <code>.windsurfrules</code> at the project root and applies it to every Cascade and Chat turn:</p>
+        <div class="cmd">cat &gt; .windsurfrules &lt;&lt;'EOF'
+
+# Platform: FreeGameStore
+
+Always follow the conventions in https://freegamestore.online/skills.md.
+
+Constraints:
+- Manrope + Fraunces fonts only.
+- Brand CSS tokens via var(--accent), var(--ink), var(--paper).
+- Zero tracking SDKs.
+- Push to main = auto-deploy. No staging.
+
+Use the Shell component for layout. Edit web/src/App.tsx.
+EOF</div>
+      </li>
+      <li>
+        <strong>Open Cascade (Cmd-L)</strong>
+        <p>Cascade is Windsurf's multi-step agent. Tell it what you want and it'll edit multiple files, run commands, and iterate.</p>
+      </li>
+    </ol>
+
+    <h2>Prompt the build</h2>
+    <div class="ai-prompt">Build a habit-tracker game: list of habits, daily check-off grid for the last 30 days, streak counter. Persist in localStorage. Use the Shell component.</div>
+    <div class="ai-prompt">Add export to JSON and import from JSON to my notes game, with a confirmation prompt before overwriting existing data.</div>
+
+    <h2>Iterate</h2>
+    <ol class="steps">
+      <li>
+        <strong>Run the dev server</strong>
+        <div class="cmd">cd my-game &amp;&amp; pnpm install &amp;&amp; pnpm dev</div>
+        <p>The agent will tell you which file it edited; refresh the browser to see the change.</p>
+      </li>
+      <li>
+        <strong>Run compliance checks</strong>
+        <div class="cmd">fgs check</div>
+        <p>Catches missing brand fonts, tracking SDKs, oversized bundles, and missing PWA manifest before publish.</p>
+      </li>
+      <li>
+        <strong>Publish</strong>
+        <div class="cmd">fgs publish --store games</div>
+        <p>Provisions <code>github.com/freegamestore-online/my-game</code>, R2 hosting, the subdomain at <code>my-game.freegamestore.online</code>, and the storefront entry — atomically.</p>
+      </li>
+      <li>
+        <strong>Push your code</strong>
+        <div class="cmd">git push upstream main</div>
+        <p>Auto-deploys via GitHub Actions to Cloudflare R2 in ~30 seconds. Future commits to <code>main</code> deploy automatically.</p>
+      </li>
+    </ol>
+
+    <h2>What the AI knows (and doesn't ask you for)</h2>
+    <p>Once SKILLS.md is loaded, the agent will:</p>
+    <ul>
+      <li>Use the platform's CSS tokens (<code>--accent</code>, <code>--ink</code>, <code>--paper</code>, …) — never redefine them.</li>
+      <li>Use Manrope (body) + Fraunces (display) — never custom display fonts.</li>
+      <li>Refuse to add Google Analytics, Plausible, Mixpanel, or any tracker.</li>
+      <li>Use <code>localStorage</code> for persistence (or <code>@freegamestore/games</code> KV for connected games).</li>
+      <li>Push to <code>main</code> for deploy. Never <code>wrangler pages deploy</code> manually.</li>
+      <li>Never ask you for Cloudflare or GitHub tokens.</li>
+    </ul>
+    <p>The compliance suite (<code>fgs check</code>) enforces all of the above on every push, so even if the AI slips, the platform catches it.</p>
+
+    <h2>Get the source</h2>
+    <p>The CLI, SDK, and compliance package live at <a href="https://github.com/freegamestore-online/public">https://github.com/freegamestore-online/public</a>. Reading the source is allowed — and often illuminating when you're trying to coax a difficult prompt.</p>
+
+
+    <h2>Tips for Windsurf specifically</h2>
+    <ul>
+      <li><strong>Cascade</strong> (Cmd-L) is best for multi-file changes. It plans, edits, and runs commands in sequence.</li>
+      <li><strong>Inline Edits</strong> (Cmd-I) handle single-file refactors quickly.</li>
+      <li>Use <em>Memories</em> to pin platform context across sessions instead of re-typing it.</li>
+      <li>Cascade can run <code>fgs check</code> automatically — ask it to verify compliance before publishing.</li>
+    </ul>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">
+        <a href="/" class="logo">Free <span>Games</span></a>
+        <p>Free forever, open source, privacy-first.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/about.html">About</a>
+        <a href="/contribute.html">Build</a>
+        <a href="/quality.html">Quality</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="https://github.com/freegamestore-online">GitHub</a>
+        <a href="https://github.com/freegamestore-online/freegamestore/discussions">Support</a>
+      </div>
+    </div>
+  </footer>
+  <script src="/theme.js" defer></script>
+</body>
+</html>

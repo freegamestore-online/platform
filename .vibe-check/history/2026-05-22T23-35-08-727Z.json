@@ -1,0 +1,399 @@
+{
+  "version": "0.28.0",
+  "timestamp": "2026-05-22T23:35:08.727Z",
+  "score": 77,
+  "grade": "B",
+  "checks": [
+    {
+      "name": "structure",
+      "score": 75,
+      "grade": "B",
+      "details": {
+        "found": [
+          "package.json",
+          "LICENSE",
+          ".gitignore",
+          "README.md"
+        ],
+        "missing": [
+          "tsconfig.json"
+        ],
+        "srcFiles": 1,
+        "testFiles": 0,
+        "testRatio": "0%"
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "Missing tsconfig.json — TypeScript configuration",
+          "rule": "missing-file"
+        },
+        {
+          "severity": "warning",
+          "message": "No lockfile found — builds may not be reproducible",
+          "rule": "missing-lockfile"
+        },
+        {
+          "severity": "error",
+          "message": "No test files found (1 source files with zero tests)",
+          "rule": "no-tests"
+        }
+      ],
+      "duration": 1
+    },
+    {
+      "name": "lint",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "skipped": true,
+        "reason": "no linter detected"
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "types",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "skipped": true,
+        "reason": "no tsconfig.json"
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "type-safety",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "filesScanned": 1,
+        "totalUnsafe": 0
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "standards",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "filesScanned": 1,
+        "codeSmells": 0,
+        "largeFiles": 0,
+        "namingViolations": 0
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "complexity",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "totalFiles": 1,
+        "totalLines": 11,
+        "longFunctions": 0,
+        "complexFunctions": 0,
+        "functionCount": 1
+      },
+      "issues": [],
+      "duration": 1
+    },
+    {
+      "name": "duplication",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "filesScanned": 1,
+        "duplicates": 0
+      },
+      "issues": [],
+      "duration": 1
+    },
+    {
+      "name": "error-handling",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "emptyCatch": 0,
+        "throwString": 0,
+        "hasErrorBoundary": "n/a"
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "react",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "skipped": true,
+        "reason": "not a React project"
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "accessibility",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "skipped": true,
+        "reason": "no JSX/TSX files"
+      },
+      "issues": [],
+      "duration": 1
+    },
+    {
+      "name": "docs",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "readmeLines": 28,
+        "totalExports": 0,
+        "documentedExports": 0,
+        "documentedPct": "n/a"
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "message": "README missing install/usage section",
+          "rule": "readme-no-install"
+        }
+      ],
+      "duration": 0
+    },
+    {
+      "name": "best-practices",
+      "score": 62,
+      "grade": "C",
+      "details": {
+        "practicesChecked": 26,
+        "practicesFollowed": 16,
+        "adherence": "62%"
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "message": "game-ci.yml: 1 third-party actions not pinned to SHA — vulnerable to supply chain attacks",
+          "file": ".github/workflows/game-ci.yml",
+          "rule": "pin-actions-to-sha"
+        },
+        {
+          "severity": "info",
+          "message": "test.yml: CI install without frozen lockfile — builds may not be reproducible",
+          "file": ".github/workflows/test.yml",
+          "rule": "frozen-lockfile-ci"
+        },
+        {
+          "severity": "warning",
+          "message": "No lockfile committed — dependency versions not deterministic",
+          "rule": "lockfile"
+        },
+        {
+          "severity": "info",
+          "message": "No CODEOWNERS file — no mandatory reviewers for critical paths",
+          "rule": "codeowners"
+        },
+        {
+          "severity": "info",
+          "message": "No CONTRIBUTING.md — onboarding is harder for new contributors",
+          "rule": "contributing-guide"
+        },
+        {
+          "severity": "info",
+          "message": "No pre-commit hooks (husky/lefthook) — lint/format not enforced before commit",
+          "rule": "pre-commit-hooks"
+        },
+        {
+          "severity": "warning",
+          "message": "No linter config (ESLint/Biome/dart analyze) — code style not enforced",
+          "rule": "linter-config"
+        },
+        {
+          "severity": "info",
+          "message": "No test coverage configuration — coverage thresholds not enforced",
+          "rule": "coverage-config"
+        },
+        {
+          "severity": "info",
+          "message": "No commit convention enforcement (commitlint/changesets) — changelog generation is manual",
+          "rule": "conventional-commits"
+        }
+      ],
+      "duration": 2
+    },
+    {
+      "name": "testing",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "reason": "No test files found",
+        "srcFiles": 1,
+        "testFiles": 0,
+        "pyramid": {
+          "unit": 0,
+          "integration": 0,
+          "component": 0,
+          "e2e": 0
+        }
+      },
+      "issues": [
+        {
+          "severity": "error",
+          "message": "1 source files with zero tests",
+          "rule": "no-tests"
+        }
+      ],
+      "duration": 0
+    },
+    {
+      "name": "secrets",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "secretsFound": 0
+      },
+      "issues": [],
+      "duration": 20
+    },
+    {
+      "name": "security",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "filesScanned": 1,
+        "patterns": 0,
+        "cweCategories": 0,
+        "errors": 0,
+        "warnings": 0
+      },
+      "issues": [],
+      "duration": 1
+    },
+    {
+      "name": "dependencies",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "vulnerabilities": {
+          "critical": 0,
+          "high": 0,
+          "moderate": 0,
+          "low": 0
+        },
+        "outdated": 0,
+        "majorOutdated": 0
+      },
+      "issues": [],
+      "duration": 788
+    },
+    {
+      "name": "architecture",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "skipped": true,
+        "reason": "fewer than 2 source files"
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "performance",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "filesScanned": 1,
+        "barrelImports": 0,
+        "heavyDeps": 0,
+        "dynamicOpportunities": 0,
+        "cssInJsRuntime": 0,
+        "bundleSizeKB": 391
+      },
+      "issues": [],
+      "duration": 8
+    },
+    {
+      "name": "confusion",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "fileConfusability": 0,
+        "genericNames": 0,
+        "exportCollisions": 0,
+        "ambiguousAbbrevs": 0,
+        "filesScanned": 1
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "context",
+      "score": 100,
+      "grade": "A",
+      "details": {
+        "filesScanned": 1,
+        "totalTokens": 78,
+        "avgTokensPerFile": 78,
+        "avgImportsPerFile": 0,
+        "highTokenFiles": 0,
+        "heavyImportFiles": 0,
+        "circularDeps": 0,
+        "contextSinks": 0
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "doc-coherence",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "LLM-powered analysis — coming soon",
+        "docFiles": [
+          "README.md"
+        ],
+        "hasJSDoc": true,
+        "description": "Detects contradictions between documentation and code. Finds stale README claims, incorrect JSDoc, outdated API docs, and misleading comments."
+      },
+      "issues": [],
+      "duration": 0
+    },
+    {
+      "name": "code-coherence",
+      "score": 0,
+      "grade": "F",
+      "details": {
+        "premium": true,
+        "comingSoon": true,
+        "reason": "LLM-powered analysis — coming soon",
+        "filesAnalyzed": 1,
+        "totalExports": 0,
+        "totalFunctions": 1,
+        "description": "Detects internal contradictions: inconsistent validation, conflicting defaults, naming drift, dead config flags, and behavioral mismatches across modules."
+      },
+      "issues": [],
+      "duration": 1
+    }
+  ],
+  "meta": {
+    "cwd": "/Users/serge/dev/stores/fgs/freegamestore",
+    "node": "v22.21.1",
+    "duration": 830,
+    "stack": {
+      "language": "unknown",
+      "framework": "none",
+      "bundler": "none",
+      "testRunner": "none",
+      "linter": "none",
+      "packageManager": "npm"
+    },
+    "repoUrl": "https://github.com/freegamestore-online/freegamestore",
+    "branch": "main"
+  }
+}

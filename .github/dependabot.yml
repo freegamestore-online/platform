@@ -1,0 +1,21 @@
+# Dependabot keeps GitHub Actions + (future) npm deps current.
+# Today these repos have zero npm deps; the npm ecosystem is here for the
+# day that changes. Group minor/patch into one PR per week to keep noise low.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 5

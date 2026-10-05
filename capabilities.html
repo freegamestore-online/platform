@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="FreeGameStore" />
+  <meta name="application-name" content="FreeGameStore" />
+  <title>Platform Capabilities — FreeGameStore</title>
+  <meta name="description" content="Everything the FreeGameStore platform gives you for free. Game SDK, auth, leaderboards, UI components, hosting, compliance, and more." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Platform Capabilities — FreeGameStore" />
+  <meta property="og:description" content="Everything the platform gives you for free. Game SDK, auth, leaderboards, hosting, and more." />
+  <meta property="og:url" content="https://freegamestore.online/capabilities" />
+  <meta property="og:image" content="https://freegamestore.online/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+  <link rel="canonical" href="https://freegamestore.online/capabilities" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>(function(){try{var p=localStorage.getItem('stores-theme');var d=p==='dark'||(!p||p==='system')&&matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.dataset.theme='dark';var t=localStorage.getItem('stores-text-size');if(t)document.documentElement.dataset.text=t;}catch(e){}})()</script>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .cap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: 1.25rem; margin: 1.5rem 0 2.5rem; }
+    .cap-card { border: 1px solid var(--line); border-radius: 1rem; padding: 1.25rem; background: var(--panel); }
+    .cap-card h3 { margin: 0 0 0.35rem; font-size: 1rem; }
+    .cap-card p { margin: 0; font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
+    .cap-card code { font-size: 0.8rem; background: var(--paper); border: 1px solid var(--line); padding: 0.1em 0.3em; border-radius: 0.25rem; }
+    .cap-card .cap-tag { display: inline-block; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15rem 0.45rem; border-radius: 9999px; margin-bottom: 0.5rem; }
+    .cap-tag-free { background: #dcfce7; color: #16a34a; }
+    .cap-tag-pro { background: #ede9fe; color: #7c3aed; }
+    .upgrade-banner { border: 1px solid var(--line); border-radius: 1rem; padding: 1.5rem; background: var(--panel); text-align: center; margin: 2rem 0; }
+    .upgrade-banner h3 { margin: 0 0 0.5rem; }
+    .upgrade-banner p { color: var(--muted); font-size: 0.9rem; margin: 0 0 1rem; }
+    .upgrade-banner a { display: inline-block; padding: 0.6rem 1.5rem; background: var(--accent); color: #fff; border-radius: 0.5rem; font-weight: 600; text-decoration: none; font-size: 0.9rem; }
+    :root[data-theme="dark"] .cap-tag-free { background: #064e3b; color: #6ee7b7; }
+    :root[data-theme="dark"] .cap-tag-pro { background: #4c1d95; color: #c4b5fd; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="/" class="logo">Free <span>Games</span></a>
+      <button class="nav-toggle" type="button" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg></button>
+      <nav>
+        <a href="/">Games</a>
+        <a href="https://freeappstore.online">Apps</a>
+        <a href="/about.html">About</a>
+        <a href="/developers.html">Developers</a>
+        <a href="/get-started.html">Get Started</a>
+        <a href="https://console.freegamestore.online">Console</a>
+        <a href="/docs/">Docs</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>Platform Capabilities</h1>
+      <p>Everything you get when you build on FreeGameStore. One SDK, zero infrastructure, free forever. For the raw browser APIs these build on, see <a href="/browser-apis.html">Browser APIs</a>.</p>
+    </div>
+
+    <div class="page-content">
+
+      <h2>Included free</h2>
+      <div class="cap-grid">
+        <div class="cap-card">
+          <span class="cap-tag cap-tag-free">Free</span>
+          <h3>GameShell</h3>
+          <p>Full-viewport game container. Locks to 100svh, prevents scroll, manages safe areas. Your game fills the screen. <code>&lt;GameShell&gt;</code></p>
+        </div>
+        <div class="cap-card">
+          <span class="cap-tag cap-tag-free">Free</span>
+          <h3>GameTopbar</h3>
+          <p>Brand-consistent topbar with score, timer, and custom stats. Back button, theme toggle, sound toggle built in. <code>&lt;GameTopbar score={42} /&gt;</code></p>
+        </div>
+        <div class="cap-card">
+          <span class="cap-tag cap-tag-free">Free</span>
+          <h3>Auth (Google OAuth)</h3>
+          <p>One-click sign in via auth.freegamestore.online. SSO across all games. Session persists in localStorage. <code>useAuth()</code></p>
+        </div>
+        <div class="cap-card">
+          <span class="cap-tag cap-tag-free">Free</span>
+          <h3>Leaderboards</h3>
+          <p>Global leaderboards backed by D1. Submit scores, fetch top entries, show player rank. <code>useLeaderboard()</code></p>
+        </div>
+        <div class="cap-card">
+          <span class="cap-tag cap-tag-free">Free</span>
+          <h3>Sound System</h3>
+          <p>Game audio with mute toggle that persists. Respects user preference across sessions. <code>useGameSounds()</code> / <code>useSound()</code></p>
+        </div>
+        <div class="cap-card">
+          <span class="cap-tag cap-tag-free">Free</span>
+          <h3>Game Over Screen</h3>
+          <p>Standard game-over overlay with score, personal best, play again, and leaderboard submit. <code>&lt;GameOverScreen&gt;</code></p>
+        </div>
+        <div class="cap-card">
+          <span class="cap-tag cap-tag-free">Free</span>
+          <h3>UI Kit (14 components)</h3>
+          <p>GameButton, GameModal, GameConfirm, GameAuth, GameThemeToggle, GameTextSizeToggle, Leaderboard, and more. All dark-mode aware.</p>
+        </div>
+        <div class="cap-card">
+          <span class="cap-tag cap-tag-free">Free</span>
+          <h3>Dark Mode + Text Size</h3>
+          <p>System-aware dark mode with manual toggle. Text size adjustment for accessibility. Persists in localStorage.</p>
+        </div>
+        <div class="cap-card">
+          <span class="cap-tag cap-tag-free">Free</span>
+          <h3>Static Hosting (R2)</h3>
+          <p>Push to main = live. GitHub Actions builds, uploads to R2. Zero egress fees. Sub-50ms globally. <code>*.freegamestore.online</code></p>
+        </div>
+        <div class="cap-card">
+          <span class="cap-tag cap-tag-free">Free</span>
+          <h3>Game Templates</h3>
+          <p>Canvas, 3D (Three.js), Grid, Cards, Phaser, Kaplay, PixiJS, Babylon.js, Excalibur, LittleJS. Pre-configured with SDK, topbar, and deploy pipeline.</p>
+        </div>
+        <div class="cap-card">
+          <span class="cap-tag cap-tag-free">Free</span>
+          <h3>CLI + Compliance</h3>
+          <p><code>fgs init</code>, <code>fgs check</code>, <code>fgs publish</code>. Automated brand, bundle size, PWA, dark mode, and viewport checks on every push.</p>
+        </div>
+        <div class="cap-card">
+          <span class="cap-tag cap-tag-free">Free</span>
+          <h3>Quality Dashboard</h3>
+          <p>Public quality scores for every game. Compliance checks, audit results, and last-updated dates visible to players.</p>
+        </div>
+      </div>
+
+      <div class="upgrade-banner">
+        <h3>Need multiplayer?</h3>
+        <p>Real-time rooms, server-side AI, custom domains, cloud save, and daily challenges.</p>
+        <a href="https://progamestore.online">Upgrade to ProGameStore &rarr;</a>
+      </div>
+
+      <h2>Pro capabilities (ProGameStore, $9/mo)</h2>
+      <div class="cap-grid">
+        <div class="cap-card">
+          <span class="cap-tag cap-tag-pro">Pro</span>
+          <h3>Real-time Multiplayer</h3>
+          <p>WebSocket rooms via Durable Objects. Server-authoritative game state. Turn-based and real-time. Lobbies, matchmaking, spectating.</p>
+        </div>
+        <div class="cap-card">
+          <span class="cap-tag cap-tag-pro">Pro</span>
+          <h3>Server-side AI</h3>
+          <p>Workers AI included. NPC dialogue, procedural generation, adaptive difficulty, AI opponents &mdash; no user key needed.</p>
+        </div>
+        <div class="cap-card">
+          <span class="cap-tag cap-tag-pro">Pro</span>
+          <h3>Cloud Save Sync</h3>
+          <p>Save game state to the cloud. Resume on any device. Automatic conflict resolution.</p>
+        </div>
+        <div class="cap-card">
+          <span class="cap-tag cap-tag-pro">Pro</span>
+          <h3>Custom Domain</h3>
+          <p>Serve your game from <code>your-domain.com</code> instead of a subdomain.</p>
+        </div>
+        <div class="cap-card">
+          <span class="cap-tag cap-tag-pro">Pro</span>
+          <h3>Cron / Daily Challenges</h3>
+          <p>Scheduled Workers for daily puzzles, timed events, leaderboard resets, and seasonal content.</p>
+        </div>
+        <div class="cap-card">
+          <span class="cap-tag cap-tag-pro">Pro</span>
+          <h3>Proprietary Source</h3>
+          <p>No MIT requirement. Keep your source code private. Build commercial games.</p>
+        </div>
+      </div>
+
+      <h2>What about browser APIs?</h2>
+      <p>The platform capabilities above are what FreeGameStore provides on top of the browser. For the full list of browser-native APIs available to your game (WebGPU, Gamepad, Web Audio, WASM, and 40+ more), see <a href="/browser-apis.html">Browser APIs &rarr;</a></p>
+
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">
+        <a href="/" class="logo">Free <span>Games</span></a>
+        <p>Free forever, open source, privacy-first.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/about.html">About</a>
+        <a href="/contribute.html">Build</a>
+        <a href="/docs/">Docs</a>
+        <a href="/capabilities.html">Capabilities</a>
+        <a href="/browser-apis.html">Browser APIs</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="https://github.com/freegamestore-online">GitHub</a>
+      </div>
+    </div>
+  </footer>
+  <script src="/theme.js" defer></script>
+</body>
+</html>

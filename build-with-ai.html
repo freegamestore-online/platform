@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="FreeGameStore" />
+  <meta name="application-name" content="FreeGameStore" />
+  <title>Build with AI — FreeGameStore</title>
+  <meta name="description" content="Build a free game on FreeGameStore with Claude Code, Cursor, GitHub Copilot, Aider, Codex, or any AI coding tool." />
+  <meta property="og:title" content="Build with AI — FreeGameStore" />
+  <meta property="og:description" content="Build a free game on FreeGameStore with Claude Code, Cursor, GitHub Copilot, Aider, Codex, or any AI coding tool." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://freegamestore.online/build-with-ai" />
+  <meta property="og:image" content="https://freegamestore.online/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+  <link rel="canonical" href="https://freegamestore.online/build-with-ai" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>(function(){try{var p=localStorage.getItem('stores-theme');var d=p==='dark'||(!p||p==='system')&&matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.dataset.theme='dark';var t=localStorage.getItem('stores-text-size');if(t)document.documentElement.dataset.text=t;}catch(e){}})()</script>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="/" class="logo">Free <span>Games</span></a>
+      <button class="nav-toggle" type="button" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg></button>
+      <nav>
+        <a href="/">Games</a>
+        <a href="https://freeappstore.online">Apps</a>
+        <a href="/about.html">About</a>
+        <a href="/developers.html">Developers</a>
+        <a href="/get-started.html">Get Started</a>
+        <a href="https://console.freegamestore.online">Console</a>
+        <a href="/docs/">Docs</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="ai-hero">
+      <h1>Build a free game with AI.</h1>
+      <p class="ai-lead">FreeGameStore is AI-first. Drop our <a href="https://freegamestore.online/skills.md">SKILLS.md</a> into your AI tool of choice, and the agent already knows the brand rules, the privacy mandates, the CLI, and the deploy flow before it writes a line of code. Ship a real, free, MIT-licensed game in an afternoon.</p>
+      <p class="ai-lead">Even faster: connect the <a href="/docs/mcp">MCP server</a> and build, publish, and improve games without leaving your editor — <strong>your AI writes the code</strong> (<code>create_game</code> → <code>update_files</code>), or <strong>the platform's VibeCode agent does</strong> (<code>agent_build</code>). One line to connect:</p>
+      <div class="cmd">claude mcp add freegamestore -- npx mcp-remote https://mcp.freegamestore.online/mcp</div>
+    </div>
+
+    <h2>Pick your tool</h2>
+    <div class="ai-tools">
+      <a href="/ai/claude-code.html" class="ai-tool">
+        <span class="tag">Terminal</span>
+        <h3>Claude Code</h3>
+        <p>Anthropic's official terminal CLI. Best fit if you live in a shell.</p>
+      </a>
+      <a href="/ai/cursor.html" class="ai-tool">
+        <span class="tag">Editor</span>
+        <h3>Cursor</h3>
+        <p>AI-native fork of VS Code. Best fit if you want a polished editor UI.</p>
+      </a>
+      <a href="/ai/github-copilot.html" class="ai-tool">
+        <span class="tag">Editor</span>
+        <h3>GitHub Copilot</h3>
+        <p>Built into VS Code, JetBrains, and the GitHub web UI. Best fit if you want zero install friction.</p>
+      </a>
+      <a href="/ai/aider.html" class="ai-tool">
+        <span class="tag">Terminal</span>
+        <h3>Aider</h3>
+        <p>Open-source AI pair programming in your terminal. Best fit if you want to swap models freely.</p>
+      </a>
+      <a href="/ai/codex.html" class="ai-tool">
+        <span class="tag">Terminal</span>
+        <h3>Codex CLI</h3>
+        <p>OpenAI's open-source terminal agent. Best fit if you prefer GPT-5 / o4 models.</p>
+      </a>
+      <a href="/ai/windsurf.html" class="ai-tool">
+        <span class="tag">Editor</span>
+        <h3>Windsurf</h3>
+        <p>Codeium's AI-native editor with Cascade for multi-step tasks. Best fit if you want agentic flows in an IDE.</p>
+      </a>
+      <a href="/ai/zed.html" class="ai-tool">
+        <span class="tag">Editor</span>
+        <h3>Zed</h3>
+        <p>Fast Rust-based editor with multi-model AI. Best fit if you want low-latency editing + AI in one tool.</p>
+      </a>
+      <a href="/ai/continue.html" class="ai-tool">
+        <span class="tag">Editor</span>
+        <h3>Continue</h3>
+        <p>Open-source AI extension for VS Code and JetBrains. Best fit if you want full local-model freedom.</p>
+      </a>
+      <a href="/ai/cline.html" class="ai-tool">
+        <span class="tag">Editor</span>
+        <h3>Cline</h3>
+        <p>Autonomous AI coding agent for VS Code. Best fit if you want the agent to plan and act without hand-holding.</p>
+      </a>
+      <a href="/ai/chatgpt-web.html" class="ai-tool">
+        <span class="tag">Web</span>
+        <h3>ChatGPT (web)</h3>
+        <p>Build via the ChatGPT browser UI when you don't want a local agent. Best fit for one-shot prototyping.</p>
+      </a>
+    </div>
+
+    <h2>Workspace layout</h2>
+    <p>Keep all your game repos under one folder so your AI agent finds them automatically:</p>
+    <div class="cmd">mkdir -p ~/dev/fgs/games && cd ~/dev/fgs/games</div>
+    <div class="cmd cmd-pre">~/dev/fgs/
+  games/            ← your game repos
+    chess/
+    tetris/
+    racing/
+  platform/         ← store site &amp; templates (maintainers only)</div>
+    <p>This matches the paths in <a href="https://freegamestore.online/skills.md">SKILLS.md</a>. For apps, use <code>~/dev/fas/apps/</code>.</p>
+
+    <h2>Or any other tool</h2>
+    <p>Roo Code, Sweep, Open Hands, Smol Developer, the new Anthropic SDK agent — all of them work. The pattern is the same:</p>
+    <ol class="steps">
+      <li><strong>Install the FreeGameStore CLI:</strong> <code>npm i -g @freegamestore/cli</code> then <code>fgs login</code>.</li>
+      <li><strong>Scaffold:</strong> <code>fgs init my-game --template canvas</code>.</li>
+      <li><strong>Tell your AI tool to read SKILLS.md.</strong> Drop the URL in the project's instruction file (CLAUDE.md, .cursorrules, .github/copilot-instructions.md, AGENTS.md, CONVENTIONS.md, system prompt, …).</li>
+      <li><strong>Build.</strong> The agent edits <code>web/src/App.tsx</code> and supporting files using the Shell layout, brand tokens, and brand fonts.</li>
+      <li><strong>Run <code>fgs check</code>.</strong> Compliance enforced.</li>
+      <li><strong>Run <code>fgs publish</code>.</strong> Provisions repo + hosting + DNS.</li>
+      <li><strong>Push to main.</strong> Auto-deploys in ~30 seconds.</li>
+    </ol>
+
+    <div class="callout">
+      <strong>The platform context lives at:</strong>
+      <div class="cmd">https://freegamestore.online/skills.md</div>
+      <p>Drop that URL in your tool's instruction file. The agent fetches it on demand and writes platform-aware code.</p>
+    </div>
+
+    <h2>What "AI-first" actually means here</h2>
+    <p>Three things, enforced by tooling:</p>
+    <ul>
+      <li><strong>Brand and privacy are not negotiable.</strong> Your agent will try to add Google Analytics or a custom display font. <code>fgs check</code> rejects the publish. The mandates exist precisely so that AI-generated apps stay consistent.</li>
+      <li><strong>Provisioning is one command.</strong> No copy-pasting Cloudflare tokens. No DNS dashboards. No CI YAML. <code>fgs publish</code> handles everything atomically.</li>
+      <li><strong>Deploy is a push.</strong> The agent doesn't need a deploy script. <code>git push</code> triggers a GitHub Actions build to Cloudflare R2, and the storefront refreshes within hours.</li>
+    </ul>
+    <p>The mandates aren't to slow agents down — they're to let agents go fast without breaking the platform.</p>
+
+    <h2>Other reading</h2>
+    <ul>
+      <li><a href="/contribute.html">Manual / non-AI build flow</a> — the same steps without an agent.</li>
+      <li><a href="/docs/guidelines/">Platform guidelines</a> — what gets approved and what doesn't.</li>
+      <li><a href="https://github.com/freegamestore-online/public">FreeGameStore SDK source</a> — CLI, compliance package, backend.</li>
+      <li><a href="https://freeappstore.online/build-with-ai.html">FreeAppStore's AI guide</a> — sister storefront, same flow.</li>
+    </ul>
+
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">
+        <a href="/" class="logo">Free <span>Games</span></a>
+        <p>Free forever, open source, privacy-first.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/about.html">About</a>
+        <a href="/contribute.html">Build</a>
+        <a href="/docs/">Docs</a>
+        <a href="/capabilities.html">Capabilities</a>
+        <a href="/browser-apis.html">Browser APIs</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="https://github.com/freegamestore-online">GitHub</a>
+        <a href="https://github.com/freegamestore-online/freegamestore/discussions">Support</a>
+      </div>
+    </div>
+  </footer>
+  <script src="/theme.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="FreeGameStore" />
+  <meta name="application-name" content="FreeGameStore" />
+  <title>Developers — FreeGameStore</title>
+  <meta name="description" content="Meet the developers building free, open-source browser games on FreeGameStore." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Developers — FreeGameStore" />
+  <meta property="og:description" content="Meet the developers building free, open-source browser games on FreeGameStore." />
+  <meta property="og:url" content="https://freegamestore.online/developers" />
+  <meta property="og:image" content="https://freegamestore.online/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+  <link rel="canonical" href="https://freegamestore.online/developers" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>(function(){try{var p=localStorage.getItem('stores-theme');var d=p==='dark'||(!p||p==='system')&&matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.dataset.theme='dark';var t=localStorage.getItem('stores-text-size');if(t)document.documentElement.dataset.text=t;}catch(e){}})()</script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="/" class="logo">Free <span>Games</span></a>
+      <button class="nav-toggle" onclick="this.nextElementSibling.classList.toggle('open')" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg></button>
+      <nav>
+        <a href="/">Games</a>
+        <a href="https://freeappstore.online">Apps</a>
+        <a href="/about.html">About</a>
+        <a href="/developers.html">Developers</a>
+        <a href="/get-started.html">Get Started</a>
+        <a href="https://console.freegamestore.online">Console</a>
+        <a href="/docs/">Docs</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>Developers</h1>
+      <p>The people building free, open-source browser games on FreeGameStore. Every game is MIT-licensed &mdash; read the code, fork it, remix it.</p>
+    </div>
+
+    <div class="developers-grid">
+      <a class="dev-card" href="https://github.com/freegamestore-online">
+        <img class="dev-avatar" src="https://github.com/serge-ivo.png?size=200" alt="FreeGameStore" loading="lazy" />
+        <div class="dev-card-body">
+          <span class="dev-card-name">FreeGameStore</span>
+          <span class="dev-card-bio">Platform team. Building the game SDK, templates, and first-party games.</span>
+          <div class="dev-badges"><span class="dev-badge platform">Platform</span><span class="dev-badge founding-developer">Founding Dev</span></div>
+          <span class="dev-card-stats">37 games</span>
+        </div>
+      </a>
+    </div>
+
+    <div class="page-content">
+      <h2>Become a developer</h2>
+      <p>Anyone can publish a game on FreeGameStore. Pick a template, build your game, and submit it for review.</p>
+      <p><a href="/get-started.html">Get started &rarr;</a></p>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">
+        <a href="/" class="logo">Free <span>Games</span></a>
+        <p>Free forever, open source, privacy-first.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/about.html">About</a>
+        <a href="/contribute.html">Build</a>
+        <a href="/docs/">Docs</a>
+        <a href="/developers.html">Developers</a>
+        <a href="/capabilities.html">Capabilities</a>
+        <a href="/browser-apis.html">Browser APIs</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="https://github.com/freegamestore-online">GitHub</a>
+        <a href="https://github.com/freegamestore-online/freegamestore/discussions">Support</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
