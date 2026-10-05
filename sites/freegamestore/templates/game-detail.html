@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="FreeGameStore" />
+  <meta name="application-name" content="FreeGameStore" />
+  <title>{{NAME}} — Free Online Game | FreeGameStore</title>
+  <meta name="description" content="Play {{NAME}} for free. {{DESCRIPTION}} No download, no account, works on any device." />
+  <link rel="canonical" href="https://freegamestore.online/games/{{ID}}.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="{{NAME}} — Free Online Game | FreeGameStore" />
+  <meta property="og:description" content="Play {{NAME}} for free. {{DESCRIPTION}}" />
+  <meta property="og:url" content="https://freegamestore.online/games/{{ID}}.html" />
+  <meta property="og:image" content="https://freegamestore.online/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css?v={{STYLE_VERSION}}" />
+  <link rel="stylesheet" href="/card-styles.css?v={{CARD_STYLES_VERSION}}" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "{{NAME}}",
+    "applicationCategory": "GameApplication",
+    "operatingSystem": "Web",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "{{DESCRIPTION}}",
+    "url": "{{APP_URL}}",
+    "author": {
+      "@type": "Organization",
+      "name": "{{AUTHOR}}"
+    },
+    "softwareVersion": "{{VERSION}}",
+    "datePublished": "{{FIRST_PUBLISHED}}",
+    "dateModified": "{{LAST_UPDATED}}",
+    "license": "https://opensource.org/licenses/MIT"
+  }
+  </script>
+  <!-- CF Web Analytics — cookieless, no PII. -->
+  __CF_BEACON__
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="/" class="logo">Free <span>Games</span></a>
+      <button class="nav-toggle" type="button" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg></button>
+      <nav>
+        <a href="/">Games</a>
+        <a href="https://freeappstore.online">Apps</a>
+        <a href="/about.html">About</a>
+        <a href="/developers.html">Developers</a>
+        <a href="/get-started.html">Get Started</a>
+        <a href="https://console.freegamestore.online">Console</a>
+        <a href="/docs/">Docs</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="app-split">
+      <div class="app-split-info">
+        <div class="app-hero">
+          <div class="app-hero-icon" data-id="{{ID}}">{{ICON}}</div>
+          <div>
+            <h1>{{NAME}}</h1>
+            <div class="tag">{{CATEGORY_LABEL}}</div>
+            <div class="app-hero-author">{{AUTHOR_CHIP}}</div>
+          </div>
+        </div>
+
+        <p class="app-description">{{DESCRIPTION}}</p>
+
+        {{PUBLISHED_LINE}}
+        {{AUDIT_BADGE}}
+        {{VIEWPORT_BADGE}}
+
+        <div class="app-meta">
+          <div class="app-meta-item">
+            <div class="label">Price</div>
+            <div class="value">Free forever</div>
+          </div>
+          <div class="app-meta-item">
+            <div class="label">Platform</div>
+            <div class="value">Web (any device)</div>
+          </div>
+          <div class="app-meta-item">
+            <div class="label">Offline</div>
+            <div class="value">{{OFFLINE}}</div>
+          </div>
+          <div class="app-meta-item">
+            <div class="label">Account</div>
+            <div class="value">{{ACCOUNT}}</div>
+          </div>
+          <div class="app-meta-item">
+            <div class="label">Source</div>
+            <div class="value"><a href="https://github.com/{{REPO}}" class="source-link">GitHub</a></div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="app-split-phone">
+        <div class="phone-frame">
+          <iframe
+            src="{{APP_URL}}"
+            title="{{NAME}} live preview"
+            loading="lazy"
+            referrerpolicy="no-referrer"
+            allow="clipboard-write; fullscreen; gamepad"
+          ></iframe>
+        </div>
+        <div class="preview-actions">
+          <a class="app-cta" href="{{APP_URL}}" rel="noopener">Play &rarr;</a>
+          <button type="button" class="app-btn-secondary" data-action="reload-preview">Reload</button>
+        </div>
+        <p class="preview-note">If the preview doesn't load, open in a new tab.</p>
+      </aside>
+    </div>
+
+    <section class="app-section" id="rating-section">
+      <h2>Rate this game</h2>
+      <div id="rating-widget" class="rating-widget">
+        <button id="rate-up" class="rate-btn" title="Like">
+          <span class="rate-icon">&#128077;</span><span id="count-up">0</span>
+        </button>
+        <button id="rate-down" class="rate-btn" title="Dislike">
+          <span class="rate-icon">&#128078;</span><span id="count-down">0</span>
+        </button>
+        <span id="rating-status" class="rating-status"></span>
+      </div>
+    </section>
+
+    <section class="app-section">
+      <h2>About</h2>
+      <p>{{DESCRIPTION}}</p>
+      <p class="mt-sm"><strong>Type:</strong> {{TYPE_LABEL}} &middot; <strong>Author:</strong> {{AUTHOR_CHIP}} &middot; <strong>Developer:</strong> {{DEVELOPER}}</p>
+    </section>
+
+    <section class="app-section">
+      <h2>Privacy</h2>
+      <p>{{NAME}} collects zero data. No analytics, no tracking, no cookies. Nothing leaves your browser.</p>
+    </section>
+
+    <section class="app-section">
+      <h2>Open Source</h2>
+      <p>Fully open source under the MIT license. Inspect the code, report bugs, or contribute improvements.</p>
+      <a href="https://github.com/{{REPO}}" class="source-link">View source on GitHub &rarr;</a>
+    </section>
+
+    {{HISTORY_SECTION}}
+
+    <aside class="aside-note">
+      Looking for free apps? Visit <a href="https://freeappstore.online" class="text-accent-bold">FreeAppStore</a>
+    </aside>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">
+        <a href="/" class="logo">Free <span>Games</span></a>
+        <p>Free forever, open source, privacy-first.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/about.html">About</a>
+        <a href="/contribute.html">Build</a>
+        <a href="/docs/">Docs</a>
+        <a href="/capabilities.html">Capabilities</a>
+        <a href="/browser-apis.html">Browser APIs</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="https://github.com/freegamestore-online">GitHub</a>
+        <a href="https://github.com/freegamestore-online/freegamestore/discussions">Support</a>
+      </div>
+    </div>
+  </footer>
+  <!-- Per-page data island; read by /detail-page.js. No inline JS = CSP stays locked. -->
+  <script type="application/json" id="page-data">{"id":"{{ID}}"}</script>
+  <script src="/theme.js" integrity="{{SRI_THEME_JS}}" defer></script>
+  <script src="/detail-page.js" integrity="{{SRI_DETAIL_PAGE_JS}}" defer></script>
+</body>
+</html>

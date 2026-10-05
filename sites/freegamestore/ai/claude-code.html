@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="FreeGameStore" />
+  <meta name="application-name" content="FreeGameStore" />
+  <title>Claude Code — FreeGameStore</title>
+  <meta name="description" content="Build a free game on FreeGameStore with Claude Code." />
+  <meta property="og:title" content="Claude Code — FreeGameStore" />
+  <meta property="og:description" content="Build a free game on FreeGameStore with Claude Code." />
+  <meta property="og:type" content="website" />
+  <link rel="canonical" href="https://freegamestore.online/ai/claude-code.html" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="/" class="logo">Free <span>Games</span></a>
+      <button class="nav-toggle" type="button" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg></button>
+      <nav>
+        <a href="/">Games</a>
+        <a href="https://freeappstore.online">Apps</a>
+        <a href="/about.html">About</a>
+        <a href="/developers.html">Developers</a>
+        <a href="/get-started.html">Get Started</a>
+        <a href="https://console.freegamestore.online">Console</a>
+        <a href="/docs/">Docs</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <h1>Claude Code on FreeGameStore</h1>
+    <p class="ai-lead">Build a free game using Claude Code. The agent reads the platform's <a href="https://freegamestore.online/skills.md">SKILLS.md</a> and knows the brand rules, the CLI, and the deploy flow before it writes a line of code.</p>
+
+    <div class="callout">
+      <strong>Before you start:</strong> install Node 22+ and the FreeGameStore CLI.
+      <div class="cmd">npm i -g @freegamestore/cli
+fgs login</div>
+    </div>
+
+
+    <h2>Set up Claude Code</h2>
+    <ol class="steps">
+      <li>
+        <strong>Install Claude Code</strong>
+        <div class="cmd">npm i -g @anthropic-ai/claude-code</div>
+        <p>Or follow the latest install instructions at <a href="https://claude.com/claude-code">claude.com/claude-code</a>.</p>
+      </li>
+      <li>
+        <strong>Scaffold the game</strong>
+        <div class="cmd">fgs init my-game --template canvas
+cd my-game</div>
+      </li>
+      <li>
+        <strong>Add platform context to <code>CLAUDE.md</code></strong>
+        <p>From inside the scaffolded directory:</p>
+        <div class="cmd">cat &gt;&gt; CLAUDE.md &lt;&lt;'EOF'
+
+# Platform: FreeGameStore
+
+Read https://freegamestore.online/skills.md for platform skills, brand mandates, compliance rules, and the publish flow.
+
+When this user asks for changes, edit web/src/App.tsx and supporting files. Use the existing Shell layout. Never add trackers, custom display fonts, or third-party scripts beyond Google Fonts.
+EOF</div>
+        <p>Claude Code reads <code>CLAUDE.md</code> automatically at the start of every session — your platform context loads with no extra setup.</p>
+      </li>
+      <li>
+        <strong>Start a session</strong>
+        <div class="cmd">claude</div>
+      </li>
+    </ol>
+
+    <h2>Or skip the setup — connect the MCP server</h2>
+    <p>The FreeGameStore <a href="/docs/mcp">MCP server</a> lets Claude Code build, publish, and improve games without leaving the editor. Connect once:</p>
+    <div class="cmd">claude mcp add freegamestore -- npx mcp-remote https://mcp.freegamestore.online/mcp</div>
+    <p>Then there are <strong>two ways to build</strong>:</p>
+    <ul>
+      <li><strong>Claude writes the code, the MCP ships it</strong> — <code>create_game</code> provisions + scaffolds + deploys a live game, then <code>update_files</code> / <code>read_file</code> / <code>list_files</code> iterate (each push auto-redeploys).</li>
+      <li><strong>You just prompt — the platform's VibeCode agent writes + deploys it</strong> — <code>agent_build</code> hands the whole build to the server-side agent (bring your own AI key), <code>agent_status</code> polls progress.</li>
+    </ul>
+    <p>Authenticated tools take your <code>fgs login</code> session token via mcp-remote's <code>--header "Authorization: Bearer &lt;token&gt;"</code>. Full guide: <a href="/docs/mcp">freegamestore.online/docs/mcp</a>.</p>
+
+    <h2>Prompt the build</h2>
+    <p>Tell the agent what you want. Some examples:</p>
+    <div class="ai-prompt">Build a tip-splitter game: input the bill, tip %, and party size. Show per-person total. Persist the last 5 splits in localStorage. Use the Shell layout and brand tokens.</div>
+    <div class="ai-prompt">Add a dark-mode-aware bar chart of the daily lap times to my stopwatch game. Don't break the existing keyboard shortcuts (Space / L / R).</div>
+    <div class="ai-prompt">Refactor my game to extract the timer logic into a hook with full unit-test coverage. Use vitest.</div>
+
+    <h2>Iterate</h2>
+    <ol class="steps">
+      <li>
+        <strong>Run the dev server</strong>
+        <div class="cmd">cd my-game &amp;&amp; pnpm install &amp;&amp; pnpm dev</div>
+        <p>The agent will tell you which file it edited; refresh the browser to see the change.</p>
+      </li>
+      <li>
+        <strong>Run compliance checks</strong>
+        <div class="cmd">fgs check</div>
+        <p>Catches missing brand fonts, tracking SDKs, oversized bundles, and missing PWA manifest before publish.</p>
+      </li>
+      <li>
+        <strong>Publish</strong>
+        <div class="cmd">fgs publish --store games</div>
+        <p>Provisions <code>github.com/freegamestore-online/my-game</code>, R2 hosting, the subdomain at <code>my-game.freegamestore.online</code>, and the storefront entry — atomically.</p>
+      </li>
+      <li>
+        <strong>Push your code</strong>
+        <div class="cmd">git push upstream main</div>
+        <p>Auto-deploys via GitHub Actions to Cloudflare R2 in ~30 seconds. Future commits to <code>main</code> deploy automatically.</p>
+      </li>
+    </ol>
+
+    <h2>What the AI knows (and doesn't ask you for)</h2>
+    <p>Once SKILLS.md is loaded, the agent will:</p>
+    <ul>
+      <li>Use the platform's CSS tokens (<code>--accent</code>, <code>--ink</code>, <code>--paper</code>, …) — never redefine them.</li>
+      <li>Use Manrope (body) + Fraunces (display) — never custom display fonts.</li>
+      <li>Refuse to add Google Analytics, Plausible, Mixpanel, or any tracker.</li>
+      <li>Use <code>localStorage</code> for persistence (or <code>@freegamestore/games</code> KV for connected games).</li>
+      <li>Push to <code>main</code> for deploy. Never <code>wrangler pages deploy</code> manually.</li>
+      <li>Never ask you for Cloudflare or GitHub tokens.</li>
+    </ul>
+    <p>The compliance suite (<code>fgs check</code>) enforces all of the above on every push, so even if the AI slips, the platform catches it.</p>
+
+    <h2>Get the source</h2>
+    <p>The CLI, SDK, and compliance package live at <a href="https://github.com/freegamestore-online/public">https://github.com/freegamestore-online/public</a>. Reading the source is allowed — and often illuminating when you're trying to coax a difficult prompt.</p>
+
+
+    <h2>Tips for Claude Code specifically</h2>
+    <ul>
+      <li>Use <code>/init</code> in a fresh repo to have Claude generate a richer CLAUDE.md tailored to your codebase.</li>
+      <li><code>/agents</code> can spawn parallel exploration agents — useful when you ask "what's the cleanest way to add feature X to this codebase?"</li>
+      <li>The <code>--continue</code> flag resumes the last session in the current directory; great for multi-day projects.</li>
+    </ul>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">
+        <a href="/" class="logo">Free <span>Games</span></a>
+        <p>Free forever, open source, privacy-first.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/about.html">About</a>
+        <a href="/contribute.html">Build</a>
+        <a href="/quality.html">Quality</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="https://github.com/freegamestore-online">GitHub</a>
+        <a href="https://github.com/freegamestore-online/freegamestore/discussions">Support</a>
+      </div>
+    </div>
+  </footer>
+  <script src="/theme.js" defer></script>
+</body>
+</html>

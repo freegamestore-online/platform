@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="FreeGameStore" />
+  <meta name="application-name" content="FreeGameStore" />
+  <title>Workflow — FreeGameStore</title>
+  <meta name="description" content="The complete developer workflow for publishing a game on FreeGameStore. From scaffold to live." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Workflow — FreeGameStore" />
+  <meta property="og:description" content="The complete developer workflow for publishing a game on FreeGameStore. From scaffold to live." />
+  <meta property="og:url" content="https://freegamestore.online/workflow" />
+  <meta property="og:image" content="https://freegamestore.online/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+  <link rel="canonical" href="https://freegamestore.online/workflow" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>(function(){try{var p=localStorage.getItem('stores-theme');var d=p==='dark'||(!p||p==='system')&&matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.dataset.theme='dark';var t=localStorage.getItem('stores-text-size');if(t)document.documentElement.dataset.text=t;}catch(e){}})()</script>
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    .wf { max-width: 640px; margin: 0 auto; }
+    .wf-step { position: relative; padding: 1.25rem 1.5rem 1.25rem 3.5rem; margin-bottom: 0; border-left: 2px solid var(--line); }
+    .wf-step:last-child { border-left-color: transparent; }
+    .wf-num { position: absolute; left: -0.85rem; top: 1.25rem; width: 1.7rem; height: 1.7rem; border-radius: 50%; background: var(--accent); color: #fff; font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .wf-step h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.25rem; color: var(--ink-strong); }
+    .wf-step p { font-size: 0.9rem; color: var(--muted); margin-bottom: 0.35rem; line-height: 1.5; }
+    .wf-step code { background: var(--panel-alt); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.82rem; font-family: var(--font-mono); color: var(--ink); }
+    .wf-cmd { display: block; background: var(--panel-alt); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; margin-top: 0.35rem; font-family: var(--font-mono); font-size: 0.82rem; color: var(--ink); overflow-x: auto; white-space: pre; }
+    .wf-arrow { text-align: center; color: var(--muted-soft); font-size: 1.2rem; padding: 0.25rem 0; }
+    .wf-section { margin-top: 2.5rem; margin-bottom: 1rem; }
+    .wf-section h2 { font-family: var(--font-display); font-size: 1.3rem; color: var(--ink-strong); margin-bottom: 0.25rem; }
+    .wf-section p { color: var(--muted); font-size: 0.9rem; }
+    .wf-note { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-top: 0.5rem; font-size: 0.85rem; color: var(--ink); }
+    .wf-note strong { color: var(--ink-strong); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="/" class="logo">Free <span>Games</span></a>
+      <button class="nav-toggle" onclick="this.nextElementSibling.classList.toggle('open')" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg></button>
+      <nav>
+        <a href="/">Games</a>
+        <a href="https://freeappstore.online">Apps</a>
+        <a href="/about.html">About</a>
+        <a href="/developers.html">Developers</a>
+        <a href="/get-started.html">Get Started</a>
+        <a href="https://console.freegamestore.online">Console</a>
+        <a href="/docs/">Docs</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>Developer Workflow</h1>
+      <p>From zero to live game on the store. Follow each step in order.</p>
+    </div>
+
+    <div class="wf">
+
+      <!-- Phase 1: Setup -->
+      <div class="wf-section">
+        <h2>1. Setup</h2>
+        <p>One-time setup. Takes about 2 minutes.</p>
+      </div>
+
+      <div class="wf-step">
+        <span class="wf-num">1</span>
+        <h3>Install the CLI</h3>
+        <p>Requires Node 22+.</p>
+        <code class="wf-cmd">npm install -g @freegamestore/cli</code>
+      </div>
+
+      <div class="wf-step">
+        <span class="wf-num">2</span>
+        <h3>Sign in with GitHub</h3>
+        <p>Device-flow OAuth. No password leaves your terminal.</p>
+        <code class="wf-cmd">fgs login</code>
+      </div>
+
+      <!-- Phase 2: Build -->
+      <div class="wf-section">
+        <h2>2. Build</h2>
+        <p>Scaffold a template, then build your game.</p>
+      </div>
+
+      <div class="wf-step">
+        <span class="wf-num">3</span>
+        <h3>Scaffold from a template</h3>
+        <p>Pick a template: <code>canvas</code>, <code>grid</code>, <code>cards</code>, <code>3d</code>, <code>phaser</code>, <code>kaplay</code>, <code>pixi</code>, <code>babylon</code>, <code>excalibur</code>, or <code>littlejs</code>.</p>
+        <code class="wf-cmd">fgs init my-game --template canvas</code>
+      </div>
+
+      <div class="wf-step">
+        <span class="wf-num">4</span>
+        <h3>Install and run</h3>
+        <p>Hot reload at <code>localhost:5173</code>.</p>
+        <code class="wf-cmd">cd my-game && pnpm install && pnpm dev</code>
+      </div>
+
+      <div class="wf-step">
+        <span class="wf-num">5</span>
+        <h3>Build your game</h3>
+        <p>Edit <code>web/src/App.tsx</code>. Use any AI tool or code by hand. The template's <code>CLAUDE.md</code> points AI agents to the platform guide automatically.</p>
+        <div class="wf-note">
+          <strong>AI-first:</strong> Open Claude Code, Cursor, Copilot, or any tool in the project folder. Describe your game and the agent builds it using the platform's design system, SDK, and conventions.
+        </div>
+      </div>
+
+      <!-- Phase 3: Verify -->
+      <div class="wf-section">
+        <h2>3. Verify</h2>
+        <p>Make sure your game meets platform requirements before publishing.</p>
+      </div>
+
+      <div class="wf-step">
+        <span class="wf-num">6</span>
+        <h3>Run compliance checks</h3>
+        <p>Catches missing LICENSE, brand font issues, tracking SDKs, oversized bundles, missing PWA manifest, viewport overflow, and more.</p>
+        <code class="wf-cmd">fgs check</code>
+        <p style="margin-top: 0.5rem">Fix any failures. Warnings are recommendations. Re-run until all hard checks pass.</p>
+      </div>
+
+      <!-- Phase 4: Publish -->
+      <div class="wf-section">
+        <h2>4. Publish</h2>
+        <p>One command provisions everything: GitHub repo, hosting, DNS, store listing.</p>
+      </div>
+
+      <div class="wf-step">
+        <span class="wf-num">7</span>
+        <h3>Publish to the store</h3>
+        <p>Runs compliance checks, then provisions your game. You'll be prompted for a name, category, and description.</p>
+        <code class="wf-cmd">fgs publish</code>
+        <p style="margin-top: 0.5rem">This creates:</p>
+        <ul style="font-size: 0.85rem; color: var(--muted); padding-left: 1.25rem; margin-top: 0.25rem;">
+          <li>GitHub repo at <code>freegamestore-online/my-game</code></li>
+          <li>Hosting route for <code>my-game.freegamestore.online</code></li>
+          <li>Store listing on the storefront</li>
+          <li>You as a collaborator with push access</li>
+        </ul>
+      </div>
+
+      <div class="wf-step">
+        <span class="wf-num">8</span>
+        <h3>Push your code</h3>
+        <p>The publish output tells you the remote URL. Add it and push.</p>
+        <code class="wf-cmd">git remote add upstream https://github.com/freegamestore-online/my-game.git
+git push upstream main</code>
+      </div>
+
+      <div class="wf-step">
+        <span class="wf-num">9</span>
+        <h3>Game is live</h3>
+        <p>GitHub Actions builds and deploys to R2 in ~30 seconds. Your game is now at:</p>
+        <code class="wf-cmd">https://my-game.freegamestore.online</code>
+        <div class="wf-note">
+          <strong>Auto-deploy:</strong> Every future push to <code>main</code> deploys automatically. No manual steps needed.
+        </div>
+      </div>
+
+      <!-- Phase 5: Update -->
+      <div class="wf-section">
+        <h2>5. Update</h2>
+        <p>The ongoing loop: code, push, deployed.</p>
+      </div>
+
+      <div class="wf-step" style="border-left-color: transparent;">
+        <span class="wf-num" style="background: var(--muted);">&#8635;</span>
+        <h3>Edit &rarr; Push &rarr; Live</h3>
+        <p>Make changes locally, commit, push to <code>main</code>. Live in ~30 seconds. Run <code>fgs check</code> before pushing to catch issues early.</p>
+        <code class="wf-cmd">git add -A && git commit -m "add power-ups" && git push upstream main</code>
+      </div>
+
+    </div>
+
+    <!-- CLI Reference -->
+    <div class="wf" style="margin-top: 3rem;">
+      <h2 style="font-family: var(--font-display); font-size: 1.3rem; margin-bottom: 1rem;">CLI Reference</h2>
+      <table style="width: 100%; font-size: 0.88rem; border-collapse: collapse;">
+        <tr style="border-bottom: 1px solid var(--line);">
+          <td style="padding: 0.5rem 0; font-family: var(--font-mono);"><code>fgs login</code></td>
+          <td style="padding: 0.5rem 0; color: var(--muted);">Sign in with GitHub</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--line);">
+          <td style="padding: 0.5rem 0; font-family: var(--font-mono);"><code>fgs init &lt;id&gt;</code></td>
+          <td style="padding: 0.5rem 0; color: var(--muted);">Scaffold a game from a template</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--line);">
+          <td style="padding: 0.5rem 0; font-family: var(--font-mono);"><code>fgs check</code></td>
+          <td style="padding: 0.5rem 0; color: var(--muted);">Run compliance checks</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--line);">
+          <td style="padding: 0.5rem 0; font-family: var(--font-mono);"><code>fgs publish</code></td>
+          <td style="padding: 0.5rem 0; color: var(--muted);">Provision and publish to the store</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--line);">
+          <td style="padding: 0.5rem 0; font-family: var(--font-mono);"><code>fgs list</code></td>
+          <td style="padding: 0.5rem 0; color: var(--muted);">See your published games</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--line);">
+          <td style="padding: 0.5rem 0; font-family: var(--font-mono);"><code>fgs logs &lt;id&gt;</code></td>
+          <td style="padding: 0.5rem 0; color: var(--muted);">Tail deployment logs</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--line);">
+          <td style="padding: 0.5rem 0; font-family: var(--font-mono);"><code>fgs doctor</code></td>
+          <td style="padding: 0.5rem 0; color: var(--muted);">Health check (Node, git, pnpm, auth, API)</td>
+        </tr>
+        <tr>
+          <td style="padding: 0.5rem 0; font-family: var(--font-mono);"><code>fgs screencheck</code></td>
+          <td style="padding: 0.5rem 0; color: var(--muted);">Verify game fits viewport in real browser</td>
+        </tr>
+      </table>
+    </div>
+
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">
+        <a href="/" class="logo">Free <span>Games</span></a>
+        <p>Free forever, open source, privacy-first.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/about.html">About</a>
+        <a href="/get-started.html">Get Started</a>
+        <a href="/workflow.html">Workflow</a>
+        <a href="/build-with-ai.html">Build with AI</a>
+        <a href="/docs/">Docs</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="https://github.com/freegamestore-online">GitHub</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

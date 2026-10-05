@@ -1,0 +1,32 @@
+# Copy this file into a new game repo as `.github/workflows/deploy.yml`.
+# Replace __CF_PROJECT_PLACEHOLDER__ with the game's Cloudflare Pages
+# project name (convention: free<game>app, e.g. freebowlingapp).
+#
+# This is a thin caller for the reusable workflow at
+# freegamestore-online/freegamestore/.github/workflows/game-ci.yml.
+# That central file pins node, the compliance CLI, and the build/deploy
+# pipeline; bumping anything across all 43 games is a single PR there.
+
+name: CI / Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Most-recent push/PR for a ref wins; older runs are cancelled so a deploy
+# never wins a race against a fresh build of the same branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci-and-deploy:
+    uses: freegamestore-online/freegamestore/.github/workflows/game-ci.yml@main
+    with:
+      cf_project: __CF_PROJECT_PLACEHOLDER__
+    permissions:
+      contents: read
+      deployments: write
+    secrets: inherit

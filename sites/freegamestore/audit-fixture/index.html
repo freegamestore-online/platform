@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auditor Fixture — Platform QA</title>
+  <meta name="description" content="Deliberately-broken control cases for the FreeAppStore / FreeGameStore platform auditor. Each scenario reproduces a specific layout bug to verify the auditor flags it correctly." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <style>
+    /* Reset is intentionally minimal — fixture scenarios should each
+       set their own offending styles cleanly without having to fight
+       inherited rules. */
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; color: #1a1a1a; background: #fafbfc; }
+    body[data-scenario] { font-family: system-ui, sans-serif; }
+    /* Index (no scenario selected) */
+    .index { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    .index h1 { font-size: 1.6rem; margin-bottom: 0.4rem; }
+    .index .meta { color: #6b7280; font-size: 0.9rem; margin-bottom: 1.5rem; }
+    .index .banner { background: #fef3c7; border: 1px solid #fcd34d; border-radius: 0.5rem; padding: 0.75rem 1rem; margin: 1rem 0; font-size: 0.9rem; }
+    .index ul { list-style: none; padding: 0; }
+    .index li { padding: 0.6rem 0.8rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; margin-bottom: 0.4rem; }
+    .index li code { background: #f3f4f6; padding: 1px 6px; border-radius: 3px; }
+    .index a { color: #2563eb; text-decoration: none; }
+    .index a:hover { text-decoration: underline; }
+    .scenario-banner { position: fixed; top: 0; right: 0; background: #fef2f2; color: #991b1b; padding: 4px 10px; font-size: 0.7rem; font-family: monospace; z-index: 99999; border-bottom-left-radius: 4px; pointer-events: none; }
+
+    /* ---------- scenario: scroll-x ---------- */
+    body[data-scenario="scroll-x"] .content { width: 9999px; height: 100px; background: #fee2e2; padding: 1rem; }
+
+    /* ---------- scenario: scroll-y ---------- */
+    body[data-scenario="scroll-y"] .content { width: 100%; height: 9999px; background: linear-gradient(#fee2e2, #fafbfc); padding: 1rem; }
+
+    /* ---------- scenario: clip-inner ---------- */
+    body[data-scenario="clip-inner"] .clipper { width: 100px; height: 100px; overflow: hidden; background: #fef3c7; padding: 0.5rem; }
+    body[data-scenario="clip-inner"] .clipper .child { width: 9999px; background: #fde68a; }
+
+    /* ---------- scenario: clip-inner-y ---------- */
+    body[data-scenario="clip-inner-y"] .clipper { width: 100%; height: 50px; overflow: hidden; background: #fef3c7; padding: 0.25rem; }
+    body[data-scenario="clip-inner-y"] .clipper .child { height: 999px; background: linear-gradient(#fef3c7, #fde68a); }
+
+    /* ---------- scenario: vh-bug ---------- */
+    /* Uses 100vh — on iOS Safari with URL bar visible this exceeds
+       visible height by ~12-15%, making the page scrollable on first
+       load. The reporter snapshot at the URL-bar-visible viewport
+       size (e.g. 393×664) should show scrollsY = true. */
+    body[data-scenario="vh-bug"] { display: flex; flex-direction: column; }
+    body[data-scenario="vh-bug"] .full { height: 100vh; background: #dbeafe; padding: 1rem; }
+
+    /* ---------- scenario: gap-mid ---------- */
+    /* Layout fits at narrow widths (1 col, no min-width) and fits at
+       wide widths (2-col grid), but at widths between the breakpoints
+       (~600-768) a 700px-wide element forces overflow. */
+    body[data-scenario="gap-mid"] .gap { width: 100%; padding: 1rem; }
+    body[data-scenario="gap-mid"] .gap .force { min-width: 700px; height: 200px; background: #fde68a; padding: 1rem; }
+    @media (min-width: 769px) {
+      body[data-scenario="gap-mid"] .gap .force { min-width: 0; }
+    }
+    @media (max-width: 599px) {
+      body[data-scenario="gap-mid"] .gap .force { min-width: 0; }
+    }
+
+    /* ---------- scenario: landscape-only-bad ---------- */
+    /* Portrait fits perfectly. Landscape (height < width) forces a
+       1500px-wide element. */
+    body[data-scenario="landscape-only-bad"] .ok { padding: 1rem; }
+    @media (orientation: landscape) {
+      body[data-scenario="landscape-only-bad"] .ok { width: 1500px; }
+    }
+
+    /* ---------- scenario: large-scrollwidth-fp ---------- */
+    /* False-positive guard: an `overflow:hidden` element whose
+       scrollWidth is BARELY larger than clientWidth (sub-pixel
+       rounding of a child grid). Reporter should NOT flag this as
+       clipping if the difference is within the 1px tolerance. */
+    body[data-scenario="large-scrollwidth-fp"] .grid { width: 100%; overflow: hidden; display: grid; grid-template-columns: repeat(10, 1fr); gap: 0; padding: 0.5rem; }
+    body[data-scenario="large-scrollwidth-fp"] .grid > div { aspect-ratio: 1; background: #dbeafe; }
+  </style>
+</head>
+<body>
+  <script type="module">
+    /**
+     * Auditor fixture router.
+     *
+     * Switches the rendered scenario based on `?scenario=`. Each
+     * scenario has KNOWN expected audit output so the fixture acts
+     * as a regression test for the platform auditor.
+     *
+     * The reporter is loaded from @freeappstore/quality via esm.sh. The
+     * `no-reporter` scenario deliberately SKIPS this import so the
+     * dashboard sees a non-cooperative app.
+     *
+     * Wrapped in an async IIFE because top-level `return` is a syntax
+     * error in ES modules and the early-exit branches below need it.
+     */
+    (async () => {
+    const params = new URLSearchParams(location.search);
+    const scenario = params.get('scenario') || '';
+
+    const SCENARIOS = {
+      'fits':                  { html: '<div style="padding:1rem"><h2>Fits cleanly</h2><p>Trivial layout that fits at every reference viewport.</p></div>', expect: 'all viewports pass; clipping=[]; score=99' },
+      'scroll-x':              { html: '<div class="content"><h2>Horizontal scroll</h2><p>9999px wide.</p></div>', expect: 'scrollsX=true at every viewport' },
+      'scroll-y':              { html: '<div class="content"><h2>Vertical scroll</h2><p>9999px tall.</p></div>', expect: 'scrollsY=true at every viewport' },
+      'clip-inner':            { html: '<div style="padding:1rem"><h2>Inner horizontal clip</h2><div class="clipper"><div class="child">9999px wide child inside an overflow:hidden 100px parent.</div></div></div>', expect: 'document fits; clipping[].length >= 1; clipsX=true' },
+      'clip-inner-y':          { html: '<div style="padding:1rem"><h2>Inner vertical clip</h2><div class="clipper"><div class="child">999px tall child inside a 50px parent.</div></div></div>', expect: 'document fits; clipping[].length >= 1; clipsY=true' },
+      'vh-bug':                { html: '<div class="full"><h2>100vh container</h2><p>iOS Safari URL-bar bug — at the URL-bar-visible viewport this scrolls.</p></div>', expect: 'scrollsY=true when iframe height < 100vh resolved value' },
+      'gap-mid':               { html: '<div class="gap"><h2>Gap in the middle</h2><div class="force">Forces overflow at 600-768 widths only.</div></div>', expect: 'fails at 600/768 portrait; passes elsewhere → score reflects bucket gap' },
+      'landscape-only-bad':    { html: '<div class="ok"><h2>Landscape-only bug</h2><p>Portrait perfect; landscape forces 1500px width.</p></div>', expect: 'portrait=99; landscape low; overall=min' },
+      'no-reporter':           { html: '<div style="padding:1rem"><h2>Non-cooperative</h2><p>This scenario does NOT import the quality reporter. Dashboard should time out → "?" cell.</p></div>', expect: 'no postMessage ever; dashboard shows opt-out badge' },
+      'large-scrollwidth-fp':  { html: '<div class="grid">' + Array(20).fill('<div></div>').join('') + '</div>', expect: 'no clipping reported (within 1px tolerance)' },
+    };
+
+    if (!scenario) {
+      // Index page: list all scenarios + their expected audit verdict.
+      document.body.innerHTML = `
+        <div class="index">
+          <h1>Auditor Fixture</h1>
+          <div class="meta">Deliberately-broken control cases. Each verifies the platform auditor flags a specific class of layout bug.</div>
+          <div class="banner"><strong>Not a real app.</strong> Each scenario reproduces a known bug. Don't use these as templates.</div>
+          <ul>
+            ${Object.entries(SCENARIOS).map(([k, v]) =>
+              `<li><a href="?scenario=${k}"><code>?scenario=${k}</code></a> — ${v.expect}</li>`
+            ).join('')}
+          </ul>
+          <p style="margin-top: 1.5rem; color: #6b7280; font-size: 0.85rem;">
+            See live audit output at <a href="/quality?app=auditor-fixture">/quality?app=auditor-fixture</a>.
+          </p>
+        </div>
+      `;
+      return;
+    }
+
+    const sc = SCENARIOS[scenario];
+    if (!sc) {
+      document.body.innerHTML = `<div class="index"><h1>Unknown scenario</h1><p>?scenario=${scenario} is not defined.</p><p><a href="?">All scenarios</a></p></div>`;
+      return;
+    }
+
+    // Tag the body so scoped CSS rules in <head> activate.
+    document.body.dataset.scenario = scenario;
+    document.body.insertAdjacentHTML('afterbegin', `<div class="scenario-banner">FIXTURE: ${scenario}</div>`);
+    document.body.insertAdjacentHTML('beforeend', sc.html);
+
+    // The cooperation contract: every real app imports + initializes
+    // the reporter. The 'no-reporter' scenario is the EXCEPTION — we
+    // skip the import to verify the dashboard correctly flags
+    // non-cooperative apps with a "?" cell.
+    if (scenario !== 'no-reporter') {
+      try {
+        const mod = await import('https://esm.sh/@freeappstore/quality@0.1.0');
+        mod.initQualityReporter();
+      } catch (e) {
+        // CDN failure shouldn't break the fixture itself; it just
+        // looks like the no-reporter scenario from the auditor's
+        // perspective.
+        console.warn('[fixture] reporter import failed:', e);
+      }
+    }
+    })();
+  </script>
+</body>
+</html>

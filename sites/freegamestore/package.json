@@ -1,0 +1,16 @@
+{
+  "name": "freegamestore",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/freegamestore-online/freegamestore.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node build.js",
+    "test": "node --test test/build.test.mjs"
+  }
+}

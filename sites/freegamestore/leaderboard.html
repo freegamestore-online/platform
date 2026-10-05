@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="FreeGameStore" />
+  <meta name="application-name" content="FreeGameStore" />
+  <title>Leaderboard — FreeGameStore</title>
+  <meta name="description" content="See top scores across all FreeGameStore games. Sign in to track your rank." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Leaderboard — FreeGameStore" />
+  <meta property="og:description" content="See top scores across all FreeGameStore games." />
+  <meta property="og:url" content="https://freegamestore.online/leaderboard.html" />
+  <meta property="og:image" content="https://freegamestore.online/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+  <link rel="canonical" href="https://freegamestore.online/leaderboard" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>(function(){try{var p=localStorage.getItem('stores-theme');var d=p==='dark'||(!p||p==='system')&&matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.dataset.theme='dark';var t=localStorage.getItem('stores-text-size');if(t)document.documentElement.dataset.text=t;}catch(e){}})()</script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="/" class="logo">Free <span>Games</span></a>
+      <button class="nav-toggle" type="button" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg></button>
+      <nav>
+        <a href="/">Games</a>
+        <a href="https://freeappstore.online">Apps</a>
+        <a href="/about.html">About</a>
+        <a href="/developers.html">Developers</a>
+        <a href="/get-started.html">Get Started</a>
+        <a href="https://console.freegamestore.online">Console</a>
+        <a href="/docs/">Docs</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>Leaderboard</h1>
+      <p>Top scores across all games. Play any game and sign in to appear here.</p>
+      <div class="stats-bar" id="stats">
+        <div class="stat">
+          <span class="stat-value" id="stat-players">--</span>
+          <span class="stat-label">Players</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value" id="stat-games">--</span>
+          <span class="stat-label">Games</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs: Overall | Per Game -->
+    <div class="view-tabs">
+      <button class="view-tab active" data-view="overall">Overall</button>
+      <button class="view-tab" data-view="per-game">Per Game</button>
+    </div>
+
+    <!-- Game selector (shown when Per Game tab active) -->
+    <div class="game-selector" id="game-selector">
+      <select id="game-select">
+        <option value="">Select a game...</option>
+      </select>
+    </div>
+
+    <!-- Leaderboard table -->
+    <div class="lb-table" id="lb-table">
+      <div class="lb-table-header" id="lb-header">
+        <span class="col-rank">Rank</span>
+        <span class="col-player">Player</span>
+        <span class="col-score">Score</span>
+        <span class="col-games">Games</span>
+      </div>
+      <div class="lb-rows" id="lb-rows"></div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">
+        <a href="/" class="logo">Free <span>Games</span></a>
+        <p>Free forever, open source, privacy-first.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/about.html">About</a>
+        <a href="/contribute.html">Build</a>
+        <a href="/docs/">Docs</a>
+        <a href="/quality.html">Quality</a>
+        <a href="https://console.freegamestore.online">Console</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="https://github.com/freegamestore-online">GitHub</a>
+        <a href="https://github.com/freegamestore-online/freegamestore/discussions">Support</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/leaderboard.js" defer></script>
+  <script src="/theme.js" defer></script>
+</body>
+</html>

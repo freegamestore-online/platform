@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="FreeGameStore" />
+  <meta name="application-name" content="FreeGameStore" />
+  <title>@{{USERNAME}} - FreeGameStore</title>
+  <meta name="description" content="{{GAME_COUNT}} free game{{S}} on FreeGameStore by @{{USERNAME}}." />
+  <meta property="og:type" content="profile" />
+  <meta property="og:title" content="@{{USERNAME}} - FreeGameStore" />
+  <meta property="og:description" content="{{GAME_COUNT}} free game{{S}} on FreeGameStore by @{{USERNAME}}." />
+  <meta property="og:url" content="https://freegamestore.online/u/{{USERNAME}}.html" />
+  <meta property="og:image" content="https://avatars.githubusercontent.com/{{USERNAME}}?size=400" />
+  <meta name="twitter:card" content="summary" />
+  <link rel="canonical" href="https://freegamestore.online/u/{{USERNAME}}.html" />
+  <script type="application/ld+json">{
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    "mainEntity": {
+      "@type": "Person",
+      "name": "{{USERNAME}}",
+      "url": "https://github.com/{{USERNAME}}",
+      "image": "https://avatars.githubusercontent.com/{{USERNAME}}?size=400",
+      "sameAs": ["https://github.com/{{USERNAME}}"]
+    },
+    "isPartOf": {"@id": "https://freegamestore.online/#website"}
+  }</script>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css?v={{STYLE_VERSION}}" />
+  <link rel="stylesheet" href="/card-styles.css?v={{CARD_STYLES_VERSION}}" />
+  <!-- CF Web Analytics - cookieless, no PII. -->
+  __CF_BEACON__
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="/" class="logo">Free <span>Games</span></a>
+      <button class="nav-toggle" type="button" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg></button>
+      <nav>
+        <a href="/">Games</a>
+        <a href="https://freeappstore.online">Apps</a>
+        <a href="/about.html">About</a>
+        <a href="/developers.html">Developers</a>
+        <a href="/get-started.html">Get Started</a>
+        <a href="https://console.freegamestore.online">Console</a>
+        <a href="/docs/">Docs</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="author-hero">
+      <div class="author-avatar-wrap">
+        <img
+          src="https://avatars.githubusercontent.com/{{USERNAME}}?size=200"
+          alt=""
+          class="author-hero-avatar"
+          width="120"
+          height="120"
+          loading="eager"
+        />
+      </div>
+      <div class="author-hero-meta">
+        <span class="section-eyebrow">Creator profile</span>
+        <h1 class="author-hero-name">@{{USERNAME}}</h1>
+        <p class="author-hero-tagline">{{GAME_COUNT}} game{{S}} on FreeGameStore</p>
+        {{BADGES}}
+        {{AUTHOR_STATS}}
+        <div class="author-actions">
+          <a href="https://github.com/{{USERNAME}}" class="source-link" rel="noopener">View on GitHub &rarr;</a>
+          <a href="/developers.html" class="source-link muted-link">All developers</a>
+        </div>
+      </div>
+    </section>
+
+    {{AUTHOR_SPOTLIGHT}}
+
+    <section class="app-section">
+      <div class="section-heading-row">
+        <div>
+          <span class="section-eyebrow">Game shelf</span>
+          <h2>Games by @{{USERNAME}}</h2>
+        </div>
+        {{CATEGORY_CHIPS}}
+      </div>
+      <div class="apps-grid compact">
+        {{GAME_CARDS}}
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">
+        <a href="/" class="logo">Free <span>Games</span></a>
+        <p>Free forever, open source, privacy-first.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/about.html">About</a>
+        <a href="/contribute.html">Build</a>
+        <a href="/docs/">Docs</a>
+        <a href="/developers.html">Developers</a>
+        <a href="/capabilities.html">Capabilities</a>
+        <a href="/browser-apis.html">Browser APIs</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="https://github.com/freegamestore-online">GitHub</a>
+        <a href="https://github.com/freegamestore-online/freegamestore/discussions">Support</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/theme.js" integrity="{{SRI_THEME_JS}}"></script>
+</body>
+</html>

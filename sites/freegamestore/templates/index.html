@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="FreeGameStore" />
+  <meta name="application-name" content="FreeGameStore" />
+  <title>FreeGameStore — Free-Forever Web Games</title>
+  <meta name="description" content="A platform of free-forever web games. No charges, no plans, no paywalls. Works on mobile, tablet, and desktop. Open source." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="FreeGameStore — Free-Forever Web Games" />
+  <meta property="og:description" content="A platform of free-forever web games. No charges, no plans, no paywalls. Works on mobile, tablet, and desktop. Open source." />
+  <meta property="og:url" content="https://freegamestore.online/" />
+  <meta property="og:image" content="https://freegamestore.online/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+  <link rel="canonical" href="https://freegamestore.online/" />
+  <!-- WebSite + SearchAction JSON-LD for sitelinks search; Organization
+       gives knowledge-panel signal. -->
+  <script type="application/ld+json">{
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://freegamestore.online/#website",
+        "url": "https://freegamestore.online/",
+        "name": "FreeGameStore",
+        "description": "A platform of free-forever web games. No charges, no plans, no paywalls.",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://freegamestore.online/?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://freegamestore.online/#org",
+        "name": "FreeGameStore",
+        "url": "https://freegamestore.online/",
+        "logo": "https://freegamestore.online/icon-512.png",
+        "sameAs": ["https://github.com/freegamestore-online"]
+      }
+    ]
+  }</script>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)" />
+  <meta http-equiv="x-dns-prefetch-control" content="on" />
+  <link rel="dns-prefetch" href="https://api.freegamestore.online" />
+  <!-- CSP lives in dist/_headers (HTTP-header source of truth). -->
+  <!-- Apply theme + text-size before paint to avoid flash. -->
+  <script>
+    (function(){try{var p=localStorage.getItem('stores-theme');var d=p==='dark'||(!p||p==='system')&&matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.dataset.theme='dark';var t=localStorage.getItem('stores-text-size');if(t)document.documentElement.dataset.text=t;}catch(e){}})();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" data-font-swap>
+  <link rel="stylesheet" href="/style.css?v={{STYLE_VERSION}}" />
+  <link rel="stylesheet" href="/card-styles.css?v={{CARD_STYLES_VERSION}}" />
+  <!-- CF Web Analytics — cookieless, no PII. Token injected at build time from FGS_CF_BEACON_TOKEN. -->
+  __CF_BEACON__
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="/" class="brand" aria-label="FreeGameStore — Free Web Games">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="4"></rect><line x1="8" y1="12" x2="6" y2="12"></line><line x1="7" y1="11" x2="7" y2="13"></line><circle cx="16" cy="11" r="1" fill="currentColor"></circle><circle cx="18" cy="13" r="1" fill="currentColor"></circle></svg>
+        </span>
+        <span class="brand-text">
+          <span class="brand-name">FreeGameStore</span>
+          <span class="brand-tag">Free Web Games</span>
+        </span>
+      </a>
+
+      <nav id="mainNav">
+        <button class="nav-close" type="button" aria-label="Close menu">&times;</button>
+        <a href="/">Games</a>
+        <a href="https://freeappstore.online">Apps</a>
+        <a href="/about.html">About</a>
+        <a href="/developers.html">Developers</a>
+        <a href="/get-started.html">Get Started</a>
+        <a href="https://console.freegamestore.online">Console</a>
+        <a href="/docs/">Docs</a>
+      </nav>
+      <div id="navOverlay" class="nav-overlay"></div>
+
+      <div class="header-right">
+        <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>
+        </button>
+        <button class="nav-toggle" type="button" aria-label="Open menu">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="create-cta" aria-label="Create your own game">
+      <div class="create-cta-text">
+        <h2>Make your own game</h2>
+        <p>Describe it, AI builds it, and it's live on FreeGameStore — free, in minutes.</p>
+      </div>
+      <a class="btn-primary btn-lg" href="https://console.freegamestore.online/create">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        Create a Game
+      </a>
+    </section>
+
+    <section class="apps-section" id="games">
+      <div class="input-wrap" id="searchInputWrap">
+        <svg class="input-icon muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input
+          class="search-input"
+          type="search"
+          id="storefront-search"
+          placeholder="Search games…"
+          autocomplete="off"
+          aria-label="Search games"
+        />
+      </div>
+
+      <div class="apps-header">
+        <div class="apps-header-title">
+          <h2>All Games</h2>
+          <div class="count" id="apps-count">{{GAMES_COUNT}} total</div>
+        </div>
+        <div class="apps-sort">
+          <label for="sort-select" class="sort-label">Sort:</label>
+          <select id="sort-select" class="sort-select">
+            <option value="name">A–Z</option>
+            <option value="newest">Newest</option>
+            <option value="category">Category</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="split-layout">
+        <div class="apps-pane">
+          <div class="apps-grid compact" id="apps-grid">
+            {{GAMES_GRID}}
+          </div>
+
+          <p id="search-empty" hidden>No games match your search here.</p>
+
+          <section id="cross-store-results" hidden class="mt-section">
+            <h2>Also matching on FreeAppStore</h2>
+            <div class="apps-grid compact" id="cross-store-grid"></div>
+          </section>
+        </div>
+
+        <aside class="preview-pane" id="previewPane" aria-label="Game preview">
+          <div class="preview-toolbar">
+            <div class="preview-title" id="previewTitle">No game selected<span class="preview-host"></span></div>
+            <button class="preview-btn" id="previewAbout" type="button" title="View details" aria-label="View details" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </button>
+            <button class="preview-btn" id="previewFullscreen" type="button" title="Fullscreen" aria-label="Fullscreen" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V3h4M21 7V3h-4M3 17v4h4M21 17v4h-4"/></svg>
+            </button>
+            <button class="preview-btn" id="previewNewTab" type="button" title="Open in new tab" aria-label="Open in new tab" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7"/><path d="M10 14L21 3"/><path d="M21 13v7a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h7"/></svg>
+            </button>
+            <button class="preview-btn" id="previewClose" type="button" title="Close preview" aria-label="Close preview" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="preview-body">
+            <div class="preview-empty" id="previewEmpty">
+              <span class="empty-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6,4 20,12 6,20"/></svg>
+              </span>
+              <span class="empty-title">Pick any game to play it here</span>
+              <span class="empty-tip">Click a game on the left and it loads instantly in this pane. Use <strong>⛶</strong> for fullscreen or <strong>↗</strong> to pop it into a new tab.</span>
+            </div>
+            <iframe class="preview-frame" id="previewFrame" title="Game preview" allow="fullscreen; autoplay; gamepad" sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads" referrerpolicy="no-referrer-when-downgrade" loading="lazy" hidden></iframe>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <script type="application/json" id="cross-store-registry">{{CROSS_STORE_REGISTRY}}</script>
+    <script src="/search.js" integrity="{{SRI_SEARCH_JS}}" defer></script>
+
+    <aside class="aside-note">
+      Looking for apps? Visit <a href="https://freeappstore.online" class="text-accent-bold">FreeAppStore</a> — free-forever web apps.
+    </aside>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">
+        <a href="/" class="logo">Free <span>Games</span></a>
+        <p>Free forever, open source, privacy-first.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/about.html">About</a>
+        <a href="/contribute.html">Build</a>
+        <a href="/docs/">Docs</a>
+        <a href="https://console.freegamestore.online">Console</a>
+        <a href="/capabilities.html">Capabilities</a>
+        <a href="/browser-apis.html">Browser APIs</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="https://github.com/freegamestore-online">GitHub</a>
+        <a href="https://github.com/freegamestore-online/freegamestore/discussions">Support</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/storefront.js" integrity="{{SRI_STOREFRONT_JS}}" defer></script>
+  <script src="/theme.js" integrity="{{SRI_THEME_JS}}" defer></script>
+</body>
+</html>

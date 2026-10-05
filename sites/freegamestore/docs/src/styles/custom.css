@@ -1,0 +1,18 @@
+/* Match the storefront's brand a little — the rest of the site uses
+   Manrope + Fraunces from Google Fonts. Starlight ships its own type
+   stack by default; we override just enough to feel like the same
+   property without fighting the theme. */
+
+:root {
+  --sl-font: 'Manrope', system-ui, sans-serif;
+  --sl-font-system: 'Manrope', system-ui, sans-serif;
+  --sl-font-system-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+/* Headings keep Fraunces (display font) for the visual link to the rest
+   of the storefront. */
+.sl-markdown-content :is(h1, h2, h3, h4),
+.sidebar-content h2 {
+  font-family: 'Fraunces', serif;
+}

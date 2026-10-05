@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="FreeGameStore" />
+  <meta name="application-name" content="FreeGameStore" />
+  <title>Build — FreeGameStore</title>
+  <meta name="description" content="Play, improve, or build games for FreeGameStore. Become a creator, clone a template, and ship your game to players worldwide." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Build — FreeGameStore" />
+  <meta property="og:description" content="Play, improve, or build games for FreeGameStore. Become a creator, clone a template, ship to players worldwide." />
+  <meta property="og:url" content="https://freegamestore.online/contribute" />
+  <meta property="og:image" content="https://freegamestore.online/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+  <link rel="canonical" href="https://freegamestore.online/contribute" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>(function(){try{var p=localStorage.getItem('stores-theme');var d=p==='dark'||(!p||p==='system')&&matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.dataset.theme='dark';var t=localStorage.getItem('stores-text-size');if(t)document.documentElement.dataset.text=t;}catch(e){}})()</script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="/" class="logo">Free <span>Games</span></a>
+      <button class="nav-toggle" type="button" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg></button>
+      <nav>
+        <a href="/">Games</a>
+        <a href="https://freeappstore.online">Apps</a>
+        <a href="/about.html">About</a>
+        <a href="/developers.html">Developers</a>
+        <a href="/get-started.html">Get Started</a>
+        <a href="https://console.freegamestore.online">Console</a>
+        <a href="/docs/">Docs</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>Build a Game</h1>
+      <p>Play and improve existing games, or become a creator and build your own. Open source, free forever.</p>
+    </div>
+
+    <div class="page-content">
+
+      <div class="highlight highlight-callout">
+        <h3>Building with AI? Start there.</h3>
+        <p>FreeGameStore is AI-first. Drop our <a href="https://freegamestore.online/skills.md">SKILLS.md</a> into Claude Code, Cursor, GitHub Copilot, Aider, or Codex — your agent already knows the brand rules, the privacy mandates, the CLI, and the deploy flow before it writes a line of code.</p>
+        <a href="/build-with-ai.html" class="btn">Build with AI &rarr;</a>
+      </div>
+
+      <!-- Section 1: Play & improve games -->
+      <h2>Play &amp; improve games</h2>
+      <p>Every game on FreeGameStore is open source. You don't need to be a creator to make them better.</p>
+      <ul>
+        <li><strong>Browse games</strong> — visit the <a href="/">store</a> and play anything that interests you</li>
+        <li><strong>Report bugs</strong> — found a glitch? Open an issue on the game's <a href="https://github.com/freegamestore-online">GitHub repo</a></li>
+        <li><strong>Suggest features</strong> — ideas for new levels, modes, or improvements are always welcome</li>
+        <li><strong>Contribute via PRs</strong> — fork any game, make your changes, and submit a pull request. We review within 48 hours.</li>
+      </ul>
+
+      <!-- Section 2: Become a Creator -->
+      <h2>Become a Creator</h2>
+      <p>Want to build your own game for the platform? Apply to join the creators team.</p>
+
+      <h3>What creators get</h3>
+      <ul>
+        <li>Your own game hosted at <code>yourgame.freegamestore.online</code></li>
+        <li>Auto-deploy on every push to main via GitHub Actions → Cloudflare R2</li>
+        <li>Listed in the FreeGameStore with its own game card</li>
+        <li>Access to all game templates and the shared design system</li>
+      </ul>
+
+      <h3>How to apply</h3>
+      <ol class="steps">
+        <li>
+          <strong>Open an issue</strong> at <a href="https://github.com/freegamestore-online/submissions">github.com/freegamestore-online/submissions</a> with your game idea and GitHub username.
+        </li>
+        <li>
+          <strong>Review within 48h</strong> — we'll review your proposal and get back to you.
+        </li>
+        <li>
+          <strong>Get provisioned</strong> — once approved, you're added to the creators team and your game repo is provisioned in the org.
+        </li>
+        <li>
+          <strong>Start coding</strong> — clone your repo, pick a template, and build your game.
+        </li>
+      </ol>
+
+      <h3>Requirements</h3>
+      <ul>
+        <li><strong>Free forever</strong> — no monetization, no ads, no paywalls</li>
+        <li><strong>No tracking</strong> — zero analytics, cookies, or data collection</li>
+        <li><strong>Open source</strong> — MIT license, public repo</li>
+        <li><strong>Uses the tech stack</strong> — TypeScript, React, Vite, Tailwind CSS, Cloudflare R2</li>
+      </ul>
+
+      <!-- Section 3: Workspace Setup -->
+      <h2>Workspace Setup</h2>
+      <p>Organize your repos under a consistent folder so every tool — and every AI agent — knows where to find things.</p>
+      <div class="cmd">mkdir -p ~/dev/fgs/games && cd ~/dev/fgs/games</div>
+      <p>Clone each game repo into the <code>games/</code> folder:</p>
+      <div class="cmd">git clone https://github.com/freegamestore-online/my-game.git
+# Result: ~/dev/fgs/games/my-game/</div>
+      <p>The recommended layout:</p>
+      <div class="cmd cmd-pre">~/dev/fgs/
+  games/            ← your game repos
+    chess/
+    tetris/
+    racing/
+  platform/         ← store site &amp; templates (maintainers only)</div>
+      <p>This matches the paths in <a href="https://freegamestore.online/skills.md">SKILLS.md</a>, so AI agents reading the platform guide will find your code automatically. If you also build apps, use <code>~/dev/fas/apps/</code> for <a href="https://freeappstore.online">FreeAppStore</a> projects.</p>
+
+      <!-- Section 4: Start Building -->
+      <h2>Start Building</h2>
+      <p>For approved creators — here's how to go from zero to a live game.</p>
+
+      <h3>Templates</h3>
+      <p>Pick the template that matches your game type:</p>
+      <div class="cards">
+        <div class="card">
+          <h3>Canvas (2D)</h3>
+          <p>HTML5 Canvas for 2D games — platformers, shooters, arcade classics.</p>
+        </div>
+        <div class="card">
+          <h3>Grid</h3>
+          <p>Grid-based layouts for puzzles, minesweeper, sudoku, match-3.</p>
+        </div>
+        <div class="card">
+          <h3>Cards</h3>
+          <p>Card game mechanics — solitaire, memory, deck-based games.</p>
+        </div>
+        <div class="card">
+          <h3>3D (Three.js)</h3>
+          <p>3D games with Three.js — racing, bowling, 3D puzzles.</p>
+        </div>
+      </div>
+
+      <h3>Use the <code>fgs</code> CLI</h3>
+      <p>The FreeGameStore CLI. End-to-end: scaffold, check, publish, list.</p>
+
+      <ol class="steps">
+        <li>
+          <strong>Install the CLI</strong>
+          <div class="cmd">npm i -g @freegamestore/cli</div>
+          <p>Requires Node 22+. Source on <a href="https://github.com/freegamestore-online/public">github.com/freegamestore-online/public</a>; package on <a href="https://www.npmjs.com/package/@freegamestore/cli">npm</a>.</p>
+        </li>
+        <li>
+          <strong>Sign in with GitHub</strong>
+          <div class="cmd">fgs login</div>
+          <p>Device-flow OAuth — no password leaves your terminal.</p>
+        </li>
+        <li>
+          <strong>Scaffold from a game template</strong>
+          <div class="cmd">fgs init my-game --template canvas</div>
+          <p>Ten game templates: <code>canvas</code> (2D arcade), <code>grid</code> (puzzles), <code>3d</code> (Three.js), <code>cards</code> (card games), <code>phaser</code>, <code>kaplay</code>, <code>pixi</code>, <code>babylon</code>, <code>excalibur</code>, <code>littlejs</code>. Each is a runnable Vite + TypeScript project.</p>
+        </li>
+        <li>
+          <strong>Develop locally</strong>
+          <div class="cmd">cd my-game &amp;&amp; pnpm install &amp;&amp; pnpm dev</div>
+          <p>Hot reload is enabled by default.</p>
+        </li>
+        <li>
+          <strong>Run compliance checks</strong>
+          <div class="cmd">fgs check</div>
+          <p>Catches missing brand fonts, tracking SDKs, oversized bundles, missing PWA manifest, and (for games) document scroll. Games must fit the viewport — no horizontal or vertical scroll on <code>html</code> / <code>body</code>.</p>
+        </li>
+        <li>
+          <strong>Verify the layout fits in a real browser (recommended for games)</strong>
+          <div class="cmd">fgs screencheck</div>
+          <p>Builds, serves the dist locally, and drives a real Chromium at the <code>min_viewport_width</code> declared in your manifest in both portrait and landscape. Fails if the canvas actually overflows. Static checks see <em>intent</em>; screencheck proves <em>fit</em>. Playwright is an opt-in peer dep; the command prompts to install on first run.</p>
+        </li>
+        <li>
+          <strong>Publish as a game</strong>
+          <div class="cmd">fgs publish</div>
+          <p>Provisions <code>github.com/freegamestore-online/my-game</code>, R2 hosting, the subdomain at <code>my-game.freegamestore.online</code>, and the storefront entry.</p>
+          <p class="text-sm">Scriptable: pass <code>--name</code>, <code>--category</code>, <code>--type</code>, <code>--oneliner</code>, and <code>--yes</code>.</p>
+        </li>
+        <li>
+          <strong>Push your code</strong>
+          <div class="cmd">git push upstream main</div>
+          <p>Auto-deploys via GitHub Actions in ~30 seconds. Future commits to <code>main</code> deploy automatically.</p>
+        </li>
+      </ol>
+
+      <h3>Other commands</h3>
+      <ul>
+        <li><code>fgs list</code> — see all apps and games you've published</li>
+        <li><code>fgs logs my-game</code> — tail GitHub Actions deploy logs</li>
+        <li><code>fgs doctor</code> — health check (Node, git, pnpm, auth, API reachability)</li>
+      </ul>
+
+      <p>Full reference: <a href="https://github.com/freegamestore-online/public/tree/main/packages/cli#readme">github.com/freegamestore-online/public/packages/cli</a></p>
+
+      <h2>Brand and UI rules (mandated)</h2>
+      <p>Every game on the platform looks predictable and consistent. The storefront, the detail pages, and every game share the same visual language so visitors learn the rhythm once and never relearn it. This is not a style guide suggestion — it's enforced by <code>fgs check</code> and the CI workflow that runs before merge.</p>
+
+      <ul>
+        <li><strong>Use the template's CSS tokens.</strong> Colors, surfaces, lines, and spacing come from <code>--paper</code>, <code>--ink</code>, <code>--muted</code>, <code>--accent</code>, <code>--line</code>, <code>--line-strong</code>, <code>--panel</code>. Reference them via <code>var(--accent)</code>, etc. Don't redefine them in component CSS or inline styles.</li>
+        <li><strong>Brand fonts only:</strong> Manrope (body) and Fraunces (display). System and monospace fallbacks are fine. No custom display fonts — even when they'd look great. Game-rendering canvases can use any pixel-fonts inside the canvas; this rule applies to DOM/HTML text only.</li>
+        <li><strong>No custom theme.</strong> Light/dark mode comes from <code>prefers-color-scheme</code> and the template's variables. Don't ship your own theme switcher or override <code>color-scheme</code>.</li>
+      </ul>
+
+      <p>The <code>fgs check</code> compliance suite (run automatically before <code>fgs publish</code> and again in your repo's CI) enforces:</p>
+      <ul>
+        <li><code>No template placeholders</code> — every <code>APPNAME</code> substituted</li>
+        <li><code>No tracking SDKs</code> — none of the 8 known trackers</li>
+        <li><code>Brand fonts present</code> — Manrope and Fraunces both referenced</li>
+        <li><code>No brand overrides</code> — no game redefines a platform CSS token outside the canonical theme file; no non-brand <code>font-family</code> declarations in DOM CSS</li>
+        <li><code>PWA manifest</code> — <code>web/public/manifest.json</code> with <code>name</code>, <code>display</code>, <code>start_url</code></li>
+        <li><code>Bundle size</code> — main bundle under 300 KB gzipped</li>
+      </ul>
+
+      <p>Run them locally any time:</p>
+      <div class="cmd">fgs check</div>
+
+      <h3>AI-assisted development</h3>
+      <p>Use Claude Code, Cursor, Codex, or any AI coding tool. Point it to our <a href="https://freegamestore.online/skills.md">SKILLS.md</a> and it knows the entire platform — tech stack, brand, templates, how to deploy.</p>
+      <div class="cmd cmd-small">Add this to your AI tool:<br><br>Read https://freegamestore.online/skills.md</div>
+
+      <h3>Game engines</h3>
+      <p>Depending on your game type, use the engine that fits best:</p>
+      <div class="cards">
+        <div class="card">
+          <h3>Three.js</h3>
+          <p>Lightweight 3D engine. Great for simple 3D games and visualizations.</p>
+        </div>
+        <div class="card">
+          <h3>Babylon.js</h3>
+          <p>Full-featured 3D engine with physics and advanced rendering.</p>
+        </div>
+        <div class="card">
+          <h3>Phaser</h3>
+          <p>Popular 2D game framework with arcade and matter physics.</p>
+        </div>
+        <div class="card">
+          <h3>PixiJS</h3>
+          <p>Fast 2D rendering engine. Ideal for sprite-heavy games.</p>
+        </div>
+        <div class="card">
+          <h3>Kaplay</h3>
+          <p>Simple, fun game library for rapid 2D game development.</p>
+        </div>
+      </div>
+
+      <h2>Need help?</h2>
+      <ul>
+        <li><strong>Developer questions</strong> — <a href="https://github.com/freegamestore-online/freegamestore/discussions">GitHub Discussions</a></li>
+        <li><strong>Bug reports</strong> — open an issue on your game's <a href="https://github.com/freegamestore-online">GitHub repo</a></li>
+        <li><strong>Platform docs</strong> — <a href="https://freegamestore.online/skills.md">SKILLS.md</a> (the full AI guide)</li>
+      </ul>
+
+      <div class="cta-box">
+        <h3>Ready to build?</h3>
+        <p>Open a submission issue with your game idea. We'll get you set up within 48 hours.</p>
+        <a href="https://github.com/freegamestore-online/submissions/issues/new" class="btn">Submit your game idea &rarr;</a>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">
+        <a href="/" class="logo">Free <span>Games</span></a>
+        <p>Free forever, open source, privacy-first.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/about.html">About</a>
+        <a href="/contribute.html">Build</a>
+        <a href="/docs/">Docs</a>
+        <a href="/capabilities.html">Capabilities</a>
+        <a href="/browser-apis.html">Browser APIs</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="https://github.com/freegamestore-online">GitHub</a>
+        <a href="https://github.com/freegamestore-online/freegamestore/discussions">Support</a>
+      </div>
+    </div>
+  </footer>
+  <script src="/theme.js" defer></script>
+</body>
+</html>
