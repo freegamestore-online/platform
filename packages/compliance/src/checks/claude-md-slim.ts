@@ -18,7 +18,7 @@ import type { CheckResult } from '../types.js';
 const NAME = 'CLAUDE.md is slim (no platform boilerplate)';
 
 const SKILLS_URL =
-  'https://raw.githubusercontent.com/freegamestore-online/freegamestore/main/SKILLS.md';
+  'https://raw.githubusercontent.com/freegamestore-online/platform/main/sites/freegamestore/SKILLS.md';
 
 // Section headers that should NOT appear in a per-repo CLAUDE.md — they
 // belong in SKILLS.md. Match leading-`##` headers, case-insensitive.

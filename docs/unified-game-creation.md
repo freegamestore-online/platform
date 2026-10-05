@@ -76,7 +76,7 @@ before enabling the source-game link. A renamed source keeps its original
 snapshot name; a deleted one remains credited without a broken source link.
 
 Storefront detail-page rendering is owned by the separate
-`freegamestore-online/freegamestore` repository and is tracked as a coordinated
+`freegamestore-online/platform` monorepo (`sites/freegamestore/registry.json`) and is tracked as a coordinated
 follow-up rather than part of this platform change.
 
 ## Opening an existing game in VibeCode

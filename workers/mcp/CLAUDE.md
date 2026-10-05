@@ -45,7 +45,7 @@ improve games on FreeGameStore — straight from the editor.
 
 - **Provision** hits the admin worker `POST /api/provision` (FGS has no `/v1/publish`),
   passing `creatorGithub` so the registry records ownership.
-- **Ownership gate** reads `registry.json` on `freegamestore-online/freegamestore`
+- **Ownership gate** reads `registry.json` from `freegamestore-online/platform` (`sites/freegamestore/registry.json`)
   (`creatorGithub === <login>`) — FGS has no `/v1/apps/mine`.
 - **Agent** resolves the caller's account key from the encrypted vault server-side
   (the agent worker verifies the FGS token → sets `X-Auth-User` → the DO decrypts

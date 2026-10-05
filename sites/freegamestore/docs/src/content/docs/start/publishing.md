@@ -38,7 +38,7 @@ The full check list: [Compliance / All checks](/docs/compliance/checks/).
 
 ## 2. Open a PR against the storefront registry
 
-In [`freegamestore-online/freegamestore`](https://github.com/freegamestore-online/freegamestore):
+In [`freegamestore-online/platform`](https://github.com/freegamestore-online/platform) under `sites/freegamestore/`:
 
 ```jsonc
 // registry.json

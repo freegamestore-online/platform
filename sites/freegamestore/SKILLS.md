@@ -394,7 +394,7 @@ git push --follow-tags
 
 | Need | Where |
 |------|-------|
-| Developer questions | [GitHub Discussions](https://github.com/freegamestore-online/freegamestore/discussions) |
+| Developer questions | [GitHub Discussions](https://github.com/freegamestore-online/platform/discussions) |
 | Bug reports | Issue on the game's GitHub repo |
 | Creator applications | [Submissions](https://github.com/freegamestore-online/submissions/issues/new) |
 | Platform docs | This file (SKILLS.md) |

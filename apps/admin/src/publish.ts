@@ -202,7 +202,8 @@ export function readGameStatus(entry: { status?: unknown } | null | undefined): 
 const STORE_CONFIG = {
   org: 'freegamestore-online',
   domain: 'freegamestore.online',
-  storeRepo: 'freegamestore',
+  storeRepo: 'platform',
+  storeRegistryPath: 'sites/freegamestore/registry.json',
   registryKey: 'games',
   developer: 'FreeGameStore',
   templateRepo: 'template-game-canvas',
@@ -435,7 +436,7 @@ export async function setGameStatuses(
   key = STORE_CONFIG.registryKey,
 ): Promise<{ ok: boolean; updated: string[]; skipped: string[]; detail: string }> {
   if (updates.length === 0) return { ok: true, updated: [], skipped: [], detail: 'no updates' };
-  const registryPath = `/repos/${org}/${storeRepo}/contents/registry.json`;
+  const registryPath = `/repos/${org}/${storeRepo}/contents/${STORE_CONFIG.storeRegistryPath}`;
 
   const attempt = async (): Promise<{
     ok: boolean;
@@ -661,7 +662,7 @@ async function existingRepoClaimError(
 ): Promise<{ error: string; conflict: boolean } | null> {
   const registryFile = await ghApi(
     env,
-    `/repos/${config.org}/${config.storeRepo}/contents/registry.json`,
+    `/repos/${config.org}/${config.storeRepo}/contents/${STORE_CONFIG.storeRegistryPath}`,
   );
   let items: unknown = null;
   try {
@@ -772,7 +773,7 @@ export function renderRemixAttributionShell(attribution: ForkAttribution): strin
         // The snapshot supplies the durable label; registry lookup is used only
         // to decide whether a source link is still live. Network failure safely
         // leaves the readable non-link fallback in place.
-        fetch('https://raw.githubusercontent.com/freegamestore-online/freegamestore/main/registry.json')
+        fetch('https://raw.githubusercontent.com/freegamestore-online/platform/main/sites/freegamestore/registry.json')
           .then((response) => response.ok ? response.json() : null)
           .then((registry) => {
             if (!Array.isArray(registry && registry.games) ||
@@ -1207,7 +1208,7 @@ export async function handlePublish(
   // with 409. Retry once: re-GET (fresh sha), re-check alreadyListed (the other
   // writer may already have added our entry), re-PUT. Mirrors the FAS admin's
   // writeRegistryWithRetry (vendored, not shared).
-  const registryPath = `/repos/${config.org}/${config.storeRepo}/contents/registry.json`;
+  const registryPath = `/repos/${config.org}/${config.storeRepo}/contents/${STORE_CONFIG.storeRegistryPath}`;
   const key = config.registryKey;
   let registryConflict = false;
   // The repo's HEAD once provisioning's own commits (template generate, naming,
@@ -1416,7 +1417,7 @@ async function mutateRegistry<T>(
   mutate: (items: Array<Record<string, unknown>>) => RegistryMutation<T>,
 ): Promise<RegistryMutation<T>> {
   const config = STORE_CONFIG;
-  const registryPath = `/repos/${config.org}/${config.storeRepo}/contents/registry.json`;
+  const registryPath = `/repos/${config.org}/${config.storeRepo}/contents/${STORE_CONFIG.storeRegistryPath}`;
   for (let attempt = 0; ; attempt++) {
     const file = await ghApi(env, registryPath);
     if (!file.content) {

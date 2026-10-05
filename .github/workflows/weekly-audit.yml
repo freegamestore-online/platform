@@ -17,11 +17,14 @@ jobs:
         working-directory: jobs/auditor
     steps:
       - uses: actions/checkout@v4
-      - name: Checkout freegamestore registry
+      - name: Checkout platform monorepo for storefront audit data
         uses: actions/checkout@v4
         with:
-          repository: freegamestore-online/freegamestore
+          repository: freegamestore-online/platform
           path: jobs/auditor/freegamestore
+          sparse-checkout: |
+            sites/freegamestore
+          sparse-checkout-cone-mode: true
       # No `version:` here on purpose — same fix as e759e8a on packages-ci.yml.
       # The root package.json declares packageManager "pnpm@10.30.3", and
       # pnpm/action-setup@v4 hard-errors on "Multiple versions of pnpm specified"
@@ -88,17 +91,17 @@ jobs:
           B64=$(base64 < audit-results.json | tr -d '\n')
 
           echo "Fetching current file SHA (if exists)..."
-          SHA=$(gh api repos/freegamestore-online/freegamestore/contents/data/quality-results.json \
+          SHA=$(gh api repos/freegamestore-online/platform/contents/sites/freegamestore/data/quality-results.json \
             --jq '.sha' 2>/dev/null || true)
 
-          echo "Uploading quality-results.json to freegamestore-online/freegamestore..."
+          echo "Uploading quality-results.json to freegamestore-online/platform..."
           if [ -n "$SHA" ]; then
-            gh api -X PUT repos/freegamestore-online/freegamestore/contents/data/quality-results.json \
+            gh api -X PUT repos/freegamestore-online/platform/contents/sites/freegamestore/data/quality-results.json \
               -f "message=data: weekly quality audit $(date -u +%F)" \
               -f "content=${B64}" \
               -f "sha=${SHA}"
           else
-            gh api -X PUT repos/freegamestore-online/freegamestore/contents/data/quality-results.json \
+            gh api -X PUT repos/freegamestore-online/platform/contents/sites/freegamestore/data/quality-results.json \
               -f "message=data: weekly quality audit $(date -u +%F)" \
               -f "content=${B64}"
           fi
