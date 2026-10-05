@@ -23,10 +23,6 @@ jobs:
         with:
           node-version: 22
       - name: Probe fleet
-        env:
-          # Org-scoped read token (repo contents + actions). Set from Doppler
-          # GH_ADMIN_TOKEN. The default GITHUB_TOKEN only sees this repo.
-          GH_TOKEN: ${{ secrets.FLEET_HEALTH_GH_TOKEN }}
         run: |
           set -euo pipefail
           {

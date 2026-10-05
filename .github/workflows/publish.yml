@@ -77,10 +77,16 @@ jobs:
             echo "Version bumped ($NPM_VER → $LOCAL_VER) — will publish."
           fi
 
+      - name: Pack with workspace protocol rewrite
+        if: steps.decide.outputs.publish == 'true'
+        working-directory: packages/${{ matrix.package }}
+        run: pnpm pack --out package.tgz
+
       - name: Publish via OIDC trusted publishing
         if: steps.decide.outputs.publish == 'true'
         working-directory: packages/${{ matrix.package }}
-        # pnpm publish (not npm) so workspace:* deps get rewritten to real
-        # semver in the tarball. npm publish leaves the workspace protocol
-        # intact, which breaks downstream consumers (npx, yarn, npm install).
-        run: pnpm publish --access public --no-git-checks --provenance
+        # Use npm publish (not pnpm publish) on the tarball to ensure OIDC token
+        # exchange works. pnpm publish under 10.30.3 may not perform the exchange,
+        # causing E404 on PUT. pnpm pack already rewrites workspace:* to real
+        # semver, so npm publish on the tarball works correctly.
+        run: npm publish package.tgz --access public --provenance
