@@ -182,8 +182,10 @@ function statusFetch(
 }
 
 describe('reconcile build-status backstop', () => {
+  const P = 'p'.repeat(40);
+
   it('flips a pending game whose deploy concluded success to live', async () => {
-    const { puts, fetchFn } = statusFetch([{ id: 'chess', status: 'pending' }], {
+    const { puts, fetchFn } = statusFetch([{ id: 'chess', status: 'pending', provisionedSha: P }], {
       chess: 'success',
     });
     vi.stubGlobal('fetch', fetchFn);
@@ -195,7 +197,7 @@ describe('reconcile build-status backstop', () => {
   });
 
   it('flips a pending game whose deploy failed to failed', async () => {
-    const { puts, fetchFn } = statusFetch([{ id: 'chess', status: 'pending' }], {
+    const { puts, fetchFn } = statusFetch([{ id: 'chess', status: 'pending', provisionedSha: P }], {
       chess: 'failure',
     });
     vi.stubGlobal('fetch', fetchFn);
@@ -206,7 +208,7 @@ describe('reconcile build-status backstop', () => {
   });
 
   it('leaves a pending game alone while nothing has concluded', async () => {
-    const { puts, fetchFn } = statusFetch([{ id: 'chess', status: 'pending' }], {});
+    const { puts, fetchFn } = statusFetch([{ id: 'chess', status: 'pending', provisionedSha: P }], {});
     vi.stubGlobal('fetch', fetchFn);
     const { db } = makeDB(['chess']);
     await runScheduled({ GITHUB_TOKEN: 'x', DB: db });
@@ -215,7 +217,7 @@ describe('reconcile build-status backstop', () => {
   });
 
   it('ignores a cancelled run — Path B cancels superseded runs by design', async () => {
-    const { puts, fetchFn } = statusFetch([{ id: 'chess', status: 'pending' }], {
+    const { puts, fetchFn } = statusFetch([{ id: 'chess', status: 'pending', provisionedSha: P }], {
       chess: 'cancelled',
     });
     vi.stubGlobal('fetch', fetchFn);
@@ -227,7 +229,7 @@ describe('reconcile build-status backstop', () => {
 
   it('never queries or rewrites a game that is already live or legacy', async () => {
     const { puts, actionsQueried, fetchFn } = statusFetch(
-      [{ id: 'chess', status: 'live' }, { id: 'tetris' }],
+      [{ id: 'chess', status: 'live', provisionedSha: P }, { id: 'tetris', provisionedSha: P }],
       { chess: 'failure', tetris: 'failure' },
     );
     vi.stubGlobal('fetch', fetchFn);
@@ -241,9 +243,9 @@ describe('reconcile build-status backstop', () => {
   it('resolves several pending games in ONE registry commit', async () => {
     const { puts, fetchFn } = statusFetch(
       [
-        { id: 'a', status: 'pending' },
-        { id: 'b', status: 'pending' },
-        { id: 'c', status: 'pending' },
+        { id: 'a', status: 'pending', provisionedSha: P },
+        { id: 'b', status: 'pending', provisionedSha: P },
+        { id: 'c', status: 'pending', provisionedSha: P },
       ],
       { a: 'success', b: 'failure', c: undefined },
     );
@@ -258,7 +260,7 @@ describe('reconcile build-status backstop', () => {
   });
 
   it('GET /api/reconcile reports pending but flips nothing', async () => {
-    const { puts, actionsQueried, fetchFn } = statusFetch([{ id: 'chess', status: 'pending' }], {
+    const { puts, actionsQueried, fetchFn } = statusFetch([{ id: 'chess', status: 'pending', provisionedSha: P }], {
       chess: 'success',
     });
     vi.stubGlobal('fetch', fetchFn);

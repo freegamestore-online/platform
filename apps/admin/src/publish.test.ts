@@ -584,7 +584,7 @@ describe('handlePublish Remix truncation regression (#45)', () => {
       if (method === 'PATCH' && url.includes('/git/refs/heads/main')) {
         return new Response(JSON.stringify({ ref: 'refs/heads/main' }), { status: 200 });
       }
-      if (method === 'GET' && url.includes('/contents/')) {
+      if (method === 'GET' && url.includes('/contents/') && !url.includes('registry.json')) {
         return new Response(JSON.stringify({ content: btoa('APPNAME'), sha: 'file-sha' }), {
           status: 200,
         });
@@ -797,7 +797,7 @@ function firstRegistryPut(req: Parameters<typeof handlePublish>[0]): Promise<any
     }
     // Any other repo file read (the substitution targets) — a real contents
     // payload, so the step completes rather than retrying on a decode failure.
-    if (method === 'GET' && url.includes('/contents/')) {
+    if (method === 'GET' && url.includes('/contents/') && !url.includes('registry.json')) {
       return new Response(JSON.stringify({ content: btoa('APPNAME'), sha: 's' }), {
         status: 200,
       });

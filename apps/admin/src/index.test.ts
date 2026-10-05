@@ -497,7 +497,8 @@ describe('provision creator identity (#63)', () => {
   it('uses the specified creator for an allowlisted Google admin', async () => {
     const provision = vi
       .spyOn(publish, 'handlePublish')
-      .mockResolvedValue({ success: true, steps: [] } as any);
+      // @ts-expect-error — mock response shape compatible but not identical
+      .mockResolvedValue({ success: true, steps: [] });
     const response = await worker.fetch(
       req('/api/provision', {
         method: 'POST',
@@ -529,7 +530,8 @@ describe('provision creator identity (#63)', () => {
   it('keeps GitHub creator ownership caller-derived', async () => {
     const provision = vi
       .spyOn(publish, 'handlePublish')
-      .mockResolvedValue({ success: true, steps: [] } as any);
+      // @ts-expect-error — mock response shape compatible but not identical
+      .mockResolvedValue({ success: true, steps: [] });
     await worker.fetch(
       req('/api/provision', {
         method: 'POST',

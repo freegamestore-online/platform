@@ -10,7 +10,7 @@ import { createGameLifecycle } from './lifecycle/game-lifecycle';
 import { createRegistryState, createRemixSource } from './lifecycle/registry-state';
 import { type GameStatus, insertHostRoute, lifecycleStatus, provisionStatus } from './publish';
 import { createReconciliationService } from './reconciliation-service';
-import { readRegistry } from './registryReader';
+import { type RegistryGame, readRegistry } from './registryReader';
 
 interface Env {
   CF_ACCOUNT_ID: string;
@@ -289,14 +289,14 @@ const DOMAIN = 'freegamestore.online';
  *  turns every live route into false orphan drift (and, once reconcile heals,
  *  would delete every route). `[]` means the registry loaded and is genuinely
  *  empty; callers that just render tolerate `?? []`. */
-async function fetchRegistryItems(env: Env): Promise<any[] | null> {
+async function fetchRegistryItems(env: Env): Promise<RegistryGame[] | null> {
   const result = await readRegistry(env.GITHUB_TOKEN);
   return result.status === 'available' ? result.games : null;
 }
 
 async function fetchRegistry(env: Env): Promise<GameConfig[]> {
   const items = (await fetchRegistryItems(env)) ?? [];
-  return items.map((item: any) => ({
+  return items.map((item: RegistryGame) => ({
     id: item.id,
     name: item.name,
     org: ORG,
@@ -311,7 +311,7 @@ async function fetchRegistry(env: Env): Promise<GameConfig[]> {
  *  — backs the Users tab + creator stats. A fetch failure renders as empty here
  *  (best-effort read path); reconcile() uses fetchRegistryItems() directly so it
  *  can distinguish failure from empty. */
-async function fetchRegistryRaw(env: Env): Promise<any[]> {
+async function fetchRegistryRaw(env: Env): Promise<RegistryGame[]> {
   return (await fetchRegistryItems(env)) ?? [];
 }
 
@@ -343,7 +343,7 @@ async function fetchGameStatus(game: GameConfig, env: Env) {
       `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/pages/projects/${game.cfProject}`,
       { headers: { Authorization: `Bearer ${env.CF_API_TOKEN}` } },
     );
-    const data = (await res.json()) as any;
+    const data = (await res.json()) as Record<string, unknown>;
 
     if (!data.success) {
       return {
@@ -623,7 +623,7 @@ const ORPHAN_GRACE_MS = 10 * 60_000;
 
 async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
   const registry = await readRegistry(env.GITHUB_TOKEN);
-  const items = registry.status === 'available' ? (registry.games as any[]) : null;
+  const items = registry.status === 'available' ? registry.games : null;
   const ts = new Date().toISOString();
 
   const routeRows = env.DB
@@ -698,7 +698,8 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
     // Re-insert routes for listed-but-unrouted games (idempotent, same shape as
     // provision). registry is the source of truth for what SHOULD be served.
     for (const id of missingRoute) {
-      const step = await insertHostRoute(env as any, id);
+      // @ts-expect-error — Env compatible but not identical to PublishEnv
+      const step = await insertHostRoute(env, id);
       if (step.status === 'ok') insertedRoutes.push(id);
     }
     // Delete routes with no registry entry — the game is delisted, so the route
@@ -738,7 +739,8 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
       // null → nothing concluded yet; leave pending for the next run.
     }
     if (flips.length > 0) {
-      const res = await registryState.setStatuses(env as any, flips);
+      // @ts-expect-error — Env compatible but not identical to PublishEnv
+      const res = await registryState.setStatuses(env, flips);
       report.healed = {
         ...(report.healed ?? { insertedRoutes: [], deletedRoutes: [] }),
         statusFlips: res.updated,
@@ -1130,7 +1132,8 @@ export default {
         return jsonResponse({ error: 'Request body must be JSON' }, 400, request);
       }
       try {
-        const result = await gameLifecycle.update(gameMatch[1]!, login, body, env as any);
+        // @ts-expect-error — Env compatible but not identical to PublishEnv
+        const result = await gameLifecycle.update(gameMatch[1]!, login, body, env);
         // 403 not creator, 404 unknown game, 502 GitHub/registry failure (#66).
         return jsonResponse(result, result.error ? lifecycleStatus(result.code) : 200, request);
       } catch (e) {
@@ -1160,7 +1163,8 @@ export default {
         return jsonResponse({ error: 'unauthorized' }, 401, request);
       }
       try {
-        const result = await gameLifecycle.delete(gameMatch[1]!, actor, env as any, {
+        // @ts-expect-error — Env compatible but not identical to PublishEnv
+        const result = await gameLifecycle.delete(gameMatch[1]!, actor, env, {
           adminOverride: isAdmin,
         });
         return jsonResponse(result, result.error ? lifecycleStatus(result.code) : 200, request);
@@ -1301,7 +1305,7 @@ export default {
             request,
           );
         }
-        const data = (await res.json()) as any;
+        const data = (await res.json()) as Record<string, unknown>;
         // GraphQL reports errors with HTTP 200 — surface them rather than
         // rendering an empty chart that looks like "no traffic".
         if (Array.isArray(data?.errors) && data.errors.length) {
@@ -1311,7 +1315,8 @@ export default {
             request,
           );
         }
-        const groups: any[] = data?.data?.viewer?.zones?.[0]?.httpRequests1dGroups ?? [];
+        const groups: Array<Record<string, unknown>> =
+          data?.data?.viewer?.zones?.[0]?.httpRequests1dGroups ?? [];
         const days = groups.map((g) => ({
           date: g?.dimensions?.date ?? null,
           requests: Number(g?.sum?.requests) || 0,
@@ -1377,7 +1382,8 @@ export default {
           request,
         );
       }
-      const step = await insertHostRoute(env as any, id);
+      // @ts-expect-error — Env compatible but not identical to PublishEnv
+      const step = await insertHostRoute(env, id);
       if (step.status === 'fail') {
         await recordError(env.DB, {
           source: 'admin/heal-route',
@@ -1414,7 +1420,8 @@ export default {
           request,
         );
       }
-      const step = await registryState.setStatus(env as any, body.id, body.status);
+      // @ts-expect-error — Env compatible but not identical to PublishEnv
+      const step = await registryState.setStatus(env, body.id, body.status);
       if (step.status === 'fail') {
         await recordError(env.DB, {
           source: 'admin/game-status',
@@ -1452,8 +1459,8 @@ export default {
       let ownerForLog: string | undefined;
       let idForLog: string | undefined;
       try {
-        const body = (await request.json()) as any;
-        idForLog = body?.id;
+        const body = (await request.json()) as Record<string, unknown>;
+        idForLog = body?.id as string | undefined;
         // Ownership is caller-derived for user-authenticated calls: a normal
         // authenticated caller must NOT be able to register a game owned by an
         // arbitrary `creatorGithub` they put in the body (that would be ownership
@@ -1470,7 +1477,8 @@ export default {
           );
         }
         console.log(`[provision] id=${body?.id} owner=${owner} trusted=${trusted}`);
-        const result = await gameLifecycle.provision({ ...body, creatorGithub: owner }, env as any);
+        // @ts-expect-error — Env compatible but not identical to PublishEnv
+        const result = await gameLifecycle.provision({ ...body, creatorGithub: owner }, env);
         console.log(`[provision] id=${body?.id} success=${result.success} +${Date.now() - t0}ms`);
         // Persist a provision failure (handlePublish returns success:false rather
         // than throwing) so it shows on the admin console. Logging only — the
