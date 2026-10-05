@@ -152,7 +152,9 @@ function statusFetch(
       const conclusion = runs[id];
       return new Response(
         JSON.stringify({
-          workflow_runs: conclusion ? [{ status: 'completed', conclusion, head_sha: 'd'.repeat(40) }] : [],
+          workflow_runs: conclusion
+            ? [{ status: 'completed', conclusion, head_sha: 'd'.repeat(40) }]
+            : [],
         }),
         { status: 200 },
       );
@@ -208,7 +210,10 @@ describe('reconcile build-status backstop', () => {
   });
 
   it('leaves a pending game alone while nothing has concluded', async () => {
-    const { puts, fetchFn } = statusFetch([{ id: 'chess', status: 'pending', provisionedSha: P }], {});
+    const { puts, fetchFn } = statusFetch(
+      [{ id: 'chess', status: 'pending', provisionedSha: P }],
+      {},
+    );
     vi.stubGlobal('fetch', fetchFn);
     const { db } = makeDB(['chess']);
     await runScheduled({ GITHUB_TOKEN: 'x', DB: db });
@@ -229,7 +234,10 @@ describe('reconcile build-status backstop', () => {
 
   it('never queries or rewrites a game that is already live or legacy', async () => {
     const { puts, actionsQueried, fetchFn } = statusFetch(
-      [{ id: 'chess', status: 'live', provisionedSha: P }, { id: 'tetris', provisionedSha: P }],
+      [
+        { id: 'chess', status: 'live', provisionedSha: P },
+        { id: 'tetris', provisionedSha: P },
+      ],
       { chess: 'failure', tetris: 'failure' },
     );
     vi.stubGlobal('fetch', fetchFn);
@@ -260,9 +268,12 @@ describe('reconcile build-status backstop', () => {
   });
 
   it('GET /api/reconcile reports pending but flips nothing', async () => {
-    const { puts, actionsQueried, fetchFn } = statusFetch([{ id: 'chess', status: 'pending', provisionedSha: P }], {
-      chess: 'success',
-    });
+    const { puts, actionsQueried, fetchFn } = statusFetch(
+      [{ id: 'chess', status: 'pending', provisionedSha: P }],
+      {
+        chess: 'success',
+      },
+    );
     vi.stubGlobal('fetch', fetchFn);
     const { db } = makeDB(['chess']);
     const AUTH = {

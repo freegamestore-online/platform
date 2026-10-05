@@ -714,10 +714,16 @@ describe('setGameStatuses', () => {
     ]);
     expect(res.updated).toEqual(['a', 'b']);
     expect(puts).toHaveLength(1);
-    expect(puts[0]!.games.find((g: unknown) => (g as Record<string, unknown>).id === 'a').status).toBe('live');
-    expect(puts[0]!.games.find((g: unknown) => (g as Record<string, unknown>).id === 'b').status).toBe('failed');
+    expect(
+      puts[0]!.games.find((g: unknown) => (g as Record<string, unknown>).id === 'a').status,
+    ).toBe('live');
+    expect(
+      puts[0]!.games.find((g: unknown) => (g as Record<string, unknown>).id === 'b').status,
+    ).toBe('failed');
     // The untargeted entry is carried through untouched.
-    expect(puts[0]!.games.find((g: unknown) => (g as Record<string, unknown>).id === 'c').status).toBe('live');
+    expect(
+      puts[0]!.games.find((g: unknown) => (g as Record<string, unknown>).id === 'c').status,
+    ).toBe('live');
   });
 
   it('skips an unknown id rather than failing the batch', async () => {
