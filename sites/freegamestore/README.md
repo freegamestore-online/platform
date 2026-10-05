@@ -20,9 +20,7 @@ npm test          # Runs build + security regression tests
 
 ## Deploy
 
-Push to `main` — GitHub Actions deploys to Cloudflare Pages automatically.
-
-<!-- Deploy pipeline verification: 2026-10-06 -- verification run successful -->
+Push to `main` — GitHub Actions deploys to R2 automatically.
 
 ## License
 
