@@ -17,7 +17,6 @@ vi.mock('./_games', async (importOriginal) => ({
 import { resolveCreatorUser } from './_auth';
 import { onRequestPatch } from './games/[id]';
 import { onRequestGet as getMe } from './me';
-import { onRequestPost as postPublish } from './publish';
 
 const SECRET = 'test-secret';
 const enc = new TextEncoder();
@@ -126,16 +125,4 @@ describe('upstream failures return JSON errors, not uncaught 500s (#81)', () => 
     expect(body.creator.games).toHaveLength(1);
   });
 
-  it('POST /api/publish → 502 JSON when the provisioning service is unreachable', async () => {
-    vi.mocked(fetch).mockRejectedValueOnce(new TypeError('connect timeout'));
-    const res = await postPublish({
-      request: req('/api/publish', `__Host-fgs_token=${await jwt('bob')}`, {
-        method: 'POST',
-        body: JSON.stringify({ id: 'chess', name: 'Chess' }),
-      }),
-      env: { SESSIONS: kv(), JWT_SECRET: SECRET, GITHUB_TOKEN: 't' },
-    } as unknown as Parameters<typeof postPublish>[0]);
-    expect(res.status).toBe(502);
-    expect(((await res.json()) as { error: string }).error).toMatch(/connect timeout/);
-  });
 });

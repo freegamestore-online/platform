@@ -225,7 +225,7 @@ async function mintHandoff(
   secret: string,
   game?: string,
 ): Promise<string> {
-  const payload = await jwtVerify(token, secret);
+  const payload = await jwtVerify(token, secret).catch(() => null);
   if (!payload || !HANDOFF_TARGETS.has(target)) throw new Error('invalid handoff');
   const now = Math.floor(Date.now() / 1000);
   return jwtSign(
@@ -658,7 +658,7 @@ export async function handleGitHubTokenExchange(request: Request, env: Env): Pro
 export async function handleHandoffConsume(request: Request, env: Env): Promise<Response> {
   const handoff = request.headers.get('X-FGS-Handoff') ?? '';
   const target = request.headers.get('X-FGS-Handoff-Target') ?? '';
-  const payload = await jwtVerify(handoff, env.JWT_SECRET);
+  const payload = await jwtVerify(handoff, env.JWT_SECRET).catch(() => null);
   if (
     !payload ||
     payload.typ !== 'fgs_handoff' ||

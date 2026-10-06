@@ -3,7 +3,6 @@ import { routeAdminRequest } from './admin-request-router';
 import { serveAdminStatic } from './admin-static';
 import { handleAuthExchange, handleAuthMe, verifySession } from './auth';
 import { renderApiDocs } from './dashboard';
-import { createAdminDataService } from './data-service';
 import { driftReportFrom, type FleetRow, recentRuns, sweepFleet } from './drift';
 import { errorStats, listErrors, pruneErrors, recordError } from './errlog';
 import { createGameLifecycle } from './lifecycle/game-lifecycle';
@@ -15,7 +14,6 @@ import {
   provisionStatus,
   readGameStatus,
 } from './publish';
-import { createReconciliationService } from './reconciliation-service';
 import { type RegistryGame, readRegistry } from './registryReader';
 
 type CallerCredentials = {
@@ -473,14 +471,14 @@ async function fetchAllStatus(env: Env) {
 }
 
 function dataService(env: Env) {
-  return createAdminDataService({
+  return {
     registryItems: () => fetchRegistryItems(env),
     registry: () => fetchRegistry(env),
     registryRaw: () => fetchRegistryRaw(env),
     gameStatus: (game: GameConfig) => fetchGameStatus(game, env),
     allStatus: () => fetchAllStatus(env),
     quality: fetchQuality,
-  });
+  };
 }
 
 // STRICT allowlist — the admin API must NOT reflect arbitrary game subdomains.
@@ -1567,14 +1565,13 @@ function buildRouteTable(
 export default {
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     // Hourly: heal provisioning drift, then prune the error log's old rows.
-    ctx.waitUntil(createReconciliationService((heal) => reconcile(env, heal)).reconcile(true));
+    ctx.waitUntil(reconcile(env, true));
     ctx.waitUntil(pruneErrors(env.DB));
   },
 
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const data = dataService(env);
-    const reconciliation = createReconciliationService((heal) => reconcile(env, heal));
     const transportResponse = await routeAdminRequest(request, {
       preflight: (req) => new Response(null, { status: 204, headers: corsHeaders(req) }),
       auth: (req) => handleAdminAuthRoute(req, env),
@@ -1753,7 +1750,7 @@ export default {
 
     // GET /api/reconcile — on-demand drift report (same logic as the cron).
     if (url.pathname === '/api/reconcile' && request.method === 'GET') {
-      return jsonResponse(await reconciliation.reconcile(), 200, request);
+      return jsonResponse(await reconcile(env, false), 200, request);
     }
 
     if (url.pathname === '/docs') {

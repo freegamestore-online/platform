@@ -136,9 +136,8 @@ function corsRead(request: Request): Record<string, string> {
   };
 }
 
-// A game may submit only with a token scoped to that game. Reflecting a valid
-// game origin is therefore safe: a compromised game cannot reuse its token to
-// submit a score for another game's board.
+// Score submissions use game-scoped bearer tokens. Reflect any freegamestore.online
+// origin (checked via isAllowedOrigin), since token scope prevents cross-game reuse.
 function corsSubmit(request: Request): Record<string, string> {
   const origin = request.headers.get('Origin') ?? '';
   return {
@@ -336,7 +335,7 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
     .bind(game, score, userId)
     .first<{ rank: number }>();
 
-  return j({ ok: true, rank: (rank?.rank ?? 0) + 1, authenticated: !!userId }, 201);
+  return j({ ok: true, rank: (rank?.rank ?? 0) + 1 }, 201);
 }
 
 // GET /api/leaderboard/:game?limit=10

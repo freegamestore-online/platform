@@ -137,10 +137,6 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
   }
 }
 
-// -- Auth middleware --
-// FGS admin sessions are 3-part JWTs (header.payload.sig), HMAC-SHA256 signed
-// with the admin's own SESSION_SIGNING_KEY. We don't verify locally — the
-// admin API verifies on every call. We just decode the payload for userId context.
 /**
  * MCP API handler. OAuthProvider authenticates the request and exposes the
  * caller's props on ctx.props. Because agents@0.0.74's serve() drops ctx.props

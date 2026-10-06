@@ -25,9 +25,6 @@ zone_name = "freegamestore.online"
 
 # Secrets (set via `wrangler secret put`):
 #   GITHUB_TOKEN          — org-level PAT for repo read/write
-#   GITHUB_CLIENT_ID      — GitHub OAuth app for MCP auth
-#   GITHUB_CLIENT_SECRET  — GitHub OAuth app secret
-#   SESSION_SIGNING_KEY   — same key as fgs/admin for session verification
 
 [[kv_namespaces]]
 binding = "OAUTH_KV"
