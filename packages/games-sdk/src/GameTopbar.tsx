@@ -1,6 +1,6 @@
 import type * as React from 'react';
 import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { forwardRef, useEffect, useRef, useState } from 'react';
 import { useSound } from './SoundContext.js';
 
 export interface GameTopbarStat {
@@ -72,6 +72,86 @@ export interface GameTopbarProps {
 }
 
 /**
+ * Shared icon button style for topbar controls. All buttons in the topbar
+ * (catalog, rules, play/pause, restart, about, sound, close) use this
+ * consistent sizing and behavior.
+ */
+interface TopbarIconButtonProps {
+  onClick?: () => void;
+  href?: string;
+  target?: string;
+  rel?: string;
+  color?: string;
+  ariaLabel: string;
+  ariaPressed?: boolean;
+  ref?: React.Ref<HTMLButtonElement>;
+  children: ReactNode;
+}
+
+const TopbarIconButton = forwardRef<HTMLButtonElement, Omit<TopbarIconButtonProps, 'ref'>>(
+  function TopbarIconButton(
+    {
+      onClick,
+      href,
+      target,
+      rel,
+      color = 'var(--muted, #999)',
+      ariaLabel,
+      ariaPressed,
+      children,
+    },
+    ref,
+  ) {
+    const baseStyle = {
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      padding: 0,
+      minWidth: '2.75rem',
+      minHeight: '2.75rem',
+      display: 'flex' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      color,
+      WebkitTapHighlightColor: 'transparent',
+    };
+
+    const linkStyle = {
+      ...baseStyle,
+      textDecoration: 'none' as const,
+    };
+
+    if (href) {
+      return (
+        <a
+          data-fgs-tb-btn
+          href={href}
+          target={target}
+          rel={rel}
+          style={linkStyle}
+          aria-label={ariaLabel}
+        >
+          {children}
+        </a>
+      );
+    }
+
+    return (
+      <button
+        ref={ref}
+        data-fgs-tb-btn
+        onClick={onClick}
+        style={baseStyle}
+        aria-label={ariaLabel}
+        aria-pressed={ariaPressed}
+      >
+        {children}
+      </button>
+    );
+  }
+);
+
+/**
  * The single allowed topbar shape for FreeGameStore games. Brand
  * consistency: same font, same paddings, same color tokens, same stat
  * layout across every game on the storefront.
@@ -128,26 +208,11 @@ export function GameTopbar({
               users couldn't tell which one belonged to the page). A
               grid reads as "all games / browse the catalog" and is
               visually distinct from anything browser chrome ships. */}
-          <a
-            data-fgs-tb-btn
+          <TopbarIconButton
             href="https://freegamestore.online"
             target="_blank"
             rel="noopener noreferrer"
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
-              minWidth: '2.75rem',
-              minHeight: '2.75rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--muted, #999)',
-              WebkitTapHighlightColor: 'transparent',
-              textDecoration: 'none',
-            }}
-            aria-label="Browse all games"
+            ariaLabel="Browse all games"
           >
             <svg
               width="14"
@@ -164,26 +229,11 @@ export function GameTopbar({
               <rect x="2" y="9" width="5" height="5" rx="1" />
               <rect x="9" y="9" width="5" height="5" rx="1" />
             </svg>
-          </a>
+          </TopbarIconButton>
           {rules !== undefined && (
-            <button
-              data-fgs-tb-btn
+            <TopbarIconButton
               onClick={() => setShowRules(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: 0,
-                minWidth: '2.75rem',
-                minHeight: '2.75rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--muted, #999)',
-                lineHeight: 1,
-                WebkitTapHighlightColor: 'transparent',
-              }}
-              aria-label="Game rules"
+              ariaLabel="Game rules"
             >
               <svg
                 width="14"
@@ -198,7 +248,7 @@ export function GameTopbar({
                 <circle cx="8" cy="8" r="6.5" />
                 <path d="M8 11.5v0M8 5v4" />
               </svg>
-            </button>
+            </TopbarIconButton>
           )}
           {title !== undefined && (
             <span
@@ -223,28 +273,11 @@ export function GameTopbar({
           ))}
           {/* Play/Pause + Restart — opt-in for interactive games */}
           {onPlayPause !== undefined && (
-            <button
-              data-fgs-tb-btn
+            <TopbarIconButton
               onClick={onPlayPause}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: 0,
-                minWidth: '2.75rem',
-                minHeight: '2.75rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--ink, #f0f0f0)',
-                WebkitTapHighlightColor: 'transparent',
-              }}
-              // aria-pressed announces the pressed (paused) state to
-              // assistive tech. aria-label stays fixed at "Pause" — the
-              // WAI-ARIA toggle pattern says the label describes the
-              // control, the pressed state describes the world.
-              aria-label="Pause"
-              aria-pressed={paused === true}
+              color="var(--ink, #f0f0f0)"
+              ariaLabel="Pause"
+              ariaPressed={paused === true}
             >
               {paused ? (
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -256,26 +289,12 @@ export function GameTopbar({
                   <rect x="10" y="2" width="4" height="12" rx="1" />
                 </svg>
               )}
-            </button>
+            </TopbarIconButton>
           )}
           {onRestart !== undefined && (
-            <button
-              data-fgs-tb-btn
+            <TopbarIconButton
               onClick={onRestart}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: 0,
-                minWidth: '2.75rem',
-                minHeight: '2.75rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--muted, #999)',
-                WebkitTapHighlightColor: 'transparent',
-              }}
-              aria-label="Restart"
+              ariaLabel="Restart"
             >
               <svg
                 width="14"
@@ -292,27 +311,12 @@ export function GameTopbar({
                 <path d="M14 2v3.5h-3.5" />
                 <path d="M2 14v-3.5h3.5" />
               </svg>
-            </button>
+            </TopbarIconButton>
           )}
           {/* About — always present. Opens version + timestamp + credits. */}
-          <button
-            data-fgs-tb-btn
+          <TopbarIconButton
             onClick={() => setShowAbout(true)}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
-              minWidth: '2.75rem',
-              minHeight: '2.75rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--muted, #999)',
-              lineHeight: 1,
-              WebkitTapHighlightColor: 'transparent',
-            }}
-            aria-label="About this game"
+            ariaLabel="About this game"
           >
             <svg
               width="14"
@@ -328,29 +332,13 @@ export function GameTopbar({
               <path d="M8 7.25v3.5" />
               <path d="M8 5.15v0" />
             </svg>
-          </button>
+          </TopbarIconButton>
           {/* Sound toggle — always present, muted by default */}
-          <button
-            data-fgs-tb-btn
+          <TopbarIconButton
             onClick={sound.toggle}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
-              minWidth: '2.75rem',
-              minHeight: '2.75rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: sound.muted ? 'var(--muted, #999)' : 'var(--accent, #10b981)',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-            // Toggle pattern: aria-label is fixed ("Mute"); aria-pressed
-            // tells AT whether sound is currently muted. Screen readers
-            // announce "Mute, toggle button, pressed" when muted.
-            aria-label="Mute"
-            aria-pressed={sound.muted}
+            color={sound.muted ? 'var(--muted, #999)' : 'var(--accent, #10b981)'}
+            ariaLabel="Mute"
+            ariaPressed={sound.muted}
           >
             {sound.muted ? (
               <svg
@@ -382,7 +370,7 @@ export function GameTopbar({
                 <path d="M13.5 3a7.5 7.5 0 010 10" />
               </svg>
             )}
-          </button>
+          </TopbarIconButton>
           {actions !== undefined && (
             <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>{actions}</div>
           )}
@@ -545,8 +533,38 @@ function RulesOverlay({
   title?: string;
   onClose: () => void;
 }): React.JSX.Element {
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    // Focus the close button when the overlay opens for keyboard accessibility
+    closeButtonRef.current?.focus();
+
+    // Handle Escape key to close the overlay, and prevent other keys from
+    // reaching game key handlers (which would continue game input while playing)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      } else {
+        // Prevent any other key events from reaching the game
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [onClose]);
+
   return (
     <div
+      ref={overlayRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
       style={{
         position: 'fixed',
         inset: 0,
@@ -577,26 +595,13 @@ function RulesOverlay({
         >
           {title}
         </span>
-        <button
-          data-fgs-tb-btn
+        <TopbarIconButton
+          ref={closeButtonRef}
           onClick={onClose}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--muted, #999)',
-            fontSize: '1.2rem',
-            minWidth: '2.75rem',
-            minHeight: '2.75rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            WebkitTapHighlightColor: 'transparent',
-          }}
-          aria-label="Close"
+          ariaLabel="Close"
         >
           &times;
-        </button>
+        </TopbarIconButton>
       </div>
       <div
         style={{
