@@ -12,6 +12,12 @@ import { type GameStatus, insertHostRoute, lifecycleStatus, provisionStatus } fr
 import { createReconciliationService } from './reconciliation-service';
 import { type RegistryGame, readRegistry } from './registryReader';
 
+type CallerCredentials = {
+  admin: string | null;
+  isAdmin: boolean;
+  login: string | null;
+};
+
 interface Env {
   CF_ACCOUNT_ID: string;
   CF_API_TOKEN: string;
@@ -199,6 +205,17 @@ async function authenticateLogin(request: Request, env: Env): Promise<string | n
     }
   }
   return null;
+}
+
+/** Unified caller resolution for all routes. Returns admin email (if authenticated
+ *  via Google), admin status, and GitHub login (if authenticated via fgs_token/session).
+ *  Routes can then check isAdmin OR login based on their requirements. */
+async function resolveCaller(request: Request, env: Env): Promise<CallerCredentials> {
+  const [{ email, isAdmin }, login] = await Promise.all([
+    authenticateAdmin(request, env),
+    authenticateLogin(request, env),
+  ]);
+  return { admin: email, isAdmin, login };
 }
 
 /** Auth transport is deliberately kept ahead of every API/static route. */
@@ -817,35 +834,44 @@ export default {
     // intentionally NOT admin-gated (creators self-serve; the agent uses the
     // internal token). Without this, the whole console + crash log + creator
     // list were world-readable.
-    const ADMIN_PATHS = new Set([
-      '/',
-      '/docs',
-      '/api/reconcile',
-      '/api/drift',
-      '/api/status/deploys',
-      '/api/ping',
-      '/api/status',
-      '/api/status/game',
-      '/api/quality',
-      '/api/errors',
-      '/api/stats',
-      '/api/users',
-    ]);
-    // The Game Detail endpoint is a regex path, so it cannot live in the exact
-    // -match Set above — gate it explicitly rather than leaving it open.
-    const ADMIN_PATH_RE = /^\/api\/games\/[a-z0-9][a-z0-9-]*\/(?:detail|traffic)$/;
-    if (
-      ADMIN_PATHS.has(url.pathname) ||
-      ADMIN_PATH_RE.test(url.pathname) ||
-      (url.pathname === '/api/ci/test-report' && request.method === 'GET')
-    ) {
-      const { email, isAdmin } = await authenticateAdmin(request, env);
-      if (!isAdmin) {
+    //
+    // Routes that require admin auth (return 401 or sign-in page for non-admins).
+    const isAdminRoute = (pathname: string, method: string): boolean => {
+      if (
+        pathname === '/docs' ||
+        pathname === '/api/reconcile' ||
+        pathname === '/api/drift' ||
+        pathname === '/api/status/deploys' ||
+        pathname === '/api/ping' ||
+        pathname === '/api/status' ||
+        pathname === '/api/status/game' ||
+        pathname === '/api/quality' ||
+        pathname === '/api/errors' ||
+        pathname === '/api/stats' ||
+        pathname === '/api/users' ||
+        pathname === '/api/comp'
+      ) {
+        return true;
+      }
+      // Game Detail and Traffic endpoints (regex paths)
+      if (/^\/api\/games\/[a-z0-9][a-z0-9-]*\/(?:detail|traffic)$/.test(pathname)) {
+        return true;
+      }
+      // CI test report endpoint (GET only; PUT is CI-token-gated)
+      if (pathname === '/api/ci/test-report' && method === 'GET') {
+        return true;
+      }
+      return false;
+    };
+
+    if (isAdminRoute(url.pathname, request.method)) {
+      const caller = await resolveCaller(request, env);
+      if (!caller.isAdmin) {
         // Console pages get the sign-in / wrong-account page (200 — it IS a
         // valid page, and a 401 status just spams the browser console); APIs
         // still return 401.
-        if (url.pathname === '/' || url.pathname === '/docs') {
-          return new Response(renderSignIn(email), {
+        if (url.pathname === '/docs') {
+          return new Response(renderSignIn(caller.admin), {
             status: 200,
             headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
           });
@@ -1526,6 +1552,12 @@ export default {
         });
         return jsonResponse({ error: String(e) }, 500, request);
       }
+    }
+
+    // Unmatched /api/* paths return JSON 404. All other paths (static files,
+    // console shell) are served through the static handler.
+    if (url.pathname.startsWith('/api/')) {
+      return jsonResponse({ error: 'not found' }, 404, request);
     }
 
     // Fallthrough (any unmatched path/method) also renders the console shell, so
