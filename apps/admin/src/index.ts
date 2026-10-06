@@ -1009,6 +1009,7 @@ function buildRouteTable(
               status: httpResponse?.status ?? 502,
             },
             runs: runs.slice(0, 5),
+            ...(entry && { forkedFrom: entry.forkedFrom }),
           },
           200,
           request,
@@ -1052,16 +1053,16 @@ function buildRouteTable(
         const items = await dataService_param.registryItems();
         if (items === null) {
           return jsonResponse(
-            { error: 'registry read failed', games: 0, statuses: {} },
+            { error: 'registry read failed' },
             503,
             request,
           );
         }
-        const statuses: Record<string, number> = {};
-        for (const s of ['pending', 'live', 'failed'] as const) {
-          statuses[s] = items.filter((g) => readGameStatus(g) === s).length;
-        }
-        return jsonResponse({ games: items.length, statuses }, 200, request);
+        const games = items.map((g) => ({
+          id: g?.id,
+          status: readGameStatus(g),
+        }));
+        return jsonResponse(games, 200, request);
       },
     },
 
@@ -1107,9 +1108,10 @@ function buildRouteTable(
       pattern: '/api/errors',
       auth: 'admin',
       handler: async ({ request, url, env }) => {
-        const limit = Math.max(1, Math.min(100, Number(url.searchParams.get('limit')) || 50));
-        const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
-        const errors = await listErrors(env.DB, limit, offset);
+        const limit = Math.max(1, Math.min(500, Number(url.searchParams.get('limit')) || 200));
+        const user = url.searchParams.get('user') || undefined;
+        const source = url.searchParams.get('source') || undefined;
+        const errors = await listErrors(env.DB, limit, { user, source });
         return jsonResponse(errors, 200, request);
       },
     },
@@ -1167,7 +1169,12 @@ function buildRouteTable(
         const login = caller.login;
         if (!login) return jsonResponse({ error: 'unauthorized' }, 401, request);
 
-        const body = (await request.json()) as Record<string, unknown>;
+        let body: Record<string, unknown>;
+        try {
+          body = (await request.json()) as Record<string, unknown>;
+        } catch {
+          return jsonResponse({ error: 'invalid JSON' }, 400, request);
+        }
         const result = await gameLifecycle.update(id, login, body, env);
         return jsonResponse(
           result,
@@ -1432,7 +1439,7 @@ function buildRouteTable(
 
     // Agent proxy routes: /api/sessions, /api/allusers, /api/userkey*, /api/comp*, etc.
     {
-      method: ['GET', 'POST'],
+      method: ['GET', 'POST', 'DELETE'],
       pattern: /^\/api\/(allusers|sessions|sessionhistory|sessionerrors|sessionchat|userkey.*|comp.*)$/,
       auth: 'admin',
       handler: async ({ request, url, env }) => {
