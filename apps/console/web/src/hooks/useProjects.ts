@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useMemo, useCallback, useEffect, useRef, useState } from 'react';
+import { AGENT_URL, useSharedSessions, invalidateSharedSessions } from '../lib/agentClient';
 import {
   clearLegacyCurrentProjectId,
   readCurrentProjectId,
@@ -6,7 +7,7 @@ import {
   writeCurrentProjectId,
 } from '../lib/currentProjectStorage';
 import { reportError } from '../lib/errorReporter';
-import { mapServerSession, type Project, type ServerSession } from '../lib/sessions';
+import { mapServerSession, type Project } from '../lib/sessions';
 import { useAuth } from './useAuth';
 
 // Thrown when an in-flight openGame / startFreshChat is superseded by a newer
@@ -19,13 +20,6 @@ export class OpenSupersededError extends Error {
 
 export type { Project };
 
-// The agent worker owns BOTH the session index (its D1) and the transcripts
-// (its Durable Objects). The console reads/writes that single source of truth —
-// the same origin it already uses for chat + /history — rather than a separate
-// registry store, which forks the project list away from where the real
-// sessions live (and leaves the picker empty while transcripts sit orphaned).
-const AGENT_URL = 'https://agent.freegamestore.online';
-
 function placeholderProject(id: string, name = 'Current game'): Project {
   return {
     id,
@@ -34,14 +28,6 @@ function placeholderProject(id: string, name = 'Current game'): Project {
     updatedAt: Date.now(),
     deployed: false,
   };
-}
-
-async function fetchSessions(signal: AbortSignal): Promise<Project[]> {
-  const res = await fetch(`${AGENT_URL}/sessions`, { signal, credentials: 'include' });
-  if (!res.ok) throw new Error(`fetch sessions failed: ${res.status}`);
-  const data = (await res.json()) as { sessions: ServerSession[] };
-  const now = Date.now();
-  return data.sessions.map((session) => mapServerSession(session, now));
 }
 
 async function putSession(project: Project, attempt = 0): Promise<void> {
@@ -75,6 +61,7 @@ async function putSession(project: Project, attempt = 0): Promise<void> {
 
 export function useProjects() {
   const { user, loading: authLoading } = useAuth();
+  const cacheData = useSharedSessions([user?.sub]);
   const [projects, setProjects] = useState<Project[]>([]);
   // Projects are updated ONLY through commitProjects: the transition runs once,
   // synchronously, against the latest list, and callers do their side effects
@@ -93,7 +80,6 @@ export function useProjects() {
   );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [reloadNonce, setReloadNonce] = useState(0);
   const [currentId, setCurrentIdState] = useState<string | null>(null);
   // Monotonic counter — incremented on every explicit user intent (switchTo,
   // openGame, startFreshChat, setCurrentId). An in-flight openGame / startFreshChat
@@ -101,8 +87,6 @@ export function useProjects() {
   // advanced, the user has since switched to something else and we discard the stale
   // setCurrentId call (same pattern as loadHistory / sendMessage in useAgent).
   const openTokenRef = useRef(0);
-
-  const reload = useCallback(() => setReloadNonce((n) => n + 1), []);
 
   const setCurrentId = useCallback(
     (id: string | null) => {
@@ -135,62 +119,51 @@ export function useProjects() {
       return;
     }
 
-    const ctrl = new AbortController();
     setLoading(true);
     setLoadError(false);
 
-    fetchSessions(ctrl.signal)
-      .then((server) => {
-        // No phantom auto-create: an empty list stays empty (the studio shows a
-        // "start or open a game" state) instead of spawning a blank "New Game"
-        // session on every visit — those unbound shells piled up and made it
-        // look like chat had vanished when switching between them.
-        const scopedStored = readCurrentProjectId(user.sub);
-        const legacyStored = readLegacyCurrentProjectId();
-        const legacyInList =
-          !!legacyStored && server.some((project) => project.id === legacyStored);
-        if (legacyStored && !legacyInList) clearLegacyCurrentProjectId();
-        const stored = scopedStored || (legacyInList ? legacyStored : null);
-        const storedInList = !!stored && server.some((project) => project.id === stored);
+    // Transform shared sessions into projects using mapServerSession
+    const now = Date.now();
+    const server = cacheData.sessions.map((session) => mapServerSession(session, now));
 
-        // Never abandon the open session on reload. The transcript lives in the
-        // Durable Object keyed by `stored`; the D1 list is only a convenience
-        // index. If that index is missing this row (a create/import whose
-        // upsert failed or raced the reload), switching to server[0] threw the
-        // user onto a DIFFERENT session — which read as "all my messages
-        // vanished." Keep `stored` and add a lightweight placeholder so the
-        // picker/toolbar have an entry; loadHistory() fills in the real
-        // transcript + name from the DO.
-        if (stored && !storedInList) {
-          commitProjects([placeholderProject(stored), ...server]);
-          setCurrentId(stored);
-          return;
-        }
+    // No phantom auto-create: an empty list stays empty (the studio shows a
+    // "start or open a game" state) instead of spawning a blank "New Game"
+    // session on every visit — those unbound shells piled up and made it
+    // look like chat had vanished when switching between them.
+    const scopedStored = readCurrentProjectId(user.sub);
+    const legacyStored = readLegacyCurrentProjectId();
+    const legacyInList =
+      !!legacyStored && server.some((project) => project.id === legacyStored);
+    if (legacyStored && !legacyInList) clearLegacyCurrentProjectId();
+    const stored = scopedStored || (legacyInList ? legacyStored : null);
+    const storedInList = !!stored && server.some((project) => project.id === stored);
 
-        commitProjects(server);
-        // Only auto-open the session the user actually left open (stored). With no
-        // valid stored id — first visit, cleared storage, or a deleted session —
-        // land on the empty "start or open a game" state instead of silently
-        // dropping into the most-recent game (server[0]). That silent default let
-        // a user think they were in a fresh chat while actually sitting in a live
-        // game's session, so their next prompt edited that game (slicing-game
-        // overwritten as Beat Star, 2026-07-18). Make opening a game an explicit act.
-        setCurrentId(storedInList ? stored : null);
-      })
-      .catch((err) => {
-        if ((err as Error).name !== 'AbortError') {
-          console.error('Failed to load projects:', err);
-          reportError({
-            message: (err as Error).message || 'Failed to load projects',
-            context: JSON.stringify({ op: 'loadProjects' }),
-          });
-          setLoadError(true);
-        }
-      })
-      .finally(() => setLoading(false));
+    // Never abandon the open session on reload. The transcript lives in the
+    // Durable Object keyed by `stored`; the D1 list is only a convenience
+    // index. If that index is missing this row (a create/import whose
+    // upsert failed or raced the reload), switching to server[0] threw the
+    // user onto a DIFFERENT session — which read as "all my messages
+    // vanished." Keep `stored` and add a lightweight placeholder so the
+    // picker/toolbar have an entry; loadHistory() fills in the real
+    // transcript + name from the DO.
+    if (stored && !storedInList) {
+      commitProjects([placeholderProject(stored), ...server]);
+      setCurrentId(stored);
+      setLoading(false);
+      return;
+    }
 
-    return () => ctrl.abort();
-  }, [authLoading, user?.sub, reloadNonce, setCurrentId]);
+    commitProjects(server);
+    // Only auto-open the session the user actually left open (stored). With no
+    // valid stored id — first visit, cleared storage, or a deleted session —
+    // land on the empty "start or open a game" state instead of silently
+    // dropping into the most-recent game (server[0]). That silent default let
+    // a user think they were in a fresh chat while actually sitting in a live
+    // game's session, so their next prompt edited that game (slicing-game
+    // overwritten as Beat Star, 2026-07-18). Make opening a game an explicit act.
+    setCurrentId(storedInList ? stored : null);
+    setLoading(false);
+  }, [authLoading, user?.sub, cacheData.sessions, setCurrentId]);
 
   const create = useCallback(
     (name: string, appId?: string) => {
@@ -244,16 +217,8 @@ export function useProjects() {
       // it, every open of an already-built game spawned a second session and a
       // duplicate picker row.
       let existing = projects.find((p) => p.appId === gameId);
-      if (!existing) {
-        try {
-          const server = await fetchSessions(new AbortController().signal);
-          existing = server.find((p) => p.appId === gameId);
-        } catch {
-          // If the authoritative index is unreachable and we have no local match,
-          // do not mint a second session for a live game. Let the user retry.
-          throw new Error(`Couldn't load your sessions before opening "${gameId}". Please retry.`);
-        }
-      }
+      // If not in local projects, the shared cache should have the latest version
+      // since useSharedSessions is continuously synced from the server
       // If the user switched away while we were fetching sessions, discard.
       if (openTokenRef.current !== token)
         throw new OpenSupersededError(`openGame("${gameId}") superseded by a newer selection`);
@@ -308,16 +273,10 @@ export function useProjects() {
       // Capture token before first await (same race-guard as openGame).
       const token = openTokenRef.current;
 
-      // Every session currently bound to this game — local list + authoritative
-      // server index — so we can drop them all (a game may have accreted more than
-      // one session across browsers/deploys).
+      // Every session currently bound to this game — use the current project list
+      // which is synced from the server via useSharedSessions, so we can drop them
+      // all (a game may have accreted more than one session across browsers/deploys).
       const stale = new Set(projects.filter((p) => p.appId === gameId).map((p) => p.id));
-      try {
-        const server = await fetchSessions(new AbortController().signal);
-        for (const p of server) if (p.appId === gameId) stale.add(p.id);
-      } catch {
-        // Offline — drop just the local ones; the next reload reconciles.
-      }
       if (openTokenRef.current !== token)
         throw new OpenSupersededError(
           `startFreshChat("${gameId}") superseded by a newer selection`,
@@ -419,18 +378,26 @@ export function useProjects() {
     [commitProjects],
   );
 
-  return {
-    projects,
-    currentId,
-    loading,
-    loadError,
-    reload,
-    create,
-    switchTo,
-    openGame,
-    startFreshChat,
-    rename,
-    markDeployed,
-    deleteProject,
-  };
+  // Return memoized object to prevent unnecessary re-renders in downstream hooks
+  return useMemo(
+    () => ({
+      projects,
+      currentId,
+      loading,
+      loadError,
+      reload: () => {
+        // Invalidate the shared sessions cache to force a refetch
+        invalidateSharedSessions();
+        setLoading(true);
+      },
+      create,
+      switchTo,
+      openGame,
+      startFreshChat,
+      rename,
+      markDeployed,
+      deleteProject,
+    }),
+    [projects, currentId, loading, loadError, create, switchTo, openGame, startFreshChat, rename, markDeployed, deleteProject],
+  );
 }

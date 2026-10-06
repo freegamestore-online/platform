@@ -1,17 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { clearLegacyLocalKeys } from '../lib/ai-keys';
 import { reportError } from '../lib/errorReporter';
+import { AGENT_URL } from '../lib/agentClient';
 
 /** freegamestore-auth worker — the store-wide identity provider. */
 const AUTH_BASE = 'https://auth.freegamestore.online';
-const AGENT_BASE = 'https://agent.freegamestore.online';
 
 async function establishAgentSession(): Promise<void> {
   const issued = await fetch('/auth/agent-handoff', { method: 'POST', credentials: 'include' });
   if (!issued.ok) throw new Error('agent session handoff failed');
   const { token } = (await issued.json()) as { token?: string };
   if (!token) throw new Error('agent session handoff was empty');
-  const established = await fetch(`${AGENT_BASE}/auth/handoff?token=${encodeURIComponent(token)}`, {
+  const established = await fetch(`${AGENT_URL}/auth/handoff?token=${encodeURIComponent(token)}`, {
     credentials: 'include',
   });
   if (!established.ok) throw new Error('agent rejected session handoff');

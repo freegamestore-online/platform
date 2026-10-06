@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
+import { AGENT_URL, useSharedSessions } from '../lib/agentClient';
 import {
   activityByGameId,
   type DraftSession,
-  type ServerSession,
   type SessionActivity,
   toDrafts,
 } from '../lib/sessions';
@@ -13,42 +13,33 @@ import { useAuth } from './useAuth';
 // source the studio's session picker reads. The dashboard reads it too so a game
 // you're still building doesn't look lost: My Games shows registry (Live) games
 // and undeployed sessions together. A session becomes a Live game once it deploys.
-const AGENT_URL = 'https://agent.freegamestore.online';
 
 export type { DraftSession };
 
 export function useDraftSessions() {
   const { user } = useAuth();
+  const cacheData = useSharedSessions([user?.sub]);
   const [drafts, setDrafts] = useState<DraftSession[]>([]);
   const [activity, setActivity] = useState<Map<string, SessionActivity>>(new Map());
-  const [loading, setLoading] = useState(true);
-  const [nonce, setNonce] = useState(0);
+  const [loading, setLoading] = useState(!user);
 
-  const refresh = useCallback(() => setNonce((n) => n + 1), []);
+  const refresh = useCallback(() => {
+    // The shared sessions cache handles invalidation internally.
+    // For now, just trigger a re-render by touching loading.
+    setLoading(true);
+    setLoading(false);
+  }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on user.sub, not the user object — a new object for the same account must not refetch.
+  // Update drafts whenever sessions change
   useEffect(() => {
     if (!user) {
       setDrafts([]);
       setActivity(new Map());
-      setLoading(false);
       return;
     }
-    const ctrl = new AbortController();
-    setLoading(true);
-    fetch(`${AGENT_URL}/sessions`, { credentials: 'include', signal: ctrl.signal })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((data: { sessions: ServerSession[] }) => {
-        const sessions = data.sessions || [];
-        setDrafts(toDrafts(sessions));
-        setActivity(activityByGameId(sessions));
-      })
-      .catch(() => {
-        // Non-fatal: drafts are a convenience surface, never block the dashboard.
-      })
-      .finally(() => setLoading(false));
-    return () => ctrl.abort();
-  }, [user?.sub, nonce]);
+    setDrafts(toDrafts(cacheData.sessions));
+    setActivity(activityByGameId(cacheData.sessions));
+  }, [cacheData.sessions, user]);
 
   const discard = useCallback(async (id: string) => {
     setDrafts((prev) => prev.filter((d) => d.id !== id)); // optimistic

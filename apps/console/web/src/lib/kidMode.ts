@@ -4,7 +4,8 @@
  *  rewrite itself happens server-side on the agent's free tier (POST /kidify);
  *  the technical text is always the source of truth, this is a view layer. */
 
-const AGENT_URL = 'https://agent.freegamestore.online';
+import { AGENT_URL } from './agentClient';
+
 const KEY = 'stores-kid-mode';
 
 export type KidAge = '5' | '8' | '11';

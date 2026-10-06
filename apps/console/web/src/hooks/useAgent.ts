@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AGENT_URL } from '../lib/agentClient';
 import { addBreadcrumb } from '../lib/breadcrumbs';
 import { reportError } from '../lib/errorReporter';
 import { OpenSupersededError, type Project, useProjects } from './useProjects';
 
 export type { Project };
 
-const AGENT_URL = 'https://agent.freegamestore.online';
 const DEFAULT_MESSAGES: AgentMessage[] = [
   { role: 'system', content: 'Describe the game you want to build.' },
 ];

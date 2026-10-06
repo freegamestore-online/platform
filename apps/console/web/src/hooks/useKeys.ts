@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { AGENT_URL } from '../lib/agentClient';
 import { isFreeProvider, readLegacyLocalKeys, writeLegacyLocalKeys } from '../lib/ai-keys';
 import { useAuth } from './useAuth';
 
@@ -6,7 +7,6 @@ import { useAuth } from './useAuth';
 // NOT in localStorage. The browser only ever learns WHICH providers have a key
 // (metadata) — never the key itself, which is decrypted server-side to call the
 // provider. This closes the old XSS-reads-localStorage exposure.
-const AGENT_URL = 'https://agent.freegamestore.online';
 
 export function useKeys() {
   const { user } = useAuth();
