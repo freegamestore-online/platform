@@ -1,6 +1,12 @@
 /** Local adapter for the versioned registry/ownership contract. */
 import type { StoreConfig } from "./config";
 import { resilientFetch } from "./ghfetch";
+import {
+  RESERVED_GAME_IDS,
+  validateGameId as contractValidateGameId,
+  ownershipFacts as contractOwnershipFacts,
+  type OwnershipFacts,
+} from "../../../contracts/registry-ownership/v1/contract";
 
 export interface RegistryGame {
   id: string;
@@ -16,53 +22,25 @@ export type RegistryReadResult =
   | { status: "missing" }
   | { status: "unavailable"; detail: string };
 
-export interface OwnershipFacts {
-  isCreator: boolean;
-  isOrgMember: boolean;
-  isLegacyAcceptedCollaborator: boolean;
-}
+export { type OwnershipFacts };
 
-const RESERVED = new Set([
-  "freegamestore",
-  "submissions",
-  "template-game-canvas",
-  "template-game-3d",
-  "template-game-grid",
-  "template-game-cards",
-  "template-game-kaplay",
-  "template-game-phaser",
-  "template-game-pixi",
-  "template-game-babylon",
-  "template-game-excalibur",
-  "template-game-littlejs",
-  "brand",
-  "ops",
-  "sdk",
-]);
-
+// Wrapper for backward compatibility: contract uses signals object, agent uses positional parameters
 export function validateGameId(id: string): boolean {
-  return (
-    id.length >= 3 &&
-    id.length <= 58 &&
-    /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(id) &&
-    !id.startsWith("free") &&
-    !id.startsWith("pro") &&
-    !id.startsWith("template-game-") &&
-    !RESERVED.has(id)
-  );
+  const error = contractValidateGameId(id);
+  return error === null;
 }
 
+// Wrapper for backward compatibility: convert positional parameters to signals object
 export function ownershipFacts(
   game: Pick<RegistryGame, "creatorGithub"> | undefined,
   login: string,
   isOrgMember: boolean,
   isLegacyAcceptedCollaborator: boolean,
 ): OwnershipFacts {
-  return {
-    isCreator: !!game?.creatorGithub && game.creatorGithub.toLowerCase() === login.toLowerCase(),
+  return contractOwnershipFacts(game, login, {
     isOrgMember,
-    isLegacyAcceptedCollaborator: !game?.creatorGithub && isLegacyAcceptedCollaborator,
-  };
+    isLegacyAcceptedCollaborator,
+  });
 }
 
 function parseRegistry(value: unknown, key: string): RegistryGame[] | null {

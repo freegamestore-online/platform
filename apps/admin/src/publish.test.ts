@@ -1018,8 +1018,9 @@ describe('handlePublish existing-repo claim guard (#61)', () => {
       env,
     );
     expect(res.success).toBe(false);
+    // 'platform' is now in RESERVED_GAME_IDS, so it fails at validation time
     expect(res.steps).toContainEqual(
-      expect.objectContaining({ name: 'GitHub repo', status: 'fail' }),
+      expect.objectContaining({ name: 'Validation', status: 'fail' }),
     );
     // No registry entry, route, collaborator, or naming commit — nothing written.
     expect(writes).toHaveLength(0);

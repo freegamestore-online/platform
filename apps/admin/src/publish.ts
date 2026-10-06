@@ -248,8 +248,9 @@ import {
   snapshotForkAttribution,
 } from '../../../contracts/registry-ownership/v1/contract';
 
-// Alias for backward compatibility with existing callers
+// Aliases for backward compatibility with existing callers and tests
 export const validateId = validateGameId;
+export { normalizeForkedFrom, ownershipFacts };
 
 
 /** Freeze safely-upgradable #35 records the next time a registry write already
