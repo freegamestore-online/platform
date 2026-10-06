@@ -4,6 +4,7 @@
 // Vendored from fas/mcp/src/github.ts — adapted for FGS.
 
 import { commitFiles } from '@freegamestore/contracts';
+import { withTimeout } from './http.js';
 
 const UA = 'freegamestore-mcp';
 const TEXT_RE = /\.(ts|tsx|js|jsx|mjs|cjs|json|html|css|md|txt|svg|yml|yaml|toml)$/i;
@@ -35,17 +36,20 @@ async function gh(
   method = 'GET',
   body?: unknown,
 ): Promise<any> {
-  const res = await fetch(url, {
-    method,
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      Accept: 'application/vnd.github+json',
-      'User-Agent': UA,
-      'X-GitHub-Api-Version': '2022-11-28',
-      ...(body ? { 'Content-Type': 'application/json' } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const res = await withTimeout((signal) =>
+    fetch(url, {
+      method,
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        Accept: 'application/vnd.github+json',
+        'User-Agent': UA,
+        'X-GitHub-Api-Version': '2022-11-28',
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal,
+    }),
+  );
   const text = await res.text();
   let json: any = {};
   try {

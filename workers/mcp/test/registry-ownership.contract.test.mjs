@@ -1,8 +1,24 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { registerHooks } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+
+// Tool modules import siblings as './x.js'; Node's type stripping loads .ts but
+// won't map the .js specifier. Retry as .ts.
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    try {
+      return nextResolve(specifier, context);
+    } catch (err) {
+      if (/^\.\.?\//.test(specifier) && specifier.endsWith('.js')) {
+        return nextResolve(specifier.replace(/\.js$/, '.ts'), context);
+      }
+      throw err;
+    }
+  },
+});
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const contracts = resolve(root, '../../contracts/registry-ownership-remix/v1');

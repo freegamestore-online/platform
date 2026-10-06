@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { withTimeout } from '../http.js';
+import { agentStream, safeFetch, withTimeout } from '../http.js';
 import { audit, dryRun, requireConfirmation, requireWritable } from '../safety.js';
 import { errText, type RegistrationContext, txt } from './registration.js';
 
@@ -162,35 +162,42 @@ export function registerAdminTools(ctx: RegistrationContext): void {
         { session_id },
       );
       if (confirmBlock) return confirmBlock;
+      const trace: string[] = [];
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 110_000);
-      const trace: string[] = [];
       let timedOut = false;
+
       try {
-        const res = await fetch(
-          `${ctx.env.AGENT_BASE}/v1/admin/session-chat?id=${encodeURIComponent(session_id)}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-FGS-Token': token,
-              Authorization: `Bearer ${token}`,
+        // Custom stream handler for admin_send_prompt (includes tool_call and error events)
+        const res = await safeFetch('/v1/admin/session-chat', (signal) =>
+          fetch(
+            `${ctx.env.AGENT_BASE}/v1/admin/session-chat?id=${encodeURIComponent(session_id)}`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-FGS-Token': token,
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ message: prompt, ...(provider ? { provider } : {}) }),
+              signal,
             },
-            body: JSON.stringify({ message: prompt, ...(provider ? { provider } : {}) }),
-            signal: ctrl.signal,
-          },
+          ),
         );
-        if (res.status === 403) {
-          clearTimeout(timer);
+        if ('error' in res) {
+          return errText(`Admin chat error: ${res.error}`);
+        }
+        if (res.res.status === 403) {
           return errText('Forbidden — this tool is for platform admins (GitHub org members) only.');
         }
-        if (!res.ok || !res.body) {
-          clearTimeout(timer);
+        if (!res.res.ok || !res.res.body) {
+          const text = await res.res.text().catch(() => '');
           return errText(
-            `Admin chat failed (${res.status}): ${(await res.text().catch(() => '')).slice(0, 300)}`,
+            `Admin chat failed (${res.res.status}): ${text.slice(0, 300)}`,
           );
         }
-        const reader = res.body.getReader();
+
+        const reader = res.res.body.getReader();
         const dec = new TextDecoder();
         let buf = '';
         for (;;) {
@@ -223,7 +230,6 @@ export function registerAdminTools(ctx: RegistrationContext): void {
       } catch (e) {
         if ((e as Error).name === 'AbortError') timedOut = true;
         else {
-          clearTimeout(timer);
           return errText(`Admin chat error: ${String(e).slice(0, 300)}`);
         }
       } finally {

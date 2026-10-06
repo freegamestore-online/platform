@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { fgsDelete } from '../http.js';
+import { agentStream, fgsDelete, safeFetch, withTimeout } from '../http.js';
 import {
   audit,
   dryRun,
@@ -9,6 +9,14 @@ import {
   requireWritable,
 } from '../safety.js';
 import { errText, type RegistrationContext, txt } from './registration.js';
+
+const DEFAULT_MODELS: Record<string, string> = {
+  anthropic: 'claude-sonnet-4-6',
+  openai: 'gpt-4o',
+  google: 'gemini-2.5-flash',
+  github: 'openai/gpt-4o',
+  openrouter: 'anthropic/claude-sonnet-4',
+};
 
 export function registerBuildSessionTools(ctx: RegistrationContext): void {
   // -- agent_build (delegate code-gen to the platform's VibeCode agent) --
@@ -74,13 +82,6 @@ export function registerBuildSessionTools(ctx: RegistrationContext): void {
       const roBlock = await requireWritable(ctx.safetyCtx, 'agent_build', { game_id, template });
       if (roBlock) return roBlock;
       const prov = provider ?? 'anthropic';
-      const defaultModel: Record<string, string> = {
-        anthropic: 'claude-sonnet-4-6',
-        openai: 'gpt-4o',
-        google: 'gemini-2.5-flash',
-        github: 'openai/gpt-4o',
-        openrouter: 'anthropic/claude-sonnet-4',
-      };
       const prefix = ctx.sessionPrefix(ctx.session.userId);
       const sid = session_id
         ? session_id.startsWith(prefix)
@@ -96,7 +97,7 @@ export function registerBuildSessionTools(ctx: RegistrationContext): void {
           {
             session_id: sid,
             provider: prov,
-            model: model ?? defaultModel[prov] ?? 'claude-sonnet-4-6',
+            model: model ?? DEFAULT_MODELS[prov] ?? 'claude-sonnet-4-6',
             target: game_id ?? '(new game)',
             note: 'Would run one VibeCode agent turn and deploy; nothing is written in dry-run.',
           },
@@ -107,81 +108,44 @@ export function registerBuildSessionTools(ctx: RegistrationContext): void {
       // engine-correct guidance (detectEngine reads web/package.json) and
       // push_update targets the real game instead of dead-ending on "ID taken".
       if (game_id) {
-        const imp = await fetch(`${ctx.env.AGENT_BASE}/session/${sid}/import`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ id: game_id }),
-        });
-        if (!imp.ok) {
+        const impRes = await safeFetch('/session/import', (signal) =>
+          fetch(`${ctx.env.AGENT_BASE}/session/${encodeURIComponent(sid)}/import`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ id: game_id }),
+            signal,
+          }),
+        );
+        if ('error' in impRes) {
+          return errText(`Could not open "${game_id}" in the session: ${impRes.error}`);
+        }
+        if (!impRes.res.ok) {
+          const text = await impRes.res.text().catch(() => '');
           return errText(
-            `Could not open "${game_id}" in the session (${imp.status}): ${(await imp.text()).slice(0, 300)}`,
+            `Could not open "${game_id}" in the session (${impRes.res.status}): ${text.slice(0, 300)}`,
           );
         }
       }
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 110_000);
-      const phases: string[] = [];
-      let gameId: string | null = null;
-      let timedOut = false;
-      try {
-        const res = await fetch(`${ctx.env.AGENT_BASE}/session/${sid}/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          // Omit apiKey when not overridden so the agent resolves the account's
-          // vault key server-side (session.ts: aiConfig.apiKey || resolveUserKey).
-          body: JSON.stringify({
-            message: prompt,
-            aiConfig: {
-              provider: prov,
-              model: model ?? defaultModel[prov] ?? 'claude-sonnet-4-6',
-              ...(api_key ? { apiKey: api_key } : {}),
-            },
-            ...(template && !game_id ? { engine: template } : {}),
-          }),
-          signal: ctrl.signal,
-        });
-        if (!res.ok || !res.body) {
-          clearTimeout(timer);
-          return errText(`Agent chat failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
-        }
-        const reader = res.body.getReader();
-        const dec = new TextDecoder();
-        let buf = '';
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buf += dec.decode(value, { stream: true });
-          const parts = buf.split('\n\n');
-          buf = parts.pop() ?? '';
-          for (const p of parts) {
-            const line = p.split('\n').find((l) => l.startsWith('data: '));
-            if (!line) continue;
-            try {
-              const ev = JSON.parse(line.slice(6));
-              if ((ev.type === 'deploy' || ev.type === 'deploy_status') && ev.data) {
-                try {
-                  const d = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data;
-                  if (d.phase) phases.push(d.phase);
-                  if (d.appId) gameId = d.appId;
-                } catch {
-                  /* */
-                }
-              }
-              if (ev.appId) gameId = ev.appId;
-            } catch {
-              /* */
-            }
-          }
-        }
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') {
-          timedOut = true;
-        } else {
-          clearTimeout(timer);
-          return errText(`Agent request failed: ${String(err)}`);
-        }
+      const result = await agentStream(
+        sid,
+        {
+          message: prompt,
+          aiConfig: {
+            provider: prov,
+            model: model ?? DEFAULT_MODELS[prov] ?? 'claude-sonnet-4-6',
+            ...(api_key ? { apiKey: api_key } : {}),
+          },
+          ...(template && !game_id ? { engine: template } : {}),
+        },
+        token,
+        ctx.env.AGENT_BASE,
+      );
+
+      if (!result.ok) {
+        return errText(result.error);
       }
-      clearTimeout(timer);
+
+      const { phases, gameId, timedOut } = result;
       const last = phases[phases.length - 1];
       const liveLine = gameId ? `Live (when built): https://${gameId}.freegamestore.online` : '';
       await audit(ctx.safetyCtx, {
@@ -265,11 +229,18 @@ export function registerBuildSessionTools(ctx: RegistrationContext): void {
       const sid = `${prefix}g-${gid}`.slice(0, 64);
 
       // 1) Import / re-sync from the repo HEAD (ownership enforced server-side).
-      const imp = await fetch(`${ctx.env.AGENT_BASE}/session/${sid}/import`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ id: gid }),
-      });
+      const impRes = await safeFetch('/session/import', (signal) =>
+        fetch(`${ctx.env.AGENT_BASE}/session/${encodeURIComponent(sid)}/import`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ id: gid }),
+          signal,
+        }),
+      );
+      if ('error' in impRes) {
+        return errText(`Couldn't open \`${gid}\`: ${impRes.error}`);
+      }
+      const imp = impRes.res;
       const impData = (await imp.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
@@ -292,11 +263,14 @@ export function registerBuildSessionTools(ctx: RegistrationContext): void {
 
       // 2) Register in the D1 session index so it shows in list_sessions + the
       //    web console (the DO doesn't write D1 itself).
-      await fetch(`${ctx.env.AGENT_BASE}/sessions/${sid}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-FGS-Token': token },
-        body: JSON.stringify({ title: name, gameId: gid, gameUrl: appUrl, deployed: true }),
-      }).catch(() => {});
+      await safeFetch('/sessions/register', (signal) =>
+        fetch(`${ctx.env.AGENT_BASE}/sessions/${encodeURIComponent(sid)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'X-FGS-Token': token },
+          body: JSON.stringify({ title: name, gameId: gid, gameUrl: appUrl, deployed: true }),
+          signal,
+        }),
+      ).catch(() => {});
 
       const opened = `Opened **${name}** (\`${gid}\`) in VibeCode — ${impData.fileCount ?? '?'} file(s) ${impData.unchanged ? 'already in sync' : 'synced'} from the repo. Session \`${sid}\`.`;
       if (!prompt)
@@ -306,69 +280,25 @@ export function registerBuildSessionTools(ctx: RegistrationContext): void {
 
       // 3) Run one agent turn (same streaming contract as agent_build).
       const prov = provider ?? 'anthropic';
-      const defaultModel: Record<string, string> = {
-        anthropic: 'claude-sonnet-4-6',
-        openai: 'gpt-4o',
-        google: 'gemini-2.5-flash',
-        github: 'openai/gpt-4o',
-        openrouter: 'anthropic/claude-sonnet-4',
-      };
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 110_000);
-      const phases: string[] = [];
-      let timedOut = false;
-      try {
-        const res = await fetch(`${ctx.env.AGENT_BASE}/session/${sid}/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          // Omit apiKey when not overridden → agent uses the account vault key.
-          body: JSON.stringify({
-            message: prompt,
-            aiConfig: {
-              provider: prov,
-              model: model ?? defaultModel[prov] ?? 'claude-sonnet-4-6',
-              ...(api_key ? { apiKey: api_key } : {}),
-            },
-          }),
-          signal: ctrl.signal,
-        });
-        if (!res.ok || !res.body) {
-          clearTimeout(timer);
-          return errText(
-            `${opened}\n\nAgent edit failed (${res.status}): ${(await res.text()).slice(0, 300)}`,
-          );
-        }
-        const reader = res.body.getReader();
-        const dec = new TextDecoder();
-        let buf = '';
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buf += dec.decode(value, { stream: true });
-          const parts = buf.split('\n\n');
-          buf = parts.pop() ?? '';
-          for (const p of parts) {
-            const line = p.split('\n').find((l) => l.startsWith('data: '));
-            if (!line) continue;
-            try {
-              const ev = JSON.parse(line.slice(6));
-              if ((ev.type === 'deploy' || ev.type === 'deploy_status') && ev.data) {
-                const d = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data;
-                if (d.phase) phases.push(d.phase);
-              }
-            } catch {
-              /* non-JSON keepalive */
-            }
-          }
-        }
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') timedOut = true;
-        else {
-          clearTimeout(timer);
-          return errText(`${opened}\n\nAgent request failed: ${String(err)}`);
-        }
+      const result = await agentStream(
+        sid,
+        {
+          message: prompt,
+          aiConfig: {
+            provider: prov,
+            model: model ?? DEFAULT_MODELS[prov] ?? 'claude-sonnet-4-6',
+            ...(api_key ? { apiKey: api_key } : {}),
+          },
+        },
+        token,
+        ctx.env.AGENT_BASE,
+      );
+
+      if (!result.ok) {
+        return errText(`${opened}\n\nAgent edit failed: ${result.error}`);
       }
-      clearTimeout(timer);
+
+      const { phases, timedOut } = result;
       const last = phases[phases.length - 1];
       await audit(ctx.safetyCtx, {
         tool: 'edit_game',
@@ -396,10 +326,14 @@ export function registerBuildSessionTools(ctx: RegistrationContext): void {
         return errText(
           "That session isn't one of yours — agent sessions are scoped to your account.",
         );
-      const res = await fetch(`${ctx.env.AGENT_BASE}/session/${session_id}/status`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return errText(`Status fetch failed (${res.status}).`);
+      const statusRes = await safeFetch('/session/status', (signal) =>
+        fetch(`${ctx.env.AGENT_BASE}/session/${encodeURIComponent(session_id)}/status`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal,
+        }),
+      );
+      if ('error' in statusRes) return errText(`Status fetch failed: ${statusRes.error}`);
+      if (!statusRes.res.ok) return errText(`Status fetch failed (${statusRes.res.status}).`);
       let s: {
         appId?: string | null;
         appUrl?: string | null;
@@ -407,7 +341,7 @@ export function registerBuildSessionTools(ctx: RegistrationContext): void {
         messageCount?: number;
       };
       try {
-        s = (await res.json()) as typeof s;
+        s = (await statusRes.res.json()) as typeof s;
       } catch {
         return errText('Agent status returned invalid JSON.');
       }
@@ -467,12 +401,19 @@ export function registerBuildSessionTools(ctx: RegistrationContext): void {
     async () => {
       const token = ctx.session.token;
       if (!token) return errText('Not authenticated. Connect with a FGS session token.');
-      const res = await fetch(`${ctx.env.AGENT_BASE}/sessions`, {
-        headers: { 'X-FGS-Token': token },
-      });
-      if (!res.ok)
+      const sessRes = await safeFetch('/sessions', (signal) =>
+        fetch(`${ctx.env.AGENT_BASE}/sessions`, {
+          headers: { 'X-FGS-Token': token },
+          signal,
+        }),
+      );
+      if ('error' in sessRes)
         return errText(
-          `Could not list sessions (${res.status}). Your VibeCode session list isn't reachable yet — use session_history with a session id (from a console.freegamestore.online/create/<id> URL) to read a specific chat.`,
+          `Could not list sessions: ${sessRes.error}. Your VibeCode session list isn't reachable yet — use session_history with a session id (from a console.freegamestore.online/create/<id> URL) to read a specific chat.`,
+        );
+      if (!sessRes.res.ok)
+        return errText(
+          `Could not list sessions (${sessRes.res.status}). Your VibeCode session list isn't reachable yet — use session_history with a session id (from a console.freegamestore.online/create/<id> URL) to read a specific chat.`,
         );
       let data: {
         sessions?: Array<{
@@ -484,7 +425,7 @@ export function registerBuildSessionTools(ctx: RegistrationContext): void {
         }>;
       };
       try {
-        data = (await res.json()) as typeof data;
+        data = (await sessRes.res.json()) as typeof data;
       } catch {
         return errText('Sessions returned invalid JSON.');
       }
@@ -514,20 +455,24 @@ export function registerBuildSessionTools(ctx: RegistrationContext): void {
       if (!token) return errText('Not authenticated. Connect with a FGS session token.');
       // The agent worker gates every /session/* route — without the token this
       // always 401'd. resolveUser accepts a Bearer token.
-      const res = await fetch(
-        `${ctx.env.AGENT_BASE}/session/${encodeURIComponent(session_id)}/history`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
+      const histRes = await safeFetch('/session/history', (signal) =>
+        fetch(
+          `${ctx.env.AGENT_BASE}/session/${encodeURIComponent(session_id)}/history`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            signal,
+          },
+        ),
       );
-      if (!res.ok) return errText(`Could not fetch history (${res.status}).`);
+      if ('error' in histRes) return errText(`Could not fetch history: ${histRes.error}`);
+      if (!histRes.res.ok) return errText(`Could not fetch history (${histRes.res.status}).`);
       let data: {
         messages?: Array<{ role: string; content?: string; toolCalls?: Array<{ name: string }> }>;
         appId?: string | null;
         appName?: string | null;
       };
       try {
-        data = (await res.json()) as typeof data;
+        data = (await histRes.res.json()) as typeof data;
       } catch {
         return errText('History returned invalid JSON.');
       }

@@ -192,3 +192,78 @@ export async function fgsDelete(base: string, path: string, token: string) {
     };
   return json;
 }
+
+// Stream a chat to the agent and parse SSE events (deploy phases, gameId, etc).
+// Encodes sid to prevent URL injection. Returns phases array and final gameId.
+export async function agentStream(
+  sid: string,
+  body: unknown,
+  token: string,
+  baseUrl: string,
+  timeoutMs = 110_000,
+): Promise<{ ok: true; phases: string[]; gameId?: string; timedOut: boolean } | { ok: false; error: string }> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const phases: string[] = [];
+  let gameId: string | undefined;
+  let timedOut = false;
+
+  try {
+    const res = await fetch(`${baseUrl}/session/${encodeURIComponent(sid)}/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+
+    if (!res.ok || !res.body) {
+      clearTimeout(timer);
+      const text = await res.text().catch(() => '');
+      return { ok: false, error: `Agent chat failed (${res.status}): ${text.slice(0, 300)}` };
+    }
+
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const parts = buf.split('\n\n');
+      buf = parts.pop() ?? '';
+
+      for (const p of parts) {
+        const line = p.split('\n').find((l) => l.startsWith('data: '));
+        if (!line) continue;
+        try {
+          const ev = JSON.parse(line.slice(6));
+          if ((ev.type === 'deploy' || ev.type === 'deploy_status') && ev.data) {
+            try {
+              const d = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data;
+              if (d.phase) phases.push(d.phase);
+              if (d.appId) gameId = d.appId;
+            } catch {
+              /* skip malformed data */
+            }
+          }
+          if (ev.appId) gameId = ev.appId;
+        } catch {
+          /* skip malformed event */
+        }
+      }
+    }
+
+    clearTimeout(timer);
+    return { ok: true, phases, gameId, timedOut: false };
+  } catch (err) {
+    clearTimeout(timer);
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      return { ok: true, phases, gameId, timedOut: true };
+    }
+    return { ok: false, error: `Agent request failed: ${errMsg(err)}` };
+  }
+}
