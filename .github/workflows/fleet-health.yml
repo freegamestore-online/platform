@@ -8,9 +8,8 @@ on:
     - cron: "0 13 * * *" # daily 13:00 UTC
   workflow_dispatch:
 
-# Read-only probe: it checks out this repo and queries the fleet via the
-# Doppler-sourced GH_ADMIN_TOKEN, never writing. Pin the ambient GITHUB_TOKEN to
-# least privilege instead of the default read-write.
+# Read-only probe: it checks out this repo and queries the fleet, never writing.
+# Pin the ambient GITHUB_TOKEN to least privilege instead of the default read-write.
 permissions:
   contents: read
 
@@ -26,6 +25,12 @@ jobs:
         with:
           node-version: 22
       - name: Probe fleet
+        env:
+          # The registry lives in this repo and every game repo is public, so the
+          # ambient token can read all of it (#117). An org-scoped
+          # FLEET_HEALTH_GH_TOKEN, if ever set, still wins (only needed to probe a
+          # private game repo).
+          GH_TOKEN: ${{ secrets.FLEET_HEALTH_GH_TOKEN || github.token }}
         run: |
           set -euo pipefail
           {
