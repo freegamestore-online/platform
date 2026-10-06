@@ -318,77 +318,92 @@ export async function setGameStatuses(
   key = STORE_CONFIG.registryKey,
 ): Promise<{ ok: boolean; updated: string[]; skipped: string[]; detail: string }> {
   if (updates.length === 0) return { ok: true, updated: [], skipped: [], detail: 'no updates' };
+
+  // Track updated and skipped across mutation attempts
+  let mutateUpdated: string[] = [];
+  let mutateSkipped: string[] = [];
+  let willUpdate = false;
+
+  // First pass: check what will actually change, without writing
   const registryPath = `/repos/${org}/${storeRepo}/contents/${STORE_CONFIG.storeRegistryPath}`;
+  const file = await ghApi(env, registryPath);
+  if (!file.content) {
+    return { ok: false, updated: [], skipped: [], detail: 'Could not read registry.json' };
+  }
+  let content: Record<string, unknown>;
+  try {
+    content = JSON.parse(decodeGhContent(file.content));
+  } catch {
+    return { ok: false, updated: [], skipped: [], detail: 'registry.json is not valid JSON' };
+  }
+  const items: Array<Record<string, unknown>> = Array.isArray(content[key]) ? (content[key] as any[]) : [];
 
-  const attempt = async (): Promise<{
-    ok: boolean;
-    updated: string[];
-    skipped: string[];
-    detail: string;
-  } | null> => {
-    const registryFile = await ghApi(env, registryPath);
-    if (!registryFile.content) {
-      return { ok: false, updated: [], skipped: [], detail: 'Could not read registry.json' };
+  for (const { id, status } of updates) {
+    const entry = items.find((a) => a?.id === id);
+    if (!entry) {
+      mutateSkipped.push(`${id} (not listed)`);
+      continue;
     }
-    const content = JSON.parse(decodeGhContent(registryFile.content));
-    const items: any[] = content[key] || [];
+    const current = readGameStatus(entry);
+    if (current === status) {
+      mutateSkipped.push(`${id} (already ${status})`);
+      continue;
+    }
+    if (status === 'failed' && current === 'live') {
+      // Shipped once, broken now — R2 still serves the last good build.
+      mutateSkipped.push(`${id} (live; failed build does not delist)`);
+      continue;
+    }
+    mutateUpdated.push(id);
+    willUpdate = true;
+  }
 
-    const updated: string[] = [];
-    const skipped: string[] = [];
-    for (const { id, status } of updates) {
-      const entry = items.find((a) => a?.id === id);
-      if (!entry) {
-        skipped.push(`${id} (not listed)`);
-        continue;
+  // If no actual updates, return early without writing
+  if (!willUpdate) {
+    return { ok: true, updated: [], skipped: mutateSkipped, detail: mutateSkipped.join(', ') || 'no change' };
+  }
+
+  // Now write the actual updates using mutateRegistry
+  const message =
+    mutateUpdated.length === 1
+      ? `Mark ${mutateUpdated[0]} ${updates.find((u) => u.id === mutateUpdated[0])!.status}`
+      : `Update build status for ${mutateUpdated.length} games`;
+
+  const result = await mutateRegistry(
+    env,
+    message,
+    (items: Array<Record<string, unknown>>) => {
+      for (const { id, status } of updates) {
+        const entry = items.find((a) => a?.id === id);
+        if (entry) {
+          const current = readGameStatus(entry);
+          if (current !== status && !(status === 'failed' && current === 'live')) {
+            entry.status = status;
+          }
+        }
       }
-      const current = readGameStatus(entry);
-      if (current === status) {
-        skipped.push(`${id} (already ${status})`);
-        continue;
-      }
-      if (status === 'failed' && current === 'live') {
-        // Shipped once, broken now — R2 still serves the last good build.
-        skipped.push(`${id} (live; failed build does not delist)`);
-        continue;
-      }
-      entry.status = status;
-      updated.push(id);
-    }
+      return { ok: true, value: undefined };
+    },
+  );
 
-    if (updated.length === 0) {
-      return { ok: true, updated, skipped, detail: skipped.join(', ') || 'no change' };
-    }
-
-    content[key] = items;
-    const message =
-      updated.length === 1
-        ? `Mark ${updated[0]} ${updates.find((u) => u.id === updated[0])!.status}`
-        : `Update build status for ${updated.length} games`;
-    const res = await ghApi(env, registryPath, 'PUT', {
-      message,
-      content: btoa(
-        Array.from(new TextEncoder().encode(JSON.stringify(content, null, 2)))
-          .map((b) => String.fromCharCode(b))
-          .join(''),
-      ),
-      sha: registryFile.sha,
-    });
-    if (res.content) {
-      return { ok: true, updated, skipped, detail: `${updated.join(', ')} updated` };
-    }
-    if (res.__status === 409) return null; // contended — caller retries once
-    return { ok: false, updated: [], skipped, detail: res.message || 'Failed to update registry' };
-  };
-
-  return (
-    (await attempt()) ??
-    (await attempt()) ?? {
+  if (result.ok) {
+    return {
+      ok: true,
+      updated: mutateUpdated,
+      skipped: mutateSkipped,
+      detail: `${mutateUpdated.join(', ')} updated`,
+    };
+  } else {
+    return {
       ok: false,
       updated: [],
-      skipped: [],
-      detail: 'Registry write contended twice',
-    }
-  );
+      skipped: mutateSkipped,
+      detail:
+        result.code === 'conflict'
+          ? 'Registry write contended twice — please retry the status update'
+          : result.error || 'Failed to update registry',
+    };
+  }
 }
 
 /** Single-entry convenience wrapper over setGameStatuses, shaped as a Step. */
@@ -495,6 +510,14 @@ async function substituteTemplatePlaceholders(
 function decodeGhContent(b64: string): string {
   return new TextDecoder().decode(
     Uint8Array.from(atob(b64.replace(/\n/g, '')), (c) => c.charCodeAt(0)),
+  );
+}
+
+function encodeGhContent(content: string): string {
+  return btoa(
+    Array.from(new TextEncoder().encode(content))
+      .map((b) => String.fromCharCode(b))
+      .join(''),
   );
 }
 
@@ -1090,8 +1113,6 @@ export async function handlePublish(
   // with 409. Retry once: re-GET (fresh sha), re-check alreadyListed (the other
   // writer may already have added our entry), re-PUT. Mirrors the FAS admin's
   // writeRegistryWithRetry (vendored, not shared).
-  const registryPath = `/repos/${config.org}/${config.storeRepo}/contents/${STORE_CONFIG.storeRegistryPath}`;
-  const key = config.registryKey;
   let registryConflict = false;
   // The repo's HEAD once provisioning's own commits (template generate, naming,
   // remix overlay/attribution) have landed. Every deploy.yml run up to here is
@@ -1101,106 +1122,77 @@ export async function handlePublish(
   const headRef = await ghApi(env, `/repos/${config.org}/${id}/git/ref/heads/main`);
   const provisionedSha =
     typeof headRef?.object?.sha === 'string' ? (headRef.object.sha as string) : undefined;
-  const attemptRegistry = async (isRetry: boolean): Promise<Step | null> => {
-    const registryFile = await ghApi(env, registryPath);
-    if (!registryFile.content) {
-      return { name: 'Store registry', status: 'fail', detail: 'Could not read registry.json' };
-    }
-    const rawContent = new TextDecoder().decode(
-      Uint8Array.from(atob(registryFile.content.replace(/\n/g, '')), (c) => c.charCodeAt(0)),
-    );
-    const content = JSON.parse(rawContent);
-    const items: Array<Record<string, unknown>> = Array.isArray(content[key]) ? content[key] : [];
-    const existing = items.find((a: any) => a.id === id);
-    if (existing) {
-      // A concurrent provision may have listed this id first. If it recorded a
-      // different creator, this caller lost the race and must not proceed as
-      // though the game were theirs (#88).
-      const listedOwner = typeof existing.creatorGithub === 'string' ? existing.creatorGithub : '';
-      if (listedOwner && listedOwner.toLowerCase() !== (req.creatorGithub ?? '').toLowerCase()) {
-        registryConflict = true;
+
+  const registryResult = await mutateRegistry(
+    env,
+    `Add ${name} to games registry`,
+    (items: Array<Record<string, unknown>>) => {
+      const existing = items.find((a: any) => a.id === id);
+      if (existing) {
+        // A concurrent provision may have listed this id first. If it recorded a
+        // different creator, this caller lost the race and must not proceed as
+        // though the game were theirs (#88).
+        const listedOwner = typeof existing.creatorGithub === 'string' ? existing.creatorGithub : '';
+        if (listedOwner && listedOwner.toLowerCase() !== (req.creatorGithub ?? '').toLowerCase()) {
+          registryConflict = true;
+          return {
+            ok: false,
+            error: `"${id}" was just taken by another creator — choose a different id`,
+            code: 'conflict' as const,
+          };
+        }
         return {
-          name: 'Store registry',
-          status: 'fail',
-          detail: `"${id}" was just taken by another creator — choose a different id`,
+          ok: false,
+          error: 'Already listed',
+          code: 'invalid' as const,
         };
       }
-      return {
-        name: 'Store registry',
-        status: 'skip',
-        detail: isRetry ? 'Added by a concurrent provision' : 'Already listed',
-      };
-    }
-    // Freeze safely-upgradable #35 strings while this write is already taking
-    // place. Entries missing any historical fact stay strings rather than being
-    // guessed into a misleading attribution object.
-    migrateLegacyForkAttribution(items);
-    items.push({
-      id,
-      name,
-      category,
-      icon,
-      iconBg,
-      description,
-      appUrl: `https://${subdomain}`,
-      repo: `${config.org}/${id}`,
-      hostedOn: 'r2',
-      type: req.type || 'standalone',
-      developer: req.creatorGithub || config.developer,
-      ...(req.creatorGithub ? { creatorGithub: req.creatorGithub } : {}),
-      // Which engine/template this game was generated from (kaplay|phaser|3d|
-      // canvas|grid|cards). Lets the storefront + studio show the engine and
-      // lets the agent load engine-correct authoring context on import. Only
-      // record a key that actually maps to a template repo — an unknown/typo'd
-      // key falls back to canvas at generate time, so writing it here would
-      // claim an engine the source doesn't match.
-      ...(req.template && TEMPLATE_REPOS[req.template] ? { engine: req.template } : {}),
-      // #44: source identity + display credit are captured before target side
-      // effects. The PATCH allowlist below deliberately excludes this field.
-      ...(sourceForkAttribution ? { forkedFrom: sourceForkAttribution } : {}),
-      // Set once, on first add. `me.ts` reads this for the game's createdAt.
-      firstPublished: nowIso,
-      // Build lifecycle (#22). Provisioning deliberately runs BEFORE the first
-      // build — repo, route and this entry all exist while the creator's code has
-      // never compiled — so liveness cannot be inferred from "the host answers
-      // 200" (it answers 200 for the template scaffold). `pending` until a
-      // deploy.yml run concludes success; see setGameStatuses.
-      status: 'pending' satisfies GameStatus,
-      ...(provisionedSha ? { provisionedSha } : {}),
-    });
-    content[key] = items;
+      // Freeze safely-upgradable #35 strings while this write is already taking
+      // place. Entries missing any historical fact stay strings rather than being
+      // guessed into a misleading attribution object.
+      migrateLegacyForkAttribution(items);
+      items.push({
+        id,
+        name,
+        category,
+        icon,
+        iconBg,
+        description,
+        appUrl: `https://${subdomain}`,
+        repo: `${config.org}/${id}`,
+        hostedOn: 'r2',
+        type: req.type || 'standalone',
+        developer: req.creatorGithub || config.developer,
+        ...(req.creatorGithub ? { creatorGithub: req.creatorGithub } : {}),
+        // Which engine/template this game was generated from (kaplay|phaser|3d|
+        // canvas|grid|cards). Lets the storefront + studio show the engine and
+        // lets the agent load engine-correct authoring context on import. Only
+        // record a key that actually maps to a template repo — an unknown/typo'd
+        // key falls back to canvas at generate time, so writing it here would
+        // claim an engine the source doesn't match.
+        ...(req.template && TEMPLATE_REPOS[req.template] ? { engine: req.template } : {}),
+        // #44: source identity + display credit are captured before target side
+        // effects. The PATCH allowlist below deliberately excludes this field.
+        ...(sourceForkAttribution ? { forkedFrom: sourceForkAttribution } : {}),
+        // Set once, on first add. `me.ts` reads this for the game's createdAt.
+        firstPublished: nowIso,
+        // Build lifecycle (#22). Provisioning deliberately runs BEFORE the first
+        // build — repo, route and this entry all exist while the creator's code has
+        // never compiled — so liveness cannot be inferred from "the host answers
+        // 200" (it answers 200 for the template scaffold). `pending` until a
+        // deploy.yml run concludes success; see setGameStatuses.
+        status: 'pending' satisfies GameStatus,
+        ...(provisionedSha ? { provisionedSha } : {}),
+      });
+      return { ok: true, value: undefined };
+    },
+  );
 
-    const updateResult = await ghApi(env, registryPath, 'PUT', {
-      message: `Add ${name} to games registry`,
-      content: btoa(
-        Array.from(new TextEncoder().encode(JSON.stringify(content, null, 2)))
-          .map((b) => String.fromCharCode(b))
-          .join(''),
-      ),
-      sha: registryFile.sha,
-    });
-    if (updateResult.content) {
-      return { name: 'Store registry', status: 'ok', detail: `Added ${name}` };
-    }
-    if (updateResult.__status === 409) {
-      return null; // contended — caller retries once
-    }
-    return {
-      name: 'Store registry',
-      status: 'fail',
-      detail: updateResult.message || 'Failed to update',
-    };
-  };
-
-  const firstReg = await attemptRegistry(false);
-  const regStep =
-    firstReg !== null
-      ? firstReg
-      : ((await attemptRegistry(true)) ?? {
-          name: 'Store registry',
-          status: 'fail',
-          detail: 'Registry write contended twice — please retry the provision',
-        });
+  const regStep: Step = registryResult.ok
+    ? { name: 'Store registry', status: 'ok', detail: `Added ${name}` }
+    : registryResult.code === 'invalid'
+      ? { name: 'Store registry', status: 'skip', detail: registryResult.error }
+      : { name: 'Store registry', status: 'fail', detail: registryResult.error };
   steps.push(regStep);
 
   // If the registry write failed the game isn't listed anywhere — do NOT then
@@ -1319,11 +1311,7 @@ async function mutateRegistry<T>(
     content[config.registryKey] = items;
     const put = await ghApi(env, registryPath, 'PUT', {
       message,
-      content: btoa(
-        Array.from(new TextEncoder().encode(JSON.stringify(content, null, 2)))
-          .map((b) => String.fromCharCode(b))
-          .join(''),
-      ),
+      content: encodeGhContent(JSON.stringify(content, null, 2)),
       sha: file.sha,
     });
     if (put.content) return outcome;
