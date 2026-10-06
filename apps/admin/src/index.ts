@@ -8,7 +8,13 @@ import { driftReportFrom, type FleetRow, recentRuns, sweepFleet } from './drift'
 import { errorStats, listErrors, pruneErrors, recordError } from './errlog';
 import { createGameLifecycle } from './lifecycle/game-lifecycle';
 import { createRegistryState, createRemixSource } from './lifecycle/registry-state';
-import { type GameStatus, insertHostRoute, lifecycleStatus, provisionStatus } from './publish';
+import {
+  type GameStatus,
+  insertHostRoute,
+  lifecycleStatus,
+  provisionStatus,
+  readGameStatus,
+} from './publish';
 import { createReconciliationService } from './reconciliation-service';
 import { type RegistryGame, readRegistry } from './registryReader';
 
@@ -17,6 +23,22 @@ type CallerCredentials = {
   isAdmin: boolean;
   login: string | null;
 };
+
+interface RouteParams {
+  request: Request;
+  env: Env;
+  url: URL;
+  caller: CallerCredentials;
+  match: RegExpMatchArray | null;
+  data: ReturnType<typeof dataService>;
+}
+
+interface Route {
+  method: string | string[];
+  pattern: string | RegExp;
+  auth: 'admin' | 'login' | 'internal' | 'ci' | 'public';
+  handler: (params: RouteParams) => Promise<Response>;
+}
 
 interface Env {
   CF_ACCOUNT_ID: string;
@@ -801,6 +823,740 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
   return report;
 }
 
+/** Check if a game host is reachable via HTTP HEAD request. */
+async function probeLiveGame(gameId: string, domain: string): Promise<Response | null> {
+  try {
+    const host = `https://${gameId}.${domain}`;
+    return await fetch(host, { method: 'HEAD' });
+  } catch {
+    return null;
+  }
+}
+
+/** Router dispatcher — matches incoming request against route table, handles auth,
+ *  and calls appropriate handler. Returns null if no route matched. */
+async function dispatchApiRoute(
+  request: Request,
+  env: Env,
+  data: ReturnType<typeof dataService>,
+): Promise<Response | null> {
+  const url = new URL(request.url);
+  const pathname = url.pathname;
+  const method = request.method;
+
+  // Build route table (defined below)
+  const routes = buildRouteTable(data);
+
+  // Find all routes that match the pathname pattern
+  const matchedRoutes = routes.filter((route) => {
+    if (typeof route.pattern === 'string') {
+      return route.pattern === pathname;
+    }
+    return route.pattern.test(pathname);
+  });
+
+  if (matchedRoutes.length === 0) {
+    // No route matched
+    if (pathname.startsWith('/api/')) {
+      return jsonResponse({ error: 'not found' }, 404, request);
+    }
+    return null; // Fall through to static handler
+  }
+
+  // Find routes that match both pathname AND method
+  const matchedByMethod = matchedRoutes.filter((route) => {
+    if (typeof route.method === 'string') {
+      return route.method === method;
+    }
+    return route.method.includes(method);
+  });
+
+  if (matchedByMethod.length === 0) {
+    // Path matched but not method
+    if (pathname.startsWith('/api/')) {
+      return jsonResponse({ error: 'method not allowed' }, 405, request);
+    }
+    return null;
+  }
+
+  // Use the first matching route
+  const route = matchedByMethod[0]!;
+
+  // Resolve caller credentials once per request
+  const caller = await resolveCaller(request, env);
+
+  // Check auth based on route's auth requirement
+  if (route.auth === 'admin') {
+    if (!caller.isAdmin) {
+      return jsonResponse({ error: 'unauthorized' }, 401, request);
+    }
+  } else if (route.auth === 'login') {
+    if (!caller.login) {
+      return jsonResponse({ error: 'unauthorized' }, 401, request);
+    }
+  } else if (route.auth === 'internal') {
+    const internal = request.headers.get('X-Internal-Token');
+    if (!(internal && env.INTERNAL_TOKEN && safeEqual(internal, env.INTERNAL_TOKEN))) {
+      return jsonResponse({ error: 'unauthorized' }, 401, request);
+    }
+  } else if (route.auth === 'ci') {
+    const token = request.headers.get('X-CI-Token') || '';
+    if (!(env.CI_TOKEN && safeEqual(token, env.CI_TOKEN))) {
+      return jsonResponse({ error: 'unauthorized' }, 401, request);
+    }
+  }
+
+  // Call handler
+  const match =
+    typeof route.pattern === 'string'
+      ? null
+      : pathname.match(route.pattern);
+
+  try {
+    return await route.handler({
+      request,
+      env,
+      url,
+      caller,
+      match,
+      data,
+    });
+  } catch (error) {
+    console.error(`[route-error] ${method} ${pathname}:`, error);
+    return jsonResponse({ error: String(error) }, 500, request);
+  }
+}
+
+/** Build the declarative route table. Handlers are defined inline here. */
+function buildRouteTable(
+  data: ReturnType<typeof dataService>,
+): Route[] {
+  return [
+    // GET /api/drift and GET /api/status/deploys
+    {
+      method: 'GET',
+      pattern: /^\/api\/(drift|status\/deploys)$/,
+      auth: 'admin',
+      handler: async ({ url, request }) => {
+        const rows = await cachedFleetSweep(request.url.split('/').slice(0, 3).join('/') as any);
+        if (rows === null) {
+          return jsonResponse({ error: 'registry read failed — fleet not swept' }, 503, request);
+        }
+        if (url.pathname === '/api/status/deploys') {
+          return jsonResponse(
+            {
+              ts: new Date().toISOString(),
+              games: rows.map((r) => ({
+                id: r.id,
+                conclusion: r.conclusion,
+                drifted: r.state === 'drifted',
+              })),
+            },
+            200,
+            request,
+          );
+        }
+        const report = driftReportFrom(rows);
+        if (report.drifted.length) {
+          console.warn(
+            `[drift] ${report.drifted.length} game(s) serving stale builds: ${report.drifted.map((d) => d.id).join(', ')}`,
+          );
+        }
+        return jsonResponse(report, 200, request);
+      },
+    },
+
+    // GET /api/ping
+    {
+      method: 'GET',
+      pattern: '/api/ping',
+      auth: 'admin',
+      handler: async ({ request }) => {
+        return jsonResponse({ ok: true, worker: 'freegamestore-admin' }, 200, request);
+      },
+    },
+
+    // GET /api/games/:id/detail
+    {
+      method: 'GET',
+      pattern: /^\/api\/games\/([a-z0-9][a-z0-9-]*)\/detail$/,
+      auth: 'admin',
+      handler: async ({ request, match, env, data: dataService_param }) => {
+        const id = match?.[1];
+        if (!id) return jsonResponse({ error: 'invalid game id' }, 400, request);
+        const items = (await dataService_param.registryItems()) ?? [];
+        const entry = items.find((g) => g?.id === id) ?? null;
+
+        const routeRow = env.DB
+          ? await env.DB.prepare(
+              'SELECT slug, r2_prefix, hosted_on FROM routes WHERE slug = ? AND zone = ?',
+            )
+              .bind(id, DOMAIN)
+              .first()
+          : null;
+
+        const httpResponse = routeRow ? await probeLiveGame(id, DOMAIN) : null;
+        const runs = entry ? await recentRuns(env, entry.repo) : [];
+
+        return jsonResponse(
+          {
+            id,
+            listed: !!entry,
+            status: readGameStatus(entry),
+            route: { configured: !!routeRow },
+            http: {
+              ok: httpResponse?.ok ?? false,
+              status: httpResponse?.status ?? 502,
+            },
+            runs: runs.slice(0, 5),
+          },
+          200,
+          request,
+        );
+      },
+    },
+
+    // GET /api/reconcile
+    {
+      method: 'GET',
+      pattern: '/api/reconcile',
+      auth: 'admin',
+      handler: async ({ request, env }) => {
+        const report = await reconcile(env, false);
+        return jsonResponse(report, 200, request);
+      },
+    },
+
+    // GET /docs
+    {
+      method: 'GET',
+      pattern: '/docs',
+      auth: 'public',
+      handler: async ({ request, caller }) => {
+        if (!caller.isAdmin) {
+          return new Response(renderSignIn(caller.admin), {
+            status: 200,
+            headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+          });
+        }
+        return jsonResponse(renderApiDocs(), 200, request);
+      },
+    },
+
+    // GET /api/status
+    {
+      method: 'GET',
+      pattern: '/api/status',
+      auth: 'admin',
+      handler: async ({ request, env, data: dataService_param }) => {
+        const items = await dataService_param.registryItems();
+        if (items === null) {
+          return jsonResponse(
+            { error: 'registry read failed', games: 0, statuses: {} },
+            503,
+            request,
+          );
+        }
+        const statuses: Record<string, number> = {};
+        for (const s of ['pending', 'live', 'failed'] as const) {
+          statuses[s] = items.filter((g) => readGameStatus(g) === s).length;
+        }
+        return jsonResponse({ games: items.length, statuses }, 200, request);
+      },
+    },
+
+    // GET /api/status/game
+    {
+      method: 'GET',
+      pattern: '/api/status/game',
+      auth: 'admin',
+      handler: async ({ request, url, env, data: dataService_param }) => {
+        const id = url.searchParams.get('id');
+        if (!id) return jsonResponse({ error: 'id param required' }, 400, request);
+        const items = await dataService_param.registryItems();
+        const entry = items?.find((g) => g?.id === id) ?? null;
+        return jsonResponse(
+          { id, status: readGameStatus(entry), entry: entry || null },
+          200,
+          request,
+        );
+      },
+    },
+
+    // GET /api/quality
+    {
+      method: 'GET',
+      pattern: '/api/quality',
+      auth: 'admin',
+      handler: async ({ request, env, data: dataService_param }) => {
+        const items = await dataService_param.registryItems();
+        return jsonResponse(
+          {
+            total: items?.length ?? 0,
+            issues: [],
+          },
+          200,
+          request,
+        );
+      },
+    },
+
+    // GET /api/errors
+    {
+      method: 'GET',
+      pattern: '/api/errors',
+      auth: 'admin',
+      handler: async ({ request, url, env }) => {
+        const limit = Math.max(1, Math.min(100, Number(url.searchParams.get('limit')) || 50));
+        const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
+        const errors = await listErrors(env.DB, limit, offset);
+        return jsonResponse(errors, 200, request);
+      },
+    },
+
+    // GET /api/stats
+    {
+      method: 'GET',
+      pattern: '/api/stats',
+      auth: 'admin',
+      handler: async ({ request, env }) => {
+        const stats = await errorStats(env.DB);
+        return jsonResponse(stats, 200, request);
+      },
+    },
+
+    // GET /api/users
+    {
+      method: 'GET',
+      pattern: '/api/users',
+      auth: 'admin',
+      handler: async ({ request, env, data: dataService_param }) => {
+        const items = await dataService_param.registryItems();
+        if (!items) return jsonResponse({ error: 'registry read failed' }, 503, request);
+        const creators = new Map<string, { count: number; games: string[] }>();
+        for (const item of items) {
+          if (typeof item?.creatorGithub === 'string') {
+            const login = item.creatorGithub.toLowerCase();
+            if (!creators.has(login)) {
+              creators.set(login, { count: 0, games: [] });
+            }
+            const user = creators.get(login)!;
+            user.count++;
+            user.games.push(item.id);
+          }
+        }
+        return jsonResponse(
+          Array.from(creators.entries()).map(([login, data]) => ({
+            login,
+            ...data,
+          })),
+          200,
+          request,
+        );
+      },
+    },
+
+    // PATCH /api/games/:id
+    {
+      method: 'PATCH',
+      pattern: /^\/api\/games\/([a-z0-9][a-z0-9-]*)$/,
+      auth: 'login',
+      handler: async ({ request, match, caller, env }) => {
+        const id = match?.[1];
+        if (!id) return jsonResponse({ error: 'invalid game id' }, 400, request);
+        const login = caller.login;
+        if (!login) return jsonResponse({ error: 'unauthorized' }, 401, request);
+
+        const body = (await request.json()) as Record<string, unknown>;
+        const result = await gameLifecycle.update(id, login, body, env);
+        return jsonResponse(
+          result,
+          result.error ? lifecycleStatus((result as any).code) : 200,
+          request,
+        );
+      },
+    },
+
+    // DELETE /api/games/:id
+    {
+      method: 'DELETE',
+      pattern: /^\/api\/games\/([a-z0-9][a-z0-9-]*)$/,
+      auth: 'login',
+      handler: async ({ request, match, caller, env }) => {
+        const id = match?.[1];
+        if (!id) return jsonResponse({ error: 'invalid game id' }, 400, request);
+
+        const login = caller.login;
+        const { isAdmin } = caller;
+        const actor = login || (isAdmin ? caller.admin : null);
+        if (!actor) {
+          return jsonResponse({ error: 'unauthorized' }, 401, request);
+        }
+
+        const result = await gameLifecycle.delete(id, actor, env, {
+          adminOverride: isAdmin,
+        });
+        return jsonResponse(
+          result,
+          result.error ? lifecycleStatus((result as any).code) : 200,
+          request,
+        );
+      },
+    },
+
+    // POST /api/internal/error
+    {
+      method: 'POST',
+      pattern: '/api/internal/error',
+      auth: 'internal',
+      handler: async ({ request, env }) => {
+        const body = (await request.json().catch(() => ({}))) as {
+          source?: unknown;
+          user?: unknown;
+          context?: unknown;
+          message?: unknown;
+          stack?: unknown;
+        };
+        const row = normalizeErrorLogRow(body);
+        if (!row) {
+          return jsonResponse({ error: 'source and message are required' }, 400, request);
+        }
+        await recordError(env.DB, row);
+        return jsonResponse({ ok: true }, 200, request);
+      },
+    },
+
+    // PUT /api/ci/test-report
+    {
+      method: 'PUT',
+      pattern: '/api/ci/test-report',
+      auth: 'ci',
+      handler: async ({ request, env }) => {
+        if (!env.CI_KV) return jsonResponse({ error: 'CI_KV not bound' }, 503, request);
+        const html = await request.text();
+        const MAX_REPORT_BYTES = 512 * 1024;
+        const bytes = new TextEncoder().encode(html).length;
+        if (bytes > MAX_REPORT_BYTES) {
+          return jsonResponse(
+            { error: `report too large (${bytes} bytes, max ${MAX_REPORT_BYTES})` },
+            413,
+            request,
+          );
+        }
+        await env.CI_KV.put('latest-test-report', html);
+        return jsonResponse({ ok: true, bytes }, 200, request);
+      },
+    },
+
+    // GET /api/ci/test-report
+    {
+      method: 'GET',
+      pattern: '/api/ci/test-report',
+      auth: 'admin',
+      handler: async ({ request, env }) => {
+        if (!env.CI_KV) return jsonResponse({ error: 'CI_KV not bound' }, 503, request);
+        const html = await env.CI_KV.get('latest-test-report');
+        if (html === null) return jsonResponse({ error: 'no report stored yet' }, 404, request);
+        return new Response(html, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'no-store',
+            ...corsHeaders(request),
+          },
+        });
+      },
+    },
+
+    // GET /api/games/:id/traffic
+    {
+      method: 'GET',
+      pattern: /^\/api\/games\/([a-z0-9][a-z0-9-]*)\/traffic$/,
+      auth: 'admin',
+      handler: async ({ request, match, env }) => {
+        if (!env.CF_API_TOKEN || !env.CF_ZONE_ID) {
+          return jsonResponse(
+            { error: 'CF_API_TOKEN or CF_ZONE_ID not configured' },
+            503,
+            request,
+          );
+        }
+        const id = match?.[1];
+        if (!id) return jsonResponse({ error: 'invalid game id' }, 400, request);
+        const host = `${id}.${DOMAIN}`;
+        const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+        const until = new Date().toISOString().slice(0, 10);
+        const query = `query Traffic($zone: String!, $since: Date!, $until: Date!, $host: String!) {
+  viewer {
+    zones(filter: { zoneTag: $zone }) {
+      httpRequests1dGroups(
+        limit: 60
+        filter: { date_geq: $since, date_leq: $until, clientRequestHTTPHost: $host }
+        orderBy: [date_ASC]
+      ) {
+        dimensions { date }
+        sum { requests pageViews bytes }
+        uniq { uniques }
+      }
+    }
+  }
+}`;
+        try {
+          const res = await fetch('https://api.cloudflare.com/client/v4/graphql', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${env.CF_API_TOKEN}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ query, variables: { zone: env.CF_ZONE_ID, since, until, host } }),
+          });
+          if (!res.ok) {
+            return jsonResponse(
+              { error: `Cloudflare Analytics returned ${res.status}` },
+              502,
+              request,
+            );
+          }
+          const data = (await res.json()) as Record<string, unknown>;
+          if (Array.isArray(data?.errors) && data.errors.length) {
+            return jsonResponse(
+              { error: data.errors[0]?.message || 'Analytics query failed' },
+              502,
+              request,
+            );
+          }
+          const graphqlData = data.data as Record<string, unknown> | undefined;
+          const viewer = graphqlData?.viewer as Record<string, unknown> | undefined;
+          const zones = viewer?.zones as Record<string, unknown>[] | undefined;
+          const firstZone = zones?.[0] as Record<string, unknown> | undefined;
+          const groups: Array<Record<string, unknown>> =
+            (firstZone?.httpRequests1dGroups as Record<string, unknown>[]) ?? [];
+          const days = groups.map((g) => ({
+            date: ((g?.dimensions as Record<string, unknown>)?.date as string | null) ?? null,
+            requests: Number((g?.sum as Record<string, unknown>)?.requests) || 0,
+            pageViews: Number((g?.sum as Record<string, unknown>)?.pageViews) || 0,
+            visitors: Number((g?.uniq as Record<string, unknown>)?.uniques) || 0,
+          }));
+          return jsonResponse(
+            {
+              host,
+              since,
+              until,
+              days,
+              totals: {
+                requests: days.reduce((n, d) => n + d.requests, 0),
+                pageViews: days.reduce((n, d) => n + d.pageViews, 0),
+                visitors: days.reduce((n, d) => n + d.visitors, 0),
+              },
+            },
+            200,
+            request,
+          );
+        } catch (e) {
+          return jsonResponse({ error: `Analytics request failed: ${String(e)}` }, 502, request);
+        }
+      },
+    },
+
+    // POST /api/games/:id/heal-route
+    {
+      method: 'POST',
+      pattern: /^\/api\/games\/([a-z0-9][a-z0-9-]*)\/heal-route$/,
+      auth: 'admin',
+      handler: async ({ request, match, env, data: dataService_param }) => {
+        const id = match?.[1];
+        if (!id) return jsonResponse({ error: 'invalid game id' }, 400, request);
+        const items = await dataService_param.registryItems();
+        if (items === null) {
+          return jsonResponse({ error: 'registry read failed — not healing blind' }, 503, request);
+        }
+        if (!items.some((g) => g?.id === id)) {
+          return jsonResponse(
+            {
+              ok: false,
+              step: {
+                name: 'Hosting route',
+                status: 'fail',
+                detail: `${id} is not in the store registry — provision or re-list it first`,
+              },
+            },
+            400,
+            request,
+          );
+        }
+        const step = await insertHostRoute(env, id);
+        if (step.status === 'fail') {
+          await recordError(env.DB, {
+            source: 'admin/heal-route',
+            context: `id=${id}`,
+            message: step.detail,
+          });
+        }
+        return jsonResponse(
+          { ok: step.status !== 'fail', step },
+          step.status === 'fail' ? 500 : 200,
+          request,
+        );
+      },
+    },
+
+    // POST /api/game-status
+    {
+      method: 'POST',
+      pattern: '/api/game-status',
+      auth: 'internal',
+      handler: async ({ request, env }) => {
+        const body = (await request.json().catch(() => ({}))) as { id?: string; status?: string };
+        if (!body.id || (body.status !== 'live' && body.status !== 'failed')) {
+          return jsonResponse(
+            { error: "id and status ('live'|'failed') are required" },
+            400,
+            request,
+          );
+        }
+        const step = await registryState.setStatus(env, body.id, body.status as GameStatus);
+        if (step.status === 'fail') {
+          await recordError(env.DB, {
+            source: 'admin/game-status',
+            context: `id=${body.id} status=${body.status}`,
+            message: step.detail,
+          });
+        }
+        return jsonResponse(
+          { ok: step.status !== 'fail', step },
+          step.status === 'fail' ? 500 : 200,
+          request,
+        );
+      },
+    },
+
+    // Agent proxy routes: /api/sessions, /api/allusers, /api/userkey*, /api/comp*, etc.
+    {
+      method: ['GET', 'POST'],
+      pattern: /^\/api\/(allusers|sessions|sessionhistory|sessionerrors|sessionchat|userkey.*|comp.*)$/,
+      auth: 'admin',
+      handler: async ({ request, url, env }) => {
+        if (!env.AGENT || !env.INTERNAL_TOKEN) {
+          return jsonResponse(
+            { error: 'admin↔agent not wired (missing AGENT binding or INTERNAL_TOKEN)' },
+            500,
+            request,
+          );
+        }
+        const caller = await resolveCaller(request, env);
+        const agentPath =
+          url.pathname === '/api/allusers'
+            ? '/v1/admin/users'
+            : url.pathname === '/api/sessions'
+              ? `/v1/admin/sessions${url.search}`
+              : url.pathname === '/api/sessionhistory'
+                ? `/v1/admin/session-history${url.search}`
+                : url.pathname === '/api/sessionerrors'
+                  ? `/v1/admin/session-errors${url.search}`
+                  : url.pathname === '/api/sessionchat'
+                    ? `/v1/admin/session-chat${url.search}`
+                    : url.pathname.startsWith('/api/userkey')
+                      ? url.pathname.replace(/^\/api\/userkey/, '/v1/admin/userkey')
+                      : url.pathname.replace(/^\/api\/comp/, '/v1/admin/comp');
+        const res = await env.AGENT.fetch(`https://agent.freegamestore.online${agentPath}`, {
+          method: request.method,
+          headers: {
+            'X-Internal-Token': env.INTERNAL_TOKEN,
+            'X-Admin-Actor': caller.admin || 'admin',
+            ...(request.method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
+          },
+          body: request.method === 'POST' ? await request.text() : undefined,
+        });
+        // session-chat streams SSE back from the DO turn — pass it through untouched
+        if (url.pathname === '/api/sessionchat') {
+          return new Response(res.body, {
+            status: res.status,
+            headers: {
+              'Content-Type': res.headers.get('Content-Type') || 'text/event-stream',
+              'Cache-Control': 'no-store',
+              ...corsHeaders(request),
+            },
+          });
+        }
+        const text = await res.text();
+        return new Response(text, {
+          status: res.status,
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+            ...corsHeaders(request),
+          },
+        });
+      },
+    },
+
+    // POST /api/provision and POST /api/publish
+    {
+      method: 'POST',
+      pattern: /^\/api\/(provision|publish)$/,
+      auth: 'public',
+      handler: async ({ request, env, caller }) => {
+        const internal = request.headers.get('X-Internal-Token');
+        const trusted = !!(internal && env.INTERNAL_TOKEN && safeEqual(internal, env.INTERNAL_TOKEN));
+        const { isAdmin } = caller;
+        const login = trusted || isAdmin ? null : caller.login;
+        if (!trusted && !isAdmin && !login) {
+          return jsonResponse({ error: 'unauthorized' }, 401, request);
+        }
+
+        const t0 = Date.now();
+        let ownerForLog: string | undefined;
+        let idForLog: string | undefined;
+        try {
+          const body = (await request.json()) as Record<string, unknown>;
+          idForLog = body?.id as string | undefined;
+          const owner = trusted || isAdmin ? (body.creatorGithub as string | undefined) : login;
+          ownerForLog = owner ?? undefined;
+          if ((trusted || isAdmin) && !owner) {
+            return jsonResponse(
+              { error: 'creatorGithub required for admin/internal provision' },
+              400,
+              request,
+            );
+          }
+          console.log(`[provision] id=${body?.id} owner=${owner} trusted=${trusted}`);
+          const result = await gameLifecycle.provision(
+            { ...body, creatorGithub: owner ?? undefined } as unknown as Parameters<
+              typeof gameLifecycle.provision
+            >[0],
+            env,
+          );
+          console.log(`[provision] id=${body?.id} success=${result.success} +${Date.now() - t0}ms`);
+          if (!result.success) {
+            const failMsg =
+              (result.steps || [])
+                .filter((s) => s.status === 'fail')
+                .map((s) => `${s.name}: ${s.detail}`)
+                .join('; ') || 'provision returned success:false';
+            await recordError(env.DB, {
+              source: 'admin/provision',
+              user: owner,
+              context: `id=${body?.id} +${Date.now() - t0}ms`,
+              message: failMsg,
+              stack: JSON.stringify(result).slice(0, 1500),
+            });
+          }
+          return jsonResponse(result, provisionStatus(result), request);
+        } catch (e) {
+          await recordError(env.DB, {
+            source: 'admin/provision',
+            user: ownerForLog,
+            context: `id=${idForLog} threwAfter=${Date.now() - t0}ms`,
+            message: (e as Error)?.message ?? String(e),
+            stack: (e as Error)?.stack,
+          });
+          return jsonResponse({ error: String(e) }, 500, request);
+        }
+      },
+    },
+  ];
+}
+
 export default {
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     // Hourly: heal provisioning drift, then prune the error log's old rows.
@@ -826,16 +1582,12 @@ export default {
     });
     if (transportResponse) return transportResponse;
 
-    // --- ADMIN GATE ---------------------------------------------------------
-    // The console UI + every observability/read endpoint are restricted to the
-    // admin allowlist (verified Google email via the auth worker). The
-    // creator-facing publish routes below — /api/provision, /api/publish, and
-    // PATCH/DELETE /api/games/:id — keep their own per-caller auth and are
-    // intentionally NOT admin-gated (creators self-serve; the agent uses the
-    // internal token). Without this, the whole console + crash log + creator
-    // list were world-readable.
-    //
-    // Routes that require admin auth (return 401 or sign-in page for non-admins).
+    // Route all requests through the declarative route table dispatcher.
+    // Routes keep their own auth and are dispatched by pattern matching.
+    const apiResponse = await dispatchApiRoute(request, env, data);
+    if (apiResponse) return apiResponse;
+
+    // Legacy: old code section below can be safely ignored
     const isAdminRoute = (pathname: string, method: string): boolean => {
       if (
         pathname === '/docs' ||
