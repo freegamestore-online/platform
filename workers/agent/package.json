@@ -13,6 +13,7 @@
     "format": "biome format --write src/"
   },
   "dependencies": {
+    "@freegamestore/compliance": "workspace:*",
     "@freegamestore/contracts": "workspace:*"
   },
   "devDependencies": {
@@ -20,8 +21,7 @@
     "@cloudflare/workers-types": "^4.20250415.0",
     "typescript": "^5.7",
     "vitest": "^4.1.5",
-    "wrangler": "^4",
-    "@freegamestore/compliance": "^0.9.0"
+    "wrangler": "^4"
   },
   "repository": {
     "type": "git",

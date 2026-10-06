@@ -36,8 +36,13 @@ describe("getTemplateFiles", () => {
     expect(gamesFiles.LICENSE).toContain("FreeGameStore");
   });
 
-  it("games Path B deploy workflow is included", () => {
-    expect(gamesFiles[".github/workflows/deploy.yml"]).toBeTruthy();
+  it("games deploy workflow is the shared caller from @freegamestore/compliance (#111)", () => {
+    const deployYml = gamesFiles[".github/workflows/deploy.yml"];
+    expect(deployYml).toBeTruthy();
+    // The shared workflow calls ci-workflows, not an inline pipeline
+    expect(deployYml).toContain("freegamestore-online/ci-workflows/.github/workflows/game-ci.yml");
+    // Old inline tracker grep step should not be present
+    expect(deployYml).not.toContain("No tracking SDKs in source");
   });
 });
 
