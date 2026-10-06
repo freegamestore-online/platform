@@ -1,109 +1,13 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { type Browser, chromium } from 'playwright';
+import { REFERENCE_VIEWPORTS } from '../../contracts/game-metadata/v1/contract';
 
 // ---------------------------------------------------------------------------
-// Reference viewports — mirrors quality.js REFERENCE exactly
+// Reference viewports — imported from shared contract
 // ---------------------------------------------------------------------------
 
-export const REFERENCE = [
-  {
-    id: 'p-320',
-    label: '320x568 iPhone SE',
-    width: 320,
-    height: 568,
-    orientation: 'portrait' as const,
-    share: 99,
-  },
-  {
-    id: 'p-360',
-    label: '360x800 Android',
-    width: 360,
-    height: 800,
-    orientation: 'portrait' as const,
-    share: 96,
-  },
-  {
-    id: 'p-393',
-    label: '393x852 iPhone 15',
-    width: 393,
-    height: 852,
-    orientation: 'portrait' as const,
-    share: 92,
-  },
-  {
-    id: 'p-414',
-    label: '414x896 iPhone 11 PM',
-    width: 414,
-    height: 896,
-    orientation: 'portrait' as const,
-    share: 88,
-  },
-  {
-    id: 'p-600',
-    label: '600x800 Tablet',
-    width: 600,
-    height: 800,
-    orientation: 'portrait' as const,
-    share: 60,
-  },
-  {
-    id: 'p-768',
-    label: '768x1024 iPad',
-    width: 768,
-    height: 1024,
-    orientation: 'portrait' as const,
-    share: 35,
-  },
-  {
-    id: 'p-1024',
-    label: '1024x1366 iPad Pro',
-    width: 1024,
-    height: 1366,
-    orientation: 'portrait' as const,
-    share: 20,
-  },
-  {
-    id: 'l-568',
-    label: '568x320 iPhone SE land.',
-    width: 568,
-    height: 320,
-    orientation: 'landscape' as const,
-    share: 99,
-  },
-  {
-    id: 'l-667',
-    label: '667x375 iPhone 8 land.',
-    width: 667,
-    height: 375,
-    orientation: 'landscape' as const,
-    share: 96,
-  },
-  {
-    id: 'l-736',
-    label: '736x414 iPhone+ land.',
-    width: 736,
-    height: 414,
-    orientation: 'landscape' as const,
-    share: 88,
-  },
-  {
-    id: 'l-1024',
-    label: '1024x768 iPad land.',
-    width: 1024,
-    height: 768,
-    orientation: 'landscape' as const,
-    share: 35,
-  },
-  {
-    id: 'l-1366',
-    label: '1366x1024 iPad Pro land.',
-    width: 1366,
-    height: 1024,
-    orientation: 'landscape' as const,
-    share: 20,
-  },
-];
+export const REFERENCE = REFERENCE_VIEWPORTS;
 
 // ---------------------------------------------------------------------------
 // Score computation — mirrors quality.js computeIndex exactly

@@ -8,7 +8,8 @@ interface ProvisionStep {
   detail: string;
 }
 
-const CATEGORIES = [
+// Canonical game categories (synced with @freegamestore/compliance)
+const GAME_CATEGORIES = [
   { value: 'strategy', label: 'Strategy' },
   { value: 'brain-training', label: 'Brain Training' },
   { value: 'arcade', label: 'Arcade' },
@@ -16,7 +17,14 @@ const CATEGORIES = [
   { value: 'sports', label: 'Sports' },
   { value: 'cards', label: 'Cards' },
   { value: 'casual', label: 'Casual' },
+  { value: 'puzzle', label: 'Puzzle' },
+  { value: 'board', label: 'Board' },
+  { value: 'rpg', label: 'RPG' },
+  { value: 'action', label: 'Action' },
+  { value: 'other', label: 'Other (specify in description)' },
 ];
+
+const CATEGORIES = GAME_CATEGORIES;
 
 // The three headline engines a creator builds on. The agent authors real engine
 // code (KAPLAY verbs / Phaser scenes / react-three-fiber) rather than hand-rolling

@@ -11,6 +11,8 @@
  * Source: blended StatCounter + caniuse share-of-screens, rounded.
  */
 
+import { REFERENCE_VIEWPORTS } from '@freegamestore/compliance';
+
 export interface ViewportTest {
   label: string;
   width: number;
@@ -22,24 +24,13 @@ export interface ViewportTestExpanded extends ViewportTest {
   orientation: 'portrait' | 'landscape';
 }
 
-const REFERENCE_PORTRAIT: Array<{ width: number; height: number; label: string; share: number }> = [
-  { width: 320, height: 568, label: 'iPhone SE (1st gen)', share: 99 },
-  { width: 360, height: 800, label: 'Android baseline', share: 96 },
-  { width: 414, height: 896, label: 'iPhone 11/Pro Max', share: 88 },
-  { width: 600, height: 800, label: 'Small tablet', share: 60 },
-  { width: 768, height: 1024, label: 'iPad portrait', share: 35 },
-  { width: 1024, height: 1366, label: 'iPad Pro portrait', share: 20 },
-];
+const REFERENCE_PORTRAIT = REFERENCE_VIEWPORTS.filter((v) => v.orientation === 'portrait').map(
+  (v) => ({ width: v.width, height: v.height, label: v.label, share: v.share }),
+);
 
-const REFERENCE_LANDSCAPE: Array<{ width: number; height: number; label: string; share: number }> =
-  [
-    { width: 568, height: 320, label: 'iPhone SE landscape', share: 99 },
-    { width: 667, height: 375, label: 'iPhone 8 landscape', share: 96 },
-    { width: 736, height: 414, label: 'iPhone Plus landscape', share: 88 },
-    { width: 800, height: 600, label: 'Small tablet landscape', share: 60 },
-    { width: 1024, height: 768, label: 'iPad landscape', share: 35 },
-    { width: 1366, height: 1024, label: 'iPad Pro landscape', share: 20 },
-  ];
+const REFERENCE_LANDSCAPE = REFERENCE_VIEWPORTS.filter((v) => v.orientation === 'landscape').map(
+  (v) => ({ width: v.width, height: v.height, label: v.label, share: v.share }),
+);
 
 /**
  * Pick the full reference matrix to test, gated by manifest orientation.

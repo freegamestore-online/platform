@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { runChecks } from '@freegamestore/compliance';
+import { GAME_CATEGORIES, getCategoryByLabel, runChecks } from '@freegamestore/compliance';
 import { Command } from 'commander';
 import prompts from 'prompts';
 import { assertValidAppId } from '../lib/app-id.js';
@@ -12,17 +12,8 @@ import { ensureDeployWorkflow } from './publish-workflow.js';
 
 const SUBMISSION_URL = 'https://github.com/freegamestore-online/submissions/issues/new';
 
-// Must match the storefront filter chips on freegamestore.online.
-const CATEGORIES = [
-  'Brain Training',
-  'Arcade',
-  'Strategy',
-  'Sports',
-  'Casual',
-  'Cards',
-  'Racing',
-  'Other (specify in description)',
-] as const;
+// Display labels for the CLI prompts (derived from GAME_CATEGORIES)
+const CATEGORIES = GAME_CATEGORIES.map((c) => c.label) as const;
 
 const TYPES = [
   'Standalone (no backend, localStorage only)',
@@ -159,9 +150,11 @@ export const publishCommand = new Command('publish')
               })) as Partial<SubmissionInput>);
 
       const merged: Partial<SubmissionInput> = { ...resolved.values, ...answers };
+      const categoryLabel = merged.category!;
+      const categorySlug = getCategoryByLabel(categoryLabel)?.slug || categoryLabel;
       const input: SubmissionInput = {
         name: merged.name!,
-        category: merged.category!,
+        category: categoryLabel,
         type: merged.type!,
         oneliner: merged.oneliner!,
         // Reuse the oneliner as the body description for the Issue-form
@@ -175,7 +168,7 @@ export const publishCommand = new Command('publish')
       // Try auto-provision first unless the user explicitly asked for the
       // Issue-form fallback.
       if (!opts.issue) {
-        const autoResult = await tryAutoProvision(input);
+        const autoResult = await tryAutoProvision(input, categorySlug);
         const injected = autoResult.kind === 'success' ? await ensureDeployWorkflow() : false;
         const outcome = provisionOutcome(autoResult, input.name, injected);
         for (const line of outcome.lines) process.stdout.write(`${line}\n`);
@@ -217,12 +210,16 @@ export type AutoProvisionResult =
   /** Provisioning service unreachable / not configured / 5xx — retryable. */
   | { kind: 'unavailable'; reason: string };
 
-export async function tryAutoProvision(input: SubmissionInput): Promise<AutoProvisionResult> {
+export async function tryAutoProvision(
+  input: SubmissionInput,
+  categorySlug?: string,
+): Promise<AutoProvisionResult> {
   const config = await readConfig();
   const sessionToken = config.session?.token;
   if (!sessionToken) return { kind: 'unauthorized', reason: 'no session' };
 
   const typeShort = input.type.startsWith('Standalone') ? 'standalone' : 'connected';
+  const slug = categorySlug || getCategoryByLabel(input.category)?.slug || input.category;
   let res: Response;
   try {
     res = await fetch(`${config.apiBase}/api/provision`, {
@@ -234,7 +231,7 @@ export async function tryAutoProvision(input: SubmissionInput): Promise<AutoProv
       body: JSON.stringify({
         name: input.name,
         store: STORE,
-        category: input.category,
+        category: slug,
         type: typeShort,
         oneliner: input.oneliner,
         description: input.description,

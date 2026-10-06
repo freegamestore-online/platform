@@ -45,6 +45,18 @@ import type { CheckResult } from './types.js';
 export { GAME_CI_WORKFLOW, GAME_DEPLOY_WORKFLOW } from './game-deploy-workflow.js';
 export type { FileSource } from './lib/file-source.js';
 export type { LiveAuditInput, LiveAuditReport } from './live/index.js';
+// Game metadata: shared categories and viewports across CLI, console, admin, auditor.
+export {
+  GAME_CATEGORIES,
+  REFERENCE_VIEWPORTS,
+  getCategoryByLabel,
+  getCategoryBySlug,
+  getCategorySlugs,
+  isValidCategorySlug,
+  normalizeCategorySlug,
+  type GameCategory,
+  type ReferenceViewport,
+} from './game-metadata.js';
 // Live-URL audit (used by the compliance audit Worker; runs in
 // browser/Workers env, no filesystem). Separate export path so callers
 // don't accidentally pull node:fs in via the file-walking checks.

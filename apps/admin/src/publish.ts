@@ -1,4 +1,5 @@
 import { readRegistry } from './registryReader';
+import { normalizeCategorySlug } from '../../../contracts/game-metadata/v1/contract.ts';
 
 // Publish API -- provisions a new game on FreeGameStore via Path B.
 // POST /api/provision
@@ -75,13 +76,6 @@ function slugify(name: string): string {
     .slice(0, 58);
 }
 
-/** Canonical category: lowercase, spaces→hyphens (PLATFORM-ISSUES C). The
- *  storefront mixes `casual`/`Casual`/`Brain Training` otherwise, a trap for any
- *  case-sensitive filter. Empty → the default. */
-function normalizeCategory(cat?: string): string {
-  const c = (cat ?? '').trim().toLowerCase().replace(/\s+/g, '-');
-  return c || 'casual';
-}
 
 /** Display name for the registry (PLATFORM-ISSUES D). When the caller passes a
  *  slug-shaped name (equals the id, or all-lowercase-hyphenated), the store would
@@ -138,7 +132,7 @@ export function validateGameUpdates(
         values.description = v;
         break;
       case 'category': {
-        const c = normalizeCategory(v);
+        const c = normalizeCategorySlug(v) || 'casual';
         if (c.length > MAX_CATEGORY || !CATEGORY_SLUG.test(c))
           return { error: 'category must be letters, numbers and dashes (e.g. "brain-training")' };
         values.category = c;
@@ -886,7 +880,7 @@ export async function handlePublish(
   // "" too, so a blank field is never persisted.
   const icon = req.icon || '🎮';
   const iconBg = req.iconBg || '#ecfdf5';
-  const category = normalizeCategory(req.category);
+  const category = normalizeCategorySlug(req.category) || 'casual';
   const description = req.description || req.oneliner || req.name;
   const name = displayName(req.name, id);
   const idError = validateId(id);

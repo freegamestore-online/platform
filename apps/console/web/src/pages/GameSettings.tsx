@@ -7,17 +7,20 @@ import { useAuth } from '../hooks/useAuth';
 import { type DraftSession, useDraftSessions } from '../hooks/useDraftSessions';
 import { decodeIcon, formatDate, formatRelative } from '../lib/format';
 
+// Canonical game categories (synced with @freegamestore/compliance)
 const CATEGORIES = [
-  'arcade',
-  'puzzle',
   'strategy',
+  'brain-training',
+  'arcade',
   'racing',
   'sports',
   'cards',
+  'casual',
+  'puzzle',
   'board',
   'rpg',
   'action',
-  'casual',
+  'other',
 ];
 
 export function GameSettings() {
