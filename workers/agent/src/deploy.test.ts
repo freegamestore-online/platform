@@ -324,11 +324,6 @@ describe("resolveSeedFiles — Path B hard-fails rather than seed a non-SDK temp
     expect(files).not.toBe(seed);
   });
 
-  it("falls back to the inline template for a non-Path-B store on null seed", () => {
-    const files = resolveSeedFiles(apps, null);
-    expect(files["web/src/components/Shell.tsx"]).toBeTruthy();
-    expect(Object.keys(files).length).toBeGreaterThan(0);
-  });
 });
 
 describe("infra tool authorization", () => {

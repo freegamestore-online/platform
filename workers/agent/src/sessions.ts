@@ -197,36 +197,6 @@ export async function isOrgAdmin(config: StoreConfig, ghToken: string, login: st
   return ok;
 }
 
-/**
- * GET /admin/sessions — EVERY user's session index rows, newest first. Org
- * members only (platform admins); everyone else gets 403. Read-only: this is
- * the "parent view" for seeing what any creator's VibeCode chats are up to —
- * pair with /session/:id/history?admin=1 to read a transcript.
- */
-export async function handleAdminSessionsApi(
-  request: Request,
-  env: Env,
-  config: StoreConfig,
-  cors: Record<string, string>,
-): Promise<Response | null> {
-  const path = new URL(request.url).pathname;
-  if (path !== "/admin/sessions") return null;
-
-  const json = (body: unknown, status = 200) =>
-    new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...cors } });
-
-  if (request.method !== "GET") return json({ error: "method not allowed" }, 405);
-  if (!env.DB) return json({ error: "database not configured" }, 500);
-
-  const user = await resolveUser(request, env.AUTH);
-  if (!user) return json({ error: "unauthorized" }, 401);
-  if (!user.login || !(await isOrgAdmin(config, env.GITHUB_TOKEN, user.login))) {
-    return json({ error: "forbidden — org admins only" }, 403);
-  }
-
-  return json({ sessions: await listAllSessions(env.DB) });
-}
-
 /** One page of the admin session index, newest first (#25).
  *
  *  Offset-based rather than keyset: `updated_at` is not unique (bulk writes share

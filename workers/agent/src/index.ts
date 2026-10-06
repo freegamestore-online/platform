@@ -5,7 +5,7 @@ import { handleAdminCompApi } from "./admin-comp";
 import { getConfig } from "./config";
 import { handleKeysApi } from "./keys";
 import { handleKidify } from "./kidify";
-import { handleAdminSessionsApi, handleSessionsApi, isOrgAdmin, resolveUser } from "./sessions";
+import { handleSessionsApi, isOrgAdmin, resolveUser } from "./sessions";
 
 export { AgentSession } from "./session";
 
@@ -101,10 +101,6 @@ export default {
     const sessionsResp = await handleSessionsApi(request, env, corsHeaders(request, config.domain));
     if (sessionsResp) return sessionsResp;
 
-    // Admin all-users session list (org members only) — GET /admin/sessions
-    const adminSessionsResp = await handleAdminSessionsApi(request, env, config, corsHeaders(request, config.domain));
-    if (adminSessionsResp) return adminSessionsResp;
-
     // Per-user AI-key vault (D1, encrypted) — /v1/keys/status, /v1/keys/:provider
     const keysResp = await handleKeysApi(request, env, corsHeaders(request, config.domain));
     if (keysResp) return keysResp;
@@ -124,7 +120,7 @@ export default {
         JSON.stringify({
           ok: true,
           service: config.agentName,
-          hasSecrets: !!(env.GITHUB_TOKEN && env.CF_API_TOKEN),
+          hasSecrets: !!env.GITHUB_TOKEN,
         }),
         {
           headers: { "Content-Type": "application/json", ...corsHeaders(request, config.domain) },

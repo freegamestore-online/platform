@@ -639,7 +639,7 @@ export class AgentSession implements DurableObject {
     });
     // Build deploy env directly from DO's env bindings (no header passing)
     const deployEnv: DeployEnv | null =
-      this.env.GITHUB_TOKEN && this.env.CF_API_TOKEN
+      this.env.GITHUB_TOKEN
         ? {
             GITHUB_TOKEN: this.env.GITHUB_TOKEN,
             CF_API_TOKEN: this.env.CF_API_TOKEN,

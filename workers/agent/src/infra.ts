@@ -5,37 +5,14 @@ import { type DeployEnv, filterLogErrorLines } from "./deploy";
 import { makeGhApi, resilientFetch } from "./ghfetch";
 import { readRegistry } from "./registry";
 
-async function cfApi(token: string, _accountId: string, path: string) {
-  const res = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-  });
-  return res.json() as Promise<any>;
-}
-
-/** Check the latest deployment status. Path B → GitHub Actions run; else CF Pages. */
+/** Check the latest deployment status via GitHub Actions. */
 export async function checkDeployStatus(appId: string, env: DeployEnv, config: StoreConfig): Promise<string> {
-  if (config.pathB) {
-    const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
-    const runs = await ghApi(`/repos/${config.org}/${appId}/actions/workflows/deploy.yml/runs?per_page=1`);
-    const run = runs.workflow_runs?.[0];
-    if (!run) return `No deploy runs found for ${config.org}/${appId}. The ${config.noun} may not be provisioned yet.`;
-    const state = run.status === "completed" ? run.conclusion : run.status;
-    return `Latest deploy (${run.name || "Deploy to R2"}): ${state}\nURL: https://${appId}.${config.domain}\nCommit: ${run.head_sha?.slice(0, 7) || "?"}\nRun: ${run.html_url}`;
-  }
-  const cfProject = config.cfProjectName(appId);
-  const res = await cfApi(
-    env.CF_API_TOKEN,
-    env.CF_ACCOUNT_ID,
-    `/accounts/${env.CF_ACCOUNT_ID}/pages/projects/${cfProject}/deployments?sort_by=created_on&sort_order=desc&per_page=1`,
-  );
-  if (!res.success || !res.result?.length) {
-    return `No deployments found for ${cfProject}. The ${config.noun} may not be provisioned yet.`;
-  }
-  const d = res.result[0];
-  const status = d.latest_stage?.status || "unknown";
-  const url = d.url || `https://${appId}.${config.domain}`;
-  const created = d.created_on ? new Date(d.created_on).toISOString() : "unknown";
-  return `Latest deploy: ${status}\nURL: ${url}\nCreated: ${created}\nStage: ${d.latest_stage?.name || "unknown"}`;
+  const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
+  const runs = await ghApi(`/repos/${config.org}/${appId}/actions/workflows/deploy.yml/runs?per_page=1`);
+  const run = runs.workflow_runs?.[0];
+  if (!run) return `No deploy runs found for ${config.org}/${appId}. The ${config.noun} may not be provisioned yet.`;
+  const state = run.status === "completed" ? run.conclusion : run.status;
+  return `Latest deploy (${run.name || "Deploy to R2"}): ${state}\nURL: https://${appId}.${config.domain}\nCommit: ${run.head_sha?.slice(0, 7) || "?"}\nRun: ${run.html_url}`;
 }
 
 /** List all items from the store registry. */
@@ -59,70 +36,49 @@ export async function fetchUrl(url: string, method: string, agentName: string): 
   }
 }
 
-/** Get build logs for the latest deployment. Path B → GitHub Actions jobs/steps; else CF Pages. */
+/** Get build logs for the latest deployment via GitHub Actions. */
 export async function getBuildLogs(appId: string, env: DeployEnv, config: StoreConfig): Promise<string> {
-  if (config.pathB) {
-    const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
-    const runs = await ghApi(`/repos/${config.org}/${appId}/actions/workflows/deploy.yml/runs?per_page=1`);
-    const run = runs.workflow_runs?.[0];
-    if (!run) return `No deploy runs found for ${config.org}/${appId}.`;
-    const jobs = await ghApi(`/repos/${config.org}/${appId}/actions/runs/${run.id}/jobs`);
-    const lines: string[] = [];
-    for (const j of jobs.jobs || []) {
-      lines.push(`Job "${j.name}": ${j.status === "completed" ? j.conclusion : j.status}`);
-      for (const s of j.steps || []) {
-        const st = s.status === "completed" ? s.conclusion : s.status;
-        lines.push(`  ${st === "success" ? "PASS" : st === "failure" ? "FAIL" : String(st || "").toUpperCase()}: ${s.name}`);
-      }
+  const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
+  const runs = await ghApi(`/repos/${config.org}/${appId}/actions/workflows/deploy.yml/runs?per_page=1`);
+  const run = runs.workflow_runs?.[0];
+  if (!run) return `No deploy runs found for ${config.org}/${appId}.`;
+  const jobs = await ghApi(`/repos/${config.org}/${appId}/actions/runs/${run.id}/jobs`);
+  const lines: string[] = [];
+  for (const j of jobs.jobs || []) {
+    lines.push(`Job "${j.name}": ${j.status === "completed" ? j.conclusion : j.status}`);
+    for (const s of j.steps || []) {
+      const st = s.status === "completed" ? s.conclusion : s.status;
+      lines.push(`  ${st === "success" ? "PASS" : st === "failure" ? "FAIL" : String(st || "").toUpperCase()}: ${s.name}`);
     }
-
-    // The step list alone is useless for FIXING a failure — pull the failing
-    // job's raw log and extract the error lines, so the model can act on
-    // "Could not resolve X from Y" instead of being told to visit a URL it
-    // can't open (which is where the self-fix loop died, 2026-07-11).
-    const failing = (jobs.jobs || []).find((j: any) => j.conclusion === "failure");
-    if (failing) {
-      try {
-        const logRes = await resilientFetch(`https://api.github.com/repos/${config.org}/${appId}/actions/jobs/${failing.id}/logs`, {
-          headers: {
-            Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-            Accept: "application/vnd.github+json",
-            "User-Agent": config.agentName,
-            "X-GitHub-Api-Version": "2022-11-28",
-          },
-        });
-        if (logRes.ok) {
-          // Same extraction the deploy waiter now applies automatically on a
-          // failed run — shared so get_build_logs and the auto-injected error
-          // lines can never disagree about what counts as an error line.
-          const tail = filterLogErrorLines(await logRes.text());
-          lines.push("", "── error lines from the failing job ──", ...tail);
-        }
-      } catch {
-        /* log download is best-effort — the step list above still stands */
-      }
-    }
-    return `Deploy run ${String(run.id).slice(0, 8)} — ${run.status === "completed" ? run.conclusion : run.status}\n${lines.join("\n").slice(0, 6000)}`;
   }
-  const cfProject = config.cfProjectName(appId);
-  const deps = await cfApi(
-    env.CF_API_TOKEN,
-    env.CF_ACCOUNT_ID,
-    `/accounts/${env.CF_ACCOUNT_ID}/pages/projects/${cfProject}/deployments?sort_by=created_on&sort_order=desc&per_page=1`,
-  );
-  if (!deps.success || !deps.result?.length) return `No deployments found for ${cfProject}.`;
-  const deployId = deps.result[0].id;
-  const status = deps.result[0].latest_stage?.status || "unknown";
-  const stageName = deps.result[0].latest_stage?.name || "unknown";
 
-  const logRes = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/pages/projects/${cfProject}/deployments/${deployId}/history/logs`,
-    { headers: { Authorization: `Bearer ${env.CF_API_TOKEN}` } },
-  );
-  const logData = (await logRes.json()) as any;
-  const lines: string[] = (logData.result?.data || []).map((l: any) => l.line || l.message || JSON.stringify(l));
-
-  return `Deploy ${deployId.slice(0, 8)} — stage: ${stageName}, status: ${status}\n\n${lines.join("\n").slice(-3000) || "(no log output)"}`;
+  // The step list alone is useless for FIXING a failure — pull the failing
+  // job's raw log and extract the error lines, so the model can act on
+  // "Could not resolve X from Y" instead of being told to visit a URL it
+  // can't open.
+  const failing = (jobs.jobs || []).find((j: any) => j.conclusion === "failure");
+  if (failing) {
+    try {
+      const logRes = await resilientFetch(`https://api.github.com/repos/${config.org}/${appId}/actions/jobs/${failing.id}/logs`, {
+        headers: {
+          Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+          Accept: "application/vnd.github+json",
+          "User-Agent": config.agentName,
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+      });
+      if (logRes.ok) {
+        // Same extraction the deploy waiter now applies automatically on a
+        // failed run — shared so get_build_logs and the auto-injected error
+        // lines can never disagree about what counts as an error line.
+        const tail = filterLogErrorLines(await logRes.text());
+        lines.push("", "── error lines from the failing job ──", ...tail);
+      }
+    } catch {
+      /* log download is best-effort — the step list above still stands */
+    }
+  }
+  return `Deploy run ${String(run.id).slice(0, 8)} — ${run.status === "completed" ? run.conclusion : run.status}\n${lines.join("\n").slice(0, 6000)}`;
 }
 
 /** Get GitHub Actions CI check results for a repo. */
