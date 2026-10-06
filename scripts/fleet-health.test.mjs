@@ -8,7 +8,7 @@ function runProbe(failurePath, status = 200, token = 'test-token') {
     globalThis.fetch = async (input) => {
       const url = String(input);
       if (url.includes(${JSON.stringify(failurePath)})) return new Response('{}', {status: ${status}});
-      if (url.endsWith('/contents/registry.json')) return Response.json({content: Buffer.from(JSON.stringify({games: [{id: 'chess'}]})).toString('base64')});
+      if (url.endsWith('/contents/sites/freegamestore/registry.json')) return Response.json({content: Buffer.from(JSON.stringify({games: [{id: 'chess'}]})).toString('base64')});
       if (url.endsWith('/repos/freegamestore-online/chess')) return Response.json({archived: false});
       if (url.includes('/actions/runs')) return Response.json({workflow_runs: []});
       if (url.includes('/contents/')) return new Response('{}', {status: 404});
@@ -28,7 +28,7 @@ test('healthy probe succeeds; missing token fails with exit 2', () => {
 });
 
 for (const path of [
-  '/contents/registry.json',
+  '/contents/sites/freegamestore/registry.json',
   '/repos/freegamestore-online/chess',
   '/contents/web/package.json',
   '/contents/pnpm-lock.yaml',
