@@ -11,18 +11,22 @@ export const AGENT_URL = 'https://agent.freegamestore.online';
 export interface SessionsCacheData {
   sessions: ServerSession[];
   totals?: UsageTotals | null;
+  loaded?: boolean;
+  error?: Error | null;
 }
 
 interface SessionsCache {
   data: SessionsCacheData | null;
   timestamp: number;
   promise: Promise<SessionsCacheData> | null;
+  hasEverBeenFetched: boolean;
 }
 
 const cache: SessionsCache = {
   data: null,
   timestamp: 0,
   promise: null,
+  hasEverBeenFetched: false,
 };
 
 const CACHE_TTL_MS = 10000; // 10 seconds
@@ -38,7 +42,14 @@ async function fetchSessions(signal: AbortSignal): Promise<SessionsCacheData> {
  *  Returns the latest session list, or an empty array if loading/error.
  *  Pass an optional dependency array to trigger refetches. */
 export function useSharedSessions(deps?: React.DependencyList): SessionsCacheData {
-  const [cacheData, setCacheData] = useState<SessionsCacheData>({ sessions: [] });
+  const [cacheData, setCacheData] = useState<SessionsCacheData>(() => {
+    const now = Date.now();
+    const isStale = now - cache.timestamp > CACHE_TTL_MS;
+    if (cache.data && !isStale) {
+      return cache.data;
+    }
+    return { sessions: [] };
+  });
   const [refetchNonce, setRefetchNonce] = useState(0);
   const ctrlRef = useRef<AbortController | null>(null);
 
@@ -77,16 +88,23 @@ export function useSharedSessions(deps?: React.DependencyList): SessionsCacheDat
     promise
       .then((data) => {
         if (!ctrl.signal.aborted) {
-          cache.data = data;
+          const dataWithLoaded = { ...data, loaded: true };
+          cache.data = dataWithLoaded;
           cache.timestamp = Date.now();
           cache.promise = null;
-          setCacheData(data);
+          cache.hasEverBeenFetched = true;
+          setCacheData(dataWithLoaded);
         }
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (!ctrl.signal.aborted) {
           cache.promise = null;
-          // Keep whatever data we had before (don't clear it on error)
+          cache.hasEverBeenFetched = true;
+          // Mark as loaded even on error so loading state updates
+          // Return empty sessions with loaded flag and error to indicate fetch completed
+          const error = err instanceof Error ? err : new Error(String(err));
+          const errorData: SessionsCacheData = { sessions: [], loaded: true, error };
+          setCacheData(errorData);
         }
       });
 
@@ -113,10 +131,10 @@ export function invalidateSharedSessions(): void {
   }
 }
 
-// Export a ref-count driven mechanism for triggering refetches
-let refetchNonce = 0;
-export function triggerSessionsRefetch(): void {
+/** Test helper: reset the shared sessions cache completely. Called in test beforeEach. */
+export function __resetSharedSessionsCacheForTests(): void {
   cache.data = null;
   cache.timestamp = 0;
-  refetchNonce++;
+  cache.promise = null;
+  cache.hasEverBeenFetched = false;
 }

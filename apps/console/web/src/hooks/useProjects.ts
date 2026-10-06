@@ -119,7 +119,16 @@ export function useProjects() {
       return;
     }
 
-    setLoading(true);
+    if (cacheData.error && cacheData.loaded) {
+      setLoadError(true);
+      setLoading(false);
+      reportError({
+        message: cacheData.error.message,
+        context: JSON.stringify({ op: 'loadProjects' }),
+      });
+      return;
+    }
+
     setLoadError(false);
 
     // Transform shared sessions into projects using mapServerSession
@@ -149,7 +158,7 @@ export function useProjects() {
     if (stored && !storedInList) {
       commitProjects([placeholderProject(stored), ...server]);
       setCurrentId(stored);
-      setLoading(false);
+      setLoading(!cacheData.loaded);
       return;
     }
 
@@ -162,8 +171,8 @@ export function useProjects() {
     // game's session, so their next prompt edited that game (slicing-game
     // overwritten as Beat Star, 2026-07-18). Make opening a game an explicit act.
     setCurrentId(storedInList ? stored : null);
-    setLoading(false);
-  }, [authLoading, user?.sub, cacheData.sessions, setCurrentId]);
+    setLoading(!cacheData.loaded);
+  }, [authLoading, user?.sub, cacheData.sessions, cacheData.loaded, cacheData.error, setCurrentId]);
 
   const create = useCallback(
     (name: string, appId?: string) => {

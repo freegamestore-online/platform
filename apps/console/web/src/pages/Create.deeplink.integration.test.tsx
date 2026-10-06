@@ -31,6 +31,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { __resetSharedSessionsCacheForTests } from '../lib/agentClient';
 
 vi.mock('../hooks/useAuth', () => ({
   useAuth: () => ({ user: { sub: 'github:1', github: 'alice' }, loading: false, signIn: vi.fn() }),
@@ -150,6 +151,7 @@ function renderAt(path: string) {
 }
 
 beforeEach(() => {
+  __resetSharedSessionsCacheForTests();
   localStorage.clear();
   // Silence confirm() calls in jsdom (ProjectPicker.handleDelete/handleFresh
   // both call confirm; we override per-test where needed).

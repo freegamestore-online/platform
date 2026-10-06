@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { __resetSharedSessionsCacheForTests } from '../lib/agentClient';
 
 // useProjects only needs { user, loading } from useAuth — stub a signed-in user.
 vi.mock('./useAuth', () => ({
@@ -29,6 +30,7 @@ let sessionsResponse: { sessions: ReturnType<typeof srv>[] };
 let importResponse: () => Promise<Response>;
 
 beforeEach(() => {
+  __resetSharedSessionsCacheForTests();
   localStorage.clear();
   sessionsResponse = { sessions: [] };
   importResponse = () =>

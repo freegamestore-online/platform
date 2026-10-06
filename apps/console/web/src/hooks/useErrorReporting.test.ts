@@ -5,6 +5,7 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { __resetSharedSessionsCacheForTests } from '../lib/agentClient';
 
 // Mock reportError so we can assert on calls without real network.
 vi.mock('../lib/errorReporter', () => ({
@@ -40,6 +41,7 @@ let sessionsResponse: { sessions: ReturnType<typeof srv>[] };
 let importResponse: () => Promise<Response>;
 
 beforeEach(() => {
+  __resetSharedSessionsCacheForTests();
   localStorage.clear();
   mockReportError.mockClear();
   sessionsResponse = { sessions: [] };
