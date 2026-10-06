@@ -12,6 +12,9 @@
     "lint:fix": "biome check --write src/",
     "format": "biome format --write src/"
   },
+  "dependencies": {
+    "@freegamestore/contracts": "workspace:*"
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
     "@cloudflare/workers-types": "^4.20250415.0",

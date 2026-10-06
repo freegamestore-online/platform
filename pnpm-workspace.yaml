@@ -1,2 +1,4 @@
 packages:
   - 'packages/*'
+  - 'workers/*'
+  - 'apps/admin'

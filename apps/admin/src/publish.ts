@@ -232,11 +232,9 @@ async function ghApi(env: PublishEnv, path: string, method = 'GET', body?: any) 
 }
 
 import {
-  RESERVED_GAME_IDS,
   validateGameId,
   VALID_GH_LOGIN,
   ownershipFacts,
-  type OwnershipFacts,
   normalizeForkedFrom,
   isForkAttribution,
   snapshotForkAttribution,

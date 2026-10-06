@@ -3,6 +3,8 @@
 // (no deps). Text files are base64-(de)coded UTF-8 safe; binary passes through.
 // Vendored from fas/mcp/src/github.ts — adapted for FGS.
 
+import { commitFiles } from '@freegamestore/contracts';
+
 const UA = 'freegamestore-mcp';
 const TEXT_RE = /\.(ts|tsx|js|jsx|mjs|cjs|json|html|css|md|txt|svg|yml|yaml|toml)$/i;
 
@@ -257,54 +259,23 @@ async function pushFilesOnce(
   message: string,
   replaceTree: boolean,
 ): Promise<string> {
-  const base = `https://api.github.com/repos/${org}/${repo}`;
-
-  let parentSha: string | undefined;
-  let baseTree: string | undefined;
-  const ref = await gh(token, `${base}/git/ref/heads/main`);
-  if (ref?.object?.sha) {
-    parentSha = ref.object.sha;
-    const parent = await gh(token, `${base}/git/commits/${parentSha}`);
-    baseTree = parent?.tree?.sha;
-  } else {
-    // Empty repo — Git Data API needs a commit to exist. Seed via Contents API.
-    const seed = await gh(token, `${base}/contents/.gitkeep`, 'PUT', {
-      message: 'seed',
-      content: textToB64(''),
-    });
-    if (!seed?.commit?.sha) throw new Error(`repo seed failed: ${seed.message ?? seed.__status}`);
-    parentSha = seed.commit.sha;
-    const parent = await gh(token, `${base}/git/commits/${parentSha}`);
-    baseTree = parent?.tree?.sha;
-  }
-
-  const treeItems: Array<{ path: string; mode: string; type: string; sha: string }> = [];
+  // Convert Map<string, RepoFile> to Record<string, string>
+  const filesRecord: Record<string, string> = {};
   for (const [path, f] of files) {
-    const blob = await gh(token, `${base}/git/blobs`, 'POST', {
-      content: f.content,
-      encoding: f.encoding,
-    });
-    if (!blob?.sha)
-      throw new Error(`blob create failed for ${path}: ${blob.message ?? blob.__status}`);
-    treeItems.push({ path, mode: '100644', type: 'blob', sha: blob.sha });
+    filesRecord[path] = f.content;
   }
 
-  const tree = await gh(token, `${base}/git/trees`, 'POST', {
-    ...(replaceTree ? {} : { base_tree: baseTree }),
-    tree: treeItems,
-  });
-  if (!tree?.sha) throw new Error(`tree create failed: ${tree.message ?? tree.__status}`);
-
-  const commit = await gh(token, `${base}/git/commits`, 'POST', {
+  // Use shared commitFiles helper from contracts package
+  // RepoFile content is base64-encoded, so we pass encoding: 'base64'
+  return await commitFiles({
+    org,
+    repo,
+    token,
+    files: filesRecord,
     message,
-    tree: tree.sha,
-    parents: parentSha ? [parentSha] : [],
+    encoding: 'base64',
+    replaceTree,
   });
-  if (!commit?.sha) throw new Error(`commit create failed: ${commit.message ?? commit.__status}`);
-
-  const upd = await gh(token, `${base}/git/refs/heads/main`, 'PATCH', { sha: commit.sha });
-  if (!upd?.ref) throw new Error(`ref update failed: ${upd.message ?? upd.__status}`);
-  return commit.sha;
 }
 
 /** List file paths in a repo (recursive). Read-only; works on public repos.

@@ -3,6 +3,7 @@
  * The Durable Object deliberately supplies the handlers: this module owns no
  * session data and can therefore be exercised without a Durable Object runtime.
  */
+import { corsHeaders as sharedCorsHeaders } from "@freegamestore/contracts";
 import type { StoreConfig } from "./config";
 
 export interface SessionRouteHandlers {
@@ -22,21 +23,7 @@ export interface SessionRouterDeps {
   handlers: SessionRouteHandlers;
 }
 
-const DEV_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
-
-export function corsHeaders(request: Request, domain: string): Record<string, string> {
-  const origin = request.headers.get("Origin");
-  // Published games are untrusted: only the first-party consoles and local dev
-  // may make credentialed requests to a session.
-  const firstParty = origin === `https://console.${domain}` || origin === `https://publish.${domain}`;
-  const allowed = origin && (firstParty || DEV_ORIGIN.test(origin)) ? origin : `https://console.${domain}`;
-  return {
-    "Access-Control-Allow-Origin": allowed,
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Credentials": "true",
-  };
-}
+export const corsHeaders = sharedCorsHeaders;
 
 export function jsonResponse(data: unknown, status: number, request: Request, domain: string): Response {
   return new Response(JSON.stringify(data), {

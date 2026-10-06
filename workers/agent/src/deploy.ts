@@ -1,7 +1,9 @@
 /** Deploy: provision via CF/GitHub APIs, then push all files. */
 
+import { commitFiles } from "@freegamestore/contracts";
 import type { StoreConfig } from "./config";
-import { makeGhApi, mapPool, resilientFetch } from "./ghfetch";
+import { getFailedRunDetails } from "./infra";
+import { makeGhApi, mapPool } from "./ghfetch";
 import { getTemplateFiles } from "./template";
 
 export interface DeployConfig {
@@ -109,58 +111,23 @@ export function filterLogErrorLines(text: string): string[] {
     .map((l: string) => l.replace(/^[0-9T:.Z-]+\s*/, ""));
 }
 
-/** Describe a FAILED deploy run: the failing job/step name plus the error lines
- *  from that job's raw log, in ONE jobs fetch.
- *
- *  The log pull is what closes the recovery loop. Before this, a failed deploy
- *  told the agent only "deploy › Smoke test built game" — a step name it cannot
- *  act on — and the actual browser error was reachable only if the model chose
- *  to call get_build_logs. Now it rides along in the tool result automatically.
- *  Every step is best-effort: a failure to read logs must still report a
- *  failure, never a hang. */
+/** Describe a failed deploy run: the failing job/step name plus error lines from that job's log.
+ *  The log pull closes the recovery loop — before this, a failed deploy told the agent only
+ *  "deploy › Smoke test built game" (a step name it cannot act on), and the actual browser
+ *  error was reachable only if the model called get_build_logs. Now it rides along automatically.
+ *  Uses the shared helper from infra.ts so get_build_logs and deploy status auto-injection
+ *  never disagree about what counts as an error line. */
 export async function describeFailedRun(
   repoId: string,
   runId: number | string,
   env: DeployEnv,
   config: StoreConfig,
 ): Promise<{ detail: string; errorLines: string[] }> {
-  const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
-  let detail = "";
-  let failingJobId: number | null = null;
-  try {
-    const jobs = await ghApi(`/repos/${config.org}/${repoId}/actions/runs/${runId}/jobs`);
-    const failedJob = (jobs.jobs || []).find((j: any) => j.conclusion === "failure");
-    const failedStep = failedJob?.steps?.find((s: any) => s.conclusion === "failure");
-    detail = failedJob ? `${failedJob.name}${failedStep ? " › " + failedStep.name : ""}` : "";
-    failingJobId = failedJob?.id ?? null;
-  } catch (err) {
-    console.error(`[deploy] Actions job detail fetch failed for ${config.org}/${repoId}: ${String(err)}`);
-    return { detail, errorLines: [] };
-  }
-  if (failingJobId === null) return { detail, errorLines: [] };
-  try {
-    const logRes = await resilientFetch(`https://api.github.com/repos/${config.org}/${repoId}/actions/jobs/${failingJobId}/logs`, {
-      headers: {
-        Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-        Accept: "application/vnd.github+json",
-        "User-Agent": config.agentName,
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-    });
-    if (!logRes.ok) return { detail, errorLines: [] };
-    return { detail, errorLines: filterLogErrorLines(await logRes.text()) };
-  } catch (err) {
-    console.error(`[deploy] Actions job log fetch failed for ${config.org}/${repoId}: ${String(err)}`);
-    return { detail, errorLines: [] };
-  }
+  return getFailedRunDetails(config.org, repoId, runId, env, config);
 }
 
 /** Deploy = create repo + push code via Path B (admin-provisioned).
  *  No CF Pages, no DNS, no registry — those are for PUBLISH (separate action). */
-// GitHub username: 1–39 chars, alphanumerics + single hyphens, no leading/
-// trailing hyphen. Validated before interpolating into the collaborators API
-// path so a malformed login can't alter the request.
-const VALID_GH_LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
 
 export async function deployApp(
   deployConfig: DeployConfig,
@@ -517,78 +484,51 @@ export async function pushCommit(
    *  so stale or never-committed entries are harmless. */
   deletions: Iterable<string> = [],
 ): Promise<PushResult> {
-  const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
   const repo = `${config.org}/${appId}`;
 
-  const ref = await ghApi(`/repos/${repo}/git/ref/heads/main`);
-  const parentSha = ref.object?.sha;
-  if (!parentSha) return { message: `Error: could not find HEAD for ${repo}. Is the ${config.noun} deployed?`, sha: null };
-
-  const treeItems: { path: string; mode: string; type: string; sha: string | null }[] = [];
-  for (const [path, content] of files) {
-    const blob = await ghApi(`/repos/${repo}/git/blobs`, "POST", {
-      content,
-      encoding: "utf-8",
-    });
-    if (!blob.sha) return { message: `Error: failed to create blob for ${path}: ${blob.message || "unknown"}`, sha: null };
-    treeItems.push({ path, mode: "100644", type: "blob", sha: blob.sha });
-  }
-
-  const parentCommit = await ghApi(`/repos/${repo}/git/commits/${parentSha}`);
-  if (!parentCommit.tree?.sha) return { message: `Error: could not read parent commit tree for ${repo}.`, sha: null };
-
-  const pending = [...new Set(deletions)].filter((path) => !files.has(path));
-  let deleted = 0;
-  if (pending.length > 0) {
-    let base: { tree?: unknown; truncated?: boolean; message?: string };
-    try {
-      base = await ghApi(`/repos/${repo}/git/trees/${parentCommit.tree.sha}?recursive=1`);
-    } catch (err) {
-      base = { message: String(err) };
+  try {
+    // Convert Map<string, string> to Record<string, string>
+    const filesRecord: Record<string, string> = {};
+    for (const [path, content] of files) {
+      filesRecord[path] = content;
     }
-    // Fail rather than push without the deletions: silently keeping a deleted
-    // file is exactly the bug this guards against.
-    if (!Array.isArray(base.tree) || base.truncated) {
+
+    // Use shared commitFiles helper from contracts package
+    const result = await commitFiles({
+      org: config.org,
+      repo: appId,
+      token: env.GITHUB_TOKEN,
+      files: filesRecord,
+      deletions: Array.from(deletions),
+      message: commitMessage,
+      encoding: 'utf-8',
+    });
+
+    const removed = result.deletedCount > 0 ? `, removed ${result.deletedCount} deleted file${result.deletedCount === 1 ? "" : "s"}` : "";
+
+    return {
+      message: `Pushed update to ${repo} (${result.sha.slice(0, 7)}${removed}). CI will build and deploy.`,
+      sha: result.sha,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    // Preserve specific error patterns from commitFiles for test expectations
+    if (message.startsWith("could not read the repo tree") ||
+        message.startsWith("repo seed failed") ||
+        message.startsWith("blob create failed") ||
+        message.startsWith("tree create failed") ||
+        message.startsWith("commit create failed") ||
+        message.startsWith("ref update failed")) {
       return {
-        message: `Error: could not read the repo tree for ${repo} to apply file deletions: ${base.message || "tree unavailable or truncated"}`,
+        message: `Error: ${message}`,
         sha: null,
       };
     }
-    const present = new Set((base.tree as { path?: string; type?: string }[]).filter((e) => e.type === "blob").map((e) => e.path));
-    for (const path of pending) {
-      if (!present.has(path)) continue;
-      treeItems.push({ path, mode: "100644", type: "blob", sha: null });
-      deleted++;
-    }
+    return {
+      message: `Error: failed to push to ${repo}: ${message}`,
+      sha: null,
+    };
   }
-
-  const tree = await ghApi(`/repos/${repo}/git/trees`, "POST", {
-    base_tree: parentCommit.tree.sha,
-    tree: treeItems,
-  });
-  // Guard tree.sha (mirrors pushFilesToGitHub): a non-thrown 422 (e.g. invalid
-  // base_tree) returns a body with no sha. Without this, we POST the commit with
-  // tree:undefined → the failure surfaces as a misleading "failed to update ref"
-  // that hides the real cause (tree creation).
-  if (!tree.sha) return { message: `Error: failed to create tree for ${repo}: ${tree.message || "unknown"}`, sha: null };
-
-  const commit = await ghApi(`/repos/${repo}/git/commits`, "POST", {
-    message: commitMessage,
-    tree: tree.sha,
-    parents: [parentSha],
-  });
-  if (!commit.sha) return { message: `Error: failed to create commit for ${repo}: ${commit.message || "unknown"}`, sha: null };
-
-  const refUpdate = await ghApi(`/repos/${repo}/git/refs/heads/main`, "PATCH", {
-    sha: commit.sha,
-  });
-  if (!refUpdate.ref) return { message: `Error: failed to update ref for ${repo}: ${refUpdate.message || "unknown"}`, sha: null };
-
-  const removed = deleted > 0 ? `, removed ${deleted} deleted file${deleted === 1 ? "" : "s"}` : "";
-  return {
-    message: `Pushed update to ${repo} (${commit.sha.slice(0, 7)}${removed}). CI will build and deploy.`,
-    sha: commit.sha,
-  };
 }
 
 /** pushCommit, returning only the outcome message. */

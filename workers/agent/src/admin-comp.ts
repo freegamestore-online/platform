@@ -9,6 +9,7 @@
  *   DELETE /v1/admin/comp/:userId   → revoke (userId = github:<id>)
  */
 
+import { DEFAULT_MODELS } from "@freegamestore/contracts";
 import { getConfig } from "./config";
 import type { Env } from "./index";
 import { COMP_PROVIDERS, compKeyFor, grantComp, listComp, revokeComp } from "./keygrants";
@@ -236,13 +237,6 @@ export async function handleAdminCompApi(
         provider = grant?.provider || "github";
       }
     }
-    const DEFAULT_MODELS: Record<string, string> = {
-      anthropic: "claude-sonnet-4-6",
-      openai: "gpt-4o",
-      google: "gemini-2.5-flash",
-      github: "openai/gpt-4o",
-      openrouter: "anthropic/claude-sonnet-4",
-    };
     const model = body.model ? String(body.model) : DEFAULT_MODELS[provider] || DEFAULT_MODELS.github!;
 
     const stub = env.SESSION.get(env.SESSION.idFromName(sid));

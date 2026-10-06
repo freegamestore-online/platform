@@ -1,5 +1,6 @@
 /** Worker entry — routes requests to the correct Durable Object session. */
 
+import { corsHeaders } from "@freegamestore/contracts";
 import { handleAccountDelete } from "./account";
 import { handleAdminCompApi } from "./admin-comp";
 import { getConfig } from "./config";
@@ -32,29 +33,8 @@ export interface Env {
   COMP_KEY_GITHUB?: string;
 }
 
-// Dev origins only — exact host match so e.g. `http://localhost.evil.com` (a
-// prefix match) can't slip through and make credentialed requests.
-const DEV_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 const SESSION_COOKIE = "__Host-fgs_token";
 const AGENT_ORIGIN = "https://agent.freegamestore.online";
-
-function corsHeaders(request: Request, domain: string): Record<string, string> {
-  const origin = request.headers.get("Origin");
-  // Credentialed CORS (cookie auth) is restricted to the FIRST-PARTY console
-  // origins only — NOT `*.${domain}`. Published games are untrusted, user/
-  // agent-authored JS served at `<slug>.${domain}`; reflecting those with
-  // credentials would let a malicious/XSS'd game ride a signed-in user's
-  // fgs_token cookie to read transcripts + key status and drive /chat. The
-  // console is served only at `console.`/`publish.`.
-  const firstParty = origin === `https://console.${domain}` || origin === `https://publish.${domain}`;
-  const allowed = origin && (firstParty || DEV_ORIGIN.test(origin)) ? origin : `https://console.${domain}`;
-  return {
-    "Access-Control-Allow-Origin": allowed,
-    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Credentials": "true",
-  };
-}
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {

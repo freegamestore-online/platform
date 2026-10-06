@@ -733,6 +733,6 @@ or garbled phrasing. If you're unsure what they meant, ask for clarification.
 `;
 }
 
-export function getSystemPrompt(config: StoreConfig, engine: GameEngine = "canvas"): string {
+export function getSystemPrompt(_config: StoreConfig, engine: GameEngine = "canvas"): string {
   return buildGameSystemPrompt(engine);
 }

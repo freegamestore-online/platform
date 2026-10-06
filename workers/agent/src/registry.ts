@@ -2,7 +2,6 @@
 import type { StoreConfig } from "./config";
 import { resilientFetch } from "./ghfetch";
 import {
-  RESERVED_GAME_IDS,
   validateGameId as contractValidateGameId,
   ownershipFacts as contractOwnershipFacts,
   type OwnershipFacts,

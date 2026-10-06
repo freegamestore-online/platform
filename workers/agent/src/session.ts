@@ -79,16 +79,11 @@ interface SessionState {
 
 // Bound unbounded growth in long-lived Durable Objects. A session that keeps
 // getting messages/deploys forever would grow its stored blob without limit.
+import { DEFAULT_MODELS } from "@freegamestore/contracts";
+
 const MAX_MESSAGES = 400;
 const MAX_ERRORS = 50;
 const MAX_DEPLOY_LOG = 200;
-const DEFAULT_MODELS: Record<AIConfig["provider"], string> = {
-  anthropic: "claude-sonnet-4-6",
-  openai: "gpt-4o",
-  google: "gemini-2.5-flash",
-  github: "openai/gpt-4o",
-  openrouter: "anthropic/claude-sonnet-4",
-};
 const SAVED_KEY_PRIORITY: AIConfig["provider"][] = ["anthropic", "openai", "google", "openrouter", "github"];
 
 // The whole session is persisted as ONE Durable Object value, and a

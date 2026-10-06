@@ -5,6 +5,49 @@ import { type DeployEnv, filterLogErrorLines } from "./deploy";
 import { makeGhApi, resilientFetch } from "./ghfetch";
 import { readRegistry } from "./registry";
 
+/** Helper: fetch job details and error lines from a failed run.
+ *  Returns detail (job › step) and errorLines for automatic injection into deploy status. */
+export async function getFailedRunDetails(
+  org: string,
+  repoId: string,
+  runId: number | string,
+  env: DeployEnv,
+  config: StoreConfig,
+): Promise<{ detail: string; errorLines: string[] }> {
+  const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
+  let detail = "";
+  let failingJobId: number | null = null;
+  try {
+    const jobs = await ghApi(`/repos/${org}/${repoId}/actions/runs/${runId}/jobs`);
+    const failedJob = (jobs.jobs || []).find((j: any) => j.conclusion === "failure");
+    const failedStep = failedJob?.steps?.find((s: any) => s.conclusion === "failure");
+    detail = failedJob ? `${failedJob.name}${failedStep ? " › " + failedStep.name : ""}` : "";
+    failingJobId = failedJob?.id ?? null;
+  } catch (err) {
+    console.error(`[infra] Actions job detail fetch failed for ${org}/${repoId}: ${String(err)}`);
+    return { detail, errorLines: [] };
+  }
+  if (failingJobId === null) return { detail, errorLines: [] };
+  try {
+    const logRes = await resilientFetch(
+      `https://api.github.com/repos/${org}/${repoId}/actions/jobs/${failingJobId}/logs`,
+      {
+        headers: {
+          Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+          Accept: "application/vnd.github+json",
+          "User-Agent": config.agentName,
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+      }
+    );
+    if (!logRes.ok) return { detail, errorLines: [] };
+    return { detail, errorLines: filterLogErrorLines(await logRes.text()) };
+  } catch (err) {
+    console.error(`[infra] Actions job log fetch failed for ${org}/${repoId}: ${String(err)}`);
+    return { detail, errorLines: [] };
+  }
+}
+
 /** Check the latest deployment status via GitHub Actions. */
 export async function checkDeployStatus(appId: string, env: DeployEnv, config: StoreConfig): Promise<string> {
   const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);
@@ -55,28 +98,11 @@ export async function getBuildLogs(appId: string, env: DeployEnv, config: StoreC
   // The step list alone is useless for FIXING a failure — pull the failing
   // job's raw log and extract the error lines, so the model can act on
   // "Could not resolve X from Y" instead of being told to visit a URL it
-  // can't open.
-  const failing = (jobs.jobs || []).find((j: any) => j.conclusion === "failure");
-  if (failing) {
-    try {
-      const logRes = await resilientFetch(`https://api.github.com/repos/${config.org}/${appId}/actions/jobs/${failing.id}/logs`, {
-        headers: {
-          Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-          Accept: "application/vnd.github+json",
-          "User-Agent": config.agentName,
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-      });
-      if (logRes.ok) {
-        // Same extraction the deploy waiter now applies automatically on a
-        // failed run — shared so get_build_logs and the auto-injected error
-        // lines can never disagree about what counts as an error line.
-        const tail = filterLogErrorLines(await logRes.text());
-        lines.push("", "── error lines from the failing job ──", ...tail);
-      }
-    } catch {
-      /* log download is best-effort — the step list above still stands */
-    }
+  // can't open. Use the shared helper so get_build_logs and auto-injected
+  // error lines never disagree about what counts as an error line.
+  const { errorLines } = await getFailedRunDetails(config.org, appId, run.id, env, config);
+  if (errorLines.length > 0) {
+    lines.push("", "── error lines from the failing job ──", ...errorLines);
   }
   return `Deploy run ${String(run.id).slice(0, 8)} — ${run.status === "completed" ? run.conclusion : run.status}\n${lines.join("\n").slice(0, 6000)}`;
 }
