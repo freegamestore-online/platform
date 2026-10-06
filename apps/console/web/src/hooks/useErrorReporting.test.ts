@@ -132,28 +132,20 @@ describe('useProjects — openGame error propagation for useAgent wiring', () =>
   });
 
   it('does NOT call reportError when superseded mid-fetchSessions (OpenSupersededError path)', async () => {
-    // Reproduce the fetchSessions token-guard path: game is NOT in the local list,
-    // so openGame calls fetchSessions. We block it, advance the token (switchTo),
-    // then resolve — the token mismatch throws OpenSupersededError. reportError
-    // must NOT be called because it's deliberate control flow.
-    //
-    // We override fetch so that the sessions GET (authoritative lookup) blocks,
-    // then resolves. The import POST won't be reached.
-    let resolveSessionsForOpen!: (r: Response) => void;
-    const deferredSessions = new Promise<Response>((res) => {
-      resolveSessionsForOpen = res;
+    // Reproduce the token-guard path: openGame starts, advance the token (switchTo),
+    // then the import completes — the token mismatch means setCurrentId is skipped.
+    // reportError must NOT be called because it's deliberate control flow.
+    let resolveImport!: (r: Response) => void;
+    const deferredImport = new Promise<Response>((res) => {
+      resolveImport = res;
     });
 
-    // First call is the initial mount load (returns empty).
-    let sessionCallCount = 0;
+    // Override fetch to defer the import response.
     globalThis.fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString();
       const method = (init?.method || 'GET').toUpperCase();
-      if (url.endsWith('/sessions') && method === 'GET') {
-        sessionCallCount++;
-        if (sessionCallCount === 1) return jsonRes({ sessions: [] }); // initial mount load
-        return deferredSessions; // second call = the fetchSessions inside openGame
-      }
+      if (url.endsWith('/sessions') && method === 'GET') return jsonRes({ sessions: [] });
+      if (url.includes('/import') && method === 'POST') return deferredImport;
       if (url.includes('/sessions/') && (method === 'PUT' || method === 'DELETE'))
         return jsonRes({ ok: true });
       return jsonRes({}, false, 404);
@@ -164,20 +156,21 @@ describe('useProjects — openGame error propagation for useAgent wiring', () =>
     let openGamePromise!: Promise<string | void>;
     act(() => {
       openGamePromise = result.current.openGame('missing-game').catch((e) => {
-        if (e instanceof OpenSupersededError) return; // absorb it so act() doesn't throw
+        // OpenSupersededError is absorbed; other errors propagate
+        if (e instanceof OpenSupersededError) return;
         throw e;
       });
     });
 
-    // Advance the token while fetchSessions is in flight.
+    // Advance the token while import is in flight.
     act(() => result.current.switchTo('sess-other'));
 
-    // Resolve the sessions fetch — openGame sees token mismatch → OpenSupersededError.
+    // Resolve the import — setCurrentId is skipped due to token mismatch but no error is thrown.
     await act(async () => {
-      resolveSessionsForOpen({
+      resolveImport({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ sessions: [] }),
+        json: () => Promise.resolve({ name: 'Missing Game', appUrl: 'https://missing-game.freegamestore.online' }),
       } as Response);
       await openGamePromise;
     });
