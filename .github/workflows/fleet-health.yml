@@ -17,6 +17,9 @@ permissions:
 jobs:
   health:
     runs-on: ubuntu-latest
+    env:
+      FGS_STORE_REPO: platform
+      FGS_REGISTRY_PATH: sites/freegamestore/registry.json
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

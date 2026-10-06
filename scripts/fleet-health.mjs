@@ -20,7 +20,8 @@
 // Exit code: 0 healthy, 1 if any game is unhealthy (with --strict; always for CI).
 
 const ORG = process.env.FGS_ORG || 'freegamestore-online';
-const STORE_REPO = process.env.FGS_STORE_REPO || 'freegamestore';
+const STORE_REPO = process.env.FGS_STORE_REPO || 'platform';
+const REGISTRY_PATH = process.env.FGS_REGISTRY_PATH || 'sites/freegamestore/registry.json';
 const DOMAIN = 'freegamestore.online';
 const SDK = '@freegamestore/games';
 const TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
@@ -133,7 +134,7 @@ async function mapLimit(items, limit, fn) {
 
 async function main() {
   // Catalog of record.
-  const reg = await gh(`/repos/${ORG}/${STORE_REPO}/contents/registry.json`);
+  const reg = await gh(`/repos/${ORG}/${STORE_REPO}/contents/${REGISTRY_PATH}`);
   if (!reg?.content) {
     console.error('error: could not read registry.json');
     process.exit(2);
