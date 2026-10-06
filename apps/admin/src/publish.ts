@@ -237,133 +237,20 @@ async function ghApi(env: PublishEnv, path: string, method = 'GET', body?: any) 
   return json;
 }
 
-// Reserved / infrastructure repos that must NEVER be targetable as a game id.
-// admin's /api/provision is the shared chokepoint — the agent + MCP + CLI all
-// funnel through it, some via the trusted internal token. Without this guard a
-// caller could provision `freegamestore`, `submissions`, `template-game-*`, etc.,
-// become its registry owner, and later delete/archive the real infra repo through
-// the ownership-checked delete path. Mirrors the publisher's create.ts list.
-const INFRA_REPOS = new Set([
-  'freegamestore',
-  'submissions',
-  'template-game-canvas',
-  'template-game-3d',
-  'template-game-grid',
-  'template-game-cards',
-  'template-game-kaplay',
-  'template-game-phaser',
-  'template-game-pixi',
-  'template-game-babylon',
-  'template-game-excalibur',
-  'template-game-littlejs',
-  'brand',
-  'ops',
-  'sdk',
-]);
+import {
+  RESERVED_GAME_IDS,
+  validateGameId,
+  VALID_GH_LOGIN,
+  ownershipFacts,
+  type OwnershipFacts,
+  normalizeForkedFrom,
+  isForkAttribution,
+  snapshotForkAttribution,
+} from '../../../contracts/registry-ownership/v1/contract';
 
-export function validateId(id: string): string | null {
-  if (!id) return 'ID is required';
-  if (id.length < 3) return 'ID must be at least 3 characters';
-  if (id.length > 58) return 'ID must be 58 characters or less';
-  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(id))
-    return 'ID must be lowercase letters, numbers, and dashes only. Cannot start/end with a dash.';
-  if (id.startsWith('free') || id.startsWith('pro'))
-    return "ID must not start with 'free' or 'pro'";
-  // Reject any reserved infra id (exact match) plus every template-game-* variant
-  // so a new template can't be squatted before its constant is added here.
-  if (INFRA_REPOS.has(id) || id.startsWith('template-game-')) return 'ID is reserved';
-  return null;
-}
+// Alias for backward compatibility with existing callers
+export const validateId = validateGameId;
 
-// GitHub username grammar. `creatorGithub` is attacker-influenced (interpolated
-// into a privileged github.com path + written to the registry as the ownership
-// key), so an invalid value must abort the whole provision — never be persisted.
-const VALID_GH_LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
-
-export interface OwnershipFacts {
-  isCreator: boolean;
-  isOrgMember: boolean;
-  isLegacyAcceptedCollaborator: boolean;
-}
-
-/** Shared-contract facts; admin operations choose their own authorization policy. */
-export function ownershipFacts(
-  game: { creatorGithub?: unknown } | undefined,
-  login: string,
-  signals: Pick<OwnershipFacts, 'isOrgMember' | 'isLegacyAcceptedCollaborator'>,
-): OwnershipFacts {
-  const creator = typeof game?.creatorGithub === 'string' ? game.creatorGithub : '';
-  return {
-    isCreator: !!creator && creator.toLowerCase() === login.toLowerCase(),
-    isOrgMember: signals.isOrgMember,
-    isLegacyAcceptedCollaborator: !creator && signals.isLegacyAcceptedCollaborator,
-  };
-}
-
-function isForkAttribution(value: unknown): value is ForkAttribution {
-  if (!value || typeof value !== 'object') return false;
-  const attribution = value as Record<string, unknown>;
-  return (
-    typeof attribution.id === 'string' &&
-    !validateId(attribution.id) &&
-    typeof attribution.name === 'string' &&
-    attribution.name.trim().length > 0 &&
-    typeof attribution.creatorGithub === 'string' &&
-    VALID_GH_LOGIN.test(attribution.creatorGithub) &&
-    typeof attribution.forkedAt === 'string' &&
-    !Number.isNaN(Date.parse(attribution.forkedAt))
-  );
-}
-
-/** Build a snapshot only from fields which the source registry actually
- * contains. Returning undefined rather than inventing a name, creator, or
- * timestamp is the compatibility rule for legacy lineage. */
-function snapshotForkAttribution(
-  sourceId: string,
-  source: Record<string, unknown> | undefined,
-  forkedAt: unknown,
-): ForkAttribution | undefined {
-  if (
-    !source ||
-    source.id !== sourceId ||
-    typeof source.name !== 'string' ||
-    !source.name.trim() ||
-    typeof source.creatorGithub !== 'string' ||
-    !VALID_GH_LOGIN.test(source.creatorGithub) ||
-    typeof forkedAt !== 'string' ||
-    Number.isNaN(Date.parse(forkedAt))
-  ) {
-    return undefined;
-  }
-  return {
-    id: sourceId,
-    name: source.name.trim(),
-    creatorGithub: source.creatorGithub,
-    forkedAt,
-  };
-}
-
-/**
- * Present old string lineage as rich attribution only when the registry has all
- * four facts: the old target's creation timestamp plus the source id, name and
- * creator. Otherwise leave the string intact; guessing would make a mutable
- * source look like an immutable historical credit.
- */
-export function normalizeForkedFrom(
-  value: unknown,
-  registry: Array<Record<string, unknown>>,
-  legacyForkedAt: unknown,
-): ForkedFrom | undefined {
-  if (isForkAttribution(value)) return value;
-  if (typeof value !== 'string' || validateId(value)) return undefined;
-  return (
-    snapshotForkAttribution(
-      value,
-      registry.find((entry) => entry.id === value),
-      legacyForkedAt,
-    ) ?? value
-  );
-}
 
 /** Freeze safely-upgradable #35 records the next time a registry write already
  * occurs. Entries without all source facts deliberately remain legacy strings. */
