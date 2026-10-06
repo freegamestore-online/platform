@@ -1,24 +1,23 @@
 /** Durable Object: one instance per agent session.
  *  Stores conversation history, virtual filesystem, token usage, deploy status. */
 
+import { corsHeaders } from "@freegamestore/contracts";
 import { runAgentTurn } from "./agent";
 import type { StoreConfig } from "./config";
 import { getConfig } from "./config";
 import { type DeployEnv, type DeployStatus, fetchRepoFiles, fetchRepoHeadSha, fetchTemplateSeed, resolveSeedFiles } from "./deploy";
-import { reportPlatformError } from "./errlog";
 import type { Env } from "./index";
-import { executeInfraTool } from "./infra-exec";
+import { executeInfraRound } from "./infra-round";
 import { compKeyFor, getActiveComp } from "./keygrants";
 import { keyStatus, resolveUserKey } from "./keys";
 import { OwnershipLookupError, ownsGame } from "./ownership";
 import type { AIConfig, Message, TokenUsage } from "./providers/types";
 import { isValidPushSubscription, type PushSubscription, sendWebPush } from "./push";
-import { allowDeploy, allowRequest } from "./ratelimit";
+import { allowRequest } from "./ratelimit";
 import { enforceSessionBudget } from "./session-budget";
-import { corsHeaders, jsonResponse as json, routeSessionRequest } from "./session-router";
+import { jsonResponse as json, routeSessionRequest } from "./session-router";
 import { activityFromDeployStatus, bumpSessionTokens, updateSessionActivity, upsertSessionIndex } from "./sessions";
 import { ENGINE_TEMPLATE_REPOS } from "./template";
-import { clampToolResultForHistory } from "./tools";
 import { TurnOrchestrator } from "./turn-orchestrator";
 import { armWatchdog, createTurnFence, lockIsStale } from "./watchdog";
 
@@ -150,6 +149,11 @@ function deployStatusDetail(status: DeployStatus): string {
     default:
       return status.phase;
   }
+}
+
+/** Keep only the last N messages, trimming from the front when needed. */
+function trimTranscript(messages: Message[], maxLen: number): Message[] {
+  return messages.length > maxLen ? messages.slice(-maxLen) : messages;
 }
 
 export class AgentSession implements DurableObject {
@@ -286,7 +290,6 @@ export class AgentSession implements DurableObject {
     });
   }
 
-  /** POST /chat — stream an agent turn via SSE */
   /** Resolve the effective AIConfig for a turn: explicit key (MCP BYO) →
    *  vault key for requested provider → any saved vault key when the request is
    *  for the free GitHub tier → complimentary grant → free tier (github,
@@ -357,6 +360,7 @@ export class AgentSession implements DurableObject {
     return true;
   }
 
+  /** POST /chat — stream an agent turn via SSE */
   private async handleChat(request: Request): Promise<Response> {
     if (this.chatInProgress && !(await this.breakStaleLock())) {
       return json({ error: "A build is already in progress for this game — wait for it to finish." }, 429, request, this.config.domain);
@@ -474,7 +478,7 @@ export class AgentSession implements DurableObject {
       const history = session.messages.slice();
       session.messages.push({ role: "user", content: body.message, ts: Date.now() });
       session.pivotAttempted = false; // new turn — clear any prior different-game block
-      if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
+      session.messages = trimTranscript(session.messages, MAX_MESSAGES);
       await this.save();
 
       // Persist the pending-turn record + arm the resurrection heartbeat BEFORE
@@ -720,8 +724,7 @@ export class AgentSession implements DurableObject {
         // persistNow so it never blocks the stream.
         const checkpoint = fence.guard((msgs: typeof session.messages) => {
           this.lastTurnEventAt = Date.now();
-          session.messages = preTurn.concat(msgs);
-          if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
+          session.messages = trimTranscript(preTurn.concat(msgs), MAX_MESSAGES);
           session.files = Object.fromEntries(files);
           session.deletedFiles = [...deletedFiles];
           this.persistNow().catch((e) => this.logError("storage", `checkpoint persist: ${String(e)}`));
@@ -759,8 +762,7 @@ export class AgentSession implements DurableObject {
         // Rebuild from the pre-turn snapshot: newMessages already begins with
         // the user message we pre-saved, so this supersedes the provisional save
         // without duplicating the user turn.
-        session.messages = preTurn.concat(result.newMessages);
-        if (session.messages.length > MAX_MESSAGES) session.messages = session.messages.slice(-MAX_MESSAGES);
+        session.messages = trimTranscript(preTurn.concat(result.newMessages), MAX_MESSAGES);
         session.files = Object.fromEntries(files);
         session.deletedFiles = [...deletedFiles];
         // Accumulate this turn's token usage into the persisted running total
@@ -781,205 +783,44 @@ export class AgentSession implements DurableObject {
         if (result.infraRequests.length === 0) return { hasInfraRequests: false, successfulDeploy: false };
 
         // Execute infra tools server-side, then loop to feed results back.
-        {
-          if (!deployEnv) {
-            const msg = "Server configuration error: deploy environment not available.";
-            this.appendAssistantError("deploy", msg);
-            setActivity({ phase: "error", detail: msg });
-            await this.save();
-            sendSSE({ type: "error", data: msg });
-            return { hasInfraRequests: false, successfulDeploy: false };
-          }
+        if (!deployEnv) {
+          const msg = "Server configuration error: deploy environment not available.";
+          this.appendAssistantError("deploy", msg);
+          setActivity({ phase: "error", detail: msg });
+          await this.save();
+          sendSSE({ type: "error", data: msg });
+          return { hasInfraRequests: false, successfulDeploy: false };
+        }
 
-          const infraResults: { id: string; content: string }[] = [];
-          for (const req of result.infraRequests) {
-            // A superseded turn must not deploy or push over the replacement.
-            if (!fence.isCurrent()) return { hasInfraRequests: false, successfulDeploy: false };
-            const tc = req.toolCall;
-            let toolResult: string;
-
-            // Per-user deploy budget. deploy + push_update both spend the SHARED
-            // platform GITHUB_TOKEN, so gate them per user regardless of whether
-            // the chat itself ran on the free tier or a BYO key. A blocked call
-            // still emits a tool_result below so the tool_use stays paired.
-            // Drift guard: if the repo moved OUTSIDE this session since it last
-            // synced (a direct fix, another session, git), pushing session
-            // files would silently overwrite that work — it clobbered a
-            // hand-restored game within minutes (cat-clicker, 2026-07-11).
-            // Refuse with guidance instead. Skipped when we have no reference
-            // SHA (legacy sessions) — better a rare overwrite than blocking
-            // every legacy push.
-            if (tc.name === "push_update" && session.appId) {
-              const known = session.lastPushedSha || session.importedSha;
-              if (known) {
-                const head = await fetchRepoHeadSha(session.appId, this.env.GITHUB_TOKEN, this.config).catch(() => null);
-                if (head && head !== known) {
-                  toolResult = `Error: the ${this.config.noun}'s code was changed OUTSIDE this chat since it last synced (a direct edit or another session). Pushing now would overwrite those changes. Tell the user to RE-OPEN this ${this.config.noun} from My Games (which re-syncs the files) and then re-apply the change.`;
-                  this.logError(
-                    "drift",
-                    `push_update blocked: repo HEAD ${head?.slice(0, 7)} != session ${known.slice(0, 7)} for ${session.appId}`,
-                  );
-                  sendSSE({ type: "tool_result", data: JSON.stringify({ id: tc.id, tool: tc.name, result: toolResult }) });
-                  infraResults.push({ id: tc.id, content: toolResult });
-                  continue;
-                }
-              }
-            }
-
-            // Pivot guard: a chat is bound to ONE game (its repo + files +
-            // history). Once the agent tries to `deploy` a DIFFERENT game id than
-            // the bound one — the "build a new game in this chat" attempt, which
-            // executeDeploy rejects — refuse push_update for the rest of the turn
-            // too. Otherwise the agent, told to "create a new project", falls back
-            // to push_update and OVERWRITES the bound game with the different
-            // game's code (slicing-game shipped as Beat Star, 2026-07-18). The
-            // only safe path is a fresh chat, so send the user there. A deploy of
-            // the CORRECT id clears the flag (recovers from a one-off typo'd id).
-            if (tc.name === "deploy" && session.appId) {
-              const wantId = typeof tc.input.id === "string" ? tc.input.id.trim() : "";
-              session.pivotAttempted = wantId !== "" && wantId !== session.appId;
-            }
-            if (tc.name === "push_update" && session.pivotAttempted) {
-              const label = session.appName || session.appId;
-              toolResult = `Error: this chat builds "${label}" — you just tried to deploy a DIFFERENT ${this.config.noun}, so push_update now would OVERWRITE "${session.appId}" with it. Do NOT push_update. Tell the user this chat is tied to "${label}", and that to build a different ${this.config.noun} they must start a new one with the "New ${this.config.Noun}" button (it opens a fresh chat).`;
-              this.logError("pivot", `push_update blocked: session bound to ${session.appId} after a different-game deploy attempt`);
-              sendSSE({ type: "tool_result", data: JSON.stringify({ id: tc.id, tool: tc.name, result: toolResult }) });
-              infraResults.push({ id: tc.id, content: toolResult });
-              continue;
-            }
-
-            const spendsSharedToken = tc.name === "deploy" || tc.name === "push_update";
-            if (spendsSharedToken && userId && !(await allowDeploy(this.env.DB, userId, Math.floor(Date.now() / 1000)))) {
-              toolResult = `Error: you've hit the deploy limit (30/hour). Wait a bit before deploying again.`;
-              this.logError("ratelimit", `deploy rate limit hit for ${userId}`);
-              sendSSE({ type: "tool_result", data: JSON.stringify({ id: tc.id, tool: tc.name, result: toolResult }) });
-              infraResults.push({ id: tc.id, content: toolResult });
-              continue;
-            }
-
-            try {
-              toolResult = await executeInfraTool(tc, {
-                appId: session.appId,
-                files,
-                deletedFiles,
-                env: deployEnv,
-                config,
-                creatorLogin,
-                seed: session.seed,
-                engine: session.engine,
-                onDeployStatus: fence.guard((status: DeployStatus) => {
-                  session.deployStatus = status;
-                  setActivity(activityFromDeployStatus(status));
-                  this.logDeploy(status);
-                  this.persistNow().catch((e) => this.logError("deploy", `persist status: ${String(e)}`));
-                  sendSSE({ type: "deploy_status", data: JSON.stringify(status) });
-                  // Record the repo HEAD this push produced — the drift guard's
-                  // reference for the next push_update. On BOTH live and error:
-                  // a failed build still landed the session's own commit, and
-                  // leaving the old reference made the session's next self-fix
-                  // push read as foreign drift (orb-cascade, 2026-07-12).
-                  if ((status.phase === "live" || status.phase === "error") && session.appId) {
-                    fetchRepoHeadSha(session.appId, this.env.GITHUB_TOKEN, this.config)
-                      .then((sha) => {
-                        if (sha && this.session) {
-                          this.session.lastPushedSha = sha;
-                          this.persistNow().catch(() => {});
-                        }
-                      })
-                      .catch(() => {});
-                  }
-                  if (status.phase === "live") {
-                    this.sendPush("Your build is live!");
-                  } else if (status.phase === "error") {
-                    this.appendAssistantError("deploy", status.error);
-                    this.sendPush("Build failed");
-                    // Durable, centrally-discoverable record of the failure (#21).
-                    // Without this a deploy failure existed only in this DO's
-                    // errors[] array and Workers Logs, so the admin Errors view,
-                    // Ops panel and Overview counts all read ZERO during a wave of
-                    // failures — and triage required already knowing the session
-                    // id. Fire-and-forget: reporting a failure must never become a
-                    // second failure, and must not delay the user's error.
-                    reportPlatformError(this.env, config.domain, {
-                      source: "agent/deploy",
-                      user: userId || null,
-                      context: `gameId=${session.appId ?? "?"} sessionId=${sessionId}`,
-                      message: status.error,
-                    }).catch(() => {});
-                    // KEEP appId/appName: in Path B the repo + host route +
-                    // registry are already created (registerViaAdmin) before the
-                    // Actions build can fail, so the game IS provisioned — it just
-                    // didn't build. Nulling appId told the next turn "not deployed"
-                    // → it ran a fresh `deploy` → the uniqueness check saw the
-                    // existing repo → "ID already taken", stranding the game with
-                    // no in-session recovery. Retained, the next turn does
-                    // push_update against the existing repo and re-runs CI.
-                    this.persistNow().catch((e) => this.logError("deploy", `persist error: ${String(e)}`));
-                  }
-                }),
-                onAppBound: fence.guard((id: string, name: string) => {
-                  session.appId = id;
-                  session.appName = name;
-                  session.deployStatus = { phase: "provisioning", steps: [] };
-                  setActivity({ phase: "provisioning", detail: "Provisioning" });
-                  this.persistNow().catch((e) => this.logError("deploy", `persist provision: ${String(e)}`));
-                }),
-                onAppDeployed: fence.guard(() => {
-                  // Reached only on a CI-confirmed live build. `deployed` is the
-                  // session's own record that this game genuinely shipped at least
-                  // once — distinct from appId, which is set at bind time and
-                  // survives a failed build so the agent can push_update a fix.
-                  session.deployed = true;
-                  this.persistNow().catch((e) => this.logError("deploy", `persist deployed: ${String(e)}`));
-                }),
-              });
-            } catch (err) {
-              toolResult = `Tool ${tc.name} threw an error: ${String(err)}`;
-              this.logError("infra", toolResult);
-            }
-
-            sendSSE({ type: "tool_result", data: JSON.stringify({ id: tc.id, tool: tc.name, result: toolResult.slice(0, 500) }) });
-            // Same per-tool history budget as file tools: fetch_url carries whole
-            // source files — the old flat 3000-char cap starved the model.
-            infraResults.push({ id: tc.id, content: clampToolResultForHistory(tc.name, toolResult) });
-          }
-
-          // Merge infra results into the tool_result message the agent already
-          // appended for this turn's file tools, if any. A single assistant
-          // message can carry BOTH file and infra tool_uses; splitting their
-          // results across two separate tool_result messages leaves the infra
-          // tool_use unpaired on the next turn → a hard 400 from the provider
-          // ("tool_use without tool_result") that bricks the session until reset.
-          const lastMsg = session.messages[session.messages.length - 1];
-          if (lastMsg?.role === "tool_result" && lastMsg.toolResults) {
-            lastMsg.toolResults.push(...infraResults);
-          } else {
-            session.messages.push({ role: "tool_result", content: "", toolResults: infraResults, ts: Date.now() });
-          }
-
-          if (!fence.isCurrent()) return { hasInfraRequests: false, successfulDeploy: false };
-          // Persist state after all infra tools complete
+        return await executeInfraRound({
+          session,
+          files,
+          deletedFiles,
+          deployEnv,
+          config,
+          env: this.env,
+          userId,
+          sessionId,
+          creatorLogin,
+          seed: session.seed,
+          engine: session.engine,
+          infraRequests: result.infraRequests.map((r) => ({ id: r.toolCall.id, toolCall: r.toolCall })),
+          newMessages: result.newMessages,
+          fence,
+          sendSSE,
+          setActivity,
+          logError: (source: string, message: string) => this.logError(source, message),
+          logDeploy: (status: DeployStatus) => this.logDeploy(status),
+          appendAssistantError: (source: string, message: string) => this.appendAssistantError(source, message),
+          sendPush: (message: string) => this.sendPush(message),
+          persistNow: () => this.persistNow(),
+        }).then((infraRoundResult) => {
+          // After infra round, result.newMessages has been modified with infra results
+          session.messages = trimTranscript(preTurn.concat(result.newMessages), MAX_MESSAGES);
           session.files = Object.fromEntries(files);
           session.deletedFiles = [...deletedFiles];
-          await this.save();
-
-          // A SUCCESSFUL deploy/push_update is terminal (its progress streams
-          // via deploy_status). A FAILED one resumes the model instead — it
-          // sees the error tool_result, reads get_build_logs (which now carries
-          // the actual failing lines) and fixes + re-pushes in the SAME turn.
-          // Read-type tools always resume. MAX_INFRA_ROUNDS bounds the loop.
-          const hadDeploy = result.infraRequests.some((r) => r.toolCall.name === "deploy" || r.toolCall.name === "push_update");
-          // The string check used to be `startsWith("Error")` alone, which never
-          // matched what the deploy executors actually return — executeDeploy
-          // returns "Deploy FAILED: …" and executePushUpdate returns "Update
-          // pushed but the build FAILED: …". Detection therefore rested entirely
-          // on session.deployStatus, with the string arm as dead code. Match the
-          // real strings so either signal alone is enough to resume the model.
-          const failedResult = (c: string) =>
-            c.startsWith("Error") || c.includes("Deploy FAILED:") || c.includes("Update pushed but the build FAILED:");
-          const deployFailed = hadDeploy && (session.deployStatus?.phase === "error" || infraResults.some((r) => failedResult(r.content)));
-          return { hasInfraRequests: true, successfulDeploy: hadDeploy && !deployFailed };
-        }
+          return this.save().then(() => infraRoundResult);
+        });
       });
 
       sendSSE({ type: "done", data: "" });
@@ -1078,7 +919,7 @@ export class AgentSession implements DurableObject {
     if (!this.session) return;
     if (!message.ts) message.ts = Date.now();
     this.session.messages.push(message);
-    if (this.session.messages.length > MAX_MESSAGES) this.session.messages = this.session.messages.slice(-MAX_MESSAGES);
+    this.session.messages = trimTranscript(this.session.messages, MAX_MESSAGES);
   }
 
   /** Surface a failure INTO the visible transcript (not just SSE/logError), so
@@ -1269,10 +1110,10 @@ export class AgentSession implements DurableObject {
     session.deployStatus = { phase: "live", appUrl };
     await this.save();
 
-    // NOTE: the D1 session index (agent_sessions) is owned by the worker +
-    // frontend (the DO has no session-id string and never writes D1). The
-    // frontend's putSession/markDeployed after this import keeps that row in
-    // sync, so we don't upsert it here.
+    // NOTE: the D1 session index (agent_sessions) is maintained by both the DO
+    // (via upsertSessionIndex in handleChat) and the frontend. The frontend's
+    // putSession/markDeployed after this import keeps that row in sync, so we
+    // don't duplicate it here.
     return json({ ok: true, id, name: session.appName, appUrl, fileCount: files.size }, 200, request, this.config.domain);
   }
 
