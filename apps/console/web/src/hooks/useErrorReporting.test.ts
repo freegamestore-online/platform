@@ -157,7 +157,7 @@ describe('useProjects — openGame error propagation for useAgent wiring', () =>
     act(() => {
       openGamePromise = result.current.openGame('missing-game').catch((e) => {
         // OpenSupersededError is absorbed; other errors propagate
-        if (e instanceof OpenSupersededError) return;
+        if (e instanceof OpenSupersededError) return undefined;
         throw e;
       });
     });

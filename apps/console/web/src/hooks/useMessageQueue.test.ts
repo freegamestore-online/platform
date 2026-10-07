@@ -114,7 +114,8 @@ describe('useMessageQueue', () => {
 
   it('assigns unique IDs to messages', () => {
     const { result } = renderHook(() => useMessageQueue());
-    let id1: string, id2: string;
+    let id1 = '';
+    let id2 = '';
 
     act(() => {
       id1 = result.current.add('message 1');

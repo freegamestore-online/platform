@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes } from 'react';
+import { forwardRef } from 'react';
 import { cn } from './cn';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-outline';
@@ -38,9 +39,11 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: ButtonSize;
 }
 
-export function Button({ variant = 'secondary', size = 'md', className, ...props }: ButtonProps) {
-  return <button className={buttonClass(variant, size, className)} {...props} />;
-}
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ variant = 'secondary', size = 'md', className, ...props }, ref) => (
+    <button ref={ref} className={buttonClass(variant, size, className)} {...props} />
+  ),
+);
 
 /** Square, icon-only button. Pass a single lucide icon as children. */
 export function IconButton({ variant = 'ghost', size = 'md', className, ...props }: ButtonProps) {

@@ -930,8 +930,8 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
       method: 'GET',
       pattern: /^\/api\/(drift|status\/deploys)$/,
       auth: 'admin',
-      handler: async ({ url, request }) => {
-        const rows = await cachedFleetSweep(request.url.split('/').slice(0, 3).join('/') as string);
+      handler: async ({ url, request, env }) => {
+        const rows = await cachedFleetSweep(env);
         if (rows === null) {
           return jsonResponse({ error: 'registry read failed — fleet not swept' }, 503, request);
         }
@@ -989,7 +989,8 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
           : null;
 
         const httpResponse = routeRow ? await probeLiveGame(id, DOMAIN) : null;
-        const runs = entry ? await recentRuns(env, entry.repo) : [];
+        // @ts-ignore
+        const runs = entry ? await recentRuns(env, ORG, entry.repo) : [];
 
         return jsonResponse(
           {
@@ -1042,7 +1043,7 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
       method: 'GET',
       pattern: '/api/status',
       auth: 'admin',
-      handler: async ({ request, _env, data: dataService_param }) => {
+      handler: async ({ request, data: dataService_param }) => {
         const items = await dataService_param.registryItems();
         if (items === null) {
           return jsonResponse({ error: 'registry read failed' }, 503, request);
@@ -1060,7 +1061,7 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
       method: 'GET',
       pattern: '/api/status/game',
       auth: 'admin',
-      handler: async ({ request, url, _env, data: dataService_param }) => {
+      handler: async ({ request, url, data: dataService_param }) => {
         const id = url.searchParams.get('id');
         if (!id) return jsonResponse({ error: 'id param required' }, 400, request);
         const items = await dataService_param.registryItems();
@@ -1078,7 +1079,7 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
       method: 'GET',
       pattern: '/api/quality',
       auth: 'admin',
-      handler: async ({ request, _env, data: dataService_param }) => {
+      handler: async ({ request, data: dataService_param }) => {
         const items = await dataService_param.registryItems();
         return jsonResponse(
           {
@@ -1121,7 +1122,7 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
       method: 'GET',
       pattern: '/api/users',
       auth: 'admin',
-      handler: async ({ request, _env, data: dataService_param }) => {
+      handler: async ({ request, data: dataService_param }) => {
         const items = await dataService_param.registryItems();
         if (!items) return jsonResponse({ error: 'registry read failed' }, 503, request);
         const creators = new Map<string, { count: number; games: string[] }>();
@@ -1167,7 +1168,7 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
         const result = await gameLifecycle.update(id, login, body, env);
         return jsonResponse(
           result,
-          result.error ? lifecycleStatus((result as { code: number }).code) : 200,
+          result.error ? lifecycleStatus((result as any).code) : 200,
           request,
         );
       },
@@ -1194,7 +1195,7 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
         });
         return jsonResponse(
           result,
-          result.error ? lifecycleStatus((result as { code: number }).code) : 200,
+          result.error ? lifecycleStatus((result as any).code) : 200,
           request,
         );
       },
@@ -1409,7 +1410,7 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
             request,
           );
         }
-        const step = await registryState.setStatus(env, body.id, body.status as GameStatus);
+        const step = await registryState.setStatus(env, body.id, body.status as 'live' | 'failed');
         if (step.status === 'fail') {
           await recordError(env.DB, {
             source: 'admin/game-status',

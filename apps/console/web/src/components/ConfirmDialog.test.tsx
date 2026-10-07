@@ -142,7 +142,7 @@ describe('ConfirmDialog', () => {
     );
 
     const dialogs = screen.getAllByRole('dialog');
-    const dialog = dialogs[dialogs.length - 1];
+    const dialog = dialogs[dialogs.length - 1]!;
     fireEvent.click(dialog);
 
     expect(onCancel).not.toHaveBeenCalled();

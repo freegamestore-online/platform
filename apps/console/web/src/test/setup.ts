@@ -54,3 +54,5 @@ try {
 if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
+
+import '@testing-library/jest-dom';

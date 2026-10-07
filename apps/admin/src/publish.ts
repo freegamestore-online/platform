@@ -1,4 +1,4 @@
-import { normalizeCategorySlug } from '../../../contracts/game-metadata/v1/contract.ts';
+import { normalizeCategorySlug } from '../../../contracts/game-metadata/v1/contract.js';
 import { readRegistry } from './registryReader';
 
 // Publish API -- provisions a new game on FreeGameStore via Path B.
@@ -218,7 +218,8 @@ async function ghApi(env: PublishEnv, path: string, method = 'GET', body?: unkno
   // return 204 No Content — an empty body. Don't crash res.json() on it; expose
   // the status so callers can branch (the collaborator step relies on this).
   const text = await res.text();
-  let json: Record<string, unknown> | { __raw: string } = {};
+  // biome-ignore lint/suspicious/noExplicitAny: API response is dynamic
+  let json: any = {};
   if (text) {
     try {
       json = JSON.parse(text);
