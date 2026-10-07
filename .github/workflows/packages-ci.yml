@@ -55,21 +55,36 @@ jobs:
         # would drop the `web` member that its `test:web` script depends on.
         include:
           - dir: apps/admin
-            install: |
-              pnpm install --frozen-lockfile --ignore-workspace
-              npm install --prefix web
+            filter: admin
+            install: npm install --prefix web
+            cache-path: pnpm-lock.yaml
+            use-workspace: true
           - dir: apps/console
             install: pnpm install --frozen-lockfile
+            cache-path: apps/console/pnpm-lock.yaml
           - dir: workers/agent
-            install: pnpm install --frozen-lockfile --ignore-workspace
+            filter: "@freegamestore/agent"
+            install: ""
+            cache-path: pnpm-lock.yaml
+            use-workspace: true
           - dir: workers/auth
-            install: pnpm install --frozen-lockfile --ignore-workspace
+            filter: freegamestore-auth
+            install: ""
+            cache-path: pnpm-lock.yaml
+            use-workspace: true
           - dir: workers/host
-            install: pnpm install --frozen-lockfile --ignore-workspace
+            filter: host
+            install: ""
+            cache-path: pnpm-lock.yaml
+            use-workspace: true
           - dir: workers/leaderboard
-            install: pnpm install --frozen-lockfile --ignore-workspace
+            filter: freegamestore-leaderboard
+            install: ""
+            cache-path: pnpm-lock.yaml
+            use-workspace: true
           - dir: jobs/auditor
             install: pnpm install --frozen-lockfile --ignore-workspace
+            cache-path: pnpm-lock.yaml
     defaults:
       run:
         working-directory: ${{ matrix.dir }}
@@ -88,11 +103,25 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: ${{ matrix.dir }}/pnpm-lock.yaml
+          cache-dependency-path: ${{ matrix.cache-path }}
 
-      - run: ${{ matrix.install }}
-      - run: pnpm typecheck
-      - run: pnpm test
+      - if: ${{ matrix.use-workspace }}
+        run: pnpm install --frozen-lockfile
+        working-directory: .
+      - if: ${{ !matrix.use-workspace }}
+        run: ${{ matrix.install }}
+      - if: ${{ matrix.install != '' }}
+        run: ${{ matrix.install }}
+      - if: ${{ matrix.use-workspace }}
+        run: pnpm --filter ${{ matrix.filter }} typecheck
+        working-directory: .
+      - if: ${{ !matrix.use-workspace }}
+        run: pnpm typecheck
+      - if: ${{ matrix.use-workspace }}
+        run: pnpm --filter ${{ matrix.filter }} test
+        working-directory: .
+      - if: ${{ !matrix.use-workspace }}
+        run: pnpm test
 
   # workers/mcp: Use pnpm to install from root to properly resolve workspace deps
   # (especially devDependencies like @cloudflare/workers-types). Use pnpm filter
