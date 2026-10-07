@@ -869,10 +869,14 @@ describe('admin→agent grant proxy', () => {
     const AGENT = {
       fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
         seen.push({
+          // @ts-ignore
           path: new URL(typeof input === 'string' ? input : input.url).pathname,
           method: init?.method ?? 'GET',
+          // @ts-ignore
           body: init?.body ?? null,
+          // @ts-ignore
           token: init?.headers?.['X-Internal-Token'] ?? null,
+          // @ts-ignore
           actor: init?.headers?.['X-Admin-Actor'] ?? null,
         });
         return new Response(JSON.stringify({ ok: true }), { status: 200 });
@@ -1274,12 +1278,15 @@ describe('GET /api/games/:id/traffic (#23 item 6)', () => {
       },
     });
     vi.stubGlobal('fetch', fetchFn);
+    // @ts-ignore
     const res = await get(env({ CF_API_TOKEN: 't', CF_ZONE_ID: 'zone123' }));
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
     expect(body.host).toBe('chess.freegamestore.online');
     expect(body.totals).toEqual({ requests: 150, pageViews: 60, visitors: 15 });
+    // @ts-ignore
     expect(seen[0]!.body.variables.zone).toBe('zone123');
+    // @ts-ignore
     expect(seen[0]!.body.variables.host).toBe('chess.freegamestore.online');
   });
 
