@@ -18,6 +18,6 @@
     "test:functions": "vitest run -c vitest.functions.config.ts"
   },
   "devDependencies": {
-    "vitest": "^4.1.7"
+    "vitest": "^2.1.0"
   }
 }
