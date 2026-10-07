@@ -1,3 +1,5 @@
+import '@testing-library/jest-dom/vitest';
+
 // Test environment setup.
 //
 // Node 22+ ships an experimental global `localStorage` that is unavailable
@@ -5,6 +7,7 @@
 // one jsdom would otherwise provide — so `localStorage.clear()` etc. throw in
 // tests (it silently broke ai-keys.test.ts). Install a small in-memory Storage
 // so both the tests and the code under test have a working localStorage.
+
 class MemoryStorage implements Storage {
   private store = new Map<string, string>();
   get length(): number {
@@ -54,5 +57,3 @@ try {
 if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
-
-import '@testing-library/jest-dom';
