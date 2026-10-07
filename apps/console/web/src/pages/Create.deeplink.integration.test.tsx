@@ -273,6 +273,13 @@ describe('Create — delete session', () => {
     const deleteBtn = screen.getByRole('button', { name: /Delete chat Ocean Save/i });
     fireEvent.click(deleteBtn);
 
+    // Click the confirm button in the delete dialog.
+    await waitFor(() =>
+      expect(screen.getByRole('dialog', { name: /Delete chat session/ })).toBeTruthy(),
+    );
+    const confirmDeleteBtn = screen.getByRole('button', { name: 'Delete' });
+    fireEvent.click(confirmDeleteBtn);
+
     // After deletion the studio must switch to Game Y (the next in the list).
     await waitFor(() => expect(screen.getByTitle('Switch game').textContent).toContain('Game Y'), {
       timeout: 4000,
@@ -300,6 +307,13 @@ describe('Create — delete session', () => {
     );
     const deleteBtn = screen.getByRole('button', { name: /Delete chat Ocean Save/i });
     fireEvent.click(deleteBtn);
+
+    // Click the confirm button in the delete dialog.
+    await waitFor(() =>
+      expect(screen.getByRole('dialog', { name: /Delete chat session/ })).toBeTruthy(),
+    );
+    const confirmDeleteBtn = screen.getByRole('button', { name: 'Delete' });
+    fireEvent.click(confirmDeleteBtn);
 
     // The studio must land on the empty "no session" state.
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/create'), {
