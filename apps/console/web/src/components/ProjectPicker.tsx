@@ -14,11 +14,11 @@ import { ConfirmDialog } from './ConfirmDialog';
 function statusDotColor(project: Project): string {
   switch (activityTone(project.activity, project.deployed)) {
     case 'success':
-      return '#16a34a'; // live / last build succeeded
+      return 'var(--success)'; // live / last build succeeded
     case 'accent':
-      return '#f59e0b'; // writing / provisioning / pushing / building — in progress
+      return 'var(--warning)'; // writing / provisioning / pushing / building — in progress
     case 'danger':
-      return '#ef4444'; // last build failed
+      return 'var(--error)'; // last build failed
     default:
       return 'var(--line-strong)'; // never built / unknown
   }
@@ -93,10 +93,13 @@ export function ProjectPicker({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 flex items-center justify-center"
       role="dialog"
       aria-label="Project picker"
-      style={{ background: 'rgba(0,0,0,0.5)' }}
+      style={{
+        background: 'var(--overlay-bg)',
+        zIndex: 'var(--z-modal)',
+      }}
       onClick={onClose}
       onKeyDown={(e) => {
         if (e.key === 'Escape') onClose();

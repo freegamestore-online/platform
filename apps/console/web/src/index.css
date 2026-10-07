@@ -28,6 +28,12 @@
   --warning: #fbbf24;
   --error: #ef4444;
 
+  /* Z-index layers */
+  --z-modal: 50;
+
+  /* Overlay */
+  --overlay-bg: rgba(0, 0, 0, 0.5);
+
   /* Fonts */
   font-family: "Manrope", system-ui, sans-serif;
 }
