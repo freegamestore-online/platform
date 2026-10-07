@@ -19,9 +19,6 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/admin
     steps:
       - uses: actions/checkout@v4
       # No `version:` here on purpose — same fix as e759e8a on packages-ci.yml.
@@ -34,16 +31,14 @@ jobs:
           node-version: 22
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-      # --ignore-workspace, same fix as 9c82339 on packages-ci.yml: pnpm walks UP
-      # to the root pnpm-workspace.yaml (which covers packages/* only), resolves
-      # THAT workspace and silently skips apps/admin's own node_modules —
-      # exiting 0 while leaving the test runner missing. Pin the install to this unit.
-      - run: pnpm install --frozen-lockfile --ignore-workspace
-      - run: pnpm test
-      # apps/admin/web has no workspace file either, so pin this install too.
-      - run: npm install --prefix web
-      - run: npm run --prefix web build
-      - run: npx wrangler deploy
+      # Install from root so pnpm resolves the workspace correctly.
+      # apps/admin is now a pnpm workspace member with deps in root pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter admin test
+      # apps/admin/web has no workspace file, so pin this install.
+      - run: npm install --prefix apps/admin/web
+      - run: npm run --prefix apps/admin/web build
+      - run: cd apps/admin && npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

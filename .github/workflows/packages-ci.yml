@@ -59,9 +59,7 @@ jobs:
               pnpm install --frozen-lockfile --ignore-workspace
               npm install --prefix web
           - dir: apps/console
-            install: |
-              pnpm install --frozen-lockfile
-              npm install --prefix web
+            install: pnpm install --frozen-lockfile
           - dir: workers/agent
             install: pnpm install --frozen-lockfile --ignore-workspace
           - dir: workers/auth
@@ -96,23 +94,23 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
 
-  # workers/mcp is the one unit on npm (package-lock.json), so it needs neither
-  # pnpm/action-setup nor the pnpm cache.
+  # workers/mcp: Use pnpm to install from root to properly resolve workspace deps
+  # (especially devDependencies like @cloudflare/workers-types). Use pnpm filter
+  # to run mcp-specific commands from root.
   test-mcp:
     name: test workers/mcp
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: workers/mcp
     steps:
       - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: workers/mcp/package-lock.json
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-      - run: npm install
-      - run: npm run typecheck
-      - run: npm test
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter freegamestore-mcp typecheck
+      - run: pnpm --filter freegamestore-mcp test
