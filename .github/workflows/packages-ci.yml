@@ -113,6 +113,9 @@ jobs:
       - if: ${{ matrix.install != '' }}
         run: ${{ matrix.install }}
       - if: ${{ matrix.use-workspace }}
+        run: pnpm build
+        working-directory: .
+      - if: ${{ matrix.use-workspace }}
         run: pnpm --filter ${{ matrix.filter }} typecheck
         working-directory: .
       - if: ${{ !matrix.use-workspace }}
@@ -141,5 +144,6 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
+      - run: pnpm build
       - run: pnpm --filter freegamestore-mcp typecheck
       - run: pnpm --filter freegamestore-mcp test
