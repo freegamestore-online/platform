@@ -1,4 +1,4 @@
-import { ArrowUp, ExternalLink, Plus, Send, X } from 'lucide-react';
+import { ArrowUp, Edit2, ExternalLink, Plus, Send, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ChatMessage } from '../components/ChatMessage';
@@ -13,6 +13,7 @@ import { StatusBar } from '../components/StatusBar';
 import { StudioToolbar } from '../components/StudioToolbar';
 import { Button, buttonClass } from '../components/ui';
 import { type AIConfig, useAgent } from '../hooks/useAgent';
+import { useMessageQueue } from '../hooks/useMessageQueue';
 import { useAuth } from '../hooks/useAuth';
 import { UUID_RE, useCreateRouteSync } from '../hooks/useCreateRouteSync';
 import { useKeys } from '../hooks/useKeys';
@@ -34,6 +35,9 @@ export function Create() {
   const { user, loading, signIn, agentError, retryAgentSession } = useAuth();
   const agent = useAgent();
   const keys = useKeys();
+  const messageQueue = useMessageQueue();
+  const [editingQueueId, setEditingQueueId] = useState<string | null>(null);
+  const [editingQueueContent, setEditingQueueContent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -197,14 +201,22 @@ export function Create() {
 
   const handleSend = useCallback(async () => {
     const msg = inputValue.trim();
-    if (!msg || agent.isStreaming) return;
+    if (!msg) return;
+
+    if (agent.isStreaming) {
+      // Queue the message instead of sending while agent is working
+      messageQueue.add(msg);
+      setInputValue('');
+      return;
+    }
+
     if (!keys.providerUsable(provider)) {
       await sendPrompt(msg);
       return;
     }
     setInputValue('');
     await sendPrompt(msg);
-  }, [inputValue, agent.isStreaming, keys.providerUsable, provider, sendPrompt]);
+  }, [inputValue, agent.isStreaming, keys.providerUsable, provider, sendPrompt, messageQueue]);
 
   useEffect(() => {
     const gameId = currentProject?.appId;
@@ -269,6 +281,24 @@ export function Create() {
     provider,
     sendPrompt,
   ]);
+
+  // Auto-send queued messages when the agent finishes streaming
+  useEffect(() => {
+    if (agent.isStreaming || messageQueue.isEmpty) return;
+    const next = messageQueue.getFirst();
+    if (!next) return;
+
+    messageQueue.removeFirst();
+    setInputValue(next.content);
+    // Trigger the send on next render
+    setTimeout(() => {
+      setInputValue((current) => {
+        void sendPrompt(current.trim());
+        setInputValue('');
+        return '';
+      });
+    }, 0);
+  }, [agent.isStreaming, messageQueue, sendPrompt]);
 
   useStudioViewportLock();
 
@@ -562,6 +592,82 @@ export function Create() {
             })()}
             <div ref={messagesEndRef} />
           </div>
+          {/* Message Queue Display */}
+          {messageQueue.size > 0 && (
+            <div
+              style={{
+                padding: '0.5rem 0.75rem',
+                borderTop: '1px solid var(--border)',
+                background: 'rgba(102, 126, 234, 0.05)',
+                fontSize: '0.85rem',
+              }}
+            >
+              <div style={{ color: 'var(--muted)', marginBottom: '0.5rem' }}>
+                Queued ({messageQueue.size}):
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {messageQueue.queue.map((msg, idx) => (
+                  <div
+                    key={msg.id}
+                    style={{
+                      display: 'flex',
+                      gap: '0.5rem',
+                      alignItems: 'center',
+                      padding: '0.5rem',
+                      background: 'var(--panel)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '0.5rem',
+                    }}
+                  >
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {msg.content}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditingQueueId(msg.id);
+                        setEditingQueueContent(msg.content);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '0.25rem',
+                        color: 'var(--muted)',
+                        flexShrink: 0,
+                      }}
+                      title="Edit queued message"
+                      aria-label="Edit queued message"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => messageQueue.remove(msg.id)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '0.25rem',
+                        color: 'var(--muted)',
+                        flexShrink: 0,
+                      }}
+                      title="Remove from queue"
+                      aria-label="Remove from queue"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div
             className="flex gap-2 shrink-0"
             style={{
@@ -570,35 +676,75 @@ export function Create() {
               background: 'var(--surface)',
             }}
           >
-            <textarea
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              placeholder="Build me a space invaders game..."
-              aria-label="Describe your game"
-              rows={1}
-              className="flex-1 resize-none rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] text-sm px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:border-[var(--accent)]"
-              style={{
-                minHeight: 44,
-                maxHeight: 100,
-                fontFamily: 'Manrope, system-ui, sans-serif',
-              }}
-            />
-            <Button
-              variant="primary"
-              onClick={handleSend}
-              disabled={agent.isStreaming}
-              className="self-end w-11 px-0"
-              title="Send"
-              aria-label="Send"
-            >
-              <Send className="w-4 h-4" />
-            </Button>
+            {editingQueueId ? (
+              <>
+                <textarea
+                  value={editingQueueContent}
+                  onChange={(e) => setEditingQueueContent(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setEditingQueueId(null);
+                      setEditingQueueContent('');
+                    }
+                  }}
+                  placeholder="Edit your message..."
+                  aria-label="Edit queued message"
+                  rows={1}
+                  className="flex-1 resize-none rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] text-sm px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:border-[var(--accent)]"
+                  style={{
+                    minHeight: 44,
+                    maxHeight: 100,
+                    fontFamily: 'Manrope, system-ui, sans-serif',
+                  }}
+                  autoFocus
+                />
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    messageQueue.update(editingQueueId, editingQueueContent.trim());
+                    setEditingQueueId(null);
+                    setEditingQueueContent('');
+                  }}
+                  className="self-end w-11 px-0"
+                  title="Save edit"
+                  aria-label="Save edit"
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </>
+            ) : (
+              <>
+                <textarea
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  placeholder="Build me a space invaders game..."
+                  aria-label="Describe your game"
+                  rows={1}
+                  className="flex-1 resize-none rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] text-sm px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:border-[var(--accent)]"
+                  style={{
+                    minHeight: 44,
+                    maxHeight: 100,
+                    fontFamily: 'Manrope, system-ui, sans-serif',
+                  }}
+                />
+                <Button
+                  variant="primary"
+                  onClick={handleSend}
+                  disabled={!inputValue.trim()}
+                  className="self-end w-11 px-0"
+                  title="Send"
+                  aria-label="Send"
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </>
+            )}
           </div>
         </div>
         {/* Preview */}
