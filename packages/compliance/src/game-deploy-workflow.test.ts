@@ -16,6 +16,7 @@ describe('GAME_DEPLOY_WORKFLOW', () => {
   });
 
   it('leaves GitHub expressions for Actions to expand', () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions template syntax in string literal
     expect(GAME_DEPLOY_WORKFLOW).toContain('group: ${{ github.workflow }}-${{ github.ref }}');
   });
 });

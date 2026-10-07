@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@cloudflare/workers-oauth-provider": "^0.8.1",
-    "@freegamestore/contracts": "workspace:*",
+    "@freegamestore/contracts": "file:../../packages/contracts",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "agents": "^0.24.0",
     "hono": "^4.13.9",

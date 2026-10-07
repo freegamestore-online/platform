@@ -224,7 +224,7 @@ export function useProjects() {
       // against the server here is what enforces one game ↔ one session; without
       // it, every open of an already-built game spawned a second session and a
       // duplicate picker row.
-      let existing = projects.find((p) => p.appId === gameId);
+      const existing = projects.find((p) => p.appId === gameId);
       // If not in local projects, the shared cache should have the latest version
       // since useSharedSessions is continuously synced from the server
       // If the user switched away while we were fetching sessions, discard.

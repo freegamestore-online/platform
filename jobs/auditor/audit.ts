@@ -1,7 +1,10 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { resolve } from 'path';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { type Browser, chromium } from 'playwright';
-import { REFERENCE_VIEWPORTS } from '../../contracts/game-metadata/v1/contract';
+import {
+  type ReferenceViewport,
+  REFERENCE_VIEWPORTS,
+} from '../../contracts/game-metadata/v1/contract.js';
 
 // ---------------------------------------------------------------------------
 // Reference viewports — imported from shared contract
@@ -436,6 +439,7 @@ async function auditWithBrowser(browser: Browser, url: string): Promise<AuditRes
 
     // 2. Tracking / analytics SDKs: collect evidence here, judge in Node
     // (detectTrackers) — never by searching the page text for words (#95).
+    // biome-ignore lint/suspicious/noExplicitAny: Need dynamic property access on window object
     const w = window as unknown as Record<string, any>;
     const isFn = (v: unknown) => typeof v === 'function';
     const sdkGlobals: Array<[string, boolean]> = [
@@ -626,7 +630,7 @@ function printResults(url: string, result: Awaited<ReturnType<typeof auditUrl>>)
     }
   }
 
-  const maxScore = Math.max(...REFERENCE.map((r) => r.share));
+  const maxScore = Math.max(...REFERENCE.map((r: ReferenceViewport) => r.share));
   console.log(`\nScore: ${result.score}/${maxScore}`);
   console.log(`Console errors: ${result.consoleErrors.length}`);
   if (result.consoleErrors.length > 0) {
@@ -803,7 +807,7 @@ async function main(): Promise<void> {
     printResults(url, result);
 
     // Exit with non-zero if score is below max
-    const maxScore = Math.max(...REFERENCE.map((r) => r.share));
+    const maxScore = Math.max(...REFERENCE.map((r: ReferenceViewport) => r.share));
     if (result.score < maxScore) {
       process.exit(1);
     }
