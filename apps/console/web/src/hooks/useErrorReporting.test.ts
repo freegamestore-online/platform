@@ -170,7 +170,11 @@ describe('useProjects — openGame error propagation for useAgent wiring', () =>
       resolveImport({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ name: 'Missing Game', appUrl: 'https://missing-game.freegamestore.online' }),
+        json: () =>
+          Promise.resolve({
+            name: 'Missing Game',
+            appUrl: 'https://missing-game.freegamestore.online',
+          }),
       } as Response);
       await openGamePromise;
     });

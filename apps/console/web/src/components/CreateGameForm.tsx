@@ -1,14 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { buildInitialPrompt, queueInitialBuild } from '../lib/initialBuild';
 import { reportError } from '../lib/errorReporter';
+import { buildInitialPrompt, queueInitialBuild } from '../lib/initialBuild';
 import { Button, Card, Input, Label, Select } from './ui';
 
 const FETCH_TIMEOUT_MS = 30_000;
 
-async function fetchWithTimeout(
-  url: string,
-  options: RequestInit = {},
-): Promise<Response> {
+async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {

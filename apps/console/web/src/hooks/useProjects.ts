@@ -141,8 +141,7 @@ export function useProjects() {
     // look like chat had vanished when switching between them.
     const scopedStored = readCurrentProjectId(user.sub);
     const legacyStored = readLegacyCurrentProjectId();
-    const legacyInList =
-      !!legacyStored && server.some((project) => project.id === legacyStored);
+    const legacyInList = !!legacyStored && server.some((project) => project.id === legacyStored);
     if (legacyStored && !legacyInList) clearLegacyCurrentProjectId();
     const stored = scopedStored || (legacyInList ? legacyStored : null);
     const storedInList = !!stored && server.some((project) => project.id === stored);
@@ -407,6 +406,18 @@ export function useProjects() {
       markDeployed,
       deleteProject,
     }),
-    [projects, currentId, loading, loadError, create, switchTo, openGame, startFreshChat, rename, markDeployed, deleteProject],
+    [
+      projects,
+      currentId,
+      loading,
+      loadError,
+      create,
+      switchTo,
+      openGame,
+      startFreshChat,
+      rename,
+      markDeployed,
+      deleteProject,
+    ],
   );
 }

@@ -15,9 +15,7 @@ export function useMessageQueue() {
   }, []);
 
   const update = useCallback((id: string, content: string) => {
-    setQueue((prev) =>
-      prev.map((msg) => (msg.id === id ? { ...msg, content } : msg))
-    );
+    setQueue((prev) => prev.map((msg) => (msg.id === id ? { ...msg, content } : msg)));
   }, []);
 
   const remove = useCallback((id: string) => {

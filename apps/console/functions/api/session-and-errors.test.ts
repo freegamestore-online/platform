@@ -124,5 +124,4 @@ describe('upstream failures return JSON errors, not uncaught 500s (#81)', () => 
     expect(body.creator.banned).toBe(false);
     expect(body.creator.games).toHaveLength(1);
   });
-
 });

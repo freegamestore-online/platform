@@ -905,10 +905,7 @@ async function dispatchApiRoute(
   }
 
   // Call handler
-  const match =
-    typeof route.pattern === 'string'
-      ? null
-      : pathname.match(route.pattern);
+  const match = typeof route.pattern === 'string' ? null : pathname.match(route.pattern);
 
   try {
     return await route.handler({
@@ -926,9 +923,7 @@ async function dispatchApiRoute(
 }
 
 /** Build the declarative route table. Handlers are defined inline here. */
-function buildRouteTable(
-  data: ReturnType<typeof dataService>,
-): Route[] {
+function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
   return [
     // GET /api/drift and GET /api/status/deploys
     {
@@ -1050,11 +1045,7 @@ function buildRouteTable(
       handler: async ({ request, env, data: dataService_param }) => {
         const items = await dataService_param.registryItems();
         if (items === null) {
-          return jsonResponse(
-            { error: 'registry read failed' },
-            503,
-            request,
-          );
+          return jsonResponse({ error: 'registry read failed' }, 503, request);
         }
         const games = items.map((g) => ({
           id: g?.id,
@@ -1280,11 +1271,7 @@ function buildRouteTable(
       auth: 'admin',
       handler: async ({ request, match, env }) => {
         if (!env.CF_API_TOKEN || !env.CF_ZONE_ID) {
-          return jsonResponse(
-            { error: 'CF_API_TOKEN or CF_ZONE_ID not configured' },
-            503,
-            request,
-          );
+          return jsonResponse({ error: 'CF_API_TOKEN or CF_ZONE_ID not configured' }, 503, request);
         }
         const id = match?.[1];
         if (!id) return jsonResponse({ error: 'invalid game id' }, 400, request);
@@ -1313,7 +1300,10 @@ function buildRouteTable(
               Authorization: `Bearer ${env.CF_API_TOKEN}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ query, variables: { zone: env.CF_ZONE_ID, since, until, host } }),
+            body: JSON.stringify({
+              query,
+              variables: { zone: env.CF_ZONE_ID, since, until, host },
+            }),
           });
           if (!res.ok) {
             return jsonResponse(
@@ -1438,7 +1428,8 @@ function buildRouteTable(
     // Agent proxy routes: /api/sessions, /api/allusers, /api/userkey*, /api/comp*, etc.
     {
       method: ['GET', 'POST', 'DELETE'],
-      pattern: /^\/api\/(allusers|sessions|sessionhistory|sessionerrors|sessionchat|userkey.*|comp.*)$/,
+      pattern:
+        /^\/api\/(allusers|sessions|sessionhistory|sessionerrors|sessionchat|userkey.*|comp.*)$/,
       auth: 'admin',
       handler: async ({ request, url, env }) => {
         if (!env.AGENT || !env.INTERNAL_TOKEN) {
@@ -1502,7 +1493,11 @@ function buildRouteTable(
       auth: 'public',
       handler: async ({ request, env, caller }) => {
         const internal = request.headers.get('X-Internal-Token');
-        const trusted = !!(internal && env.INTERNAL_TOKEN && safeEqual(internal, env.INTERNAL_TOKEN));
+        const trusted = !!(
+          internal &&
+          env.INTERNAL_TOKEN &&
+          safeEqual(internal, env.INTERNAL_TOKEN)
+        );
         const { isAdmin } = caller;
         const login = trusted || isAdmin ? null : caller.login;
         if (!trusted && !isAdmin && !login) {

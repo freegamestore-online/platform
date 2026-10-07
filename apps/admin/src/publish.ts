@@ -1,5 +1,5 @@
-import { readRegistry } from './registryReader';
 import { normalizeCategorySlug } from '../../../contracts/game-metadata/v1/contract.ts';
+import { readRegistry } from './registryReader';
 
 // Publish API -- provisions a new game on FreeGameStore via Path B.
 // POST /api/provision
@@ -75,7 +75,6 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, '')
     .slice(0, 58);
 }
-
 
 /** Display name for the registry (PLATFORM-ISSUES D). When the caller passes a
  *  slug-shaped name (equals the id, or all-lowercase-hyphenated), the store would
@@ -232,18 +231,17 @@ async function ghApi(env: PublishEnv, path: string, method = 'GET', body?: any) 
 }
 
 import {
-  validateGameId,
-  VALID_GH_LOGIN,
-  ownershipFacts,
-  normalizeForkedFrom,
   isForkAttribution,
+  normalizeForkedFrom,
+  ownershipFacts,
   snapshotForkAttribution,
+  VALID_GH_LOGIN,
+  validateGameId,
 } from '../../../contracts/registry-ownership/v1/contract';
 
 // Aliases for backward compatibility with existing callers and tests
 export const validateId = validateGameId;
 export { normalizeForkedFrom, ownershipFacts };
-
 
 /** Freeze safely-upgradable #35 records the next time a registry write already
  * occurs. Entries without all source facts deliberately remain legacy strings. */
@@ -318,8 +316,8 @@ export async function setGameStatuses(
   if (updates.length === 0) return { ok: true, updated: [], skipped: [], detail: 'no updates' };
 
   // Track updated and skipped across mutation attempts
-  let mutateUpdated: string[] = [];
-  let mutateSkipped: string[] = [];
+  const mutateUpdated: string[] = [];
+  const mutateSkipped: string[] = [];
   let willUpdate = false;
 
   // First pass: check what will actually change, without writing
@@ -334,7 +332,9 @@ export async function setGameStatuses(
   } catch {
     return { ok: false, updated: [], skipped: [], detail: 'registry.json is not valid JSON' };
   }
-  const items: Array<Record<string, unknown>> = Array.isArray(content[key]) ? (content[key] as any[]) : [];
+  const items: Array<Record<string, unknown>> = Array.isArray(content[key])
+    ? (content[key] as any[])
+    : [];
 
   for (const { id, status } of updates) {
     const entry = items.find((a) => a?.id === id);
@@ -358,7 +358,12 @@ export async function setGameStatuses(
 
   // If no actual updates, return early without writing
   if (!willUpdate) {
-    return { ok: true, updated: [], skipped: mutateSkipped, detail: mutateSkipped.join(', ') || 'no change' };
+    return {
+      ok: true,
+      updated: [],
+      skipped: mutateSkipped,
+      detail: mutateSkipped.join(', ') || 'no change',
+    };
   }
 
   // Now write the actual updates using mutateRegistry
@@ -367,22 +372,18 @@ export async function setGameStatuses(
       ? `Mark ${mutateUpdated[0]} ${updates.find((u) => u.id === mutateUpdated[0])!.status}`
       : `Update build status for ${mutateUpdated.length} games`;
 
-  const result = await mutateRegistry(
-    env,
-    message,
-    (items: Array<Record<string, unknown>>) => {
-      for (const { id, status } of updates) {
-        const entry = items.find((a) => a?.id === id);
-        if (entry) {
-          const current = readGameStatus(entry);
-          if (current !== status && !(status === 'failed' && current === 'live')) {
-            entry.status = status;
-          }
+  const result = await mutateRegistry(env, message, (items: Array<Record<string, unknown>>) => {
+    for (const { id, status } of updates) {
+      const entry = items.find((a) => a?.id === id);
+      if (entry) {
+        const current = readGameStatus(entry);
+        if (current !== status && !(status === 'failed' && current === 'live')) {
+          entry.status = status;
         }
       }
-      return { ok: true, value: undefined };
-    },
-  );
+    }
+    return { ok: true, value: undefined };
+  });
 
   if (result.ok) {
     return {
@@ -1130,7 +1131,8 @@ export async function handlePublish(
         // A concurrent provision may have listed this id first. If it recorded a
         // different creator, this caller lost the race and must not proceed as
         // though the game were theirs (#88).
-        const listedOwner = typeof existing.creatorGithub === 'string' ? existing.creatorGithub : '';
+        const listedOwner =
+          typeof existing.creatorGithub === 'string' ? existing.creatorGithub : '';
         if (listedOwner && listedOwner.toLowerCase() !== (req.creatorGithub ?? '').toLowerCase()) {
           registryConflict = true;
           return {
@@ -1515,4 +1517,3 @@ export async function handleDeleteGame(
 
   return { ok: true, steps };
 }
-

@@ -90,16 +90,7 @@ interface TopbarIconButtonProps {
 
 const TopbarIconButton = forwardRef<HTMLButtonElement, Omit<TopbarIconButtonProps, 'ref'>>(
   function TopbarIconButton(
-    {
-      onClick,
-      href,
-      target,
-      rel,
-      color = 'var(--muted, #999)',
-      ariaLabel,
-      ariaPressed,
-      children,
-    },
+    { onClick, href, target, rel, color = 'var(--muted, #999)', ariaLabel, ariaPressed, children },
     ref,
   ) {
     const baseStyle = {
@@ -148,7 +139,7 @@ const TopbarIconButton = forwardRef<HTMLButtonElement, Omit<TopbarIconButtonProp
         {children}
       </button>
     );
-  }
+  },
 );
 
 /**
@@ -231,10 +222,7 @@ export function GameTopbar({
             </svg>
           </TopbarIconButton>
           {rules !== undefined && (
-            <TopbarIconButton
-              onClick={() => setShowRules(true)}
-              ariaLabel="Game rules"
-            >
+            <TopbarIconButton onClick={() => setShowRules(true)} ariaLabel="Game rules">
               <svg
                 width="14"
                 height="14"
@@ -292,10 +280,7 @@ export function GameTopbar({
             </TopbarIconButton>
           )}
           {onRestart !== undefined && (
-            <TopbarIconButton
-              onClick={onRestart}
-              ariaLabel="Restart"
-            >
+            <TopbarIconButton onClick={onRestart} ariaLabel="Restart">
               <svg
                 width="14"
                 height="14"
@@ -314,10 +299,7 @@ export function GameTopbar({
             </TopbarIconButton>
           )}
           {/* About — always present. Opens version + timestamp + credits. */}
-          <TopbarIconButton
-            onClick={() => setShowAbout(true)}
-            ariaLabel="About this game"
-          >
+          <TopbarIconButton onClick={() => setShowAbout(true)} ariaLabel="About this game">
             <svg
               width="14"
               height="14"
@@ -595,11 +577,7 @@ function RulesOverlay({
         >
           {title}
         </span>
-        <TopbarIconButton
-          ref={closeButtonRef}
-          onClick={onClose}
-          ariaLabel="Close"
-        >
+        <TopbarIconButton ref={closeButtonRef} onClick={onClose} ariaLabel="Close">
           &times;
         </TopbarIconButton>
       </div>

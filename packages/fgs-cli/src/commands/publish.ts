@@ -435,7 +435,7 @@ export function buildPromptList(
       type: 'select',
       name: 'category',
       message: "Category (one game per category — check freegamestore.online for what's taken)",
-      choices: CATEGORIES.map((c: typeof CATEGORIES[number]) => ({ title: c, value: c })),
+      choices: CATEGORIES.map((c: (typeof CATEGORIES)[number]) => ({ title: c, value: c })),
     });
   }
   if (resolved.type === undefined) {
