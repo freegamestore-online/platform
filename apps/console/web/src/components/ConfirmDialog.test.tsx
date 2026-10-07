@@ -174,7 +174,7 @@ describe('ConfirmDialog', () => {
   });
 
   it('applies danger variant to confirm button when isDangerous is true', () => {
-    const { container } = render(
+    render(
       <ConfirmDialog
         open={true}
         title="Delete?"
@@ -185,13 +185,8 @@ describe('ConfirmDialog', () => {
       />,
     );
 
-    const buttons = container.querySelectorAll('[role="button"]');
-    const confirmButton = Array.from(buttons).find((btn) =>
-      btn.textContent?.includes('Confirm'),
-    ) as HTMLElement;
-
-    // @ts-ignore
-    expect(confirmButton).toHaveClass('danger');
+    const confirmButton = screen.getByRole('button', { name: 'Confirm' });
+    expect(confirmButton).toHaveClass('bg-[#ef4444]');
   });
 
   it('has proper ARIA attributes', () => {
