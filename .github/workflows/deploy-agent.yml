@@ -36,7 +36,7 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       # Install uses root lockfile; workers/agent deps are included in root lockfile
       - run: pnpm install --frozen-lockfile
-        working-directory: ..
+        working-directory: ../..
       - run: npx tsc --noEmit
       - run: pnpm test
       - run: pnpm exec wrangler deploy
