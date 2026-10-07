@@ -1221,6 +1221,7 @@ describe('GET /api/games/:id/traffic (#23 item 6)', () => {
       new Request(`https://admin.freegamestore.online/api/games/${id}/traffic`, {
         headers: { 'X-FGS-Token': 't' },
       }),
+      // @ts-ignore
       e,
     );
 
