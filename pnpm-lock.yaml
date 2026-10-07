@@ -15,7 +15,7 @@ importers:
   apps/admin:
     dependencies:
       '@freegamestore/contracts':
-        specifier: workspace:*
+        specifier: file:../../packages/contracts
         version: link:../../packages/contracts
     devDependencies:
       '@cloudflare/workers-types':
