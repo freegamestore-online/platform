@@ -931,7 +931,7 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
       pattern: /^\/api\/(drift|status\/deploys)$/,
       auth: 'admin',
       handler: async ({ url, request }) => {
-        const rows = await cachedFleetSweep(request.url.split('/').slice(0, 3).join('/') as any);
+        const rows = await cachedFleetSweep(request.url.split('/').slice(0, 3).join('/') as string);
         if (rows === null) {
           return jsonResponse({ error: 'registry read failed — fleet not swept' }, 503, request);
         }
@@ -1167,7 +1167,7 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
         const result = await gameLifecycle.update(id, login, body, env);
         return jsonResponse(
           result,
-          result.error ? lifecycleStatus((result as any).code) : 200,
+          result.error ? lifecycleStatus((result as { code: number }).code) : 200,
           request,
         );
       },
@@ -1194,7 +1194,7 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
         });
         return jsonResponse(
           result,
-          result.error ? lifecycleStatus((result as any).code) : 200,
+          result.error ? lifecycleStatus((result as { code: number }).code) : 200,
           request,
         );
       },

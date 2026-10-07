@@ -203,7 +203,7 @@ const STORE_CONFIG = {
   r2Bucket: 'fgs-games',
 };
 
-async function ghApi(env: PublishEnv, path: string, method = 'GET', body?: any) {
+async function ghApi(env: PublishEnv, path: string, method = 'GET', body?: unknown) {
   const res = await fetch(`https://api.github.com${path}`, {
     method,
     headers: {
@@ -218,7 +218,7 @@ async function ghApi(env: PublishEnv, path: string, method = 'GET', body?: any) 
   // return 204 No Content — an empty body. Don't crash res.json() on it; expose
   // the status so callers can branch (the collaborator step relies on this).
   const text = await res.text();
-  let json: any = {};
+  let json: Record<string, unknown> | { __raw: string } = {};
   if (text) {
     try {
       json = JSON.parse(text);
@@ -284,8 +284,9 @@ export async function insertHostRoute(env: PublishEnv, slug: string): Promise<St
       status: 'ok',
       detail: `${slug}.${STORE_CONFIG.domain} → r2://${STORE_CONFIG.r2Bucket}/${r2Prefix}`,
     };
-  } catch (e: any) {
-    return { name: 'Hosting route', status: 'fail', detail: e?.message ?? 'D1 insert failed' };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return { name: 'Hosting route', status: 'fail', detail: message || 'D1 insert failed' };
   }
 }
 
@@ -333,7 +334,7 @@ export async function setGameStatuses(
     return { ok: false, updated: [], skipped: [], detail: 'registry.json is not valid JSON' };
   }
   const items: Array<Record<string, unknown>> = Array.isArray(content[key])
-    ? (content[key] as any[])
+    ? (content[key] as unknown[]).map((item) => (typeof item === 'object' && item !== null ? (item as Record<string, unknown>) : {}))
     : [];
 
   for (const { id, status } of updates) {
@@ -500,8 +501,9 @@ async function substituteTemplatePlaceholders(
     return upd.ref
       ? { name: 'Naming', status: 'ok', detail: `substituted APPNAME in ${treeItems.length} files` }
       : { name: 'Naming', status: 'fail', detail: 'ref update failed' };
-  } catch (e: any) {
-    return { name: 'Naming', status: 'fail', detail: e?.message ?? 'substitution error' };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return { name: 'Naming', status: 'fail', detail: message || 'substitution error' };
   }
 }
 
@@ -734,11 +736,12 @@ async function addRemixAttributionShell(
           status: 'fail',
           detail: result.message || 'shell update failed',
         };
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     return {
       name: 'Remix attribution',
       status: 'fail',
-      detail: error?.message || 'shell update error',
+      detail: message || 'shell update error',
     };
   }
 }
@@ -798,8 +801,8 @@ async function overlayGameSource(
       `/repos/${org}/${sourceId}/git/trees/${srcTreeSha}?recursive=1`,
     );
     const blobs: Array<{ path: string; sha: string }> = (srcTree.tree || []).filter(
-      (t: any) =>
-        t.type === 'blob' && (t.path.startsWith('web/src/') || t.path.startsWith('web/public/')),
+      (t: { type?: string; path?: string }) =>
+        t.type === 'blob' && (t.path?.startsWith('web/src/') || t.path?.startsWith('web/public/')),
     );
     if (blobs.length === 0)
       return { name: 'Remix', status: 'skip', detail: 'no source files to copy' };
@@ -847,8 +850,9 @@ async function overlayGameSource(
           detail: `copied ${treeItems.length} files from ${sourceId}${more}`,
         }
       : { name: 'Remix', status: 'fail', detail: 'ref update failed' };
-  } catch (e: any) {
-    return { name: 'Remix', status: 'fail', detail: e?.message ?? 'remix overlay error' };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return { name: 'Remix', status: 'fail', detail: message || 'remix overlay error' };
   }
 }
 
@@ -1126,7 +1130,7 @@ export async function handlePublish(
     env,
     `Add ${name} to games registry`,
     (items: Array<Record<string, unknown>>) => {
-      const existing = items.find((a: any) => a.id === id);
+      const existing = items.find((a: Record<string, unknown>) => String(a.id) === id);
       if (existing) {
         // A concurrent provision may have listed this id first. If it recorded a
         // different creator, this caller lost the race and must not proceed as
@@ -1467,11 +1471,12 @@ export async function handleDeleteGame(
       status: 'ok',
       detail: `${gameId}.${config.domain} removed`,
     });
-  } catch (e: any) {
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
     steps.push({
       name: 'Hosting route',
       status: 'fail',
-      detail: e?.message ?? 'route delete failed',
+      detail: message || 'route delete failed',
     });
   }
 
@@ -1487,8 +1492,9 @@ export async function handleDeleteGame(
       throw new Error(archive.message || `GitHub returned ${archive.__status}`);
     }
     steps.push({ name: 'Repo', status: 'ok', detail: 'archived (never hard-deleted)' });
-  } catch (e: any) {
-    steps.push({ name: 'Repo', status: 'fail', detail: e?.message ?? 'archive failed' });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    steps.push({ name: 'Repo', status: 'fail', detail: message || 'archive failed' });
   }
 
   // 4. Purge the agent's session-index rows so the deleted game stops showing
@@ -1508,8 +1514,9 @@ export async function handleDeleteGame(
         throw new Error(`agent returned ${purge.status}`);
       }
       steps.push({ name: 'Session index', status: 'ok', detail: 'agent rows purged' });
-    } catch (e: any) {
-      steps.push({ name: 'Session index', status: 'fail', detail: e?.message ?? 'purge failed' });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      steps.push({ name: 'Session index', status: 'fail', detail: message || 'purge failed' });
     }
   } else {
     steps.push({ name: 'Session index', status: 'skip', detail: 'agent binding not configured' });
