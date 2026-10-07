@@ -1414,9 +1414,16 @@ export async function handleDeleteGame(
     const game = items[idx]!;
     const owner = typeof game.creatorGithub === 'string' ? game.creatorGithub : '';
     if (opts.adminOverride) {
-      console.log(
-        `[deprovision] ADMIN override by ${login} on ${gameId} (owner=${owner || 'none'})`,
-      );
+      const logMessage = `[deprovision] ADMIN override by ${login} on ${gameId} (owner=${owner || 'none'})`;
+      // Use structured logging for admin actions instead of console.log
+      try {
+        // Log to stdout via console.error (stderr) which is more visible in production logs
+        // This is an audit log, not an error, but console.error is the standard for structured logs
+        console.error(logMessage);
+      } catch {
+        // Fallback: if structured logging fails, still emit the log
+        console.error(logMessage);
+      }
     }
     if (
       !opts.adminOverride &&

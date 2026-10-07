@@ -1,6 +1,34 @@
 import { useEffect, useRef, useState } from 'react';
 import { buildInitialPrompt, queueInitialBuild } from '../lib/initialBuild';
+import { reportError } from '../lib/errorReporter';
 import { Button, Card, Input, Label, Select } from './ui';
+
+const FETCH_TIMEOUT_MS = 30_000;
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      credentials: options.credentials ?? 'include',
+    });
+    return response;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      const msg = `Request to ${new URL(url, location.href).pathname} timed out after ${FETCH_TIMEOUT_MS}ms`;
+      reportError({ message: msg, context: 'fetchWithTimeout' });
+      throw new Error(msg);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 interface ProvisionStep {
   name: string;
@@ -184,35 +212,60 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
     }
     const checkedId = gameId;
     setChecking(true);
+
+    const abortController = new AbortController();
     const t = setTimeout(async () => {
       try {
         const r = await fetch(`/api/check-id?id=${encodeURIComponent(checkedId)}`, {
           credentials: 'include',
+          signal: abortController.signal,
         });
+        if (!r.ok) {
+          reportError({
+            message: `ID check failed: ${r.status} ${r.statusText}`,
+            context: `id=${checkedId}`,
+          });
+        }
         const d = (await r.json().catch(() => ({}))) as { available?: boolean; reason?: string };
         if (latestIdRef.current !== checkedId) return; // id changed mid-flight → stale
         setCheckResult({ available: !!d.available, reason: d.reason });
-      } catch {
+      } catch (e) {
         if (latestIdRef.current !== checkedId) return;
+        if (e instanceof Error && e.name === 'AbortError') return; // cancelled by cleanup
+        reportError({
+          message: `ID availability check failed: ${e instanceof Error ? e.message : String(e)}`,
+          context: `id=${checkedId}`,
+        });
         setCheckResult({ available: false, reason: "Couldn't check — try again" });
       } finally {
         if (latestIdRef.current === checkedId) setChecking(false);
       }
     }, 450);
-    return () => clearTimeout(t);
+
+    return () => {
+      clearTimeout(t);
+      abortController.abort();
+    };
   }, [gameId, idError]);
 
   // Load the public catalog once for the "Remix an existing game" picker.
   useEffect(() => {
     let live = true;
-    fetch('/api/catalog', { credentials: 'include' })
+    fetchWithTimeout('/api/catalog')
       .then((r) => r.json())
       .then((d: { games?: { id: string; name: string }[] }) => {
         if (live && Array.isArray(d.games)) {
           setCatalog(d.games.slice().sort((a, b) => a.name.localeCompare(b.name)));
         }
       })
-      .catch(() => {});
+      .catch((e) => {
+        if (live) {
+          reportError({
+            message: `Catalog fetch failed: ${e instanceof Error ? e.message : String(e)}`,
+            context: 'catalog-load',
+          });
+        }
+      });
     return () => {
       live = false;
     };
@@ -240,7 +293,7 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
     setSubmitError(null);
 
     try {
-      const createRes = await fetch('/api/create', {
+      const createRes = await fetchWithTimeout('/api/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -254,11 +307,18 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
           ...(cloneFrom ? { cloneFrom } : {}),
         }),
       });
-      const createData = await createRes
-        .json()
-        .catch(() => ({}) as { steps?: ProvisionStep[]; success?: boolean; error?: string });
+      const createData = (await createRes.json().catch(() => ({}))) as {
+        steps?: ProvisionStep[];
+        success?: boolean;
+        error?: string;
+      };
       if (!createRes.ok || createData.error) {
-        setSubmitError(createData.error || `Create failed (${createRes.status})`);
+        const error = createData.error || `Create failed (${createRes.status})`;
+        reportError({
+          message: error,
+          context: `game=${gameId}, status=${createRes.status}`,
+        });
+        setSubmitError(error);
       } else if (createData.success || createData.steps) {
         setResult({ steps: createData.steps ?? [], success: createData.success ?? false });
         if (createData.success) {
@@ -276,9 +336,15 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
         }
       } else {
         setSubmitError('Unexpected response from the server');
+        reportError({
+          message: 'Unexpected create response format',
+          context: `game=${gameId}, response=${JSON.stringify(createData)}`,
+        });
       }
     } catch (e) {
-      setSubmitError(e instanceof Error ? `Request failed: ${e.message}` : 'Network error');
+      const error = e instanceof Error ? `Request failed: ${e.message}` : 'Network error';
+      reportError({ message: error, context: `game=${gameId}` });
+      setSubmitError(error);
     } finally {
       setSubmitting(false);
     }
@@ -345,7 +411,7 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
             id="game-name"
             type="text"
             value={gameName}
-            onChange={(e) => {
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
               const v = e.target.value;
               setGameName(v);
               if (!idTouched) setGameId(slugify(v)); // auto-derive the id until edited by hand
@@ -361,7 +427,7 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
             id="game-id"
             type="text"
             value={gameId}
-            onChange={(e) => {
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
               setIdTouched(true);
               setGameId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''));
             }}

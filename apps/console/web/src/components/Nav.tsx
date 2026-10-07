@@ -3,6 +3,9 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
+const ICON_SIZE_DESKTOP = 28;
+const ICON_SIZE_MOBILE = 24;
+
 const NAV_LINKS: { to: string; label: string; external: boolean }[] = [
   // "My Games" is the overview (list + slots + play/code/edit); "Studio" is
   // the AI build surface. Keep both inside the same creator console.
@@ -28,7 +31,7 @@ function NavLink({
   link: { to: string; label: string; external: boolean };
   className: string;
   style: React.CSSProperties;
-  onClick?: () => void;
+  onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 }) {
   return link.external ? (
     <a href={link.to} className={className} style={style} onClick={onClick}>
@@ -73,15 +76,15 @@ export function Nav() {
               <img
                 src={user.avatarUrl}
                 alt={user.github}
-                width={28}
-                height={28}
+                width={ICON_SIZE_DESKTOP}
+                height={ICON_SIZE_DESKTOP}
                 className="rounded-full border-2"
                 style={{
-                  width: 28,
-                  height: 28,
+                  width: ICON_SIZE_DESKTOP,
+                  height: ICON_SIZE_DESKTOP,
                   borderColor: 'var(--border)',
-                  minWidth: 28,
-                  minHeight: 28,
+                  minWidth: ICON_SIZE_DESKTOP,
+                  minHeight: ICON_SIZE_DESKTOP,
                 }}
               />
             </Link>
@@ -141,7 +144,7 @@ function MobileDrawer({
         className="fixed inset-0 z-40"
         style={{ background: 'rgba(0,0,0,0.5)' }}
         onClick={onClose}
-        onKeyDown={(e) => {
+        onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
           if (e.key === 'Escape') onClose();
         }}
         role="presentation"
@@ -192,7 +195,7 @@ function MobileDrawer({
               src={user.avatarUrl}
               alt={user.github}
               className="rounded-full"
-              style={{ width: 24, height: 24 }}
+              style={{ width: ICON_SIZE_MOBILE, height: ICON_SIZE_MOBILE }}
             />
             <span className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>
               @{user.github}

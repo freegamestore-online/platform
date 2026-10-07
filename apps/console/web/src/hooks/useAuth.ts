@@ -131,10 +131,10 @@ export function useAuthProvider(): AuthContextValue {
       await establishAgentSession();
       setAgentError(null);
     } catch (e) {
-      console.error('[auth] agent session error:', e);
+      const error = e instanceof Error ? e.message : String(e);
       reportError({
-        message: (e as Error).message || 'Agent session handoff failed',
-        context: JSON.stringify({ op: 'agent-handoff' }),
+        message: `Agent session handoff failed: ${error}`,
+        context: 'op:agent-handoff',
       });
       setAgentError("Couldn't connect to the AI studio. Please try again.");
     }
@@ -179,10 +179,10 @@ export function useAuthProvider(): AuthContextValue {
       // before Studio mounts any credentialed agent requests.
       await connectAgent();
     } catch (e) {
-      console.error('[auth] error:', e);
+      const error = e instanceof Error ? e.message : String(e);
       reportError({
-        message: (e as Error).message || 'Auth fetch failed',
-        context: JSON.stringify({ op: 'auth' }),
+        message: `Auth initialization failed: ${error}`,
+        context: 'op:auth-init',
       });
       setError('Failed to connect to server');
     } finally {

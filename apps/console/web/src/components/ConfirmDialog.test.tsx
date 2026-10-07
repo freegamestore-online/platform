@@ -4,7 +4,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 
 describe('ConfirmDialog', () => {
   it('renders when open is true', () => {
-    render(
+    const { container } = render(
       <ConfirmDialog
         open={true}
         title="Delete?"
@@ -14,7 +14,9 @@ describe('ConfirmDialog', () => {
       />,
     );
 
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    // Find the most recently rendered dialog in this container
+    const dialog = container.querySelector('[role="dialog"]');
+    expect(dialog).toBeInTheDocument();
     expect(screen.getByText('Delete?')).toBeInTheDocument();
     expect(screen.getByText('Are you sure?')).toBeInTheDocument();
   });
@@ -23,14 +25,16 @@ describe('ConfirmDialog', () => {
     const { container } = render(
       <ConfirmDialog
         open={false}
-        title="Delete?"
-        message="Are you sure?"
+        title="Never visible"
+        message="This should not appear"
         onConfirm={() => {}}
         onCancel={() => {}}
       />,
     );
 
     expect(container.querySelector('[role="dialog"]')).not.toBeInTheDocument();
+    expect(screen.queryByText('Never visible')).not.toBeInTheDocument();
+    expect(screen.queryByText('This should not appear')).not.toBeInTheDocument();
   });
 
   it('calls onConfirm when confirm button is clicked', () => {
@@ -100,7 +104,8 @@ describe('ConfirmDialog', () => {
       />,
     );
 
-    const backdrop = container.querySelector('[role="presentation"]') as HTMLElement;
+    const backdrops = container.querySelectorAll('[role="presentation"]');
+    const backdrop = backdrops[backdrops.length - 1] as HTMLElement;
     fireEvent.click(backdrop);
 
     expect(onCancel).toHaveBeenCalled();
@@ -136,7 +141,8 @@ describe('ConfirmDialog', () => {
       />,
     );
 
-    const dialog = screen.getByRole('dialog');
+    const dialogs = screen.getAllByRole('dialog');
+    const dialog = dialogs[dialogs.length - 1];
     fireEvent.click(dialog);
 
     expect(onCancel).not.toHaveBeenCalled();
@@ -190,7 +196,8 @@ describe('ConfirmDialog', () => {
       />,
     );
 
-    const dialog = screen.getByRole('dialog');
+    const dialogs = screen.getAllByRole('dialog');
+    const dialog = dialogs[dialogs.length - 1];
     expect(dialog).toHaveAttribute('aria-modal', 'true');
     expect(dialog).toHaveAttribute('aria-labelledby', 'dialog-title');
     expect(screen.getByText('Delete?')).toHaveAttribute('id', 'dialog-title');
