@@ -33,6 +33,8 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       # Install from root using root lockfile; workers/agent is part of root workspace
       - run: pnpm install --frozen-lockfile
+      # Build workspace packages so workers/agent can resolve @freegamestore/* dependencies
+      - run: pnpm build
       - run: npx tsc --noEmit
         working-directory: workers/agent
       - run: pnpm test
