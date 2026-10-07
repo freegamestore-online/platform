@@ -19,9 +19,6 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: workers/agent
     steps:
       - uses: actions/checkout@v4
       # No `version:` here on purpose — same fix as e759e8a on packages-ci.yml.
@@ -34,12 +31,14 @@ jobs:
           node-version: 22
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-      # Install uses root lockfile; workers/agent deps are included in root lockfile
+      # Install from root using root lockfile; workers/agent is part of root workspace
       - run: pnpm install --frozen-lockfile
-        working-directory: ../..
       - run: npx tsc --noEmit
+        working-directory: workers/agent
       - run: pnpm test
+        working-directory: workers/agent
       - run: pnpm exec wrangler deploy
+        working-directory: workers/agent
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
