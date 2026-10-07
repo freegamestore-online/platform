@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { agentStream, safeFetch, withTimeout } from '../http.js';
+import { safeFetch, withTimeout } from '../http.js';
 import { audit, dryRun, requireConfirmation, requireWritable } from '../safety.js';
 import { errText, type RegistrationContext, txt } from './registration.js';
 

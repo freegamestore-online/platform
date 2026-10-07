@@ -48,6 +48,7 @@ export type { LiveAuditInput, LiveAuditReport } from './live/index.js';
 // Game metadata: shared categories and viewports across CLI, console, admin, auditor.
 export {
   GAME_CATEGORIES,
+  GAME_CATEGORY_LABELS,
   REFERENCE_VIEWPORTS,
   getCategoryByLabel,
   getCategoryBySlug,

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { agentStream, fgsDelete, safeFetch, withTimeout } from '../http.js';
+import { agentStream, fgsDelete, safeFetch } from '../http.js';
 import {
   audit,
   dryRun,

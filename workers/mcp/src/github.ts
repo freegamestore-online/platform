@@ -271,7 +271,7 @@ async function pushFilesOnce(
 
   // Use shared commitFiles helper from contracts package
   // RepoFile content is base64-encoded, so we pass encoding: 'base64'
-  return await commitFiles({
+  const result = await commitFiles({
     org,
     repo,
     token,
@@ -280,6 +280,7 @@ async function pushFilesOnce(
     encoding: 'base64',
     replaceTree,
   });
+  return result.sha;
 }
 
 /** List file paths in a repo (recursive). Read-only; works on public repos.

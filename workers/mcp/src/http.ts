@@ -206,7 +206,6 @@ export async function agentStream(
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   const phases: string[] = [];
   let gameId: string | undefined;
-  let timedOut = false;
 
   try {
     const res = await fetch(`${baseUrl}/session/${encodeURIComponent(sid)}/chat`, {

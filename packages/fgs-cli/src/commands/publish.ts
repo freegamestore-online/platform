@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { GAME_CATEGORIES, getCategoryByLabel, runChecks } from '@freegamestore/compliance';
+import { GAME_CATEGORY_LABELS, getCategoryByLabel, runChecks } from '@freegamestore/compliance';
 import { Command } from 'commander';
 import prompts from 'prompts';
 import { assertValidAppId } from '../lib/app-id.js';
@@ -12,8 +12,8 @@ import { ensureDeployWorkflow } from './publish-workflow.js';
 
 const SUBMISSION_URL = 'https://github.com/freegamestore-online/submissions/issues/new';
 
-// Display labels for the CLI prompts (derived from GAME_CATEGORIES)
-const CATEGORIES = GAME_CATEGORIES.map((c) => c.label) as const;
+// Display labels for the CLI prompts
+const CATEGORIES = GAME_CATEGORY_LABELS;
 
 const TYPES = [
   'Standalone (no backend, localStorage only)',
@@ -435,7 +435,7 @@ export function buildPromptList(
       type: 'select',
       name: 'category',
       message: "Category (one game per category — check freegamestore.online for what's taken)",
-      choices: CATEGORIES.map((c) => ({ title: c, value: c })),
+      choices: CATEGORIES.map((c: typeof CATEGORIES[number]) => ({ title: c, value: c })),
     });
   }
   if (resolved.type === undefined) {

@@ -44,6 +44,22 @@ export const GAME_CATEGORIES: GameCategory[] = [
   { slug: 'other', label: 'Other (specify in description)' },
 ];
 
+// Literal category labels for type-safe CLI prompts
+export const GAME_CATEGORY_LABELS = [
+  'Strategy',
+  'Brain Training',
+  'Arcade',
+  'Racing',
+  'Sports',
+  'Cards',
+  'Casual',
+  'Puzzle',
+  'Board',
+  'RPG',
+  'Action',
+  'Other (specify in description)',
+] as const;
+
 /**
  * Reference viewports for compliance testing. These match the device matrix
  * used for viewport coverage on the storefront. The `share` field represents
