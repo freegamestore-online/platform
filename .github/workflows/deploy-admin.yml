@@ -33,7 +33,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: apps/admin/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
       # --ignore-workspace, same fix as 9c82339 on packages-ci.yml: pnpm walks UP
       # to the root pnpm-workspace.yaml (which covers packages/* only), resolves
       # THAT workspace and silently skips apps/admin's own node_modules —
@@ -41,8 +41,8 @@ jobs:
       - run: pnpm install --frozen-lockfile --ignore-workspace
       - run: pnpm test
       # apps/admin/web has no workspace file either, so pin this install too.
-      - run: pnpm --dir web install --frozen-lockfile --ignore-workspace
-      - run: pnpm --dir web exec vite build
+      - run: npm install --prefix web
+      - run: npm run --prefix web build
       - run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

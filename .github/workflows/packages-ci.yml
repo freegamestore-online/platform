@@ -59,7 +59,9 @@ jobs:
               pnpm install --frozen-lockfile --ignore-workspace
               npm install --prefix web
           - dir: apps/console
-            install: pnpm install --frozen-lockfile
+            install: |
+              pnpm install --frozen-lockfile
+              npm install --prefix web
           - dir: workers/agent
             install: pnpm install --frozen-lockfile --ignore-workspace
           - dir: workers/auth
@@ -111,6 +113,6 @@ jobs:
           cache: npm
           cache-dependency-path: workers/mcp/package-lock.json
 
-      - run: npm ci
+      - run: npm install
       - run: npm run typecheck
       - run: npm test
