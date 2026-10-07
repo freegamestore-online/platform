@@ -1042,7 +1042,7 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
       method: 'GET',
       pattern: '/api/status',
       auth: 'admin',
-      handler: async ({ request, env, data: dataService_param }) => {
+      handler: async ({ request, _env, data: dataService_param }) => {
         const items = await dataService_param.registryItems();
         if (items === null) {
           return jsonResponse({ error: 'registry read failed' }, 503, request);
@@ -1060,7 +1060,7 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
       method: 'GET',
       pattern: '/api/status/game',
       auth: 'admin',
-      handler: async ({ request, url, env, data: dataService_param }) => {
+      handler: async ({ request, url, _env, data: dataService_param }) => {
         const id = url.searchParams.get('id');
         if (!id) return jsonResponse({ error: 'id param required' }, 400, request);
         const items = await dataService_param.registryItems();
@@ -1078,7 +1078,7 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
       method: 'GET',
       pattern: '/api/quality',
       auth: 'admin',
-      handler: async ({ request, env, data: dataService_param }) => {
+      handler: async ({ request, _env, data: dataService_param }) => {
         const items = await dataService_param.registryItems();
         return jsonResponse(
           {
@@ -1121,7 +1121,7 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
       method: 'GET',
       pattern: '/api/users',
       auth: 'admin',
-      handler: async ({ request, env, data: dataService_param }) => {
+      handler: async ({ request, _env, data: dataService_param }) => {
         const items = await dataService_param.registryItems();
         if (!items) return jsonResponse({ error: 'registry read failed' }, 503, request);
         const creators = new Map<string, { count: number; games: string[] }>();

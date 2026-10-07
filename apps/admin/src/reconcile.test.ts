@@ -3,6 +3,15 @@ import { ERROR_LOG_LIMITS } from '../../../contracts/error-log/v1/contract';
 import { reportPlatformError } from '../../../workers/agent/src/errlog';
 import worker from './index';
 
+type D1Statement = {
+  bind: (...args: unknown[]) => D1Statement;
+  run: () => Promise<{ success?: boolean }>;
+  all: () => Promise<{ results: unknown[] }>;
+  first: () => Promise<unknown>;
+};
+
+type GameEntry = { id: string; status?: string };
+
 // Coverage for the reconcile heal path (Fix #2 + #3):
 //  - the hourly cron (scheduled → heal=true) re-inserts missing routes and
 //    deletes orphan routes, and touches NOTHING else (never archives a repo).
@@ -20,7 +29,7 @@ function makeDB(routeSlugs: string[]) {
   const calls: { sql: string; binds: unknown[] }[] = [];
   const mk = (sql: string) => {
     let binds: unknown[] = [];
-    const stmt: any = {
+    const stmt: D1Statement = {
       bind: (...a: unknown[]) => {
         binds = a;
         return stmt;
@@ -58,7 +67,7 @@ function registryFetch(games: unknown[] | null) {
 async function runScheduled(env: unknown) {
   const promises: Promise<unknown>[] = [];
   await worker.scheduled(
-    {} as any,
+    {} as ScheduledEvent,
     env as Parameters<typeof worker.scheduled>[1],
     { waitUntil: (p: Promise<unknown>) => promises.push(p) } as unknown as ExecutionContext,
   );
@@ -137,7 +146,7 @@ function statusFetch(
   games: unknown[],
   runs: Record<string, 'success' | 'failure' | 'cancelled' | undefined>,
 ) {
-  const puts: Array<any[]> = [];
+  const puts: Array<GameEntry[]> = [];
   const actionsQueried: string[] = [];
   const fetchFn = async (
     input: unknown,
@@ -195,7 +204,7 @@ describe('reconcile build-status backstop', () => {
     await runScheduled({ GITHUB_TOKEN: 'x', DB: db });
 
     expect(puts).toHaveLength(1);
-    expect(puts[0]!.find((g: any) => g.id === 'chess').status).toBe('live');
+    expect(puts[0]!.find((g: GameEntry) => g.id === 'chess')?.status).toBe('live');
   });
 
   it('flips a pending game whose deploy failed to failed', async () => {
@@ -206,7 +215,7 @@ describe('reconcile build-status backstop', () => {
     const { db } = makeDB(['chess']);
     await runScheduled({ GITHUB_TOKEN: 'x', DB: db });
 
-    expect(puts[0]!.find((g: any) => g.id === 'chess').status).toBe('failed');
+    expect(puts[0]!.find((g: GameEntry) => g.id === 'chess')?.status).toBe('failed');
   });
 
   it('leaves a pending game alone while nothing has concluded', async () => {
@@ -262,9 +271,9 @@ describe('reconcile build-status backstop', () => {
     await runScheduled({ GITHUB_TOKEN: 'x', DB: db });
 
     expect(puts).toHaveLength(1);
-    expect(puts[0]!.find((g: any) => g.id === 'a').status).toBe('live');
-    expect(puts[0]!.find((g: any) => g.id === 'b').status).toBe('failed');
-    expect(puts[0]!.find((g: any) => g.id === 'c').status).toBe('pending');
+    expect(puts[0]!.find((g: GameEntry) => g.id === 'a')?.status).toBe('live');
+    expect(puts[0]!.find((g: GameEntry) => g.id === 'b')?.status).toBe('failed');
+    expect(puts[0]!.find((g: GameEntry) => g.id === 'c')?.status).toBe('pending');
   });
 
   it('GET /api/reconcile reports pending but flips nothing', async () => {
@@ -309,7 +318,7 @@ describe('POST /api/internal/error', () => {
     const inserts: { sql: string; binds: unknown[] }[] = [];
     const mk = (sql: string) => {
       let binds: unknown[] = [];
-      const stmt: any = {
+      const stmt: D1Statement = {
         bind: (...a: unknown[]) => {
           binds = a;
           return stmt;
@@ -325,11 +334,11 @@ describe('POST /api/internal/error', () => {
     };
     return {
       inserts,
-      env: { INTERNAL_TOKEN: 'secret', DB: { prepare: (sql: string) => mk(sql) } } as any,
+      env: { INTERNAL_TOKEN: 'secret', DB: { prepare: (sql: string) => mk(sql) } } as unknown,
     };
   }
 
-  const post = (env: any, body: unknown, token?: string) =>
+  const post = (env: unknown, body: unknown, token?: string) =>
     worker.fetch(
       new Request('https://admin.freegamestore.online/api/internal/error', {
         method: 'POST',
@@ -446,7 +455,7 @@ describe('GET /api/status carries build status', () => {
     } as unknown as Parameters<typeof worker.fetch>[1];
   };
 
-  const getStatus = (env: any) =>
+  const getStatus = (env: unknown) =>
     worker.fetch(
       new Request('https://admin.freegamestore.online/api/status', {
         headers: { 'X-FGS-Token': 't' },
@@ -529,7 +538,7 @@ describe('GET /api/drift', () => {
     } as unknown as Parameters<typeof worker.fetch>[1];
   };
 
-  const get = (env: any, token = true) =>
+  const get = (env: unknown, token = true) =>
     worker.fetch(
       new Request('https://admin.freegamestore.online/api/drift', {
         headers: token ? { 'X-FGS-Token': 't' } : {},
@@ -760,7 +769,7 @@ describe('GET /api/games/:id/detail', () => {
       ADMIN_EMAILS: 'serge.the.dev@gmail.com',
     }) as unknown as Parameters<typeof worker.fetch>[1];
 
-  const get = (env: any, id = 'candy-shop') =>
+  const get = (env: unknown, id = 'candy-shop') =>
     worker.fetch(
       new Request(`https://admin.freegamestore.online/api/games/${id}/detail`, {
         headers: { 'X-FGS-Token': 't' },
@@ -777,7 +786,7 @@ describe('GET /api/games/:id/detail', () => {
     );
     const res = await get(envWithRoute(['candy-shop']));
     expect(res.status).toBe(200);
-    const b = (await res.json()) as any;
+    const b = (await res.json()) as Record<string, unknown>;
     expect(b.listed).toBe(true);
     expect(b.status).toBe('pending');
     expect(b.route.configured).toBe(true);
@@ -794,7 +803,7 @@ describe('GET /api/games/:id/detail', () => {
     vi.stubGlobal('fetch', detailFetch([]));
     const res = await get(envWithRoute([]));
     expect(res.status).toBe(200);
-    const b = (await res.json()) as any;
+    const b = (await res.json()) as Record<string, unknown>;
     expect(b.listed).toBe(false);
     expect(b.route.configured).toBe(false);
     expect(b.status).toBe('live'); // absent entry → readGameStatus default
@@ -805,7 +814,7 @@ describe('GET /api/games/:id/detail', () => {
       'fetch',
       detailFetch([{ id: 'candy-shop', name: 'Candy Shop' }], { headOk: false }),
     );
-    const b = (await (await get(envWithRoute(['candy-shop']))).json()) as any;
+    const b = (await (await get(envWithRoute(['candy-shop']))).json()) as Record<string, unknown>;
     expect(b.http.ok).toBe(false);
     expect(b.http.status).toBe(502);
   });
@@ -840,7 +849,7 @@ describe('admin→agent grant proxy', () => {
       actor: string | null;
     }[] = [];
     const AGENT = {
-      fetch: async (input: any, init?: any) => {
+      fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
         seen.push({
           path: new URL(typeof input === 'string' ? input : input.url).pathname,
           method: init?.method ?? 'GET',
@@ -854,7 +863,7 @@ describe('admin→agent grant proxy', () => {
     return { seen, AGENT };
   }
 
-  const env = (AGENT: any, admin = true) =>
+  const env = (AGENT: unknown, admin = true) =>
     ({
       DB: makeDB([]).db,
       AGENT,
@@ -935,8 +944,8 @@ describe('sessions proxy forwards pagination params', () => {
   function agentStub() {
     const seen: string[] = [];
     const AGENT = {
-      fetch: async (input: any) => {
-        const u = new URL(typeof input === 'string' ? input : input.url);
+      fetch: async (input: RequestInfo | URL) => {
+        const u = new URL(typeof input === 'string' ? input : (input as Request).url);
         seen.push(u.pathname + u.search);
         return new Response(JSON.stringify({ sessions: [], next_cursor: null, total: 0 }), {
           status: 200,
@@ -946,7 +955,7 @@ describe('sessions proxy forwards pagination params', () => {
     return { seen, AGENT };
   }
 
-  const env = (AGENT: any) =>
+  const env = (AGENT: unknown) =>
     ({
       DB: makeDB([]).db,
       AGENT,
@@ -1009,7 +1018,7 @@ describe('POST /api/games/:id/heal-route', () => {
     };
   };
 
-  const heal = (env: any, id = 'chess') =>
+  const heal = (env: unknown, id = 'chess') =>
     worker.fetch(
       new Request(`https://admin.freegamestore.online/api/games/${id}/heal-route`, {
         method: 'POST',
@@ -1085,7 +1094,7 @@ describe('CI test report endpoints (#24)', () => {
       ...extra,
     }) as unknown as Parameters<typeof worker.fetch>[1];
 
-  const getReport = (env: any) =>
+  const getReport = (env: unknown) =>
     worker.fetch(
       new Request('https://admin.freegamestore.online/api/ci/test-report', {
         headers: { 'X-FGS-Token': 't' },
@@ -1093,7 +1102,7 @@ describe('CI test report endpoints (#24)', () => {
       env,
     );
 
-  const putReport = (env: any, body: string, token?: string) =>
+  const putReport = (env: unknown, body: string, token?: string) =>
     worker.fetch(
       new Request('https://admin.freegamestore.online/api/ci/test-report', {
         method: 'PUT',
@@ -1107,7 +1116,7 @@ describe('CI test report endpoints (#24)', () => {
     vi.stubGlobal('fetch', registryFetch([]));
     const res = await getReport(baseEnv({}));
     expect(res.status).toBe(503);
-    expect((await res.json()) as any).toEqual({ error: 'CI_KV not bound' });
+    expect((await res.json()) as Record<string, unknown>).toEqual({ error: 'CI_KV not bound' });
   });
 
   it('PUT 503s while the KV namespace is not bound', async () => {
@@ -1182,7 +1191,7 @@ describe('GET /api/games/:id/traffic (#23 item 6)', () => {
       ...extra,
     }) as unknown as Parameters<typeof worker.fetch>[1];
 
-  const get = (e: any, id = 'chess') =>
+  const get = (e: unknown, id = 'chess') =>
     worker.fetch(
       new Request(`https://admin.freegamestore.online/api/games/${id}/traffic`, {
         headers: { 'X-FGS-Token': 't' },
@@ -1192,7 +1201,7 @@ describe('GET /api/games/:id/traffic (#23 item 6)', () => {
 
   /** Registry reads plus the Cloudflare GraphQL POST. */
   function cfStub(payload: unknown, status = 200) {
-    const seen: { url: string; body: any }[] = [];
+    const seen: { url: string; body: string }[] = [];
     return {
       seen,
       fetchFn: async (
@@ -1204,7 +1213,7 @@ describe('GET /api/games/:id/traffic (#23 item 6)', () => {
           seen.push({ url, body: JSON.parse(init!.body!) });
           return new Response(JSON.stringify(payload), { status });
         }
-        return registryFetch([])(input as any);
+        return registryFetch([])(input as RequestInfo | URL);
       },
     };
   }
@@ -1215,7 +1224,7 @@ describe('GET /api/games/:id/traffic (#23 item 6)', () => {
     expect((await get(env({ CF_API_TOKEN: 't' }))).status).toBe(503);
     expect((await get(env({ CF_ZONE_ID: 'z' }))).status).toBe(503);
     const res = await get(env());
-    expect((await res.json()) as any).toEqual({
+    expect((await res.json()) as Record<string, unknown>).toEqual({
       error: 'CF_API_TOKEN or CF_ZONE_ID not configured',
     });
   });
@@ -1246,7 +1255,7 @@ describe('GET /api/games/:id/traffic (#23 item 6)', () => {
     vi.stubGlobal('fetch', fetchFn);
     const res = await get(env({ CF_API_TOKEN: 't', CF_ZONE_ID: 'zone123' }));
     expect(res.status).toBe(200);
-    const body = (await res.json()) as any;
+    const body = (await res.json()) as Record<string, unknown>;
     expect(body.host).toBe('chess.freegamestore.online');
     expect(body.totals).toEqual({ requests: 150, pageViews: 60, visitors: 15 });
     expect(seen[0]!.body.variables.zone).toBe('zone123');
@@ -1260,7 +1269,7 @@ describe('GET /api/games/:id/traffic (#23 item 6)', () => {
     vi.stubGlobal('fetch', fetchFn);
     const res = await get(env({ CF_API_TOKEN: 't', CF_ZONE_ID: 'bad' }));
     expect(res.status).toBe(502);
-    expect(((await res.json()) as any).error).toContain('zone not found');
+    expect(((await res.json()) as Record<string, unknown>).error).toContain('zone not found');
   });
 
   it('is admin-gated', async () => {
@@ -1293,7 +1302,7 @@ describe('reconcile backstop ignores the template scaffold build (#67)', () => {
     runs: Run[],
     compare: Record<string, number | string> = {},
   ) {
-    const puts: Array<any[]> = [];
+    const puts: Array<GameEntry[]> = [];
     vi.stubGlobal(
       'fetch',
       async (
@@ -1341,10 +1350,12 @@ describe('reconcile backstop ignores the template scaffold build (#67)', () => {
     return puts;
   }
 
-  const statusAfter = async (puts: Array<any[]>) => {
+  const statusAfter = async (puts: Array<GameEntry[]>) => {
     const { db } = makeDB(['space-rescue']);
     await runScheduled({ GITHUB_TOKEN: 'x', DB: db });
-    return puts.length ? puts[0]!.find((g: any) => g.id === 'space-rescue').status : 'pending';
+    return puts.length
+      ? puts[0]!.find((g: GameEntry) => g.id === 'space-rescue')?.status
+      : 'pending';
   };
   const pending = { id: 'space-rescue', status: 'pending', provisionedSha: P };
 
@@ -1426,7 +1437,7 @@ describe('reconcile heals only from a fresh registry read (#64)', () => {
     const calls: { sql: string; binds: unknown[] }[] = [];
     const mk = (sql: string) => {
       let binds: unknown[] = [];
-      const stmt: any = {
+      const stmt: D1Statement = {
         bind: (...a: unknown[]) => {
           binds = a;
           return stmt;

@@ -17,7 +17,7 @@ beforeEach(() => {
       }),
   );
   originalFetch = global.fetch;
-  (global as any).fetch = mockFetch;
+  (global as unknown as typeof globalThis).fetch = mockFetch;
 });
 
 afterEach(() => {

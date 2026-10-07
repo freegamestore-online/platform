@@ -12,6 +12,13 @@ import {
   setGameStatuses,
 } from './publish';
 
+type GameEntry = {
+  id: string;
+  status?: string;
+  provisionedSha?: string;
+  forkedFrom?: Record<string, unknown>;
+};
+
 // Regression guards for the admin authz fixes:
 //  - provision must not grant push on a repo it didn't just create
 //  - unowned games are not self-service editable
@@ -768,9 +775,9 @@ describe('setGameStatuses', () => {
  *  Awaits that PUT rather than the whole provision: later steps (placeholder
  *  substitution, route insert) retry against a stub that can never satisfy them,
  *  and the entry shape is settled by the time it commits. */
-function firstRegistryPut(req: Parameters<typeof handlePublish>[0]): Promise<any[]> {
-  let resolvePut: (games: any[]) => void;
-  const firstPut = new Promise<any[]>((r) => {
+function firstRegistryPut(req: Parameters<typeof handlePublish>[0]): Promise<GameEntry[]> {
+  let resolvePut: (games: GameEntry[]) => void;
+  const firstPut = new Promise<GameEntry[]>((r) => {
     resolvePut = r;
   });
 
@@ -835,7 +842,7 @@ describe('handlePublish build status', () => {
       category: 'arcade',
       creatorGithub: 'someone',
     });
-    expect(games.find((g: any) => g.id === 'chess').status).toBe('pending');
+    expect(games.find((g: GameEntry) => g.id === 'chess')?.status).toBe('pending');
   });
 
   it('records the provisioned HEAD so the scaffold build is never read as live (#67)', async () => {
@@ -846,7 +853,7 @@ describe('handlePublish build status', () => {
       creatorGithub: 'someone',
     });
     // firstRegistryPut's stub answers the main ref with sha "headsha".
-    expect(games.find((g: any) => g.id === 'chess').provisionedSha).toBe('headsha');
+    expect(games.find((g: GameEntry) => g.id === 'chess')?.provisionedSha).toBe('headsha');
   });
 });
 
@@ -860,7 +867,7 @@ describe('handlePublish forkedFrom lineage', () => {
       creatorGithub: 'someone',
       cloneFrom: ' Chess ',
     });
-    expect(games.find((g: any) => g.id === 'chess-remix').forkedFrom).toMatchObject({
+    expect(games.find((g: GameEntry) => g.id === 'chess-remix')?.forkedFrom).toMatchObject({
       id: 'chess',
       name: 'Chess',
       creatorGithub: 'source-creator',
@@ -875,7 +882,7 @@ describe('handlePublish forkedFrom lineage', () => {
       category: 'arcade',
       creatorGithub: 'someone',
     });
-    expect(games.find((g: any) => g.id === 'chess')).not.toHaveProperty('forkedFrom');
+    expect(games.find((g: GameEntry) => g.id === 'chess')).not.toHaveProperty('forkedFrom');
   });
 });
 

@@ -42,7 +42,7 @@ export async function commitFiles(options: CommitOptions): Promise<CommitResult>
       },
       body: body ? JSON.stringify(body) : null,
     });
-    return res.json() as Promise<any>;
+    return res.json() as Promise<Record<string, unknown>>;
   }
 
   let parentSha: string | undefined;
