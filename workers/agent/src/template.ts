@@ -253,7 +253,7 @@ SOFTWARE.`,
  *  lockfile, and AI edits change deps, so a frozen install would break the whole
  *  fleet's deploys. Org secrets R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY/R2_ACCOUNT_ID
  *  are set once on the org. */
-export function getTemplateFiles(config: StoreConfig): Record<string, string> {
+export function getTemplateFiles(_config: StoreConfig): Record<string, string> {
   const base = { ...SHARED_FILES, ...GAME_FILES };
   // All repos use the shared deploy workflow from @freegamestore/compliance (#111).
   // It calls the ci-workflows pipeline which handles compliance checks, version stamp, smoke test.
