@@ -192,7 +192,7 @@ importers:
         specifier: ^0.8.1
         version: 0.8.3
       '@freegamestore/contracts':
-        specifier: workspace:*
+        specifier: file:../../packages/contracts
         version: link:../../packages/contracts
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.0
