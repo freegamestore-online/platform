@@ -508,7 +508,7 @@ async function auditWithBrowser(browser: Browser, url: string): Promise<AuditRes
       for (const s of scripts) {
         if (!s.src && s.textContent?.includes(p)) {
           // Check if it's calling an external URL
-          const match = s.textContent.match(new RegExp(p + '\\s*\\(\\s*[\'"`]https?://([^/]+)'));
+          const match = s.textContent.match(new RegExp(`${p}\\s*\\(\\s*['"\`]https?://([^/]+)`));
           if (
             match &&
             !match[1].includes('freegamestore.online') &&

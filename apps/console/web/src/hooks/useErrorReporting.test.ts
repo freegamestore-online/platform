@@ -153,7 +153,7 @@ describe('useProjects — openGame error propagation for useAgent wiring', () =>
 
     const { result } = await mounted(); // no games in local list
 
-    let openGamePromise!: Promise<string | void>;
+    let openGamePromise!: Promise<string | undefined>;
     act(() => {
       openGamePromise = result.current.openGame('missing-game').catch((e) => {
         // OpenSupersededError is absorbed; other errors propagate

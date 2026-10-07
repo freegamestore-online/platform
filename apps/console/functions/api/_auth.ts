@@ -124,7 +124,7 @@ export async function resolveCreatorUser(
     const p = await verifyJWT(tok, env.JWT_SECRET);
     if (p && typeof p.login === 'string') {
       const sub = typeof p.sub === 'string' ? p.sub : null;
-      const parsed = sub && sub.startsWith('github:') ? Number(sub.slice('github:'.length)) : NaN;
+      const parsed = sub?.startsWith('github:') ? Number(sub.slice('github:'.length)) : NaN;
       return {
         github: p.login,
         githubId: Number.isFinite(parsed) ? parsed : null,

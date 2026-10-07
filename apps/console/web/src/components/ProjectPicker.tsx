@@ -2,8 +2,8 @@ import { RotateCcw, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import type { Project } from '../hooks/useProjects';
 import { activityLabel, activityTone } from '../lib/sessions';
-import { Button, IconButton, Input } from './ui';
 import { ConfirmDialog } from './ConfirmDialog';
+import { Button, IconButton, Input } from './ui';
 
 // Colored status dot for each session, driven by the last known build/deploy
 // phase (session.activity, surfaced by mapServerSession). We can't reuse the

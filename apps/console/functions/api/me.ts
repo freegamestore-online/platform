@@ -62,7 +62,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       // 500 the whole dashboard.
     }
   }
-  const maxGames = parseInt(context.env.MAX_APPS_PER_USER || '10');
+  const maxGames = parseInt(context.env.MAX_APPS_PER_USER || '10', 10);
 
   const creator: CreatorInfo = {
     github: user,

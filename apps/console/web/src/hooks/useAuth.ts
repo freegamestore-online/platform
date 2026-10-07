@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { AGENT_URL } from '../lib/agentClient';
 import { clearLegacyLocalKeys } from '../lib/ai-keys';
 import { reportError } from '../lib/errorReporter';
-import { AGENT_URL } from '../lib/agentClient';
 
 /** freegamestore-auth worker — the store-wide identity provider. */
 const AUTH_BASE = 'https://auth.freegamestore.online';

@@ -48,7 +48,7 @@ beforeEach(() => {
     const url = typeof input === 'string' ? input : input.toString();
     const method = (init?.method || 'GET').toUpperCase();
     CALLS.push(
-      `${method} ${url.replace('https://agent.freegamestore.online', '')}${init?.body ? ' ' + (init.body as string) : ''}`,
+      `${method} ${url.replace('https://agent.freegamestore.online', '')}${init?.body ? ` ${init.body as string}` : ''}`,
     );
     const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body }) as Response;
     if (url.endsWith('/sessions') && method === 'GET') return ok({ sessions: SESSIONS });

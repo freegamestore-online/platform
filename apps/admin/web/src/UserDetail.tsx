@@ -381,7 +381,9 @@ function RecentErrors({ login }: { login: string }) {
               No errors logged for this user.
             </p>
           )}
-          {rows !== null && rows.map((e, i) => <ErrorCard key={i} e={e} />)}
+          {rows?.map((e, i) => (
+            <ErrorCard key={i} e={e} />
+          ))}
         </div>
       )}
     </section>

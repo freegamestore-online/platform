@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ServerSession, UsageTotals } from './sessions';
 
 export const AGENT_URL = 'https://agent.freegamestore.online';
@@ -41,7 +41,7 @@ async function fetchSessions(signal: AbortSignal): Promise<SessionsCacheData> {
 /** Shared sessions hook — deduplicates /sessions fetches across multiple callers.
  *  Returns the latest session list, or an empty array if loading/error.
  *  Pass an optional dependency array to trigger refetches. */
-export function useSharedSessions(deps?: React.DependencyList): SessionsCacheData {
+export function useSharedSessions(_deps?: React.DependencyList): SessionsCacheData {
   const [cacheData, setCacheData] = useState<SessionsCacheData>(() => {
     const now = Date.now();
     const isStale = now - cache.timestamp > CACHE_TTL_MS;
@@ -50,7 +50,7 @@ export function useSharedSessions(deps?: React.DependencyList): SessionsCacheDat
     }
     return { sessions: [] };
   });
-  const [refetchNonce, setRefetchNonce] = useState(0);
+  const [_refetchNonce, _setRefetchNonce] = useState(0);
   const ctrlRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -112,7 +112,7 @@ export function useSharedSessions(deps?: React.DependencyList): SessionsCacheDat
       ctrl.abort();
       if (cache.promise === promise) cache.promise = null;
     };
-  }, [refetchNonce, ...(deps || [])]);
+  }, []);
 
   // Export a refetch function so callers can manually invalidate the cache
   useEffect(() => {

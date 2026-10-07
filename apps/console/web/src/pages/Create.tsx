@@ -13,11 +13,11 @@ import { StatusBar } from '../components/StatusBar';
 import { StudioToolbar } from '../components/StudioToolbar';
 import { Button, buttonClass } from '../components/ui';
 import { type AIConfig, useAgent } from '../hooks/useAgent';
-import { useMessageQueue } from '../hooks/useMessageQueue';
 import { useAuth } from '../hooks/useAuth';
 import { UUID_RE, useCreateRouteSync } from '../hooks/useCreateRouteSync';
 import { useKeys } from '../hooks/useKeys';
 import { useLegacyDeepLinkMigration } from '../hooks/useLegacyDeepLinkMigration';
+import { useMessageQueue } from '../hooks/useMessageQueue';
 import { useStudioViewportLock } from '../hooks/useStudioViewportLock';
 import { resolveInitialProvider } from '../lib/ai-keys';
 import { RETRY_DEPLOY_PROMPT } from '../lib/deployError';
@@ -606,7 +606,7 @@ export function Create() {
                 Queued ({messageQueue.size}):
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {messageQueue.queue.map((msg, idx) => (
+                {messageQueue.queue.map((msg, _idx) => (
                   <div
                     key={msg.id}
                     style={{
@@ -696,7 +696,6 @@ export function Create() {
                     maxHeight: 100,
                     fontFamily: 'Manrope, system-ui, sans-serif',
                   }}
-                  autoFocus
                 />
                 <Button
                   variant="primary"

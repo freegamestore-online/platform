@@ -24,7 +24,6 @@ afterEach(() => {
   global.fetch = originalFetch;
 });
 
-// biome-ignore lint/suspicious/noExplicitAny: test context parameter
 async function post(cookie = '__Host-fgs_token=valid.token.here') {
   const context = {
     request: new Request('https://console.freegamestore.online/auth/delete', {
