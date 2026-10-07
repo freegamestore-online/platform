@@ -34,11 +34,9 @@ jobs:
           node-version: 22
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-      # --ignore-workspace, same fix as 9c82339 on packages-ci.yml: pnpm walks UP
-      # to the root pnpm-workspace.yaml (which covers packages/* only), resolves
-      # THAT workspace and silently skips workers/agent's own node_modules —
-      # exiting 0 while leaving tsc/test deps missing. Pin the install to this unit.
-      - run: pnpm install --frozen-lockfile --ignore-workspace
+      # Install uses root lockfile; workers/agent deps are included in root lockfile
+      - run: pnpm install --frozen-lockfile
+        working-directory: ..
       - run: npx tsc --noEmit
       - run: pnpm test
       - run: pnpm exec wrangler deploy
