@@ -42,7 +42,9 @@ export async function commitFiles(options: CommitOptions): Promise<CommitResult>
       },
       body: body ? JSON.stringify(body) : null,
     });
-    return res.json() as Promise<unknown>;
+    // GitHub API responses are dynamic; we allow property access without strict typing
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return res.json() as Promise<any>;
   }
 
   let parentSha: string | undefined;
