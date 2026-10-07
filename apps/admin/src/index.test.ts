@@ -490,6 +490,47 @@ describe('lifecycle HTTP statuses (#66)', () => {
     );
     expect(res.status).toBe(502);
   });
+
+  it('DELETE returns 404 for a game not found with proper error code handling', async () => {
+    const key = 'creator-key';
+    const token = await mintSessionToken('grace', key);
+    vi.stubGlobal('fetch', async () =>
+      new Response(
+        JSON.stringify({ content: b64(JSON.stringify({ games: [] })), sha: 's' }),
+        { status: 200 },
+      ),
+    );
+    const res = await worker.fetch(
+      req('/api/games/nonexistent', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      makeEnv({ signingKey: key, adminEmails: ADMIN, DB: undefined }),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('DELETE returns 403 for a game not owned with proper error code handling', async () => {
+    const key = 'creator-key';
+    const token = await mintSessionToken('grace', key);
+    vi.stubGlobal('fetch', async () =>
+      new Response(
+        JSON.stringify({
+          content: b64(JSON.stringify({ games: [{ id: 'chess', name: 'Chess', creatorGithub: 'other' }] })),
+          sha: 's',
+        }),
+        { status: 200 },
+      ),
+    );
+    const res = await worker.fetch(
+      req('/api/games/chess', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      makeEnv({ signingKey: key, adminEmails: ADMIN, DB: undefined }),
+    );
+    expect(res.status).toBe(403);
+  });
 });
 
 describe('provision creator identity (#63)', () => {

@@ -9,6 +9,7 @@ import { createGameLifecycle } from './lifecycle/game-lifecycle';
 import { createRegistryState, createRemixSource } from './lifecycle/registry-state';
 import {
   type GameStatus,
+  type LifecycleErrorCode,
   insertHostRoute,
   lifecycleStatus,
   provisionStatus,
@@ -21,6 +22,10 @@ type CallerCredentials = {
   isAdmin: boolean;
   login: string | null;
 };
+
+/** Result of a game lifecycle operation (update or delete). When error is
+ *  present, code indicates the error type for HTTP status mapping. */
+type GameLifecycleResult = { ok?: boolean; error?: string; code?: LifecycleErrorCode };
 
 interface RouteParams {
   request: Request;
@@ -1165,10 +1170,10 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
         } catch {
           return jsonResponse({ error: 'invalid JSON' }, 400, request);
         }
-        const result = await gameLifecycle.update(id, login, body, env);
+        const result: GameLifecycleResult = await gameLifecycle.update(id, login, body, env);
         return jsonResponse(
           result,
-          result.error ? lifecycleStatus((result as any).code) : 200,
+          result.error ? lifecycleStatus(result.code) : 200,
           request,
         );
       },
@@ -1190,12 +1195,12 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
           return jsonResponse({ error: 'unauthorized' }, 401, request);
         }
 
-        const result = await gameLifecycle.delete(id, actor, env, {
+        const result: GameLifecycleResult = await gameLifecycle.delete(id, actor, env, {
           adminOverride: isAdmin,
         });
         return jsonResponse(
           result,
-          result.error ? lifecycleStatus((result as any).code) : 200,
+          result.error ? lifecycleStatus(result.code) : 200,
           request,
         );
       },
