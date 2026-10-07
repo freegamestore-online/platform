@@ -42,6 +42,7 @@ import { isGameProject } from './lib/project-type.js';
 import { runChecksFromFiles, runChecksOn } from './run-checks.js';
 import type { CheckResult } from './types.js';
 
+export { GAME_CI_WORKFLOW, GAME_DEPLOY_WORKFLOW } from './game-deploy-workflow.js';
 // Game metadata: shared categories and viewports across CLI, console, admin, auditor.
 export {
   GAME_CATEGORIES,
