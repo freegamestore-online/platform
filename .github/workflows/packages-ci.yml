@@ -57,7 +57,7 @@ jobs:
           - dir: apps/admin
             install: |
               pnpm install --frozen-lockfile --ignore-workspace
-              pnpm --dir web install --frozen-lockfile --ignore-workspace
+              npm install --prefix web
           - dir: apps/console
             install: pnpm install --frozen-lockfile
           - dir: workers/agent
