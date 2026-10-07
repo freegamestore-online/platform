@@ -75,7 +75,7 @@ export async function commitFiles(options: CommitOptions): Promise<CommitResult>
   }
 
   // Handle deletions
-  const pending = [...new Set(deletions)].filter((path) => !files.hasOwnProperty(path));
+  const pending = [...new Set(deletions)].filter((path) => !Object.hasOwn(files, path));
   let deletedCount = 0;
   if (pending.length > 0 && baseTree) {
     let base: { tree?: unknown; truncated?: boolean; message?: string };

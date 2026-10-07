@@ -334,7 +334,9 @@ export async function setGameStatuses(
     return { ok: false, updated: [], skipped: [], detail: 'registry.json is not valid JSON' };
   }
   const items: Array<Record<string, unknown>> = Array.isArray(content[key])
-    ? (content[key] as unknown[]).map((item) => (typeof item === 'object' && item !== null ? (item as Record<string, unknown>) : {}))
+    ? (content[key] as unknown[]).map((item) =>
+        typeof item === 'object' && item !== null ? (item as Record<string, unknown>) : {},
+      )
     : [];
 
   for (const { id, status } of updates) {
