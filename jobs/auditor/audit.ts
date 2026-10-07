@@ -2,8 +2,8 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { type Browser, chromium } from 'playwright';
 import {
-  type ReferenceViewport,
   REFERENCE_VIEWPORTS,
+  type ReferenceViewport,
 } from '../../contracts/game-metadata/v1/contract.js';
 
 // ---------------------------------------------------------------------------
