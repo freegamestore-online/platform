@@ -218,6 +218,21 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
     };
   }, []);
 
+  const handleClear = () => {
+    setGameName('');
+    setGameId('');
+    setIdTouched(false);
+    setCategory('casual');
+    setIcon('🎮');
+    setIconBg('#1a2e26');
+    setDescription('');
+    setBuildPrompt('');
+    setCloneFrom('');
+    setTemplate('kaplay');
+    setSubmitError(null);
+    setCheckResult(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -586,6 +601,15 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
           </Button>
           <Button type="button" variant="secondary" onClick={onClose} disabled={submitting}>
             Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleClear}
+            disabled={submitting}
+            title="Reset all fields to defaults"
+          >
+            Clear
           </Button>
         </div>
       </Card>

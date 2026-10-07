@@ -69,7 +69,7 @@ export function Nav() {
             />
           ))}
           {user ? (
-            <Link to="/profile">
+            <Link to="/profile" aria-label={`Profile for ${user.github}`}>
               <img
                 src={user.avatarUrl}
                 alt={user.github}
@@ -186,6 +186,7 @@ function MobileDrawer({
             className="flex items-center gap-2 mt-4 no-underline"
             style={{ minHeight: 44 }}
             onClick={onClose}
+            aria-label={`Profile for ${user.github}`}
           >
             <img
               src={user.avatarUrl}

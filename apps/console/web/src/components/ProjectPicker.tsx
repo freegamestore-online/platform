@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { Project } from '../hooks/useProjects';
 import { activityLabel, activityTone } from '../lib/sessions';
 import { Button, IconButton, Input } from './ui';
+import { ConfirmDialog } from './ConfirmDialog';
 
 // Colored status dot for each session, driven by the last known build/deploy
 // phase (session.activity, surfaced by mapServerSession). We can't reuse the
@@ -57,6 +58,14 @@ export function ProjectPicker({
 }: ProjectPickerProps) {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'sessions' | 'new'>('sessions');
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; project: Project | null }>({
+    open: false,
+    project: null,
+  });
+  const [freshDialog, setFreshDialog] = useState<{ open: boolean; project: Project | null }>({
+    open: false,
+    project: null,
+  });
 
   const q = search.toLowerCase();
   const filtered = projects.filter(
@@ -74,25 +83,12 @@ export function ProjectPicker({
   }
 
   function handleDelete(project: Project) {
-    if (
-      !confirm(
-        `Delete this chat session${project.name ? ` "${project.name}"` : ''}?\n\nThis removes only the conversation. The game and its code are not affected.`,
-      )
-    )
-      return;
-    onDelete(project.id);
+    setDeleteDialog({ open: true, project });
   }
 
   function handleFresh(project: Project) {
     if (!project.appId) return;
-    if (
-      !confirm(
-        `Start a fresh chat for "${project.name || project.appId}"?\n\nThe game and its code stay live — this only clears the current conversation and reloads the game's files into a clean chat.`,
-      )
-    )
-      return;
-    onFreshChat(project.appId);
-    onClose();
+    setFreshDialog({ open: true, project });
   }
 
   return (
@@ -130,8 +126,15 @@ export function ProjectPicker({
         </div>
 
         {/* Tabs */}
-        <div className="flex shrink-0" style={{ borderBottom: '1px solid var(--line)' }}>
+        <div
+          className="flex shrink-0"
+          style={{ borderBottom: '1px solid var(--line)' }}
+          role="tablist"
+        >
           <button
+            role="tab"
+            aria-selected={tab === 'sessions'}
+            aria-controls="sessions-panel"
             onClick={() => setTab('sessions')}
             className="flex-1 py-2 text-sm font-semibold"
             style={{
@@ -146,6 +149,9 @@ export function ProjectPicker({
             Open sessions
           </button>
           <button
+            role="tab"
+            aria-selected={tab === 'new'}
+            aria-controls="new-panel"
             onClick={() => setTab('new')}
             className="flex-1 py-2 text-sm font-semibold"
             style={{
@@ -175,7 +181,7 @@ export function ProjectPicker({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-3" style={{ minHeight: 0 }}>
           {tab === 'sessions' ? (
-            <>
+            <div id="sessions-panel" role="tabpanel">
               {loadError && (
                 <div className="text-center py-6 text-sm" style={{ color: 'var(--muted)' }}>
                   <p style={{ color: '#ef4444' }}>Couldn't load your sessions.</p>
@@ -218,6 +224,8 @@ export function ProjectPicker({
                         flexShrink: 0,
                       }}
                       title={activityLabel(p.activity, p.deployed)}
+                      aria-label={`Status: ${activityLabel(p.activity, p.deployed)}`}
+                      role="presentation"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold truncate">{p.name}</div>
@@ -279,10 +287,9 @@ export function ProjectPicker({
                   )}
                 </div>
               )}
-            </>
+            </div>
           ) : (
-            /* New game — routes to the one create flow (name + template picker). */
-            <div className="py-4">
+            <div id="new-panel" role="tabpanel" className="py-4">
               <p className="text-sm mb-3" style={{ color: 'var(--muted)' }}>
                 Start a new game — you'll pick a name and a template (2D canvas, grid, cards, or
                 3D). To keep editing an existing game, open it from{' '}
@@ -298,6 +305,40 @@ export function ProjectPicker({
           )}
         </div>
       </div>
+
+      {/* Delete dialog */}
+      <ConfirmDialog
+        open={deleteDialog.open}
+        title="Delete chat session?"
+        message={`Delete this chat session${deleteDialog.project?.name ? ` "${deleteDialog.project.name}"` : ''}?\n\nThis removes only the conversation. The game and its code are not affected.`}
+        confirmText="Delete"
+        cancelText="Keep it"
+        isDangerous
+        onConfirm={() => {
+          if (deleteDialog.project) {
+            onDelete(deleteDialog.project.id);
+          }
+          setDeleteDialog({ open: false, project: null });
+        }}
+        onCancel={() => setDeleteDialog({ open: false, project: null })}
+      />
+
+      {/* Fresh chat dialog */}
+      <ConfirmDialog
+        open={freshDialog.open}
+        title="Start a fresh chat?"
+        message={`Start a fresh chat for "${freshDialog.project?.name || freshDialog.project?.appId}"?\n\nThe game and its code stay live — this only clears the current conversation and reloads the game's files into a clean chat.`}
+        confirmText="Start fresh"
+        cancelText="Cancel"
+        onConfirm={() => {
+          if (freshDialog.project?.appId) {
+            onFreshChat(freshDialog.project.appId);
+            onClose();
+          }
+          setFreshDialog({ open: false, project: null });
+        }}
+        onCancel={() => setFreshDialog({ open: false, project: null })}
+      />
     </div>
   );
 }
