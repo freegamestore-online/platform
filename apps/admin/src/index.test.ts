@@ -494,11 +494,12 @@ describe('lifecycle HTTP statuses (#66)', () => {
   it('DELETE returns 404 for a game not found with proper error code handling', async () => {
     const key = 'creator-key';
     const token = await mintSessionToken('grace', key);
-    vi.stubGlobal('fetch', async () =>
-      new Response(
-        JSON.stringify({ content: b64(JSON.stringify({ games: [] })), sha: 's' }),
-        { status: 200 },
-      ),
+    vi.stubGlobal(
+      'fetch',
+      async () =>
+        new Response(JSON.stringify({ content: b64(JSON.stringify({ games: [] })), sha: 's' }), {
+          status: 200,
+        }),
     );
     const res = await worker.fetch(
       req('/api/games/nonexistent', {
@@ -513,14 +514,18 @@ describe('lifecycle HTTP statuses (#66)', () => {
   it('DELETE returns 403 for a game not owned with proper error code handling', async () => {
     const key = 'creator-key';
     const token = await mintSessionToken('grace', key);
-    vi.stubGlobal('fetch', async () =>
-      new Response(
-        JSON.stringify({
-          content: b64(JSON.stringify({ games: [{ id: 'chess', name: 'Chess', creatorGithub: 'other' }] })),
-          sha: 's',
-        }),
-        { status: 200 },
-      ),
+    vi.stubGlobal(
+      'fetch',
+      async () =>
+        new Response(
+          JSON.stringify({
+            content: b64(
+              JSON.stringify({ games: [{ id: 'chess', name: 'Chess', creatorGithub: 'other' }] }),
+            ),
+            sha: 's',
+          }),
+          { status: 200 },
+        ),
     );
     const res = await worker.fetch(
       req('/api/games/chess', {

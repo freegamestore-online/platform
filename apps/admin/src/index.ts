@@ -9,8 +9,8 @@ import { createGameLifecycle } from './lifecycle/game-lifecycle';
 import { createRegistryState, createRemixSource } from './lifecycle/registry-state';
 import {
   type GameStatus,
-  type LifecycleErrorCode,
   insertHostRoute,
+  type LifecycleErrorCode,
   lifecycleStatus,
   provisionStatus,
   readGameStatus,
@@ -994,7 +994,7 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
           : null;
 
         const httpResponse = routeRow ? await probeLiveGame(id, DOMAIN) : null;
-        // @ts-ignore
+        // @ts-expect-error
         const runs = entry ? await recentRuns(env, ORG, entry.repo) : [];
 
         return jsonResponse(
@@ -1171,11 +1171,7 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
           return jsonResponse({ error: 'invalid JSON' }, 400, request);
         }
         const result: GameLifecycleResult = await gameLifecycle.update(id, login, body, env);
-        return jsonResponse(
-          result,
-          result.error ? lifecycleStatus(result.code) : 200,
-          request,
-        );
+        return jsonResponse(result, result.error ? lifecycleStatus(result.code) : 200, request);
       },
     },
 
@@ -1198,11 +1194,7 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
         const result: GameLifecycleResult = await gameLifecycle.delete(id, actor, env, {
           adminOverride: isAdmin,
         });
-        return jsonResponse(
-          result,
-          result.error ? lifecycleStatus(result.code) : 200,
-          request,
-        );
+        return jsonResponse(result, result.error ? lifecycleStatus(result.code) : 200, request);
       },
     },
 

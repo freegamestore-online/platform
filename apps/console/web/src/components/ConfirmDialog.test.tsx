@@ -16,11 +16,11 @@ describe('ConfirmDialog', () => {
 
     // Find the most recently rendered dialog in this container
     const dialog = container.querySelector('[role="dialog"]');
-    // @ts-ignore
+    // @ts-expect-error
     expect(dialog).toBeInTheDocument();
-    // @ts-ignore
+    // @ts-expect-error
     expect(screen.getByText('Delete?')).toBeInTheDocument();
-    // @ts-ignore
+    // @ts-expect-error
     expect(screen.getByText('Are you sure?')).toBeInTheDocument();
   });
 
@@ -35,11 +35,11 @@ describe('ConfirmDialog', () => {
       />,
     );
 
-    // @ts-ignore
+    // @ts-expect-error
     expect(container.querySelector('[role="dialog"]')).not.toBeInTheDocument();
-    // @ts-ignore
+    // @ts-expect-error
     expect(screen.queryByText('Never visible')).not.toBeInTheDocument();
-    // @ts-ignore
+    // @ts-expect-error
     expect(screen.queryByText('This should not appear')).not.toBeInTheDocument();
   });
 
@@ -167,9 +167,9 @@ describe('ConfirmDialog', () => {
       />,
     );
 
-    // @ts-ignore
+    // @ts-expect-error
     expect(screen.getByRole('button', { name: 'Yes, proceed' })).toBeInTheDocument();
-    // @ts-ignore
+    // @ts-expect-error
     expect(screen.getByRole('button', { name: 'No, cancel' })).toBeInTheDocument();
   });
 
@@ -202,11 +202,11 @@ describe('ConfirmDialog', () => {
 
     const dialogs = screen.getAllByRole('dialog');
     const dialog = dialogs[dialogs.length - 1];
-    // @ts-ignore
+    // @ts-expect-error
     expect(dialog).toHaveAttribute('aria-modal', 'true');
-    // @ts-ignore
+    // @ts-expect-error
     expect(dialog).toHaveAttribute('aria-labelledby', 'dialog-title');
-    // @ts-ignore
+    // @ts-expect-error
     expect(screen.getByText('Delete?')).toHaveAttribute('id', 'dialog-title');
   });
 });

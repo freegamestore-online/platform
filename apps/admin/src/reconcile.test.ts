@@ -121,7 +121,6 @@ describe('GET /api/reconcile is report-only', () => {
       new Request('https://admin.freegamestore.online/api/reconcile', {
         headers: { 'X-FGS-Token': 't' },
       }),
-      // @ts-ignore
       env,
     );
     expect(res.status).toBe(200);
@@ -301,7 +300,6 @@ describe('reconcile build-status backstop', () => {
       new Request('https://admin.freegamestore.online/api/reconcile', {
         headers: { 'X-FGS-Token': 't' },
       }),
-      // @ts-ignore
       env,
     );
     const body = (await res.json()) as { pending: string[] };
@@ -349,7 +347,7 @@ describe('POST /api/internal/error', () => {
           : { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }),
-      // @ts-ignore
+      // @ts-expect-error
       env,
     );
 
@@ -418,7 +416,7 @@ describe('POST /api/internal/error', () => {
     const { inserts, env } = envWithDb();
     const ADMIN = {
       fetch: (input: RequestInfo | URL, init?: RequestInit) => {
-        // @ts-ignore
+        // @ts-expect-error
         return worker.fetch(new Request(input, init), env);
       },
     } as unknown as Fetcher;
@@ -467,7 +465,7 @@ describe('GET /api/status carries build status', () => {
       new Request('https://admin.freegamestore.online/api/status', {
         headers: { 'X-FGS-Token': 't' },
       }),
-      // @ts-ignore
+      // @ts-expect-error
       env,
     );
 
@@ -551,7 +549,7 @@ describe('GET /api/drift', () => {
       new Request('https://admin.freegamestore.online/api/drift', {
         headers: token ? { 'X-FGS-Token': 't' } : {},
       }),
-      // @ts-ignore
+      // @ts-expect-error
       env,
     );
 
@@ -783,7 +781,7 @@ describe('GET /api/games/:id/detail', () => {
       new Request(`https://admin.freegamestore.online/api/games/${id}/detail`, {
         headers: { 'X-FGS-Token': 't' },
       }),
-      // @ts-ignore
+      // @ts-expect-error
       env,
     );
 
@@ -799,16 +797,16 @@ describe('GET /api/games/:id/detail', () => {
     const b = (await res.json()) as Record<string, unknown>;
     expect(b.listed).toBe(true);
     expect(b.status).toBe('pending');
-    // @ts-ignore
+    // @ts-expect-error
     expect(b.route.configured).toBe(true);
-    // @ts-ignore
+    // @ts-expect-error
     expect(b.http.status).toBe(200);
-    // @ts-ignore
+    // @ts-expect-error
     expect(b.runs[0].conclusion).toBe('failure');
-    // @ts-ignore
+    // @ts-expect-error
     expect(b.runs[0].sha).toBe('abcdef1');
     // Only the commit subject, never the whole body.
-    // @ts-ignore
+    // @ts-expect-error
     expect(b.runs[0].message).toBe('break it');
   });
 
@@ -820,7 +818,7 @@ describe('GET /api/games/:id/detail', () => {
     expect(res.status).toBe(200);
     const b = (await res.json()) as Record<string, unknown>;
     expect(b.listed).toBe(false);
-    // @ts-ignore
+    // @ts-expect-error
     expect(b.route.configured).toBe(false);
     expect(b.status).toBe('live'); // absent entry → readGameStatus default
   });
@@ -831,9 +829,9 @@ describe('GET /api/games/:id/detail', () => {
       detailFetch([{ id: 'candy-shop', name: 'Candy Shop' }], { headOk: false }),
     );
     const b = (await (await get(envWithRoute(['candy-shop']))).json()) as Record<string, unknown>;
-    // @ts-ignore
+    // @ts-expect-error
     expect(b.http.ok).toBe(false);
-    // @ts-ignore
+    // @ts-expect-error
     expect(b.http.status).toBe(502);
   });
 
@@ -869,14 +867,14 @@ describe('admin→agent grant proxy', () => {
     const AGENT = {
       fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
         seen.push({
-          // @ts-ignore
+          // @ts-expect-error
           path: new URL(typeof input === 'string' ? input : input.url).pathname,
           method: init?.method ?? 'GET',
-          // @ts-ignore
+          // @ts-expect-error
           body: init?.body ?? null,
-          // @ts-ignore
+          // @ts-expect-error
           token: init?.headers?.['X-Internal-Token'] ?? null,
-          // @ts-ignore
+          // @ts-expect-error
           actor: init?.headers?.['X-Admin-Actor'] ?? null,
         });
         return new Response(JSON.stringify({ ok: true }), { status: 200 });
@@ -1046,7 +1044,7 @@ describe('POST /api/games/:id/heal-route', () => {
         method: 'POST',
         headers: { 'X-FGS-Token': 't' },
       }),
-      // @ts-ignore
+      // @ts-expect-error
       env,
     );
 
@@ -1122,7 +1120,7 @@ describe('CI test report endpoints (#24)', () => {
       new Request('https://admin.freegamestore.online/api/ci/test-report', {
         headers: { 'X-FGS-Token': 't' },
       }),
-      // @ts-ignore
+      // @ts-expect-error
       env,
     );
 
@@ -1133,7 +1131,7 @@ describe('CI test report endpoints (#24)', () => {
         headers: token ? { 'X-CI-Token': token } : {},
         body,
       }),
-      // @ts-ignore
+      // @ts-expect-error
       env,
     );
 
@@ -1221,7 +1219,7 @@ describe('GET /api/games/:id/traffic (#23 item 6)', () => {
       new Request(`https://admin.freegamestore.online/api/games/${id}/traffic`, {
         headers: { 'X-FGS-Token': 't' },
       }),
-      // @ts-ignore
+      // @ts-expect-error
       e,
     );
 
@@ -1279,15 +1277,14 @@ describe('GET /api/games/:id/traffic (#23 item 6)', () => {
       },
     });
     vi.stubGlobal('fetch', fetchFn);
-    // @ts-ignore
     const res = await get(env({ CF_API_TOKEN: 't', CF_ZONE_ID: 'zone123' }));
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
     expect(body.host).toBe('chess.freegamestore.online');
     expect(body.totals).toEqual({ requests: 150, pageViews: 60, visitors: 15 });
-    // @ts-ignore
+    // @ts-expect-error
     expect(seen[0]!.body.variables.zone).toBe('zone123');
-    // @ts-ignore
+    // @ts-expect-error
     expect(seen[0]!.body.variables.host).toBe('chess.freegamestore.online');
   });
 
