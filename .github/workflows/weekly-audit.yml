@@ -11,7 +11,8 @@ permissions:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # 131 games at ~2.5 min each, 6 at a time, is about an hour; 90 min left no margin.
+    timeout-minutes: 150
     defaults:
       run:
         working-directory: jobs/auditor
@@ -56,6 +57,7 @@ jobs:
       contents: write
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
       - name: Check GH_ADMIN_TOKEN
         run: |
           set -euo pipefail
@@ -81,29 +83,9 @@ jobs:
           fi
           echo "audit-results.json found ($(wc -c < audit-results.json) bytes)."
 
+      # Streams the payload from a file (#148). Passing the base64 document as a
+      # `-f content=` argument hit the kernel's argv limit ("Argument list too long").
       - name: Publish results to store repo
         env:
           GH_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
-        run: |
-          set -euo pipefail
-
-          echo "Encoding audit-results.json to base64..."
-          B64=$(base64 < audit-results.json | tr -d '\n')
-
-          echo "Fetching current file SHA (if exists)..."
-          SHA=$(gh api repos/freegamestore-online/platform/contents/sites/freegamestore/data/quality-results.json \
-            --jq '.sha' 2>/dev/null || true)
-
-          echo "Uploading quality-results.json to freegamestore-online/platform..."
-          if [ -n "$SHA" ]; then
-            gh api -X PUT repos/freegamestore-online/platform/contents/sites/freegamestore/data/quality-results.json \
-              -f "message=data: weekly quality audit $(date -u +%F)" \
-              -f "content=${B64}" \
-              -f "sha=${SHA}"
-          else
-            gh api -X PUT repos/freegamestore-online/platform/contents/sites/freegamestore/data/quality-results.json \
-              -f "message=data: weekly quality audit $(date -u +%F)" \
-              -f "content=${B64}"
-          fi
-
-          echo "Publish complete."
+        run: bash jobs/auditor/publish-quality-results.sh audit-results.json

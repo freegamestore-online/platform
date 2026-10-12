@@ -441,26 +441,36 @@ async function auditWithBrowser(browser: Browser, url: string): Promise<AuditRes
     // (detectTrackers) — never by searching the page text for words (#95).
     // biome-ignore lint/suspicious/noExplicitAny: Need dynamic property access on window object
     const w = window as unknown as Record<string, any>;
-    const isFn = (v: unknown) => typeof v === 'function';
     const sdkGlobals: Array<[string, boolean]> = [
-      ['gtag', isFn(w.gtag)],
-      ['facebook-pixel', isFn(w.fbq)],
-      ['amplitude', isFn(w.amplitude?.init) || isFn(w.amplitude?.getInstance)],
-      ['mixpanel', isFn(w.mixpanel?.track) && isFn(w.mixpanel?.init)],
+      ['gtag', typeof w.gtag === 'function'],
+      ['facebook-pixel', typeof w.fbq === 'function'],
+      [
+        'amplitude',
+        typeof w.amplitude?.init === 'function' || typeof w.amplitude?.getInstance === 'function',
+      ],
+      [
+        'mixpanel',
+        typeof w.mixpanel?.track === 'function' && typeof w.mixpanel?.init === 'function',
+      ],
       [
         'segment',
-        isFn(w.analytics?.track) && isFn(w.analytics?.identify) && isFn(w.analytics?.page),
+        typeof w.analytics?.track === 'function' &&
+          typeof w.analytics?.identify === 'function' &&
+          typeof w.analytics?.page === 'function',
       ],
-      ['hotjar', isFn(w.hj) && w._hjSettings !== undefined],
-      ['plausible', isFn(w.plausible)],
-      ['posthog', isFn(w.posthog?.capture) && isFn(w.posthog?.init)],
-      ['clarity', isFn(w.clarity)],
-      ['sentry', isFn(w.Sentry?.captureException)],
-      ['newrelic', isFn(w.newrelic?.addPageAction)],
-      ['datadog', isFn(w.DD_RUM?.init)],
-      ['logrocket', isFn(w.LogRocket?.init)],
-      ['fullstory', isFn(w.FS) && typeof w._fs_namespace === 'string'],
-      ['heap', isFn(w.heap?.track) && isFn(w.heap?.load)],
+      ['hotjar', typeof w.hj === 'function' && w._hjSettings !== undefined],
+      ['plausible', typeof w.plausible === 'function'],
+      [
+        'posthog',
+        typeof w.posthog?.capture === 'function' && typeof w.posthog?.init === 'function',
+      ],
+      ['clarity', typeof w.clarity === 'function'],
+      ['sentry', typeof w.Sentry?.captureException === 'function'],
+      ['newrelic', typeof w.newrelic?.addPageAction === 'function'],
+      ['datadog', typeof w.DD_RUM?.init === 'function'],
+      ['logrocket', typeof w.LogRocket?.init === 'function'],
+      ['fullstory', typeof w.FS === 'function' && typeof w._fs_namespace === 'string'],
+      ['heap', typeof w.heap?.track === 'function' && typeof w.heap?.load === 'function'],
     ];
     const trackerSignals = {
       scriptSrcs: [...scripts].map((sc) => sc.src).filter(Boolean),
@@ -713,6 +723,48 @@ function printResults(url: string, result: Awaited<ReturnType<typeof auditUrl>>)
 // Main
 // ---------------------------------------------------------------------------
 
+/** Games audited in parallel by `--all` (see the worker pool in main). */
+const AUDIT_CONCURRENCY = 6;
+
+/** Audit one registry game. A failure becomes a zero-score result, never a throw. */
+async function auditGame(game: { id: string; name: string; appUrl: string }): Promise<GameResult> {
+  console.log(`--- ${game.name || game.id} (${game.appUrl}) ---`);
+  try {
+    const result = await auditUrl(game.appUrl);
+    printResults(game.appUrl, result);
+    return {
+      id: game.id,
+      name: game.name || game.id,
+      url: game.appUrl,
+      score: result.score,
+      loadTimeMs: result.loadTimeMs,
+      consoleErrors: result.consoleErrors,
+      viewports: result.viewports,
+      usesSDK: result.usesSDK,
+      hasNoSelect: result.hasNoSelect,
+      extraNavbars: result.extraNavbars,
+      bannedLibs: result.bannedLibs,
+      securityIssues: result.securityIssues,
+    };
+  } catch (err) {
+    console.error(`  Failed to audit ${game.id}: ${err}`);
+    return {
+      id: game.id,
+      name: game.name || game.id,
+      url: game.appUrl,
+      score: 0,
+      loadTimeMs: 0,
+      consoleErrors: [`Audit failed: ${err}`],
+      viewports: [],
+      usesSDK: false,
+      hasNoSelect: false,
+      extraNavbars: 0,
+      bannedLibs: [],
+      securityIssues: [],
+    };
+  }
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
 
@@ -745,45 +797,19 @@ async function main(): Promise<void> {
 
     console.log(`\nAuditing ${games.length} games from registry...\n`);
 
-    const results: GameResult[] = [];
-
-    for (const game of games) {
-      console.log(`--- ${game.name || game.id} (${game.appUrl}) ---`);
-      try {
-        const result = await auditUrl(game.appUrl);
-        printResults(game.appUrl, result);
-        results.push({
-          id: game.id,
-          name: game.name || game.id,
-          url: game.appUrl,
-          score: result.score,
-          loadTimeMs: result.loadTimeMs,
-          consoleErrors: result.consoleErrors,
-          viewports: result.viewports,
-          usesSDK: result.usesSDK,
-          hasNoSelect: result.hasNoSelect,
-          extraNavbars: result.extraNavbars,
-          bannedLibs: result.bannedLibs,
-          securityIssues: result.securityIssues,
-        });
-      } catch (err) {
-        console.error(`  Failed to audit ${game.id}: ${err}`);
-        results.push({
-          id: game.id,
-          name: game.name || game.id,
-          url: game.appUrl,
-          score: 0,
-          loadTimeMs: 0,
-          consoleErrors: [`Audit failed: ${err}`],
-          viewports: [],
-          usesSDK: false,
-          hasNoSelect: false,
-          extraNavbars: 0,
-          bannedLibs: [],
-          securityIssues: [],
-        });
+    // Each game takes ~2.5 min (12 reference viewports, each waiting out a 10s
+    // networkidle), so one at a time needs ~6h for the registry and blows the
+    // weekly job's timeout. A small pool keeps the job inside it; results stay in
+    // registry order.
+    const results: GameResult[] = new Array(games.length);
+    let nextIndex = 0;
+    const worker = async (): Promise<void> => {
+      while (nextIndex < games.length) {
+        const index = nextIndex++;
+        results[index] = await auditGame(games[index]);
       }
-    }
+    };
+    await Promise.all(Array.from({ length: Math.min(AUDIT_CONCURRENCY, games.length) }, worker));
 
     const output: AuditOutput = {
       timestamp: new Date().toISOString(),
