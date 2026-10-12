@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-10-12T14:22:03.070Z",
+  "timestamp": "2026-10-12T14:39:31.695Z",
   "games": [
     {
       "id": "2048",
       "name": "2048",
       "url": "https://2048.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11539,
+      "loadTimeMs": 11340,
       "consoleErrors": [
         "Connecting to 'https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/2048?limit=50' violates the following Content Security Policy directive: \"connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io\". The action has been blocked.",
         "Fetch API cannot load https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/2048?limit=50. Refused to connect because it violates the document's Content Security Policy.",
@@ -209,7 +209,7 @@
       "name": "Asteroids",
       "url": "https://asteroids.freegamestore.online",
       "score": 88,
-      "loadTimeMs": 11928,
+      "loadTimeMs": 11515,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -408,7 +408,7 @@
       "name": "Billiards",
       "url": "https://billiards.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11447,
+      "loadTimeMs": 11771,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -607,7 +607,7 @@
       "name": "blackjack",
       "url": "https://blackjack.freegamestore.online",
       "score": 88,
-      "loadTimeMs": 11505,
+      "loadTimeMs": 11139,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -804,7 +804,7 @@
       "name": "Bowling",
       "url": "https://bowling.freegamestore.online",
       "score": 88,
-      "loadTimeMs": 11385,
+      "loadTimeMs": 11744,
       "consoleErrors": [
         "Loading the script 'https://api.freegamestore.online/v1/analytics.js?app=bowling' violates the following Content Security Policy directive: \"script-src 'self' https://static.cloudflareinsights.com\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
         "Failed to load resource: the server responded with a status of 401 ()"
@@ -1004,7 +1004,7 @@
       "name": "Breakout",
       "url": "https://breakout.freegamestore.online",
       "score": 92,
-      "loadTimeMs": 11252,
+      "loadTimeMs": 11529,
       "consoleErrors": [
         "Connecting to 'https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/breakout?limit=50' violates the following Content Security Policy directive: \"connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io\". The action has been blocked.",
         "Fetch API cannot load https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/breakout?limit=50. Refused to connect because it violates the document's Content Security Policy.",
@@ -1207,7 +1207,7 @@
       "name": "bubbleshooter",
       "url": "https://bubbleshooter.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11375,
+      "loadTimeMs": 11327,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -1404,7 +1404,7 @@
       "name": "Checkers",
       "url": "https://checkers.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11008,
+      "loadTimeMs": 11367,
       "consoleErrors": [
         "Connecting to 'https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/checkers?limit=50' violates the following Content Security Policy directive: \"connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io\". The action has been blocked.",
         "Fetch API cannot load https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/checkers?limit=50. Refused to connect because it violates the document's Content Security Policy.",
@@ -1607,7 +1607,7 @@
       "name": "Chess",
       "url": "https://chess.freegamestore.online",
       "score": 96,
-      "loadTimeMs": 11471,
+      "loadTimeMs": 13176,
       "consoleErrors": [
         "Loading the script 'https://static.cloudflareinsights.com/beacon.min.js/v4bc70e2c01a94c73b74392e4234840661791215815920' violates the following Content Security Policy directive: \"script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
         "Failed to load resource: the server responded with a status of 401 ()"
@@ -1805,7 +1805,7 @@
       "name": "coinflip",
       "url": "https://coinflip.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 11387,
+      "loadTimeMs": 11446,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -2004,7 +2004,7 @@
       "name": "Connect 4",
       "url": "https://connect4.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11109,
+      "loadTimeMs": 11316,
       "consoleErrors": [
         "Connecting to 'https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/connect4?limit=50' violates the following Content Security Policy directive: \"connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io\". The action has been blocked.",
         "Fetch API cannot load https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/connect4?limit=50. Refused to connect because it violates the document's Content Security Policy.",
@@ -2207,7 +2207,7 @@
       "name": "dice",
       "url": "https://dice.freegamestore.online",
       "score": 88,
-      "loadTimeMs": 11011,
+      "loadTimeMs": 11640,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -2406,7 +2406,7 @@
       "name": "Dragon Tap",
       "url": "https://dragontap.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11078,
+      "loadTimeMs": 11225,
       "consoleErrors": [
         "Connecting to 'https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/dragontap?limit=50' violates the following Content Security Policy directive: \"connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io\". The action has been blocked.",
         "Fetch API cannot load https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/dragontap?limit=50. Refused to connect because it violates the document's Content Security Policy.",
@@ -2609,7 +2609,7 @@
       "name": "Flappy Bird",
       "url": "https://flappy.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11118,
+      "loadTimeMs": 11079,
       "consoleErrors": [
         "Connecting to 'https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/flappy?limit=50' violates the following Content Security Policy directive: \"connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io\". The action has been blocked.",
         "Fetch API cannot load https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/flappy?limit=50. Refused to connect because it violates the document's Content Security Policy.",
@@ -2814,7 +2814,7 @@
       "name": "Frogger",
       "url": "https://frogger.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 12003,
+      "loadTimeMs": 11087,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -3013,7 +3013,7 @@
       "name": "Hangman",
       "url": "https://hangman.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11309,
+      "loadTimeMs": 11443,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -3212,7 +3212,7 @@
       "name": "highlow",
       "url": "https://highlow.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11348,
+      "loadTimeMs": 11262,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -3411,7 +3411,7 @@
       "name": "Mahjong",
       "url": "https://mahjong.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11005,
+      "loadTimeMs": 11187,
       "consoleErrors": [
         "Loading the script 'https://api.freegamestore.online/v1/analytics.js?app=mahjong' violates the following Content Security Policy directive: \"script-src 'self'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
         "Loading the script 'https://static.cloudflareinsights.com/beacon.min.js/v4bc70e2c01a94c73b74392e4234840661791215815920' violates the following Content Security Policy directive: \"script-src 'self'\". Note that 'script-src-elem' was not explicitly set, so 'script-src' is used as a fallback. The action has been blocked.",
@@ -3618,7 +3618,7 @@
       "name": "Match 3",
       "url": "https://match3.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 10959,
+      "loadTimeMs": 11429,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -3817,7 +3817,7 @@
       "name": "Memory",
       "url": "https://memory.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11291,
+      "loadTimeMs": 11207,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -4014,7 +4014,7 @@
       "name": "memorymatch",
       "url": "https://memorymatch.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11066,
+      "loadTimeMs": 11485,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -4213,7 +4213,7 @@
       "name": "Minesweeper",
       "url": "https://minesweeper.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11155,
+      "loadTimeMs": 11340,
       "consoleErrors": [
         "Connecting to 'https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/minesweeper?limit=50' violates the following Content Security Policy directive: \"connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io\". The action has been blocked.",
         "Fetch API cannot load https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/minesweeper?limit=50. Refused to connect because it violates the document's Content Security Policy.",
@@ -4414,7 +4414,7 @@
       "name": "MusicBot",
       "url": "https://musicbot.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 1642,
+      "loadTimeMs": 1965,
       "consoleErrors": [],
       "viewports": [
         {
@@ -4609,7 +4609,7 @@
       "name": "Pac-Man",
       "url": "https://pacman.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 10922,
+      "loadTimeMs": 10952,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: net::ERR_FAILED"
@@ -4809,7 +4809,7 @@
       "name": "pinball",
       "url": "https://pinball.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11333,
+      "loadTimeMs": 11258,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -5006,7 +5006,7 @@
       "name": "PixelCode",
       "url": "https://pixelcode.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 1718,
+      "loadTimeMs": 1923,
       "consoleErrors": [],
       "viewports": [
         {
@@ -5201,7 +5201,7 @@
       "name": "Platformer",
       "url": "https://platformer.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11205,
+      "loadTimeMs": 11234,
       "consoleErrors": [
         "Connecting to 'https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/platformer?limit=50' violates the following Content Security Policy directive: \"connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io\". The action has been blocked.",
         "Fetch API cannot load https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/platformer?limit=50. Refused to connect because it violates the document's Content Security Policy.",
@@ -5269,7 +5269,7 @@
           "scrollWidth": 414,
           "scrollHeight": 896,
           "clippedInteractive": 0,
-          "totalInteractive": 7,
+          "totalInteractive": 8,
           "smallTouchTargets": 0,
           "contentOverflow": 0
         },
@@ -5299,7 +5299,7 @@
           "scrollWidth": 768,
           "scrollHeight": 1024,
           "clippedInteractive": 0,
-          "totalInteractive": 8,
+          "totalInteractive": 7,
           "smallTouchTargets": 0,
           "contentOverflow": 0
         },
@@ -5359,7 +5359,7 @@
           "scrollWidth": 736,
           "scrollHeight": 414,
           "clippedInteractive": 0,
-          "totalInteractive": 7,
+          "totalInteractive": 8,
           "smallTouchTargets": 0,
           "contentOverflow": 0
         },
@@ -5407,7 +5407,7 @@
       "name": "Pong",
       "url": "https://pong.freegamestore.online",
       "score": 96,
-      "loadTimeMs": 11180,
+      "loadTimeMs": 11057,
       "consoleErrors": [
         "Connecting to 'https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/pong?limit=50' violates the following Content Security Policy directive: \"connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io\". The action has been blocked.",
         "Fetch API cannot load https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/pong?limit=50. Refused to connect because it violates the document's Content Security Policy.",
@@ -5610,7 +5610,7 @@
       "name": "Puzzle",
       "url": "https://puzzle.freegamestore.online",
       "score": 20,
-      "loadTimeMs": 11236,
+      "loadTimeMs": 11490,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -5628,7 +5628,7 @@
           "clippedInteractive": 6,
           "totalInteractive": 19,
           "smallTouchTargets": 0,
-          "contentOverflow": 28
+          "contentOverflow": 25
         },
         {
           "id": "p-360",
@@ -5763,7 +5763,7 @@
           "clippedInteractive": 7,
           "totalInteractive": 19,
           "smallTouchTargets": 0,
-          "contentOverflow": 34
+          "contentOverflow": 31
         },
         {
           "id": "l-1024",
@@ -5807,7 +5807,7 @@
       "name": "Quick Dice",
       "url": "https://quickdice.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11161,
+      "loadTimeMs": 11471,
       "consoleErrors": [
         "Connecting to 'https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/quickdice?limit=50' violates the following Content Security Policy directive: \"connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io\". The action has been blocked.",
         "Fetch API cannot load https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/quickdice?limit=50. Refused to connect because it violates the document's Content Security Policy.",
@@ -6010,7 +6010,7 @@
       "name": "Racing",
       "url": "https://racing.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11151,
+      "loadTimeMs": 11538,
       "consoleErrors": [
         "Connecting to 'https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/racing?limit=50' violates the following Content Security Policy directive: \"connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io\". The action has been blocked.",
         "Fetch API cannot load https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/racing?limit=50. Refused to connect because it violates the document's Content Security Policy.",
@@ -6211,7 +6211,7 @@
       "name": "reversi",
       "url": "https://reversi.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11225,
+      "loadTimeMs": 11073,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -6408,7 +6408,7 @@
       "name": "riichi",
       "url": "https://riichi.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 11258,
+      "loadTimeMs": 11392,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -6453,7 +6453,7 @@
           "scrollsY": false,
           "scrollWidth": 393,
           "scrollHeight": 852,
-          "clippedInteractive": 0,
+          "clippedInteractive": 2,
           "totalInteractive": 20,
           "smallTouchTargets": 1,
           "contentOverflow": 0
@@ -6493,14 +6493,14 @@
           "label": "768x1024 iPad",
           "width": 768,
           "height": 1024,
-          "pass": true,
+          "pass": false,
           "scrollsX": false,
           "scrollsY": false,
           "scrollWidth": 768,
           "scrollHeight": 1024,
           "clippedInteractive": 0,
-          "totalInteractive": 19,
-          "smallTouchTargets": 0,
+          "totalInteractive": 20,
+          "smallTouchTargets": 1,
           "contentOverflow": 0
         },
         {
@@ -6607,7 +6607,7 @@
       "name": "RoboClean",
       "url": "https://roboclean.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 1658,
+      "loadTimeMs": 1642,
       "consoleErrors": [],
       "viewports": [
         {
@@ -6802,7 +6802,7 @@
       "name": "Simon",
       "url": "https://simon.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11133,
+      "loadTimeMs": 12081,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -7001,7 +7001,7 @@
       "name": "Slither",
       "url": "https://slither.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11218,
+      "loadTimeMs": 11528,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -7198,7 +7198,7 @@
       "name": "Snake",
       "url": "https://snake.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11156,
+      "loadTimeMs": 11317,
       "consoleErrors": [
         "Connecting to 'https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/snake?limit=50' violates the following Content Security Policy directive: \"connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io\". The action has been blocked.",
         "Fetch API cannot load https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/snake?limit=50. Refused to connect because it violates the document's Content Security Policy.",
@@ -7401,7 +7401,7 @@
       "name": "Solitaire",
       "url": "https://solitaire.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11058,
+      "loadTimeMs": 11321,
       "consoleErrors": [
         "Connecting to 'https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/solitaire?limit=50' violates the following Content Security Policy directive: \"connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io\". The action has been blocked.",
         "Fetch API cannot load https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/solitaire?limit=50. Refused to connect because it violates the document's Content Security Policy.",
@@ -7604,7 +7604,7 @@
       "name": "spaceinvaders",
       "url": "https://spaceinvaders.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11085,
+      "loadTimeMs": 11174,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -7801,7 +7801,7 @@
       "name": "Space Shooter",
       "url": "https://spaceshooter.freegamestore.online",
       "score": 88,
-      "loadTimeMs": 11894,
+      "loadTimeMs": 11428,
       "consoleErrors": [
         "Connecting to 'https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/spaceshooter?limit=50' violates the following Content Security Policy directive: \"connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io\". The action has been blocked.",
         "Fetch API cannot load https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/spaceshooter?limit=50. Refused to connect because it violates the document's Content Security Policy.",
@@ -8004,7 +8004,7 @@
       "name": "Sudoku",
       "url": "https://sudoku.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11129,
+      "loadTimeMs": 11224,
       "consoleErrors": [
         "Connecting to 'https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/sudoku?limit=50' violates the following Content Security Policy directive: \"connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io\". The action has been blocked.",
         "Fetch API cannot load https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/sudoku?limit=50. Refused to connect because it violates the document's Content Security Policy.",
@@ -8207,7 +8207,7 @@
       "name": "tanks",
       "url": "https://tanks.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11049,
+      "loadTimeMs": 11090,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -8404,7 +8404,7 @@
       "name": "Tetris",
       "url": "https://tetris.freegamestore.online",
       "score": 92,
-      "loadTimeMs": 11698,
+      "loadTimeMs": 11119,
       "consoleErrors": [
         "Connecting to 'https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/tetris?limit=50' violates the following Content Security Policy directive: \"connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io\". The action has been blocked.",
         "Fetch API cannot load https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/tetris?limit=50. Refused to connect because it violates the document's Content Security Policy.",
@@ -8607,7 +8607,7 @@
       "name": "tictactoe",
       "url": "https://tictactoe.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11243,
+      "loadTimeMs": 11111,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -8806,7 +8806,7 @@
       "name": "Toe Tap",
       "url": "https://toetap.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11848,
+      "loadTimeMs": 11087,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -9005,7 +9005,7 @@
       "name": "TurtleCode",
       "url": "https://turtlecode.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 2581,
+      "loadTimeMs": 1667,
       "consoleErrors": [],
       "viewports": [
         {
@@ -9200,7 +9200,7 @@
       "name": "war",
       "url": "https://war.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11359,
+      "loadTimeMs": 11057,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -9397,7 +9397,7 @@
       "name": "Whack-a-Mole",
       "url": "https://whackamole.freegamestore.online",
       "score": 96,
-      "loadTimeMs": 11442,
+      "loadTimeMs": 11047,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -9520,7 +9520,7 @@
           "clippedInteractive": 0,
           "totalInteractive": 7,
           "smallTouchTargets": 0,
-          "contentOverflow": 9
+          "contentOverflow": 12
         },
         {
           "id": "l-667",
@@ -9596,7 +9596,7 @@
       "name": "Wordle",
       "url": "https://wordle.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11487,
+      "loadTimeMs": 10966,
       "consoleErrors": [
         "Connecting to 'https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/wordle?limit=50' violates the following Content Security Policy directive: \"connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io\". The action has been blocked.",
         "Fetch API cannot load https://freegamestore-leaderboard.serge-the-dev.workers.dev/api/leaderboard/wordle?limit=50. Refused to connect because it violates the document's Content Security Policy.",
@@ -9797,7 +9797,7 @@
       "name": "Word Search",
       "url": "https://wordsearch.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11395,
+      "loadTimeMs": 11078,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -9994,7 +9994,7 @@
       "name": "snake-2",
       "url": "https://snake-2.freegamestore.online",
       "score": 96,
-      "loadTimeMs": 11090,
+      "loadTimeMs": 11034,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -10193,7 +10193,7 @@
       "name": "uno",
       "url": "https://uno.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 2482,
+      "loadTimeMs": 1649,
       "consoleErrors": [],
       "viewports": [
         {
@@ -10390,7 +10390,7 @@
       "name": "mcp-hybrid-test",
       "url": "https://mcp-hybrid-test.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 12007,
+      "loadTimeMs": 10968,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -10589,7 +10589,7 @@
       "name": "Blockudoku",
       "url": "https://blockudoku.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 2312,
+      "loadTimeMs": 1881,
       "consoleErrors": [],
       "viewports": [
         {
@@ -10786,7 +10786,7 @@
       "name": "Maze Racer",
       "url": "https://maze-racer.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 2182,
+      "loadTimeMs": 1636,
       "consoleErrors": [],
       "viewports": [
         {
@@ -10981,7 +10981,7 @@
       "name": "wordguess",
       "url": "https://wordguess.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 11549,
+      "loadTimeMs": 11073,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -11180,7 +11180,7 @@
       "name": "Color Match",
       "url": "https://color-match.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 2086,
+      "loadTimeMs": 1721,
       "consoleErrors": [],
       "viewports": [
         {
@@ -11377,7 +11377,7 @@
       "name": "fireboyandwatergirl",
       "url": "https://fireboyandwatergirl.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 2596,
+      "loadTimeMs": 1768,
       "consoleErrors": [],
       "viewports": [
         {
@@ -11574,7 +11574,7 @@
       "name": "Nail Studio",
       "url": "https://nail-studio.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 2398,
+      "loadTimeMs": 1712,
       "consoleErrors": [],
       "viewports": [
         {
@@ -11771,7 +11771,7 @@
       "name": "TS Probe",
       "url": "https://ts-probe.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 11474,
+      "loadTimeMs": 11368,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -11970,7 +11970,7 @@
       "name": "Apple Picking",
       "url": "https://apple-picking.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 2458,
+      "loadTimeMs": 1758,
       "consoleErrors": [],
       "viewports": [
         {
@@ -12167,7 +12167,7 @@
       "name": "Kart Racers",
       "url": "https://kart-racers.freegamestore.online",
       "score": 96,
-      "loadTimeMs": 1803,
+      "loadTimeMs": 1820,
       "consoleErrors": [],
       "viewports": [
         {
@@ -12364,7 +12364,7 @@
       "name": "MCP Proof",
       "url": "https://mcp-proof.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 11273,
+      "loadTimeMs": 11133,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -12563,7 +12563,7 @@
       "name": "Slicing",
       "url": "https://slicing-game.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 2520,
+      "loadTimeMs": 1839,
       "consoleErrors": [],
       "viewports": [
         {
@@ -12760,7 +12760,7 @@
       "name": "AVOIDit",
       "url": "https://bladeblast.freegamestore.online",
       "score": 88,
-      "loadTimeMs": 2055,
+      "loadTimeMs": 1763,
       "consoleErrors": [],
       "viewports": [
         {
@@ -12957,7 +12957,7 @@
       "name": "Decaying Tic Tac Toe",
       "url": "https://decaying-tic-tac-toe.freegamestore.online",
       "score": 20,
-      "loadTimeMs": 2265,
+      "loadTimeMs": 1591,
       "consoleErrors": [],
       "viewports": [
         {
@@ -13152,7 +13152,7 @@
       "name": "Beat Star",
       "url": "https://beat-star.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 2010,
+      "loadTimeMs": 1721,
       "consoleErrors": [],
       "viewports": [
         {
@@ -13349,7 +13349,7 @@
       "name": "Frog jumping on islands in the marsh",
       "url": "https://frofrogjumping.freegamestore.online",
       "score": 88,
-      "loadTimeMs": 2428,
+      "loadTimeMs": 1649,
       "consoleErrors": [],
       "viewports": [
         {
@@ -13546,7 +13546,7 @@
       "name": "Angry ",
       "url": "https://angrry.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 2293,
+      "loadTimeMs": 1613,
       "consoleErrors": [],
       "viewports": [
         {
@@ -13743,7 +13743,7 @@
       "name": "SLICEit",
       "url": "https://sliceit.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 2251,
+      "loadTimeMs": 1609,
       "consoleErrors": [],
       "viewports": [
         {
@@ -13940,7 +13940,7 @@
       "name": "climberadventure",
       "url": "https://climberadventure.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 2180,
+      "loadTimeMs": 1717,
       "consoleErrors": [],
       "viewports": [
         {
@@ -14137,7 +14137,7 @@
       "name": "Flappy Slay Bird 🎀",
       "url": "https://flappyslaybird.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 2150,
+      "loadTimeMs": 1741,
       "consoleErrors": [],
       "viewports": [
         {
@@ -14334,7 +14334,7 @@
       "name": "Ocean Save",
       "url": "https://ocean-save.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 2082,
+      "loadTimeMs": 1624,
       "consoleErrors": [],
       "viewports": [
         {
@@ -14531,7 +14531,7 @@
       "name": "Ocean Save2",
       "url": "https://ocean-save2.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 2030,
+      "loadTimeMs": 1773,
       "consoleErrors": [],
       "viewports": [
         {
@@ -14695,7 +14695,7 @@
           "scrollWidth": 1024,
           "scrollHeight": 768,
           "clippedInteractive": 0,
-          "totalInteractive": 3,
+          "totalInteractive": 4,
           "smallTouchTargets": 0,
           "contentOverflow": 0
         },
@@ -14728,7 +14728,7 @@
       "name": "bouncing ball",
       "url": "https://bouncingball.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 2068,
+      "loadTimeMs": 1699,
       "consoleErrors": [],
       "viewports": [
         {
@@ -14925,7 +14925,7 @@
       "name": "Snake",
       "url": "https://mcp-snake-test.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 2298,
+      "loadTimeMs": 1658,
       "consoleErrors": [],
       "viewports": [
         {
@@ -15122,7 +15122,7 @@
       "name": "PixelJump",
       "url": "https://pixeljump.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 2205,
+      "loadTimeMs": 1820,
       "consoleErrors": [],
       "viewports": [
         {
@@ -15319,7 +15319,7 @@
       "name": "FlappyBird",
       "url": "https://flappybird.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 2530,
+      "loadTimeMs": 1920,
       "consoleErrors": [],
       "viewports": [
         {
@@ -15516,7 +15516,7 @@
       "name": "Cat Clicker",
       "url": "https://cat-clicker.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 1979,
+      "loadTimeMs": 1727,
       "consoleErrors": [],
       "viewports": [
         {
@@ -15713,7 +15713,7 @@
       "name": "snake.io",
       "url": "https://snake-io.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 2567,
+      "loadTimeMs": 1644,
       "consoleErrors": [],
       "viewports": [
         {
@@ -15910,7 +15910,7 @@
       "name": "The Cycle Of Life",
       "url": "https://the-cycle-of-life.freegamestore.online",
       "score": 96,
-      "loadTimeMs": 2147,
+      "loadTimeMs": 1760,
       "consoleErrors": [],
       "viewports": [
         {
@@ -16107,7 +16107,7 @@
       "name": "monster attack",
       "url": "https://monster-attack.freegamestore.online",
       "score": 96,
-      "loadTimeMs": 2314,
+      "loadTimeMs": 1854,
       "consoleErrors": [],
       "viewports": [
         {
@@ -16304,7 +16304,7 @@
       "name": "Fight",
       "url": "https://escape.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 2190,
+      "loadTimeMs": 1631,
       "consoleErrors": [],
       "viewports": [
         {
@@ -16501,7 +16501,7 @@
       "name": "Orb Cascade",
       "url": "https://orb-cascade.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 3662,
+      "loadTimeMs": 2384,
       "consoleErrors": [],
       "viewports": [
         {
@@ -16696,7 +16696,7 @@
       "name": "Crystal Orbit",
       "url": "https://crystal-orbit.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 3636,
+      "loadTimeMs": 2778,
       "consoleErrors": [],
       "viewports": [
         {
@@ -16891,7 +16891,7 @@
       "name": "Glow Match",
       "url": "https://glow-match.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 2203,
+      "loadTimeMs": 1977,
       "consoleErrors": [],
       "viewports": [
         {
@@ -17088,7 +17088,7 @@
       "name": "Royal Heist",
       "url": "https://royal-heist.freegamestore.online",
       "score": 96,
-      "loadTimeMs": 2152,
+      "loadTimeMs": 1774,
       "consoleErrors": [],
       "viewports": [
         {
@@ -17283,7 +17283,7 @@
       "name": "Royal Heist",
       "url": "https://royalheist.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 2133,
+      "loadTimeMs": 1796,
       "consoleErrors": [],
       "viewports": [
         {
@@ -17480,7 +17480,7 @@
       "name": "Neon Runner",
       "url": "https://neon-runner.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 3680,
+      "loadTimeMs": 2263,
       "consoleErrors": [],
       "viewports": [
         {
@@ -17677,7 +17677,7 @@
       "name": "Star Dodger",
       "url": "https://star-dodger.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 3119,
+      "loadTimeMs": 2386,
       "consoleErrors": [],
       "viewports": [
         {
@@ -17872,7 +17872,7 @@
       "name": "Brick Blast",
       "url": "https://brick-blast.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 2826,
+      "loadTimeMs": 2154,
       "consoleErrors": [],
       "viewports": [
         {
@@ -18067,7 +18067,7 @@
       "name": "Minigolf",
       "url": "https://minigolf.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 2804,
+      "loadTimeMs": 2273,
       "consoleErrors": [],
       "viewports": [
         {
@@ -18262,7 +18262,7 @@
       "name": "Angry Birds",
       "url": "https://angry-birds3.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 3099,
+      "loadTimeMs": 2009,
       "consoleErrors": [],
       "viewports": [
         {
@@ -18457,7 +18457,7 @@
       "name": "Beat star",
       "url": "https://beat-star2.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 3180,
+      "loadTimeMs": 2473,
       "consoleErrors": [],
       "viewports": [
         {
@@ -18654,7 +18654,7 @@
       "name": "Cart",
       "url": "https://cart.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 5112,
+      "loadTimeMs": 2826,
       "consoleErrors": [],
       "viewports": [
         {
@@ -18849,7 +18849,7 @@
       "name": "fish life",
       "url": "https://fish-life.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 3394,
+      "loadTimeMs": 2564,
       "consoleErrors": [],
       "viewports": [
         {
@@ -19046,7 +19046,7 @@
       "name": "Stack pack",
       "url": "https://stack-pack.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 3174,
+      "loadTimeMs": 2788,
       "consoleErrors": [],
       "viewports": [
         {
@@ -19243,10 +19243,8 @@
       "name": "DigiCritter",
       "url": "https://digicritter.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 4247,
-      "consoleErrors": [
-        "Failed to load resource: net::ERR_CONNECTION_RESET"
-      ],
+      "loadTimeMs": 4174,
+      "consoleErrors": [],
       "viewports": [
         {
           "id": "p-320",
@@ -19379,7 +19377,7 @@
           "scrollWidth": 667,
           "scrollHeight": 375,
           "clippedInteractive": 0,
-          "totalInteractive": 0,
+          "totalInteractive": 4,
           "smallTouchTargets": 0,
           "contentOverflow": 0
         },
@@ -19442,7 +19440,7 @@
       "name": "Crossy School",
       "url": "https://crossy-school.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 3021,
+      "loadTimeMs": 3236,
       "consoleErrors": [],
       "viewports": [
         {
@@ -19639,7 +19637,7 @@
       "name": "Good pizza great pizza",
       "url": "https://good-pizza-great-pizza.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 3756,
+      "loadTimeMs": 2492,
       "consoleErrors": [],
       "viewports": [
         {
@@ -19836,7 +19834,7 @@
       "name": "Don't Look Up",
       "url": "https://dont-look-up.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 3908,
+      "loadTimeMs": 2785,
       "consoleErrors": [],
       "viewports": [
         {
@@ -20033,7 +20031,7 @@
       "name": "Phone Case DIY",
       "url": "https://phone-case-diy.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 3977,
+      "loadTimeMs": 4048,
       "consoleErrors": [],
       "viewports": [
         {
@@ -20230,7 +20228,7 @@
       "name": "Obby",
       "url": "https://obby.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 2766,
+      "loadTimeMs": 2524,
       "consoleErrors": [],
       "viewports": [
         {
@@ -20427,7 +20425,7 @@
       "name": "Seasons Matter",
       "url": "https://seasons-matter.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 2200,
+      "loadTimeMs": 1723,
       "consoleErrors": [],
       "viewports": [
         {
@@ -20624,7 +20622,7 @@
       "name": "stacky birdy",
       "url": "https://stacky-birdy.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 3232,
+      "loadTimeMs": 4957,
       "consoleErrors": [],
       "viewports": [
         {
@@ -20821,7 +20819,7 @@
       "name": "Lavaman And Icegirl",
       "url": "https://lavaman-and-icegirl.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 3179,
+      "loadTimeMs": 4623,
       "consoleErrors": [],
       "viewports": [
         {
@@ -21018,7 +21016,7 @@
       "name": "FruityDrop",
       "url": "https://fruitydropz.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 4216,
+      "loadTimeMs": 4100,
       "consoleErrors": [],
       "viewports": [
         {
@@ -21215,12 +21213,12 @@
       "name": "Crossy Rivers",
       "url": "https://crossy-rivers.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 11313,
+      "loadTimeMs": 11340,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
-        "Access to fetch at 'https://leaderboard.freegamestore.online/v1/api/leaderboard/crossy-rivers/recent?limit=50' from origin 'https://crossy-rivers.freegamestore.online' has been blocked by CORS policy: The value of the 'Access-Control-Allow-Credentials' header in the response is '' which must be 'true' when the request's credentials mode is 'include'.",
+        "Access to fetch at 'https://leaderboard.freegamestore.online/v1/api/leaderboard/crossy-rivers?limit=50' from origin 'https://crossy-rivers.freegamestore.online' has been blocked by CORS policy: The value of the 'Access-Control-Allow-Credentials' header in the response is '' which must be 'true' when the request's credentials mode is 'include'.",
         "Failed to load resource: net::ERR_FAILED",
-        "Access to fetch at 'https://leaderboard.freegamestore.online/v1/api/leaderboard/crossy-rivers?limit=50' from origin 'https://crossy-rivers.freegamestore.online' has been blocked by CORS policy: The value of the 'Access-Control-Allow-Credentials' header in the response is '' which must be 'true' when the request's credentials mode is 'include'."
+        "Access to fetch at 'https://leaderboard.freegamestore.online/v1/api/leaderboard/crossy-rivers/recent?limit=50' from origin 'https://crossy-rivers.freegamestore.online' has been blocked by CORS policy: The value of the 'Access-Control-Allow-Credentials' header in the response is '' which must be 'true' when the request's credentials mode is 'include'."
       ],
       "viewports": [
         {
@@ -21417,7 +21415,7 @@
       "name": "CUBIworld",
       "url": "https://cubisworld.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 3105,
+      "loadTimeMs": 2806,
       "consoleErrors": [],
       "viewports": [
         {
@@ -21614,7 +21612,7 @@
       "name": "Zombie",
       "url": "https://zombie.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 4300,
+      "loadTimeMs": 3785,
       "consoleErrors": [],
       "viewports": [
         {
@@ -21809,7 +21807,7 @@
       "name": "Race",
       "url": "https://race.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 3351,
+      "loadTimeMs": 2599,
       "consoleErrors": [],
       "viewports": [
         {
@@ -22006,7 +22004,7 @@
       "name": "Endless Highway",
       "url": "https://endlesshighway.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 1958,
+      "loadTimeMs": 2142,
       "consoleErrors": [],
       "viewports": [
         {
@@ -22203,7 +22201,7 @@
       "name": "My Dream Room",
       "url": "https://my-dream-room.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 2922,
+      "loadTimeMs": 2649,
       "consoleErrors": [],
       "viewports": [
         {
@@ -22400,7 +22398,7 @@
       "name": "Squishy Swap!",
       "url": "https://squishy-swap.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 4960,
+      "loadTimeMs": 3458,
       "consoleErrors": [],
       "viewports": [
         {
@@ -22597,7 +22595,7 @@
       "name": "Candy Shop",
       "url": "https://candy-shop.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 2816,
+      "loadTimeMs": 2326,
       "consoleErrors": [],
       "viewports": [
         {
@@ -22794,7 +22792,7 @@
       "name": "Survive",
       "url": "https://survive.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 3533,
+      "loadTimeMs": 2492,
       "consoleErrors": [],
       "viewports": [
         {
@@ -22991,7 +22989,7 @@
       "name": "TRADE",
       "url": "https://trade.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 2754,
+      "loadTimeMs": 2054,
       "consoleErrors": [],
       "viewports": [
         {
@@ -23188,7 +23186,7 @@
       "name": "The Make-up Game",
       "url": "https://the-make-up-game.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 2909,
+      "loadTimeMs": 2342,
       "consoleErrors": [],
       "viewports": [
         {
@@ -23385,7 +23383,7 @@
       "name": "My Dream Room",
       "url": "https://mydream-room.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 3096,
+      "loadTimeMs": 2737,
       "consoleErrors": [],
       "viewports": [
         {
@@ -23582,7 +23580,7 @@
       "name": "Zombie",
       "url": "https://zombie123mmymymynmynamynammynamemynamemyname.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 3183,
+      "loadTimeMs": 2689,
       "consoleErrors": [],
       "viewports": [
         {
@@ -23779,7 +23777,7 @@
       "name": "Candy Store 2",
       "url": "https://candy-store-2.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 5265,
+      "loadTimeMs": 4763,
       "consoleErrors": [],
       "viewports": [
         {
@@ -23976,7 +23974,7 @@
       "name": "Zombie Attack",
       "url": "https://zombie-attack.freegamestore.online",
       "score": 96,
-      "loadTimeMs": 3065,
+      "loadTimeMs": 3571,
       "consoleErrors": [],
       "viewports": [
         {
@@ -24171,7 +24169,7 @@
       "name": "my shopping spree",
       "url": "https://my-shopping-spree.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 1867,
+      "loadTimeMs": 1889,
       "consoleErrors": [],
       "viewports": [
         {
@@ -24368,7 +24366,7 @@
       "name": "Starship",
       "url": "https://starship.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 3095,
+      "loadTimeMs": 2580,
       "consoleErrors": [],
       "viewports": [
         {
@@ -24565,7 +24563,7 @@
       "name": "Command",
       "url": "https://command.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 3060,
+      "loadTimeMs": 2869,
       "consoleErrors": [],
       "viewports": [
         {
@@ -24762,7 +24760,7 @@
       "name": "Dress to Impress",
       "url": "https://dress-to-impress.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11156,
+      "loadTimeMs": 11275,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -24961,7 +24959,7 @@
       "name": "A jungle race",
       "url": "https://a-jungle-race.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 2540,
+      "loadTimeMs": 2812,
       "consoleErrors": [],
       "viewports": [
         {
@@ -25158,7 +25156,7 @@
       "name": "Zombie",
       "url": "https://zombie123.freegamestore.online",
       "score": 88,
-      "loadTimeMs": 1809,
+      "loadTimeMs": 2035,
       "consoleErrors": [],
       "viewports": [
         {
@@ -25355,7 +25353,7 @@
       "name": "A jungle race",
       "url": "https://ajungle-race.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 2194,
+      "loadTimeMs": 2213,
       "consoleErrors": [],
       "viewports": [
         {
@@ -25552,7 +25550,7 @@
       "name": "Puppy Fashion",
       "url": "https://puppy-fashion.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 2039,
+      "loadTimeMs": 1952,
       "consoleErrors": [],
       "viewports": [
         {
@@ -25749,7 +25747,7 @@
       "name": "Whispers of the Wild",
       "url": "https://whispers-of-the-wild.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 3174,
+      "loadTimeMs": 2688,
       "consoleErrors": [],
       "viewports": [
         {
