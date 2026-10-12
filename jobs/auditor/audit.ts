@@ -723,6 +723,19 @@ function printResults(url: string, result: Awaited<ReturnType<typeof auditUrl>>)
 // Main
 // ---------------------------------------------------------------------------
 
+/**
+ * Locate the storefront registry for `--all`. CI checks out the platform repo's
+ * sites/freegamestore into ./freegamestore (sparse), so the file lands at
+ * freegamestore/sites/freegamestore/registry.json. Locally the auditor sits in
+ * the monorepo at jobs/auditor, so the registry is at ../../sites/freegamestore.
+ */
+export function resolveRegistryPath(auditorDir: string): string | undefined {
+  return [
+    resolve(auditorDir, 'freegamestore/sites/freegamestore/registry.json'),
+    resolve(auditorDir, '../../sites/freegamestore/registry.json'),
+  ].find(existsSync);
+}
+
 /** Games audited in parallel by `--all` (see the worker pool in main). */
 const AUDIT_CONCURRENCY = 6;
 
@@ -776,15 +789,12 @@ async function main(): Promise<void> {
     // Platform mode — read registry and test all games.
     // import.meta.dirname (not __dirname — this runs as ESM under tsx, where
     // __dirname doesn't exist; it crashed every weekly run since the cron
-    // shipped). The store repo is checked out INSIDE the workspace in CI
-    // (./freegamestore) but as a SIBLING locally (../freegamestore) — try both.
-    const here = import.meta.dirname;
-    const registryPath = [
-      resolve(here, 'freegamestore/registry.json'),
-      resolve(here, '../freegamestore/registry.json'),
-    ].find(existsSync);
+    // shipped).
+    const registryPath = resolveRegistryPath(import.meta.dirname);
     if (!registryPath) {
-      console.error('registry.json not found (looked in ./freegamestore and ../freegamestore)');
+      console.error(
+        'registry.json not found (looked in ./freegamestore/sites/freegamestore and ../../sites/freegamestore)',
+      );
       process.exit(1);
     }
     const registry = JSON.parse(readFileSync(registryPath, 'utf-8'));
