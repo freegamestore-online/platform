@@ -99,3 +99,7 @@ never committed. See `SECURITY.md`.
   late.
 - `MIGRATION.md` tracks the consolidation cutover; `SESSION-HANDOFF.md` carries
   in-flight context between sessions.
+
+## Delivery mode
+
+**Straight to `main`. No branches, no pull requests.** Declared 2026-08-16.
