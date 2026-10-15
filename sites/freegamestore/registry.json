@@ -2401,6 +2401,23 @@
       "firstPublished": "2026-10-15T19:26:27.225Z",
       "status": "pending",
       "provisionedSha": "a046b7eb74f3dd614e1f002e7fdae7f037668dcb"
+    },
+    {
+      "id": "cascade-keys",
+      "name": "Cascade Keys",
+      "category": "arcade",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Cascade falling keys in a musical puzzle game",
+      "appUrl": "https://cascade-keys.freegamestore.online",
+      "repo": "freegamestore-online/cascade-keys",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "serge-ivo",
+      "creatorGithub": "serge-ivo",
+      "firstPublished": "2026-10-15T20:16:30.757Z",
+      "status": "pending",
+      "provisionedSha": "3be042574a0565e9198197f9fe9cd4de87484327"
     }
   ]
 }
