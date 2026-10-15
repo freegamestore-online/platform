@@ -2,7 +2,7 @@
 
 Shared React UI primitives for games on **freegamestore.online**. Brand-consistent layout, scroll-free viewport lock, touch-friendly controls, and synthesized sound effects.
 
-**Version:** 0.14.0
+**Version:** 0.18.0
 
 ## Installation
 

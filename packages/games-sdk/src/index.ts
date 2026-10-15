@@ -31,6 +31,20 @@ export {
   type GameTopbarProps,
   type GameTopbarStat,
 } from './GameTopbar.js';
+export {
+  type ColourTokens,
+  DARK_COLOUR_OVERRIDES,
+  DARK_COLOURS,
+  GAME_TOKENS_CSS,
+  LIGHT_COLOURS,
+  MOTION_TOKENS,
+  type MotionTokens,
+  REDUCED_MOTION_DURATIONS,
+  SHAPE_TOKENS,
+  type ShapeTokens,
+  TYPOGRAPHY_TOKENS,
+  type TypographyTokens,
+} from './tokens.js';
 // Hidden: leaderboard not currently surfaced to users (issue #31) — remove the
 // comment markers to re-enable. Leaderboard.tsx and useLeaderboard.ts are left
 // intact on purpose, as is the workers/leaderboard API and its data.
