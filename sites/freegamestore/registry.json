@@ -223,7 +223,7 @@
     },
     {
       "id": "connect4",
-      "name": "Connect 4",
+      "name": "Four in a Row",
       "category": "strategy",
       "icon": "&#128308;",
       "iconBg": "#eff6ff",
@@ -279,7 +279,7 @@
     },
     {
       "id": "flappy",
-      "name": "Flappy Bird",
+      "name": "Pipe Flyer",
       "category": "arcade",
       "icon": "&#128038;",
       "iconBg": "#ecfdf5",
@@ -305,7 +305,7 @@
     },
     {
       "id": "frogger",
-      "name": "Frogger",
+      "name": "Road Hopper",
       "category": "arcade",
       "icon": "&#128056;",
       "iconBg": "#ecfdf5",
@@ -506,7 +506,7 @@
     },
     {
       "id": "pacman",
-      "name": "Pac-Man",
+      "name": "Dot Muncher",
       "category": "arcade",
       "icon": "&#127918;",
       "iconBg": "#fef9c3",
@@ -912,7 +912,7 @@
     },
     {
       "id": "tetris",
-      "name": "Tetris",
+      "name": "Falling Blocks",
       "category": "brain-training",
       "icon": "&#127918;",
       "iconBg": "#fef2f2",
@@ -1024,7 +1024,7 @@
     },
     {
       "id": "wordle",
-      "name": "Wordle",
+      "name": "Five-Letter Word",
       "category": "brain-training",
       "icon": "&#129518;",
       "iconBg": "#f0fdf4",
@@ -1090,7 +1090,7 @@
     },
     {
       "id": "uno",
-      "name": "uno",
+      "name": "Crazy Eights",
       "category": "Cards",
       "icon": "🎮",
       "iconBg": "#ecfdf5",
@@ -1118,7 +1118,7 @@
     },
     {
       "id": "blockudoku",
-      "name": "Blockudoku",
+      "name": "Block Sudoku",
       "category": "puzzle",
       "icon": "🎮",
       "iconBg": "#ecfdf5",
@@ -1146,7 +1146,7 @@
     },
     {
       "id": "wordguess",
-      "name": "wordguess",
+      "name": "Five-Letter Word",
       "category": "Brain Training",
       "icon": "🎮",
       "iconBg": "#ecfdf5",
@@ -1174,7 +1174,7 @@
     },
     {
       "id": "fireboyandwatergirl",
-      "name": "fireboyandwatergirl",
+      "name": "Fire & Ice Duo",
       "category": "Strategy",
       "icon": "🎮",
       "iconBg": "#ecfdf5",
@@ -1476,7 +1476,7 @@
     },
     {
       "id": "flappybird",
-      "name": "FlappyBird",
+      "name": "Pipe Flyer",
       "category": "arcade",
       "icon": "🎮",
       "iconBg": "#1a2e26",
@@ -1507,11 +1507,11 @@
     },
     {
       "id": "snake-io",
-      "name": "snake.io",
+      "name": "Slither Arena",
       "category": "casual",
       "icon": "🎮",
       "iconBg": "#1a2e26",
-      "description": "snake.io",
+      "description": "Slither-style snake game. Eat, grow, survive.",
       "appUrl": "https://snake-io.freegamestore.online",
       "repo": "freegamestore-online/snake-io",
       "hostedOn": "r2",
@@ -1713,7 +1713,7 @@
     },
     {
       "id": "angry-birds3",
-      "name": "Angry Birds",
+      "name": "Bird Launcher",
       "category": "casual",
       "icon": "🎮",
       "iconBg": "#1a2e26",
@@ -1825,11 +1825,11 @@
     },
     {
       "id": "good-pizza-great-pizza",
-      "name": "Good pizza great pizza",
+      "name": "Slice Master",
       "category": "casual",
       "icon": "🍕",
       "iconBg": "#ffae52",
-      "description": "Good pizza great pizza",
+      "description": "Pizza-making game.",
       "appUrl": "https://good-pizza-great-pizza.freegamestore.online",
       "repo": "freegamestore-online/good-pizza-great-pizza",
       "hostedOn": "r2",
@@ -2239,7 +2239,7 @@
     },
     {
       "id": "dress-to-impress",
-      "name": "Dress to Impress",
+      "name": "Style Runway",
       "category": "casual",
       "icon": "👗",
       "iconBg": "#fdf2f8",
