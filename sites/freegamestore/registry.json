@@ -1075,20 +1075,6 @@
       "creatorGithub": "serge-ivo"
     },
     {
-      "id": "snake-2",
-      "name": "snake-2",
-      "category": "Casual",
-      "icon": "🎮",
-      "iconBg": "#ecfdf5",
-      "description": "The one and only snake game we have all played and loved on our Nokias",
-      "appUrl": "https://snake-2.freegamestore.online",
-      "repo": "freegamestore-online/snake-2",
-      "hostedOn": "r2",
-      "type": "standalone",
-      "developer": "Advika123456",
-      "creatorGithub": "Advika123456"
-    },
-    {
       "id": "uno",
       "name": "Crazy Eights",
       "category": "Cards",
@@ -1414,21 +1400,6 @@
       "firstPublished": "2026-07-05T02:12:33.855Z"
     },
     {
-      "id": "ocean-save2",
-      "name": "Ocean Save2",
-      "category": "casual",
-      "icon": "🎮",
-      "iconBg": "#1a2e26",
-      "description": "",
-      "appUrl": "https://ocean-save2.freegamestore.online",
-      "repo": "freegamestore-online/ocean-save2",
-      "hostedOn": "r2",
-      "type": "standalone",
-      "developer": "buildlessonline-spec",
-      "creatorGithub": "buildlessonline-spec",
-      "firstPublished": "2026-07-05T02:23:25.477Z"
-    },
-    {
       "id": "bouncingball",
       "name": "bouncing ball",
       "category": "casual",
@@ -1445,21 +1416,6 @@
       "updatedAt": "2026-07-05T02:27:44.808Z"
     },
     {
-      "id": "mcp-snake-test",
-      "name": "Snake",
-      "category": "arcade",
-      "icon": "&#128013;",
-      "iconBg": "#f0fdf4",
-      "description": "Classic Snake — eat food, grow longer, don't hit the walls or yourself!",
-      "appUrl": "https://mcp-snake-test.freegamestore.online",
-      "repo": "freegamestore-online/mcp-snake-test",
-      "hostedOn": "r2",
-      "type": "standalone",
-      "developer": "buildlessonline-spec",
-      "creatorGithub": "buildlessonline-spec",
-      "firstPublished": "2026-07-05T02:27:01.840Z"
-    },
-    {
       "id": "pixeljump",
       "name": "PixelJump",
       "category": "sports",
@@ -1473,21 +1429,6 @@
       "developer": "Crystal12341",
       "creatorGithub": "Crystal12341",
       "firstPublished": "2026-07-05T02:41:18.176Z"
-    },
-    {
-      "id": "flappybird",
-      "name": "Pipe Flyer",
-      "category": "arcade",
-      "icon": "🎮",
-      "iconBg": "#1a2e26",
-      "description": "FlappyBird",
-      "appUrl": "https://flappybird.freegamestore.online",
-      "repo": "freegamestore-online/flappybird",
-      "hostedOn": "r2",
-      "type": "standalone",
-      "developer": "Crystal12341",
-      "creatorGithub": "Crystal12341",
-      "firstPublished": "2026-07-05T04:14:05.357Z"
     },
     {
       "id": "cat-clicker",
@@ -1634,21 +1575,6 @@
       "firstPublished": "2026-07-11T16:29:51.243Z"
     },
     {
-      "id": "royalheist",
-      "name": "Royal Heist",
-      "category": "cards",
-      "icon": "&#128176;",
-      "iconBg": "#1e3a8a",
-      "description": "Push-your-luck card game — draw cards to build a heist score, but two guards bust your round. First to 100 wins!",
-      "appUrl": "https://royalheist.freegamestore.online",
-      "repo": "freegamestore-online/royalheist",
-      "hostedOn": "r2",
-      "type": "standalone",
-      "developer": "serge-ivo",
-      "creatorGithub": "serge-ivo",
-      "firstPublished": "2026-07-11T16:46:29.554Z"
-    },
-    {
       "id": "neon-runner",
       "name": "Neon Runner",
       "category": "arcade",
@@ -1726,22 +1652,6 @@
       "creatorGithub": "buildlessonline-spec",
       "engine": "pixi",
       "firstPublished": "2026-07-17T07:07:25.694Z"
-    },
-    {
-      "id": "beat-star2",
-      "name": "Beat star",
-      "category": "casual",
-      "icon": "🎮",
-      "iconBg": "#1a2e26",
-      "description": "Beat star",
-      "appUrl": "https://beat-star2.freegamestore.online",
-      "repo": "freegamestore-online/beat-star2",
-      "hostedOn": "r2",
-      "type": "standalone",
-      "developer": "buildlessonline-spec",
-      "creatorGithub": "buildlessonline-spec",
-      "engine": "kaplay",
-      "firstPublished": "2026-07-18T03:59:25.507Z"
     },
     {
       "id": "cart",
@@ -2126,38 +2036,6 @@
       "firstPublished": "2026-08-09T06:10:33.164Z"
     },
     {
-      "id": "mydream-room",
-      "name": "My Dream Room",
-      "category": "casual",
-      "icon": "🧚🏾‍♀️",
-      "iconBg": "#c7dcff",
-      "description": "fun room-decorating game where you complete mini-challenges, earn coins, and create your dream bedroom.",
-      "appUrl": "https://mydream-room.freegamestore.online",
-      "repo": "freegamestore-online/mydream-room",
-      "hostedOn": "r2",
-      "type": "standalone",
-      "developer": "SASASKIA",
-      "creatorGithub": "SASASKIA",
-      "engine": "kaplay",
-      "firstPublished": "2026-08-09T06:22:51.534Z"
-    },
-    {
-      "id": "zombie123mmymymynmynamynammynamemynamemyname",
-      "name": "Zombie",
-      "category": "casual",
-      "icon": "🎮",
-      "iconBg": "#1a2e26",
-      "description": "Zombie",
-      "appUrl": "https://zombie123mmymymynmynamynammynamemynamemyname.freegamestore.online",
-      "repo": "freegamestore-online/zombie123mmymymynmynamynammynamemynamemyname",
-      "hostedOn": "r2",
-      "type": "standalone",
-      "developer": "Crystal12341",
-      "creatorGithub": "Crystal12341",
-      "engine": "kaplay",
-      "firstPublished": "2026-08-09T06:37:15.101Z"
-    },
-    {
       "id": "candy-store-2",
       "name": "Candy Store 2",
       "category": "casual",
@@ -2268,38 +2146,6 @@
       "creatorGithub": "SASASKIA",
       "engine": "kaplay",
       "firstPublished": "2026-08-30T04:14:35.351Z"
-    },
-    {
-      "id": "zombie123",
-      "name": "Zombie",
-      "category": "arcade",
-      "icon": "🎮",
-      "iconBg": "#1a2e26",
-      "description": "Zombie",
-      "appUrl": "https://zombie123.freegamestore.online",
-      "repo": "freegamestore-online/zombie123",
-      "hostedOn": "r2",
-      "type": "standalone",
-      "developer": "Crystal12341",
-      "creatorGithub": "Crystal12341",
-      "engine": "3d",
-      "firstPublished": "2026-08-30T04:18:26.844Z"
-    },
-    {
-      "id": "ajungle-race",
-      "name": "A jungle race",
-      "category": "racing",
-      "icon": "🌳",
-      "iconBg": "#1a2e26",
-      "description": "a race against your own time with high scores in the jungle guns and with obsatcles jungle related it will be 3D and there will be a jungle staue made out of gold ",
-      "appUrl": "https://ajungle-race.freegamestore.online",
-      "repo": "freegamestore-online/ajungle-race",
-      "hostedOn": "r2",
-      "type": "standalone",
-      "developer": "SASASKIA",
-      "creatorGithub": "SASASKIA",
-      "engine": "3d",
-      "firstPublished": "2026-08-30T04:34:50.180Z"
     },
     {
       "id": "puppy-fashion",
