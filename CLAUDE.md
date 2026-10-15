@@ -103,3 +103,36 @@ never committed. See `SECURITY.md`.
 ## Delivery mode
 
 **Straight to `main`. No branches, no pull requests.** Declared 2026-08-16.
+
+## Interim: deploy from local while GitHub Actions is down (since 2026-10-15)
+
+GitHub Actions on the `freegamestore-online` org is refusing to start jobs
+("recent account payments have failed or your spending limit needs to be
+increased"). Every workflow is affected: CI, Quality, every `deploy-*.yml`, and
+each game repo's own `deploy.yml`. A push to `main` therefore deploys
+**nothing**, and a red CI run says nothing about the code. Until this section
+is removed:
+
+- **Run the checks yourself before you push** — the same steps the workflow
+  would have run (install, typecheck, test, lint) in that service's directory.
+- **Then deploy from the local machine** with the commands the workflow uses.
+  Load credentials with `set -a; source ~/.cloudflare/tokens.env; set +a`,
+  then `export CLOUDFLARE_API_TOKEN=$CF_TOKEN_PERSONAL
+  CLOUDFLARE_ACCOUNT_ID=$CF_ACCOUNT_PERSONAL`. Only the PERSONAL token reaches
+  FGS; the WORK one does not. Never echo the values.
+
+| Service | Local deploy (from the repo root) |
+|---|---|
+| admin | `pnpm install --frozen-lockfile && pnpm --filter admin test && npm install --prefix apps/admin/web && npm run --prefix apps/admin/web build && (cd apps/admin && npx wrangler deploy)` |
+| agent | `pnpm install --frozen-lockfile && pnpm build && cd workers/agent && npx tsc --noEmit && pnpm test && pnpm exec wrangler deploy` |
+| auth / host / leaderboard | `cd workers/<name> && pnpm install --frozen-lockfile --ignore-workspace && pnpm typecheck && pnpm test && npx wrangler deploy` (auth has no `typecheck`) |
+| mcp | `pnpm install --frozen-lockfile && pnpm --filter @freegamestore/contracts build && pnpm --filter freegamestore-mcp typecheck && pnpm --filter freegamestore-mcp test && (cd workers/mcp && npx wrangler deploy)` |
+| console | `cd apps/console && pnpm install --frozen-lockfile && pnpm typecheck && pnpm test && (cd web && pnpm build) && npx wrangler pages deploy web/dist --project-name=freegamestore-publisher` |
+| storefront | `cd sites/freegamestore && npm install && npm run build && npx wrangler pages deploy dist --project-name=freegamestore` |
+| a game | In the game repo: build `web/dist`, run `@freegamestore/compliance` on the built output, then upload every file to R2 bucket `fgs-games` under `games/<slug>/` with `npx wrangler r2 object put fgs-games/games/<slug>/<path> --file <path> --content-type <mime> --remote`. That prefix is what the host Worker serves. |
+
+- **After each deploy, verify the live URL yourself** (the service's health
+  route, or the game at `https://<slug>.freegamestore.online`), and record in the
+  issue that it was deployed locally, with the commit SHA.
+- Remove this section once Actions runs again, and re-run the skipped workflows
+  on `main`.
