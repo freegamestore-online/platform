@@ -5,6 +5,8 @@
  * the contract's three states instead of collapsing an outage into `[]`.
  */
 
+import { registryContentsUrl, registryRawUrl } from './registryLocation';
+
 export interface RegistryGame {
   id: string;
   name?: string;
@@ -26,10 +28,6 @@ export type RegistryReadResult =
     }
   | { status: 'missing' }
   | { status: 'unavailable' };
-
-const ORG = 'freegamestore-online';
-const STORE_REPO = 'freegamestore';
-const RAW_URL = `https://raw.githubusercontent.com/${ORG}/${STORE_REPO}/main/registry.json`;
 
 type Attempt = 'available' | 'missing' | 'unavailable';
 
@@ -75,7 +73,7 @@ async function readAttempt(
 /** Read registry.json according to the v1 availability contract. */
 export async function readRegistry(githubToken?: string): Promise<RegistryReadResult> {
   const contents = await readAttempt(
-    `https://api.github.com/repos/${ORG}/${STORE_REPO}/contents/registry.json`,
+    registryContentsUrl(),
     githubToken
       ? {
           headers: {
@@ -89,7 +87,7 @@ export async function readRegistry(githubToken?: string): Promise<RegistryReadRe
   if (contents.state === 'available')
     return { status: 'available', games: contents.games!, source: 'contents' };
 
-  const raw = await readAttempt(RAW_URL, { headers: { 'User-Agent': 'freegamestore-admin' } });
+  const raw = await readAttempt(registryRawUrl(), { headers: { 'User-Agent': 'freegamestore-admin' } });
   if (raw.state === 'available') return { status: 'available', games: raw.games!, source: 'raw' };
   if (contents.state === 'missing' && raw.state === 'missing') return { status: 'missing' };
   return { status: 'unavailable' };

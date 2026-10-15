@@ -6,8 +6,8 @@ const games = getConfig("games");
 
 // The authenticated (uncached) contents API is now the PRIMARY registry read;
 // raw.githubusercontent.com is only the fallback.
-const CONTENTS_URL = "https://api.github.com/repos/freegamestore-online/freegamestore/contents/registry.json";
-const REGISTRY_URL = "https://raw.githubusercontent.com/freegamestore-online/freegamestore/main/registry.json";
+const CONTENTS_URL = "https://api.github.com/repos/freegamestore-online/platform/contents/sites/freegamestore/registry.json";
+const REGISTRY_URL = "https://raw.githubusercontent.com/freegamestore-online/platform/main/sites/freegamestore/registry.json";
 
 function registry(items: unknown[]) {
   return { ok: true, status: 200, json: () => Promise.resolve({ games: items }) };

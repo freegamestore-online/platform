@@ -7,6 +7,9 @@ import { commitFiles } from '@freegamestore/contracts';
 import { withTimeout } from './http.js';
 
 const UA = 'freegamestore-mcp';
+// The games registry lives in the platform repo under sites/, not at the root
+// of the archived freegamestore repo (#213).
+const REGISTRY_PATH = 'sites/freegamestore/registry.json';
 const TEXT_RE = /\.(ts|tsx|js|jsx|mjs|cjs|json|html|css|md|txt|svg|yml|yaml|toml)$/i;
 
 /** A GitHub request that failed for a reason other than confirmed absence —
@@ -186,7 +189,7 @@ export async function readRegistryGames(
   let contentsErrored = false;
   let raw: string | null;
   try {
-    raw = await readRepoFile(org, storeRepo, token, 'registry.json');
+    raw = await readRepoFile(org, storeRepo, token, REGISTRY_PATH);
   } catch {
     contentsErrored = true;
     raw = null;
@@ -204,7 +207,7 @@ export async function readRegistryGames(
   // unavailable; callers distinguish a missing registry only when both reads miss.
   try {
     const fallback = await fetch(
-      `https://raw.githubusercontent.com/${org}/${storeRepo}/main/registry.json`,
+      `https://raw.githubusercontent.com/${org}/${storeRepo}/main/${REGISTRY_PATH}`,
       { headers: { 'User-Agent': UA } },
     );
     if (fallback.ok) {

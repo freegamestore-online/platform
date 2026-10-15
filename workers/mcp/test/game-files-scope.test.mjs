@@ -28,7 +28,7 @@ const { registerGameFilesTools } = await import(resolve(root, 'src/tools/game-fi
 const { textToB64 } = await import(resolve(root, 'src/github.ts'));
 
 const ORG = 'freegamestore-online';
-const env = { GITHUB_ORG: ORG, STORE_REPO: 'freegamestore', GITHUB_TOKEN: 'org-token' };
+const env = { GITHUB_ORG: ORG, STORE_REPO: 'platform', GITHUB_TOKEN: 'org-token' };
 const REGISTRY = { games: [{ id: 'space-rescue', name: 'Space Rescue', creatorGithub: 'grace' }] };
 
 /** Capture the registered tool handlers. */
@@ -59,7 +59,7 @@ async function withGitHub(registry, fn) {
     const url = String(input);
     calls.push(url);
     const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
-    if (url.includes(`/repos/${ORG}/freegamestore/contents/registry.json`)) {
+    if (url.includes(`/repos/${ORG}/platform/contents/sites/freegamestore/registry.json`)) {
       return registry === 'ok'
         ? json({ content: textToB64(JSON.stringify(REGISTRY)), encoding: 'base64' })
         : json({ message: 'Server Error' }, 503);
@@ -95,7 +95,11 @@ for (const tool of ['list_files', 'read_file']) {
     const { result, calls } = await withGitHub('ok', () => call(tools(), 'platform'));
     assert.equal(result.isError, true);
     assert.match(result.content[0].text, /not a game on FreeGameStore/);
-    assert.equal(touched(calls, 'platform'), false);
+    // The store registry now lives in platform (#213); only that read may touch it.
+    const platformReads = calls.filter(
+      (u) => u.includes(`/repos/${ORG}/platform/`) && !u.includes('/contents/sites/freegamestore/registry.json'),
+    );
+    assert.deepEqual(platformReads, []);
   });
 
   test(`${tool}: refuses a reserved id with no GitHub call at all`, async () => {

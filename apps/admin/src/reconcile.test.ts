@@ -56,7 +56,7 @@ function makeDB(routeSlugs: string[]) {
 function registryFetch(games: unknown[] | null) {
   return async (input: unknown) => {
     const url = typeof input === 'string' ? input : (input as Request).url;
-    if (url.includes('/contents/registry.json') || url.includes('raw.githubusercontent')) {
+    if (url.includes('/contents/sites/freegamestore/registry.json') || url.includes('raw.githubusercontent')) {
       if (games === null) return new Response('upstream down', { status: 500 });
       return new Response(JSON.stringify({ games }), { status: 200 });
     }
@@ -506,7 +506,7 @@ describe('GET /api/drift', () => {
   ) {
     return async (input: unknown, init?: { headers?: Record<string, string> }) => {
       const url = typeof input === 'string' ? input : (input as Request).url;
-      if (url.includes('/contents/registry.json') || url.includes('raw.githubusercontent')) {
+      if (url.includes('/contents/sites/freegamestore/registry.json') || url.includes('raw.githubusercontent')) {
         if (games === null) return new Response('upstream down', { status: 500 });
         const raw = (init?.headers?.Accept ?? '').includes('raw');
         return new Response(
@@ -644,7 +644,7 @@ describe('GET /api/status/deploys', () => {
   ) {
     return async (input: unknown, init?: { headers?: Record<string, string> }) => {
       const url = typeof input === 'string' ? input : (input as Request).url;
-      if (url.includes('/contents/registry.json') || url.includes('raw.githubusercontent')) {
+      if (url.includes('/contents/sites/freegamestore/registry.json') || url.includes('raw.githubusercontent')) {
         const raw = (init?.headers?.Accept ?? '').includes('raw');
         return new Response(
           raw
@@ -721,7 +721,7 @@ describe('GET /api/games/:id/detail', () => {
   function detailFetch(games: unknown[], opts: { headOk?: boolean } = {}) {
     return async (input: unknown, init?: { method?: string; headers?: Record<string, string> }) => {
       const url = typeof input === 'string' ? input : (input as Request).url;
-      if (url.includes('/contents/registry.json') || url.includes('raw.githubusercontent')) {
+      if (url.includes('/contents/sites/freegamestore/registry.json') || url.includes('raw.githubusercontent')) {
         const raw = (init?.headers?.Accept ?? '').includes('raw');
         return new Response(
           raw
@@ -1446,7 +1446,7 @@ describe('reconcile heals only from a fresh registry read (#64)', () => {
   function twoSourceFetch(contents: unknown[] | null, raw: unknown[]) {
     return async (input: unknown) => {
       const url = typeof input === 'string' ? input : (input as Request).url;
-      if (url.includes('api.github.com') && url.includes('/contents/registry.json')) {
+      if (url.includes('api.github.com') && url.includes('/contents/sites/freegamestore/registry.json')) {
         return contents === null
           ? new Response(JSON.stringify({ message: 'API rate limit exceeded' }), { status: 403 })
           : new Response(JSON.stringify({ games: contents }), { status: 200 });

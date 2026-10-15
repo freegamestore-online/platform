@@ -57,7 +57,7 @@ async function withRegistry(games, fn) {
   const real = globalThis.fetch;
   globalThis.fetch = async (input) => {
     const url = String(input);
-    if (url.startsWith('https://api.github.com/') && url.includes('/contents/registry.json')) {
+    if (url.startsWith('https://api.github.com/') && url.includes('/contents/sites/freegamestore/registry.json')) {
       const content = textToB64(JSON.stringify({ games }));
       return new Response(JSON.stringify({ content, encoding: 'base64' }), { status: 200 });
     }

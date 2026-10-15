@@ -28,7 +28,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { createRegistrationContext } = await import(resolve(root, 'src/tools/registration.ts'));
 const { registerGameFilesTools } = await import(resolve(root, 'src/tools/game-files.ts'));
 
-const env = { GITHUB_ORG: 'freegamestore-online', STORE_REPO: 'freegamestore', GITHUB_TOKEN: 't' };
+const env = { GITHUB_ORG: 'freegamestore-online', STORE_REPO: 'platform', GITHUB_TOKEN: 't' };
 
 /** A stand-in agent whose props, like the real one's, can change after init. */
 function agent() {

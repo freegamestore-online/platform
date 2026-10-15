@@ -9,7 +9,7 @@ GITHUB_ORG = "freegamestore-online"
 AGENT_BASE = "https://agent.freegamestore.online"
 AUTH_BASE = "https://auth.freegamestore.online"
 LEADERBOARD_BASE = "https://leaderboard.freegamestore.online"
-STORE_REPO = "freegamestore"
+STORE_REPO = "platform"
 # Set MCP_READ_ONLY = "1" to disable every write tool (create_game, update_files,
 # agent_build, edit_game, admin_send_prompt, delete_game, discard_session). Reads
 # and dry-runs still work; whoami reports the current state. Audit events (writes,

@@ -50,9 +50,10 @@ function parseRegistry(value: unknown, key: string): RegistryGame[] | null {
 /** Prefer fresh Contents data, use raw only as a read fallback, and preserve failure state. */
 export async function readRegistry(config: StoreConfig, token: string): Promise<RegistryReadResult> {
   const failures: string[] = [];
+  const path = config.registryPath ?? "registry.json";
   let contentsMissing = false;
   try {
-    const res = await resilientFetch(`https://api.github.com/repos/${config.org}/${config.storeRepo}/contents/registry.json`, {
+    const res = await resilientFetch(`https://api.github.com/repos/${config.org}/${config.storeRepo}/contents/${path}`, {
       headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.raw+json", "User-Agent": config.agentName },
     });
     if (res.ok) {
@@ -65,7 +66,7 @@ export async function readRegistry(config: StoreConfig, token: string): Promise<
     failures.push(`contents API ${e instanceof Error ? e.message : String(e)}`);
   }
   try {
-    const res = await fetch(`https://raw.githubusercontent.com/${config.org}/${config.storeRepo}/main/registry.json`, {
+    const res = await fetch(`https://raw.githubusercontent.com/${config.org}/${config.storeRepo}/main/${path}`, {
       headers: { "User-Agent": config.agentName },
     });
     if (res.ok) {

@@ -8,6 +8,8 @@ export interface StoreConfig {
   Noun: string;
   nounPlural: string;
   storeRepo: string;
+  /** Path to registry.json inside storeRepo. Defaults to the repo root. */
+  registryPath?: string;
   /** The template repo admin's /generate copies from, and that new Path B
    *  sessions seed their files from (so the agent authors against the same
    *  scaffold that ships). Only meaningful when pathB. */
@@ -53,7 +55,10 @@ const CONFIGS: Record<string, StoreConfig> = {
     noun: "game",
     Noun: "Game",
     nounPlural: "games",
-    storeRepo: "freegamestore",
+    storeRepo: "platform",
+    // The games registry lives in the platform repo under sites/, not at the
+    // root of the archived freegamestore repo (#213).
+    registryPath: "sites/freegamestore/registry.json",
     templateRepo: "template-game-canvas",
     storeName: "FreeGameStore",
     agentName: "freegamestore-agent",

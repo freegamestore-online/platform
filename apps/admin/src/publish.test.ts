@@ -500,7 +500,7 @@ describe('handlePublish cloneFrom validation (#34)', () => {
     expect(res.success).toBe(false);
     expect(res.steps[0]).toMatchObject({ name: 'Fork attribution', status: 'fail' });
     expect(calls).toHaveLength(1);
-    expect(calls[0]).toContain('/contents/registry.json');
+    expect(calls[0]).toContain('/contents/sites/freegamestore/registry.json');
   });
 });
 

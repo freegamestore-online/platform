@@ -133,7 +133,7 @@ test('readRepoFile: throws for a directory path rather than calling it missing',
 test('readRegistryGames: returns unavailable on an upstream failure instead of no games', async () => {
   const result = await withFetch(
     [
-      ['/contents/registry.json', () => json({ message: 'Server Error' }, 503)],
+      ['/contents/sites/freegamestore/registry.json', () => json({ message: 'Server Error' }, 503)],
       ['raw.githubusercontent.com', () => json({ message: 'Server Error' }, 503)],
     ],
     () => readRegistryGames('org', 'store'),
@@ -144,7 +144,7 @@ test('readRegistryGames: returns unavailable on an upstream failure instead of n
 test('readRegistryGames: returns unavailable for malformed JSON and missing only when both reads are absent', async () => {
   const malformed = await withFetch(
     [
-      ['/contents/registry.json', () => json({ content: textToB64('{not json') })],
+      ['/contents/sites/freegamestore/registry.json', () => json({ content: textToB64('{not json') })],
       ['raw.githubusercontent.com', () => json({ nope: [] })],
     ],
     () => readRegistryGames('org', 'store'),
@@ -152,7 +152,7 @@ test('readRegistryGames: returns unavailable for malformed JSON and missing only
   assert.equal(malformed.status, 'unavailable');
   const missing = await withFetch(
     [
-      ['/contents/registry.json', () => json({}, 404)],
+      ['/contents/sites/freegamestore/registry.json', () => json({}, 404)],
       ['raw.githubusercontent.com', () => json({}, 404)],
     ],
     () => readRegistryGames('org', 'store'),

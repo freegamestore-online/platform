@@ -25,7 +25,8 @@ describe("getConfig", () => {
     expect(c.noun).toBe("game");
     expect(c.Noun).toBe("Game");
     expect(c.nounPlural).toBe("games");
-    expect(c.storeRepo).toBe("freegamestore");
+    expect(c.storeRepo).toBe("platform");
+    expect(c.registryPath).toBe("sites/freegamestore/registry.json");
     expect(c.storeName).toBe("FreeGameStore");
     expect(c.agentName).toBe("freegamestore-agent");
     expect(c.accentColor).toBe("#10b981");

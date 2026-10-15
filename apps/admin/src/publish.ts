@@ -1,5 +1,6 @@
 import { normalizeCategorySlug } from '../../../contracts/game-metadata/v1/contract.js';
 import { readRegistry } from './registryReader';
+import { REGISTRY_LOCATION } from './registryLocation';
 
 // Publish API -- provisions a new game on FreeGameStore via Path B.
 // POST /api/provision
@@ -192,11 +193,11 @@ export function readGameStatus(entry: { status?: unknown } | null | undefined): 
   return s === 'pending' || s === 'failed' || s === 'live' ? s : 'live';
 }
 
-const STORE_CONFIG = {
-  org: 'freegamestore-online',
+export const STORE_CONFIG = {
+  org: REGISTRY_LOCATION.org,
   domain: 'freegamestore.online',
-  storeRepo: 'platform',
-  storeRegistryPath: 'sites/freegamestore/registry.json',
+  storeRepo: REGISTRY_LOCATION.repo,
+  storeRegistryPath: REGISTRY_LOCATION.path,
   registryKey: 'games',
   developer: 'FreeGameStore',
   templateRepo: 'template-game-canvas',
