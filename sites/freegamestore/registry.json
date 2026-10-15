@@ -2299,6 +2299,23 @@
       "firstPublished": "2026-10-15T15:36:46.138Z",
       "status": "pending",
       "provisionedSha": "2970e784fb7271d77585739276d96b5d64c1b7af"
+    },
+    {
+      "id": "tallyroll",
+      "name": "Tallyroll",
+      "category": "puzzle",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Roll five dice, hold what you want, and fill a 13-category score sheet",
+      "appUrl": "https://tallyroll.freegamestore.online",
+      "repo": "freegamestore-online/tallyroll",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "serge-ivo",
+      "creatorGithub": "serge-ivo",
+      "firstPublished": "2026-10-15T16:15:52.744Z",
+      "status": "pending",
+      "provisionedSha": "8934b22d7a3c5ec2e2702d92dcd30f351200f6df"
     }
   ]
 }
