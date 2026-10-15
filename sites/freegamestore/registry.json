@@ -2351,6 +2351,23 @@
       "firstPublished": "2026-10-15T05:23:08.616Z",
       "status": "pending",
       "provisionedSha": "f7267158be410aae43e17a133f6fd33834afb00c"
+    },
+    {
+      "id": "sort-puzzle",
+      "name": "Sort Puzzle",
+      "category": "brain-training",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Stack and sort coloured tubes to solve each puzzle",
+      "appUrl": "https://sort-puzzle.freegamestore.online",
+      "repo": "freegamestore-online/sort-puzzle",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "serge-ivo",
+      "creatorGithub": "serge-ivo",
+      "firstPublished": "2026-10-15T05:34:54.275Z",
+      "status": "pending",
+      "provisionedSha": "36bda61d246adbe8ed5df2d0ffc85f93ab2b2960"
     }
   ]
 }
