@@ -391,6 +391,43 @@ describe('GET /api/games/:id/detail fork attribution (#44)', () => {
       forkedAt: '2026-09-25T00:00:00.000Z',
     });
   });
+
+  // #162 — the detail page renders lineage for both shapes, and must get no
+  // lineage at all for a game that was never remixed.
+  async function detailFor(id: string, games: unknown[]) {
+    vi.stubGlobal('fetch', async (input: unknown) => {
+      const url = typeof input === 'string' ? input : (input as Request).url;
+      if (url.includes('registry.json')) {
+        return new Response(JSON.stringify({ games }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ workflow_runs: [] }), { status: 200 });
+    });
+    const env = {
+      ...makeEnv({ meEmail: ADMIN, adminEmails: ADMIN, DB: undefined }),
+      GITHUB_TOKEN: 'test-token',
+    };
+    const res = await worker.fetch(
+      req(`/api/games/${id}/detail`, { headers: { 'X-FGS-Token': 't' } }),
+      env,
+    );
+    expect(res.status).toBe(200);
+    return (await res.json()) as { forkedFrom?: unknown };
+  }
+
+  it('returns a legacy bare-string source id unchanged', async () => {
+    const body = await detailFor('old-remix', [
+      { id: 'chess', name: 'Chess', creatorGithub: 'original-creator' },
+      { id: 'old-remix', name: 'Old Remix', creatorGithub: 'remixer', forkedFrom: 'chess' },
+    ]);
+    expect(body.forkedFrom).toBe('chess');
+  });
+
+  it('omits forkedFrom for a game that was never remixed', async () => {
+    const body = await detailFor('chess', [
+      { id: 'chess', name: 'Chess', creatorGithub: 'original-creator' },
+    ]);
+    expect(body.forkedFrom).toBeUndefined();
+  });
 });
 
 describe('/me audience binding (#69)', () => {

@@ -21,6 +21,18 @@ interface GameDetail {
     updatedAt: string | null;
     url: string | null;
   }[];
+  forkedFrom?: ForkedFrom | null;
+}
+
+/** A remix's source: an attribution snapshot (#35), or a legacy bare source id. */
+type ForkedFrom = { id: string; name: string; creatorGithub: string; forkedAt: string } | string;
+
+function sourceId(from: ForkedFrom): string {
+  return typeof from === 'string' ? from : from.id;
+}
+
+function forkSourceLabel(from: ForkedFrom): string {
+  return typeof from === 'string' ? from : `${from.name} (${from.id}) by @${from.creatorGithub}`;
 }
 
 interface Traffic {
@@ -110,6 +122,8 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
     }
   };
 
+  const source = detail.forkedFrom;
+
   return (
     <div>
       <button
@@ -179,6 +193,22 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
           note={`hosted on ${detail.hostedOn}${detail.creatorGithub ? ` · ${detail.creatorGithub}` : ''}`}
         />
       </div>
+
+      {source && (
+        <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
+          Remixed from{' '}
+          <button
+            onClick={() => navigate(`/games/${sourceId(source)}`)}
+            className="underline"
+            style={{ color: 'var(--accent)' }}
+          >
+            {forkSourceLabel(source)}
+          </button>
+          {typeof source === 'object' && (
+            <> · forked {new Date(source.forkedAt).toLocaleDateString()}</>
+          )}
+        </p>
+      )}
 
       {/* A 200 from the host proves nothing on its own — it answers for the
           template scaffold too (#22). Say so where an operator would otherwise

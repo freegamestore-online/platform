@@ -3,6 +3,24 @@ import { readRegistryGames } from '../github.js';
 import { fgsApi, getDeployStatus, withTimeout } from '../http.js';
 import { errText, type RegistrationContext, txt } from './registration.js';
 
+/**
+ * The "Remixed from" line for game_info, or null when the registry records no
+ * lineage. Remixes store an attribution object (#35); legacy entries store the
+ * source id as a bare string. Anything else is treated as absent.
+ */
+export function forkLine(forkedFrom: unknown): string | null {
+  if (typeof forkedFrom === 'string') {
+    return forkedFrom.trim() ? `Remixed from: ${forkedFrom}` : null;
+  }
+  if (!forkedFrom || typeof forkedFrom !== 'object') return null;
+  const f = forkedFrom as Record<string, unknown>;
+  if (typeof f.id !== 'string' || !f.id) return null;
+  const name = typeof f.name === 'string' && f.name.trim() ? f.name : f.id;
+  const by = typeof f.creatorGithub === 'string' && f.creatorGithub ? ` by @${f.creatorGithub}` : '';
+  const on = typeof f.forkedAt === 'string' && f.forkedAt ? `, forked ${f.forkedAt}` : '';
+  return `Remixed from: ${name} (${f.id})${by}${on}`;
+}
+
 export function registerCatalogTools(ctx: RegistrationContext): void {
   // -- list_games --
   ctx.safeTool(
@@ -79,6 +97,8 @@ export function registerCatalogTools(ctx: RegistrationContext): void {
               ? entry.status
               : 'live';
 
+      const fork = forkLine(entry?.forkedFrom);
+
       let status: string;
       if (buildStatus === 'unavailable') {
         status = 'Store registry is temporarily unavailable';
@@ -106,6 +126,7 @@ export function registerCatalogTools(ctx: RegistrationContext): void {
               `Status: ${status}`,
               `Live: ${liveUrl}`,
               `Repo: ${repoUrl}`,
+              ...(fork ? [fork] : []),
               `Listing: ${listingUrl}`,
               `Deploy: push to main auto-deploys via GitHub Actions -> R2`,
             ].join('\n'),
