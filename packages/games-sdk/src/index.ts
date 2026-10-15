@@ -32,6 +32,12 @@ export {
   type GameTopbarStat,
 } from './GameTopbar.js';
 export {
+  START_SCREEN_CSS,
+  StartScreen,
+  type StartScreenProps,
+  type StartScreenStep,
+} from './StartScreen.js';
+export {
   type ColourTokens,
   DARK_COLOUR_OVERRIDES,
   DARK_COLOURS,
