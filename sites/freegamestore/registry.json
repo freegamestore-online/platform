@@ -2435,6 +2435,23 @@
       "firstPublished": "2026-10-15T21:05:54.706Z",
       "status": "pending",
       "provisionedSha": "6c27ca61f8939f7384bb2f000d434f675a1ee8a0"
+    },
+    {
+      "id": "tenwise",
+      "name": "Tenwise",
+      "category": "brain-training",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Ten multiple-choice trivia questions a day, with a streak multiplier",
+      "appUrl": "https://tenwise.freegamestore.online",
+      "repo": "freegamestore-online/tenwise",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "serge-ivo",
+      "creatorGithub": "serge-ivo",
+      "firstPublished": "2026-10-15T22:16:00.558Z",
+      "status": "pending",
+      "provisionedSha": "1598f9cdb29e28e3eb6d7cd71f328a9c1fb6d391"
     }
   ]
 }
