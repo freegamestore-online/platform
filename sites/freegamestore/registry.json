@@ -2231,6 +2231,23 @@
       "firstPublished": "2026-10-15T12:02:01.912Z",
       "status": "pending",
       "provisionedSha": "9c8af00b3a4593c936f34da6fb7b9cf0092d4322"
+    },
+    {
+      "id": "number-match",
+      "name": "Number Match",
+      "category": "puzzle",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Pair numbers that match or sum to 10 to clear the board",
+      "appUrl": "https://number-match.freegamestore.online",
+      "repo": "freegamestore-online/number-match",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "serge-ivo",
+      "creatorGithub": "serge-ivo",
+      "firstPublished": "2026-10-15T13:25:40.415Z",
+      "status": "pending",
+      "provisionedSha": "7b5e23ce1ca0804797e36e6de5da93800b46ddc0"
     }
   ]
 }
