@@ -113,9 +113,16 @@ each game repo's own `deploy.yml`. A push to `main` therefore deploys
 **nothing**, and a red CI run says nothing about the code. Until this section
 is removed:
 
+- **Deploys happen only through a deploy ticket.** A deploy is its own GitHub
+  issue (label `chore`, title `Deploy: <what>`), filed once the dev tickets it
+  ships are closed, and worked by the PAGS coder agent for this repo. A dev
+  ticket's run commits and pushes to `main` but does **not** deploy. The deploy
+  ticket lists the commits/issues it ships and is closed only after the live
+  check passes.
+
 - **Run the checks yourself before you push** — the same steps the workflow
   would have run (install, typecheck, test, lint) in that service's directory.
-- **Then deploy from the local machine** with the commands the workflow uses.
+- **In a deploy-ticket run, deploy from the local machine** with the commands the workflow uses.
   Load credentials with `set -a; source ~/.cloudflare/tokens.env; set +a`,
   then `export CLOUDFLARE_API_TOKEN=$CF_TOKEN_PERSONAL
   CLOUDFLARE_ACCOUNT_ID=$CF_ACCOUNT_PERSONAL`. Only the PERSONAL token reaches

@@ -4,7 +4,7 @@
 
 **Straight to `main`. No branches, no pull requests.** Declared 2026-08-16.
 
-**Interim (since 2026-10-15): GitHub Actions is down for this org, so a push deploys nothing.** Run the checks locally, then deploy from the local machine. The commands and credentials are in `CLAUDE.md` § "Interim: deploy from local while GitHub Actions is down".
+**Interim (since 2026-10-15): GitHub Actions is down for this org, so a push deploys nothing.** Run the checks locally. Deploy only in a run for a filed `Deploy: …` issue, from the local machine. The commands and credentials are in `CLAUDE.md` § "Interim: deploy from local while GitHub Actions is down".
 
 ## Hard rules
 
