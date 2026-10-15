@@ -2384,6 +2384,23 @@
       "firstPublished": "2026-10-15T18:56:02.092Z",
       "status": "pending",
       "provisionedSha": "45be5e7deb8f2da7b5ed065f43c72e4576c07d1e"
+    },
+    {
+      "id": "quillcipher",
+      "name": "Quillcipher",
+      "category": "puzzle",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Decode famous public-domain quotes by cracking a letter-substitution cipher",
+      "appUrl": "https://quillcipher.freegamestore.online",
+      "repo": "freegamestore-online/quillcipher",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "serge-ivo",
+      "creatorGithub": "serge-ivo",
+      "firstPublished": "2026-10-15T19:26:27.225Z",
+      "status": "pending",
+      "provisionedSha": "a046b7eb74f3dd614e1f002e7fdae7f037668dcb"
     }
   ]
 }
