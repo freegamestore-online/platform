@@ -2367,6 +2367,23 @@
       "firstPublished": "2026-10-15T17:45:41.580Z",
       "status": "pending",
       "provisionedSha": "b79d9c96ff690167e8458c4b90c816d16e527e09"
+    },
+    {
+      "id": "puzzlepix",
+      "name": "Puzzlepix",
+      "category": "puzzle",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Drag and snap procedurally generated jigsaw puzzles — daily challenge included",
+      "appUrl": "https://puzzlepix.freegamestore.online",
+      "repo": "freegamestore-online/puzzlepix",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "serge-ivo",
+      "creatorGithub": "serge-ivo",
+      "firstPublished": "2026-10-15T18:56:02.092Z",
+      "status": "pending",
+      "provisionedSha": "45be5e7deb8f2da7b5ed065f43c72e4576c07d1e"
     }
   ]
 }
