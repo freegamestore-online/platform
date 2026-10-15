@@ -2452,6 +2452,23 @@
       "firstPublished": "2026-10-15T22:16:00.558Z",
       "status": "pending",
       "provisionedSha": "1598f9cdb29e28e3eb6d7cd71f328a9c1fb6d391"
+    },
+    {
+      "id": "chain-rush",
+      "name": "Chain Rush",
+      "category": "puzzle",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Drag chains of matching powers-of-two tiles to merge them into bigger numbers",
+      "appUrl": "https://chain-rush.freegamestore.online",
+      "repo": "freegamestore-online/chain-rush",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "serge-ivo",
+      "creatorGithub": "serge-ivo",
+      "firstPublished": "2026-10-15T23:06:32.451Z",
+      "status": "pending",
+      "provisionedSha": "51eccffdda8509d197b183f3d373735861938643"
     }
   ]
 }
