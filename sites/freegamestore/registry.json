@@ -2333,6 +2333,23 @@
       "firstPublished": "2026-10-15T16:46:08.542Z",
       "status": "pending",
       "provisionedSha": "7ba8c67a262f2279a763cd2abe2f145cbc1a6077"
+    },
+    {
+      "id": "rollway-ludo",
+      "name": "Rollway Ludo",
+      "category": "board",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Classic Ludo race — beat the AI or pass-and-play with friends",
+      "appUrl": "https://rollway-ludo.freegamestore.online",
+      "repo": "freegamestore-online/rollway-ludo",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "serge-ivo",
+      "creatorGithub": "serge-ivo",
+      "firstPublished": "2026-10-15T17:15:36.989Z",
+      "status": "pending",
+      "provisionedSha": "cdfce800af9b09d0fd6d1e15262f503bd3b8ce01"
     }
   ]
 }
