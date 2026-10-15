@@ -2265,6 +2265,23 @@
       "firstPublished": "2026-10-15T14:25:37.838Z",
       "status": "pending",
       "provisionedSha": "17374415273e847d7e2d615426b8de44a9b37f12"
+    },
+    {
+      "id": "flowarrow",
+      "name": "Flowarrow",
+      "category": "puzzle",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Clear the board by sliding every arrow off the edge along its path",
+      "appUrl": "https://flowarrow.freegamestore.online",
+      "repo": "freegamestore-online/flowarrow",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "serge-ivo",
+      "creatorGithub": "serge-ivo",
+      "firstPublished": "2026-10-15T15:06:17.524Z",
+      "status": "pending",
+      "provisionedSha": "109ba897d92334bbfa90b0b695d294ee1bcbc3a4"
     }
   ]
 }
