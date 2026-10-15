@@ -42,7 +42,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp src/GameTopbar.module.css dist/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

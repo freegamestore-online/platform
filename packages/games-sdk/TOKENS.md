@@ -109,6 +109,8 @@ affects the whole game.
 | `--motion-slow` | `420ms` | Larger entrances and overlays. |
 | `--motion-ease-out` | `cubic-bezier(0.2, 0.9, 0.3, 1)` | Default ease-out. |
 | `--motion-ease-spring` | `cubic-bezier(0.2, 0.9, 0.3, 1.3)` | Overshooting pops. |
+| `--motion-duration` | `var(--motion-fast)`, so `120ms` | Default duration for a control transition, such as a press. Reduced motion sets it to `0ms`. |
+| `--motion-easing` | `var(--motion-ease-out)` | Default easing for a control transition. |
 
 ### Reduced motion
 

@@ -2,6 +2,7 @@ import type * as React from 'react';
 import type { ReactNode } from 'react';
 import { forwardRef, useEffect, useRef, useState } from 'react';
 import { useSound } from './SoundContext.js';
+import styles from './GameTopbar.module.css';
 
 export interface GameTopbarStat {
   /** Short uppercase label, e.g. "Score", "Lives", "Level". */
@@ -71,46 +72,30 @@ export interface GameTopbarProps {
   onRestart?: () => void;
 }
 
-/**
- * Shared icon button style for topbar controls. All buttons in the topbar
- * (catalog, rules, play/pause, restart, about, sound, close) use this
- * consistent sizing and behavior.
- */
+/** The colour of an icon button. Maps to a class in GameTopbar.module.css. */
+type IconTone = 'muted' | 'ink' | 'accent';
+
 interface TopbarIconButtonProps {
   onClick?: () => void;
   href?: string;
   target?: string;
   rel?: string;
-  color?: string;
+  tone?: IconTone;
   ariaLabel: string;
   ariaPressed?: boolean;
   ref?: React.Ref<HTMLButtonElement>;
   children: ReactNode;
 }
 
+/**
+ * Shared icon button for topbar controls. All buttons in the topbar (catalog,
+ * rules, play/pause, restart, about, sound, close) use this consistent sizing
+ * and behaviour. The `data-fgs-tb-btn` attribute is kept on every control so
+ * games that already target it keep working.
+ */
 const TopbarIconButton = forwardRef<HTMLButtonElement, Omit<TopbarIconButtonProps, 'ref'>>(
-  function TopbarIconButton(
-    { onClick, href, target, rel, color = 'var(--muted, #999)', ariaLabel, ariaPressed, children },
-    ref,
-  ) {
-    const baseStyle = {
-      background: 'none',
-      border: 'none',
-      cursor: 'pointer',
-      padding: 0,
-      minWidth: '2.75rem',
-      minHeight: '2.75rem',
-      display: 'flex' as const,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      color,
-      WebkitTapHighlightColor: 'transparent',
-    };
-
-    const linkStyle = {
-      ...baseStyle,
-      textDecoration: 'none' as const,
-    };
+  function TopbarIconButton({ onClick, href, target, rel, tone = 'muted', ariaLabel, ariaPressed, children }, ref) {
+    const className = `${styles.button} ${toneClass(tone)}`;
 
     if (href) {
       return (
@@ -119,7 +104,7 @@ const TopbarIconButton = forwardRef<HTMLButtonElement, Omit<TopbarIconButtonProp
           href={href}
           target={target}
           rel={rel}
-          style={linkStyle}
+          className={`${className} ${styles.link}`}
           aria-label={ariaLabel}
         >
           {children}
@@ -132,7 +117,7 @@ const TopbarIconButton = forwardRef<HTMLButtonElement, Omit<TopbarIconButtonProp
         ref={ref}
         data-fgs-tb-btn
         onClick={onClick}
-        style={baseStyle}
+        className={className}
         aria-label={ariaLabel}
         aria-pressed={ariaPressed}
       >
@@ -142,9 +127,15 @@ const TopbarIconButton = forwardRef<HTMLButtonElement, Omit<TopbarIconButtonProp
   },
 );
 
+function toneClass(tone: IconTone): string {
+  if (tone === 'ink') return styles.toneInk ?? '';
+  if (tone === 'accent') return styles.toneAccent ?? '';
+  return styles.toneMuted ?? '';
+}
+
 /**
  * The single allowed topbar shape for FreeGameStore games. Brand
- * consistency: same font, same paddings, same color tokens, same stat
+ * consistency: same font, same paddings, same colour tokens, same stat
  * layout across every game on the storefront.
  *
  * Use inside <GameShell topbar={<GameTopbar … />}>.
@@ -173,32 +164,10 @@ export function GameTopbar({
 
   return (
     <>
-      {/* One stylesheet for every interactive control in the topbar.
-          Inline styles give us the runtime values (color tokens,
-          dimensions) but can't express :active / :focus-visible, so
-          those pseudo-states live here. The `data-fgs-tb-btn`
-          attribute on every button + link selects them all uniformly.
-          The block renders once per topbar instance — browsers de-dupe
-          identical content and games only mount a single topbar. */}
-      <style>{TOPBAR_BUTTON_CSS}</style>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '0.75rem',
-          padding: '0.25rem 0.75rem',
-          height: '2rem',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', minWidth: 0 }}>
-          {/* Catalog — back to store listing.
-              2×2 grid icon, not a house. A house icon clashed with the
-              browser's own "home" button on Android Chrome (two visually
-              identical home icons one above the other was confusing —
-              users couldn't tell which one belonged to the page). A
-              grid reads as "all games / browse the catalog" and is
-              visually distinct from anything browser chrome ships. */}
+      <div className={styles.bar}>
+        <div className={styles.group}>
+          {/* Catalog — back to store listing. A 2×2 grid, not a house: a house
+              icon clashed with the browser's own "home" button on Android Chrome. */}
           <TopbarIconButton
             href="https://freegamestore.online"
             target="_blank"
@@ -238,24 +207,10 @@ export function GameTopbar({
               </svg>
             </TopbarIconButton>
           )}
-          {title !== undefined && (
-            <span
-              style={{
-                fontFamily: '"Manrope", system-ui, sans-serif',
-                fontWeight: 600,
-                fontSize: '0.8rem',
-                letterSpacing: '-0.01em',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {title}
-            </span>
-          )}
+          {title !== undefined && <span className={styles.title}>{title}</span>}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className={`${styles.group} ${styles.groupEnd}`}>
           {resolvedStats.map((s) => (
             <Stat key={s.label} stat={s} />
           ))}
@@ -263,7 +218,7 @@ export function GameTopbar({
           {onPlayPause !== undefined && (
             <TopbarIconButton
               onClick={onPlayPause}
-              color="var(--ink, #f0f0f0)"
+              tone="ink"
               ariaLabel="Pause"
               ariaPressed={paused === true}
             >
@@ -318,7 +273,7 @@ export function GameTopbar({
           {/* Sound toggle — always present, muted by default */}
           <TopbarIconButton
             onClick={sound.toggle}
-            color={sound.muted ? 'var(--muted, #999)' : 'var(--accent, #10b981)'}
+            tone={sound.muted ? 'muted' : 'accent'}
             ariaLabel="Mute"
             ariaPressed={sound.muted}
           >
@@ -353,9 +308,7 @@ export function GameTopbar({
               </svg>
             )}
           </TopbarIconButton>
-          {actions !== undefined && (
-            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>{actions}</div>
-          )}
+          {actions !== undefined && <div className={styles.actions}>{actions}</div>}
         </div>
       </div>
 
@@ -446,34 +399,15 @@ function AboutOverlay({
 
   return (
     <RulesOverlay title="About" onClose={onClose}>
-      {title !== undefined && (
-        <h1
-          style={{
-            fontFamily: '"Fraunces", Georgia, serif',
-            fontWeight: 700,
-            fontSize: '1.5rem',
-            margin: '0 0 0.75rem',
-          }}
-        >
-          {title}
-        </h1>
-      )}
+      {title !== undefined && <h1 className={styles.aboutHeading}>{title}</h1>}
 
-      {extra !== undefined && <div style={{ marginBottom: '1rem' }}>{extra}</div>}
+      {extra !== undefined && <div className={styles.aboutExtra}>{extra}</div>}
 
-      <dl
-        style={{
-          margin: 0,
-          display: 'grid',
-          gridTemplateColumns: 'auto 1fr',
-          gap: '0.35rem 1rem',
-          fontSize: '0.85rem',
-        }}
-      >
-        <dt style={{ color: 'var(--muted, #999)' }}>Version</dt>
-        <dd style={{ margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+      <dl className={styles.aboutGrid}>
+        <dt>Version</dt>
+        <dd>
           {version ? (
-            <code style={{ fontFamily: 'monospace' }}>{version}</code>
+            <code className={styles.code}>{version}</code>
           ) : loaded ? (
             'development build'
           ) : (
@@ -482,21 +416,19 @@ function AboutOverlay({
         </dd>
         {deployedAt && (
           <>
-            <dt style={{ color: 'var(--muted, #999)' }}>Deployed</dt>
-            <dd style={{ margin: 0 }} title={new Date(deployedAt).toLocaleString()}>
-              {relativeTime(deployedAt)}
-            </dd>
+            <dt>Deployed</dt>
+            <dd title={new Date(deployedAt).toLocaleString()}>{relativeTime(deployedAt)}</dd>
           </>
         )}
       </dl>
 
-      <p style={{ marginTop: '1.25rem', fontSize: '0.8rem', color: 'var(--muted, #999)' }}>
+      <p className={styles.aboutNote}>
         A free game on{' '}
         <a
           href="https://freegamestore.online"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: 'var(--accent, #10b981)', textDecoration: 'none' }}
+          className={styles.aboutLink}
         >
           FreeGameStore
         </a>
@@ -542,116 +474,23 @@ function RulesOverlay({
   }, [onClose]);
 
   return (
-    <div
-      ref={overlayRef}
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
-        background: 'var(--paper, #0f0f0f)',
-        color: 'var(--ink, #f0f0f0)',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0.5rem 0.75rem',
-          borderBottom: '1px solid var(--line, #2a2a2a)',
-          flexShrink: 0,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: '"Manrope", system-ui, sans-serif',
-            fontWeight: 700,
-            fontSize: '0.9rem',
-          }}
-        >
-          {title}
-        </span>
+    <div ref={overlayRef} role="dialog" aria-modal="true" aria-label={title} className={styles.overlay}>
+      <div className={styles.overlayHeader}>
+        <span className={styles.overlayTitle}>{title}</span>
         <TopbarIconButton ref={closeButtonRef} onClick={onClose} ariaLabel="Close">
           &times;
         </TopbarIconButton>
       </div>
-      <div
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '1rem',
-          fontFamily: '"Manrope", system-ui, sans-serif',
-          fontSize: '0.9rem',
-          lineHeight: 1.6,
-        }}
-      >
-        {children}
-      </div>
+      <div className={styles.overlayBody}>{children}</div>
     </div>
   );
 }
 
 function Stat({ stat }: { stat: GameTopbarStat }): React.JSX.Element {
   return (
-    <div style={{ textAlign: 'right', lineHeight: 1.05 }}>
-      <div
-        style={{
-          fontFamily: '"Manrope", system-ui, sans-serif',
-          fontWeight: 800,
-          fontSize: '0.85rem',
-          color: stat.accent === true ? 'var(--accent)' : 'var(--ink)',
-          fontVariantNumeric: 'tabular-nums',
-          lineHeight: 1,
-        }}
-      >
-        {stat.value}
-      </div>
-      <div
-        style={{
-          // Was 0.5rem (~8px) — too small to read in sunlight or for
-          // anyone with even mild low vision. 0.65rem (~10.4px) keeps
-          // the visual hierarchy (value still dominates at 0.85rem)
-          // while staying legible.
-          fontSize: '0.65rem',
-          fontWeight: 700,
-          textTransform: 'uppercase',
-          letterSpacing: '0.06em',
-          color: 'var(--muted)',
-          lineHeight: 1,
-        }}
-      >
-        {stat.label}
-      </div>
+    <div className={styles.stat}>
+      <div className={`${styles.statValue} ${stat.accent === true ? styles.statAccent : ''}`}>{stat.value}</div>
+      <div className={styles.statLabel}>{stat.label}</div>
     </div>
   );
 }
-
-/**
- * Pseudo-state styling for every topbar button + link. Tagged via
- * `data-fgs-tb-btn`. Keep this small and predictable — the topbar is
- * brand surface, not a creative palette.
- *
- *   :active — opacity dip so taps feel anchored on touch devices that
- *             otherwise give no feedback (we already disable the
- *             default tap-highlight via WebkitTapHighlightColor).
- *
- *   :focus-visible — accent outline so keyboard users see where focus
- *                    is. -2px outline-offset draws inside the button's
- *                    2.75rem touch target so the ring doesn't bleed
- *                    into adjacent controls.
- */
-const TOPBAR_BUTTON_CSS = `
-[data-fgs-tb-btn] { transition: opacity 80ms ease; }
-[data-fgs-tb-btn]:active { opacity: 0.55; }
-[data-fgs-tb-btn]:focus-visible {
-  outline: 2px solid var(--accent, #10b981);
-  outline-offset: -2px;
-  border-radius: 0.4rem;
-}
-`;

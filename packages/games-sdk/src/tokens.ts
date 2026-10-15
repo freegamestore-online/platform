@@ -131,6 +131,13 @@ export interface MotionTokens {
   easeOut: string;
   /** Overshooting spring curve for pops. */
   easeSpring: string;
+  /**
+   * The default duration for a control transition, such as a press or a hover.
+   * It follows `fast`, and reduced motion sets it to 0ms.
+   */
+  duration: string;
+  /** The default easing for a control transition. It follows `easeOut`. */
+  easing: string;
 }
 
 export const MOTION_TOKENS: MotionTokens = {
@@ -139,16 +146,19 @@ export const MOTION_TOKENS: MotionTokens = {
   slow: '420ms',
   easeOut: 'cubic-bezier(0.2, 0.9, 0.3, 1)',
   easeSpring: 'cubic-bezier(0.2, 0.9, 0.3, 1.3)',
+  duration: 'var(--motion-fast)',
+  easing: 'var(--motion-ease-out)',
 };
 
 /**
  * Durations under `prefers-reduced-motion: reduce`. The animations finish at
  * once and only the final state is shown. Easings are unchanged.
  */
-export const REDUCED_MOTION_DURATIONS: Pick<MotionTokens, 'fast' | 'base' | 'slow'> = {
+export const REDUCED_MOTION_DURATIONS: Pick<MotionTokens, 'fast' | 'base' | 'slow' | 'duration'> = {
   fast: '0ms',
   base: '0ms',
   slow: '0ms',
+  duration: '0ms',
 };
 
 const toKebab = (name: string): string => name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
