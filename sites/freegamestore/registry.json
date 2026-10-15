@@ -2214,6 +2214,23 @@
       "firstPublished": "2026-10-15T05:34:54.275Z",
       "status": "pending",
       "provisionedSha": "36bda61d246adbe8ed5df2d0ffc85f93ab2b2960"
+    },
+    {
+      "id": "line-link",
+      "name": "Line Link",
+      "category": "puzzle",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Connect each pair of coloured dots with a path that fills the whole grid",
+      "appUrl": "https://line-link.freegamestore.online",
+      "repo": "freegamestore-online/line-link",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "serge-ivo",
+      "creatorGithub": "serge-ivo",
+      "firstPublished": "2026-10-15T12:02:01.912Z",
+      "status": "pending",
+      "provisionedSha": "9c8af00b3a4593c936f34da6fb7b9cf0092d4322"
     }
   ]
 }
