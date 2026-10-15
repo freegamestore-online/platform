@@ -2282,6 +2282,23 @@
       "firstPublished": "2026-10-15T15:06:17.524Z",
       "status": "pending",
       "provisionedSha": "109ba897d92334bbfa90b0b695d294ee1bcbc3a4"
+    },
+    {
+      "id": "boltsort",
+      "name": "Boltsort",
+      "category": "puzzle",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Unscrew bolts and sort them into matching colour boxes to clear every plate",
+      "appUrl": "https://boltsort.freegamestore.online",
+      "repo": "freegamestore-online/boltsort",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "serge-ivo",
+      "creatorGithub": "serge-ivo",
+      "firstPublished": "2026-10-15T15:36:46.138Z",
+      "status": "pending",
+      "provisionedSha": "2970e784fb7271d77585739276d96b5d64c1b7af"
     }
   ]
 }
