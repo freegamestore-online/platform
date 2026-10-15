@@ -2418,6 +2418,23 @@
       "firstPublished": "2026-10-15T20:16:30.757Z",
       "status": "pending",
       "provisionedSha": "3be042574a0565e9198197f9fe9cd4de87484327"
+    },
+    {
+      "id": "hexaspell",
+      "name": "Hexaspell",
+      "category": "puzzle",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Cast spells by matching hexagonal tile patterns",
+      "appUrl": "https://hexaspell.freegamestore.online",
+      "repo": "freegamestore-online/hexaspell",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "serge-ivo",
+      "creatorGithub": "serge-ivo",
+      "firstPublished": "2026-10-15T21:05:54.706Z",
+      "status": "pending",
+      "provisionedSha": "6c27ca61f8939f7384bb2f000d434f675a1ee8a0"
     }
   ]
 }
