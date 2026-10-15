@@ -108,10 +108,12 @@ never committed. See `SECURITY.md`.
 
 GitHub Actions on the `freegamestore-online` org is refusing to start jobs
 ("recent account payments have failed or your spending limit needs to be
-increased"). Every workflow is affected: CI, Quality, every `deploy-*.yml`, and
-each game repo's own `deploy.yml`. A push to `main` therefore deploys
-**nothing**, and a red CI run says nothing about the code. Until this section
-is removed:
+increased"). **This only affects this repo, which is private.** Game repos
+are public, so their Actions minutes are free and their own `deploy.yml`
+(compliance plus R2 upload) keeps running on every push. Don't deploy games by
+hand. Here, CI, Quality and every `deploy-*.yml` are blocked, so a push to
+`main` of this repo deploys **nothing**, and a red CI run says nothing about the
+code. Until this section is removed:
 
 - **Deploys happen only through a deploy ticket.** A deploy is its own GitHub
   issue (label `chore`, title `Deploy: <what>`), filed once the dev tickets it
@@ -136,7 +138,7 @@ is removed:
 | mcp | `pnpm install --frozen-lockfile && pnpm --filter @freegamestore/contracts build && pnpm --filter freegamestore-mcp typecheck && pnpm --filter freegamestore-mcp test && (cd workers/mcp && npx wrangler deploy)` |
 | console | `cd apps/console && pnpm install --frozen-lockfile && pnpm typecheck && pnpm test && (cd web && pnpm build) && npx wrangler pages deploy web/dist --project-name=freegamestore-publisher` |
 | storefront | `cd sites/freegamestore && npm install && npm run build && npx wrangler pages deploy dist --project-name=freegamestore` |
-| a game | In the game repo: build `web/dist`, run `@freegamestore/compliance` on the built output, then upload every file to R2 bucket `fgs-games` under `games/<slug>/` with `npx wrangler r2 object put fgs-games/games/<slug>/<path> --file <path> --content-type <mime> --remote`. That prefix is what the host Worker serves. |
+| a game | **Not needed:** the game repo is public and its own `deploy.yml` builds and uploads to `fgs-games/games/<slug>/` on every push. A game's deploy ticket only has to make sure it's provisioned (registry entry plus host route), so `https://<slug>.freegamestore.online` serves it. |
 
 - **After each deploy, verify the live URL yourself** (the service's health
   route, or the game at `https://<slug>.freegamestore.online`), and record in the
