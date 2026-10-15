@@ -2334,6 +2334,23 @@
       "engine": "babylon",
       "firstPublished": "2026-09-13T04:46:15.507Z",
       "status": "live"
+    },
+    {
+      "id": "mosaic-rush",
+      "name": "Mosaic Rush",
+      "category": "puzzle",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Match colourful tiles to complete the daily mosaic — a new puzzle every day.",
+      "appUrl": "https://mosaic-rush.freegamestore.online",
+      "repo": "freegamestore-online/mosaic-rush",
+      "hostedOn": "r2",
+      "type": "connected",
+      "developer": "serge-ivo",
+      "creatorGithub": "serge-ivo",
+      "firstPublished": "2026-10-15T05:23:08.616Z",
+      "status": "pending",
+      "provisionedSha": "f7267158be410aae43e17a133f6fd33834afb00c"
     }
   ]
 }
