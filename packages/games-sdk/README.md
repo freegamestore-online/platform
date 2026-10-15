@@ -149,6 +149,48 @@ Standard game-over overlay with score, high score, and play again button.
 | `onPlayAgain` | `() => void` | Play again handler |
 | `children` | `ReactNode?` | Extra content below the score |
 
+
+### GameResultScreen
+
+An animated result screen for a finished level or game. A win shows falling confetti and an accent title. A loss shows the card alone. The action is focused when the screen opens. Use `GameOverScreen` for a plain game-over card. `GameResultScreen` is the animated version.
+
+```tsx
+<GameResultScreen
+  tone={won ? 'win' : 'lose'}
+  eyebrow="Level 4"
+  title={won ? 'Level 4 cleared!' : 'Game over'}
+  message={won ? undefined : 'Your tray filled up.'}
+  stats={[
+    { label: 'Score', value: score.toLocaleString() },
+    { label: 'Moves', value: moves },
+  ]}
+  badge={newBest ? 'New best!' : undefined}
+  action={won ? { label: 'Next level', onClick: next } : { label: 'Play again', onClick: restart }}
+>
+  <Leaderboard {...leaderboard} />
+</GameResultScreen>
+```
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `tone` | `'win' \| 'lose'` | `win` shows confetti and the accent title colour |
+| `eyebrow` | `string?` | Small line above the title, such as the level name |
+| `title` | `string` | The headline |
+| `message` | `string?` | One line under the title |
+| `stats` | `{ label, value }[]?` | Stat rows in a two-column grid. `value` may be a number |
+| `badge` | `ReactNode?` | Highlight line under the stats, such as "New best!" |
+| `action` | `{ label, onClick }` | The primary button. It is focused when the screen opens |
+| `children` | `ReactNode?` | Extra content between the badge and the action |
+
+The screen covers the viewport and has `role="dialog"`. Motion is CSS only and
+stops under `prefers-reduced-motion`, and the confetti is hidden for players who
+ask for less motion. Its colours and motion read the design tokens from
+[TOKENS.md](./TOKENS.md), with light-theme fallbacks, so it works without
+`GAME_TOKENS_CSS`.
+
+`Confetti` is exported on its own, for a game that wants the celebration
+somewhere else.
+
 ### GameConfirm
 
 Confirm/cancel dialog built on GameModal.

@@ -38,6 +38,18 @@ export {
   type StartScreenStep,
 } from './StartScreen.js';
 export {
+  CONFETTI_COLOURS,
+  CONFETTI_CSS,
+  Confetti,
+  type ConfettiProps,
+} from './Confetti.js';
+export {
+  GameResultScreen,
+  type GameResultScreenProps,
+  type GameResultStat,
+  RESULT_SCREEN_CSS,
+} from './GameResultScreen.js';
+export {
   type ColourTokens,
   DARK_COLOUR_OVERRIDES,
   DARK_COLOURS,
