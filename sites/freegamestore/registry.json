@@ -2248,6 +2248,23 @@
       "firstPublished": "2026-10-15T13:25:40.415Z",
       "status": "pending",
       "provisionedSha": "7b5e23ce1ca0804797e36e6de5da93800b46ddc0"
+    },
+    {
+      "id": "pixline",
+      "name": "Pixline",
+      "category": "puzzle",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Solve picture logic puzzles by filling the rows and columns that match the clues",
+      "appUrl": "https://pixline.freegamestore.online",
+      "repo": "freegamestore-online/pixline",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "serge-ivo",
+      "creatorGithub": "serge-ivo",
+      "firstPublished": "2026-10-15T14:25:37.838Z",
+      "status": "pending",
+      "provisionedSha": "17374415273e847d7e2d615426b8de44a9b37f12"
     }
   ]
 }
