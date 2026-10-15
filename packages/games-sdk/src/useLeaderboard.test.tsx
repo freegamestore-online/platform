@@ -76,3 +76,90 @@ describe('useLeaderboard', () => {
     expect(result.current.topScores).toEqual([]);
   });
 });
+
+// #161 — a per-day board. Without `period` the hook must behave exactly as the
+// all-time board did: same URLs, same submit body.
+describe('useLeaderboard per-day period (#161)', () => {
+  const DAY1 = '2026-10-15';
+  const DAY2 = '2026-10-16';
+
+  const requestedUrls = () =>
+    (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.map(([url]) =>
+      String(url),
+    );
+
+  /** Serves the handoff, the score POST and the two board reads. */
+  function mockBoardsAndSubmit() {
+    mockFetch((url) =>
+      url.includes('/handoff/issue')
+        ? { token: 'game-scoped-token' }
+        : url.includes('/api/scores')
+          ? { ok: true, rank: 1 }
+          : { game: 'mosaic', scores: [] },
+    );
+  }
+
+  const scoreBody = () => {
+    const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+      ([url]) => String(url).includes('/api/scores'),
+    );
+    return JSON.parse(String(call?.[1]?.body));
+  };
+
+  beforeEach(() => vi.restoreAllMocks());
+
+  it('without a period, reads the all-time boards and submits no period', async () => {
+    mockBoardsAndSubmit();
+    const { result } = renderHook(() => useLeaderboard('mosaic'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const urls = requestedUrls();
+    expect(urls).toContain(
+      'https://leaderboard.freegamestore.online/v1/api/leaderboard/mosaic?limit=50',
+    );
+    expect(urls).toContain(
+      'https://leaderboard.freegamestore.online/v1/api/leaderboard/mosaic/recent?limit=50',
+    );
+    expect(urls.some((u) => u.includes('period'))).toBe(false);
+
+    await act(async () => {
+      await result.current.submitScore(42);
+    });
+    expect(scoreBody()).toEqual({ game: 'mosaic', score: 42 });
+  });
+
+  it('with a period, both boards are read for that day and the submit carries it', async () => {
+    mockBoardsAndSubmit();
+    const { result } = renderHook(() => useLeaderboard('mosaic', { period: DAY1 }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const urls = requestedUrls();
+    expect(urls).toContain(
+      `https://leaderboard.freegamestore.online/v1/api/leaderboard/mosaic?limit=50&period=${DAY1}`,
+    );
+    expect(urls).toContain(
+      `https://leaderboard.freegamestore.online/v1/api/leaderboard/mosaic/recent?limit=50&period=${DAY1}`,
+    );
+
+    await act(async () => {
+      await result.current.submitScore(42);
+    });
+    expect(scoreBody()).toEqual({ game: 'mosaic', score: 42, period: DAY1 });
+  });
+
+  it('reloads the boards when the period changes to a new day', async () => {
+    mockBoardsAndSubmit();
+    const { result, rerender } = renderHook(
+      ({ period }: { period: string }) => useLeaderboard('mosaic', { period }),
+      { initialProps: { period: DAY1 } },
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    rerender({ period: DAY2 });
+    await waitFor(() =>
+      expect(requestedUrls()).toContain(
+        `https://leaderboard.freegamestore.online/v1/api/leaderboard/mosaic?limit=50&period=${DAY2}`,
+      ),
+    );
+  });
+});

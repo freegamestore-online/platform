@@ -32,13 +32,26 @@ interface SubmitScoreResponse {
   error?: string;
 }
 
-export function useLeaderboard(gameId: string): {
+export interface UseLeaderboardOptions {
+  /**
+   * A day key (YYYY-MM-DD, UTC) for a per-day board, such as a daily puzzle.
+   * Omit it for the all-time board.
+   */
+  period?: string;
+}
+
+export function useLeaderboard(
+  gameId: string,
+  options: UseLeaderboardOptions = {},
+): {
   topScores: LeaderboardEntry[];
   recentScores: LeaderboardEntry[];
   submitScore: (score: number) => Promise<{ ok: boolean; rank?: number }>;
   loading: boolean;
   refresh: () => void;
 } {
+  const period = options.period;
+  const periodQuery = period ? `&period=${encodeURIComponent(period)}` : '';
   const [topScores, setTopScores] = useState<LeaderboardEntry[]>([]);
   const [recentScores, setRecentScores] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,14 +76,16 @@ export function useLeaderboard(gameId: string): {
     // Fire-and-forget: inner fetches each .catch() to [], so this never
     // rejects; `void` marks the intentional non-await.
     void Promise.all([
-      fetch(`${API_BASE}/api/leaderboard/${gameId}?limit=50`, { credentials: 'include' })
+      fetch(`${API_BASE}/api/leaderboard/${gameId}?limit=50${periodQuery}`, {
+        credentials: 'include',
+      })
         .then(async (r) => {
           if (!r.ok) return [] as LeaderboardEntry[];
           const data = (await r.json()) as LeaderboardResponse;
           return data.scores ?? [];
         })
         .catch(() => [] as LeaderboardEntry[]),
-      fetch(`${API_BASE}/api/leaderboard/${gameId}/recent?limit=50`, {
+      fetch(`${API_BASE}/api/leaderboard/${gameId}/recent?limit=50${periodQuery}`, {
         credentials: 'include',
       })
         .then(async (r) => {
@@ -86,7 +101,7 @@ export function useLeaderboard(gameId: string): {
       setRecentScores(recent);
       setLoading(false);
     });
-  }, [gameId]);
+  }, [gameId, periodQuery]);
 
   useEffect(() => {
     load();
@@ -108,7 +123,7 @@ export function useLeaderboard(gameId: string): {
         const res = await fetch(`${API_BASE}/api/scores`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${handoff.token}` },
-          body: JSON.stringify({ game: gameId, score }),
+          body: JSON.stringify(period ? { game: gameId, score, period } : { game: gameId, score }),
         });
         if (!res.ok) return { ok: false };
         const data = (await res.json()) as SubmitScoreResponse;
@@ -121,7 +136,7 @@ export function useLeaderboard(gameId: string): {
         return { ok: false };
       }
     },
-    [gameId, load],
+    [gameId, period, load],
   );
 
   return { topScores, recentScores, submitScore, loading, refresh: load };

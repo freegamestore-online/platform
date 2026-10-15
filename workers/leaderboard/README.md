@@ -6,9 +6,9 @@ Cloudflare Worker that provides a leaderboard API for [freegamestore.online](htt
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/scores` | Submit a score |
-| `GET` | `/api/leaderboard/:game` | Top scores for a game |
-| `GET` | `/api/leaderboard/:game/recent` | Recent scores for a game |
+| `POST` | `/api/scores` | Submit a score. Optional `period` (`YYYY-MM-DD`) puts it on that day's board |
+| `GET` | `/api/leaderboard/:game` | Top scores for a game. Optional `?period=YYYY-MM-DD` reads that day's board |
+| `GET` | `/api/leaderboard/:game/recent` | Recent scores for a game. Optional `?period=YYYY-MM-DD` as above |
 | `GET` | `/api/leaderboard/overall` | Cross-game leaderboard |
 | `GET` | `/api/leaderboard/:game/user/:userId` | User's best score + rank |
 

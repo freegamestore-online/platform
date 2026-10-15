@@ -234,6 +234,13 @@ const { topScores, recentScores, submitScore, loading, refresh } = useLeaderboar
 const { ok, rank } = await submitScore(1200)
 ```
 
+Pass `period` (a UTC day, `YYYY-MM-DD`) for a per-day board, such as a daily puzzle. Omit it for the all-time board:
+
+```tsx
+const today = new Date().toISOString().slice(0, 10)
+const { topScores, submitScore } = useLeaderboard('tile-match', { period: today })
+```
+
 ### useGameSounds
 
 Synthesized sound effects via Web Audio API. Zero audio files. All sounds auto-respect the mute toggle.

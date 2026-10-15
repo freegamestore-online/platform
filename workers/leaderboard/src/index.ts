@@ -100,6 +100,28 @@ export function isValidScore(score: unknown): score is number {
   return typeof score === 'number' && Number.isInteger(score) && score >= 0 && score <= MAX_SCORE;
 }
 
+// True for a real calendar date written YYYY-MM-DD (the daily-puzzle board key,
+// #161). The round-trip rejects impossible dates such as 2026-02-30.
+export function isValidPeriod(period: unknown): period is string {
+  if (typeof period !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(period)) return false;
+  const date = new Date(`${period}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === period;
+}
+
+// Adds the day filter when a period is given. Absent means the all-time board,
+// which reads every row exactly as it did before periods existed.
+function periodFilter(period: string | null, column: string): { sql: string; binds: string[] } {
+  return period === null ? { sql: '', binds: [] } : { sql: ` AND ${column} = ?`, binds: [period] };
+}
+
+// Reads the optional `period` query param: absent → null (all-time), valid →
+// the date, present but malformed → undefined, which callers answer with a 400.
+function periodParam(url: URL): string | null | undefined {
+  const raw = url.searchParams.get('period');
+  if (raw === null) return null;
+  return isValidPeriod(raw) ? raw : undefined;
+}
+
 // True if `score` is within the game's per-game sanity cap (falls back to the
 // global max for unlisted games). Exported for direct testing.
 export function withinCap(game: string, score: number): boolean {
@@ -241,12 +263,19 @@ export async function verifyScoreHandoff(
  */
 export async function insertScoreUnlessRateLimited(
   db: D1Database,
-  values: { game: string; playerName: string; score: number; ipHash: string; userId: string },
+  values: {
+    game: string;
+    playerName: string;
+    score: number;
+    ipHash: string;
+    userId: string;
+    period?: string | null;
+  },
 ): Promise<boolean> {
   const result = await db
     .prepare(
-      `INSERT INTO scores (game_id, player_name, score, ip_hash, user_id)
-       SELECT ?, ?, ?, ?, ?
+      `INSERT INTO scores (game_id, player_name, score, ip_hash, user_id, period)
+       SELECT ?, ?, ?, ?, ?, ?
        WHERE NOT EXISTS (
          SELECT 1 FROM scores
          WHERE user_id = ? AND game_id = ?
@@ -261,6 +290,7 @@ export async function insertScoreUnlessRateLimited(
       values.score,
       values.ipHash,
       values.userId,
+      values.period ?? null,
       values.userId,
       values.game,
       `-${RATE_LIMIT_SECONDS} seconds`,
@@ -282,7 +312,7 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
     return j({ error: 'Invalid JSON' }, 400);
   }
 
-  const { game, score } = body as Record<string, unknown>;
+  const { game, score, period } = body as Record<string, unknown>;
 
   if (typeof game !== 'string') return j({ error: 'Invalid game' }, 400);
   const invalid = await gameError(game, env, j);
@@ -290,6 +320,12 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
   if (!isValidScore(score)) {
     return j({ error: 'Invalid score' }, 400);
   }
+  // Optional day key for a per-day board (#161). Absent or null is the all-time
+  // board, exactly as before; anything else must be a real YYYY-MM-DD date.
+  if (period !== undefined && period !== null && !isValidPeriod(period)) {
+    return j({ error: 'Invalid period' }, 400);
+  }
+  const boardPeriod = typeof period === 'string' ? period : null;
 
   // Authentication is required to submit. Anonymous posts were trivially
   // spoofable (any client could POST a name + score), so the boards only
@@ -320,6 +356,7 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
     score,
     ipHash,
     userId,
+    period: boardPeriod,
   });
   if (!inserted) {
     return j({ error: 'Too fast, wait a few seconds' }, 429);
@@ -329,10 +366,12 @@ async function submitScore(request: Request, env: Env): Promise<Response> {
   // Excluding the submitter (user_id != ?) matters when they post a score below
   // their own existing best — otherwise their higher rows satisfy `score > ?`
   // and they'd count themselves, inflating the rank (e.g. sole player → rank 2).
+  // On a per-day board the rank is among that day's scores only.
+  const dayFilter = periodFilter(boardPeriod, 'period');
   const rank = await env.DB.prepare(
-    `SELECT COUNT(DISTINCT user_id) as rank FROM scores WHERE game_id = ? AND score > ? AND user_id IS NOT NULL AND user_id != ?`,
+    `SELECT COUNT(DISTINCT user_id) as rank FROM scores WHERE game_id = ? AND score > ? AND user_id IS NOT NULL AND user_id != ?${dayFilter.sql}`,
   )
-    .bind(game, score, userId)
+    .bind(game, score, userId, ...dayFilter.binds)
     .first<{ rank: number }>();
 
   return j({ ok: true, rank: (rank?.rank ?? 0) + 1 }, 201);
@@ -351,6 +390,10 @@ async function getLeaderboard(
   const limitParam = url.searchParams.get('limit');
   const limit = Math.min(Math.max(parseInt(limitParam ?? '10', 10) || 10, 1), LEADERBOARD_LIMIT);
 
+  const period = periodParam(url);
+  if (period === undefined) return json({ error: 'Invalid period' }, 400, request);
+  const dayFilter = periodFilter(period, 's.period');
+
   // One row per user (their personal best). GROUP BY user_id with MAX(score)
   // relies on SQLite's documented "bare columns take values from the max row"
   // behaviour, so player_name/created_at come from each user's top score.
@@ -360,11 +403,11 @@ async function getLeaderboard(
     `SELECT s.player_name, MAX(s.score) AS score, s.created_at, s.user_id, u.avatar_url
      FROM scores s
      LEFT JOIN users u ON s.user_id = u.id
-     WHERE s.game_id = ? AND s.user_id IS NOT NULL
+     WHERE s.game_id = ? AND s.user_id IS NOT NULL${dayFilter.sql}
      GROUP BY s.user_id
      ORDER BY score DESC LIMIT ?`,
   )
-    .bind(game, limit)
+    .bind(game, ...dayFilter.binds, limit)
     .all<{
       player_name: string;
       score: number;
@@ -381,6 +424,10 @@ async function getRecent(game: string, url: URL, request: Request, env: Env): Pr
   const invalid = await gameError(game, env, (data, status) => json(data, status, request));
   if (invalid) return invalid;
 
+  const period = periodParam(url);
+  if (period === undefined) return json({ error: 'Invalid period' }, 400, request);
+  const dayFilter = periodFilter(period, 's.period');
+
   const limitParam = url.searchParams.get('limit');
   const limit = Math.min(Math.max(parseInt(limitParam ?? '10', 10) || 10, 1), LEADERBOARD_LIMIT);
 
@@ -388,9 +435,9 @@ async function getRecent(game: string, url: URL, request: Request, env: Env): Pr
     `SELECT s.player_name, s.score, s.created_at, s.user_id, u.avatar_url
      FROM scores s
      LEFT JOIN users u ON s.user_id = u.id
-     WHERE s.game_id = ? ORDER BY s.created_at DESC, s.id DESC LIMIT ?`,
+     WHERE s.game_id = ?${dayFilter.sql} ORDER BY s.created_at DESC, s.id DESC LIMIT ?`,
   )
-    .bind(game, limit)
+    .bind(game, ...dayFilter.binds, limit)
     .all<{
       player_name: string;
       score: number;
