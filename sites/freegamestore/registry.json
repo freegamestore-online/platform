@@ -2316,6 +2316,23 @@
       "firstPublished": "2026-10-15T16:15:52.744Z",
       "status": "pending",
       "provisionedSha": "8934b22d7a3c5ec2e2702d92dcd30f351200f6df"
+    },
+    {
+      "id": "tilerun",
+      "name": "Tilerun",
+      "category": "puzzle",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Chain double-six dominoes end to end and block your opponent",
+      "appUrl": "https://tilerun.freegamestore.online",
+      "repo": "freegamestore-online/tilerun",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "serge-ivo",
+      "creatorGithub": "serge-ivo",
+      "firstPublished": "2026-10-15T16:46:08.542Z",
+      "status": "pending",
+      "provisionedSha": "7ba8c67a262f2279a763cd2abe2f145cbc1a6077"
     }
   ]
 }
