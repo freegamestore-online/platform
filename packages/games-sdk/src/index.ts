@@ -37,6 +37,7 @@ export {
   type StartScreenProps,
   type StartScreenStep,
 } from './StartScreen.js';
+export * from './feel/index.js';
 export {
   CONFETTI_COLOURS,
   CONFETTI_CSS,

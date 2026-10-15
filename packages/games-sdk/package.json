@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./feel": {
+      "types": "./dist/feel/index.d.ts",
+      "import": "./dist/feel/index.js"
     }
   },
   "homepage": "https://github.com/freegamestore-online/platform#readme",
