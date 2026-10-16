@@ -2486,6 +2486,23 @@
       "firstPublished": "2026-10-16T00:15:50.672Z",
       "status": "pending",
       "provisionedSha": "1d4fa79bab1efeb7cbc2f42f538a48302b0cbd97"
+    },
+    {
+      "id": "fourfold",
+      "name": "Fourfold",
+      "category": "casual",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Sort sixteen words into four hidden groups of four",
+      "appUrl": "https://fourfold.freegamestore.online",
+      "repo": "freegamestore-online/fourfold",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "serge-ivo",
+      "creatorGithub": "serge-ivo",
+      "firstPublished": "2026-10-16T03:16:08.399Z",
+      "status": "pending",
+      "provisionedSha": "2f11ac3301fce7fbce2cd87d63fe2bfe5bff22f5"
     }
   ]
 }
