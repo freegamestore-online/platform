@@ -2469,6 +2469,23 @@
       "firstPublished": "2026-10-15T23:06:32.451Z",
       "status": "pending",
       "provisionedSha": "51eccffdda8509d197b183f3d373735861938643"
+    },
+    {
+      "id": "zap-drills",
+      "name": "Zap Drills",
+      "category": "casual",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Six 60-second drills for fun quick puzzles, with a daily workout",
+      "appUrl": "https://zap-drills.freegamestore.online",
+      "repo": "freegamestore-online/zap-drills",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "serge-ivo",
+      "creatorGithub": "serge-ivo",
+      "firstPublished": "2026-10-16T00:15:50.672Z",
+      "status": "pending",
+      "provisionedSha": "1d4fa79bab1efeb7cbc2f42f538a48302b0cbd97"
     }
   ]
 }
