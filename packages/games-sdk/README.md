@@ -21,7 +21,7 @@ import { GameShell, GameTopbar } from '@freegamestore/games'
 
 export default function App() {
   return (
-    <GameShell topbar={<GameTopbar title="Chess" score={42} />}>
+    <GameShell topbar={<GameTopbar title="Chess" />}>
       {/* your game canvas / DOM */}
     </GameShell>
   )
@@ -35,7 +35,7 @@ export default function App() {
 Root layout wrapper. Locks the game to `100svh`, prevents document scroll, disables text selection and touch callout. Every game wraps its content in this.
 
 ```tsx
-<GameShell topbar={<GameTopbar title="Tetris" score={42} />}>
+<GameShell topbar={<GameTopbar title="Tetris" />}>
   <MyGame />
 </GameShell>
 ```
@@ -50,8 +50,8 @@ Root layout wrapper. Locks the game to `100svh`, prevents document scroll, disab
 The single allowed topbar. Same font, padding, and color tokens across every game.
 
 ```tsx
-// Simple: just a score
-<GameTopbar title="Tetris" score={42} />
+// Simple: just the title
+<GameTopbar title="Tetris" />
 
 // Custom stats + play/pause controls
 <GameTopbar
@@ -71,8 +71,8 @@ The single allowed topbar. Same font, padding, and color tokens across every gam
 | Prop | Type | Description |
 |------|------|-------------|
 | `title` | `string?` | Game name, left side |
-| `score` | `number?` | Convenience for single-score games |
-| `stats` | `GameTopbarStat[]?` | Custom stat lineup (replaces `score`) |
+| `score` | `number?` | **Deprecated, not rendered** (#348). Accepted so existing games keep compiling |
+| `stats` | `GameTopbarStat[]?` | Custom stat lineup (lives, level, time) |
 | `actions` | `ReactNode?` | Right-side buttons (max 2) |
 | `rules` | `ReactNode?` | Game instructions — shows info icon, opens overlay on tap |
 | `onPlayPause` | `() => void?` | Renders play/pause icon button |
@@ -84,7 +84,7 @@ The single allowed topbar. Same font, padding, and color tokens across every gam
 Sign-in / avatar widget for the topbar `actions` slot. Shows "Sign in" when signed out, avatar + dropdown when signed in.
 
 ```tsx
-<GameTopbar title="Chess" score={42} actions={<GameAuth />} />
+<GameTopbar title="Chess" actions={<GameAuth />} />
 ```
 
 No props — uses `useAuth` internally.

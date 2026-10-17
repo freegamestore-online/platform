@@ -21,15 +21,15 @@ export interface GameTopbarProps {
   title?: string;
 
   /**
-   * Convenience: the most-common case. If present, renders as a single
-   * "Score" stat. Equivalent to passing `stats: [{ label: 'Score',
-   * value: score, accent: true }]`.
+   * @deprecated The live score pill was removed from the topbar (#348). The
+   * prop is still accepted so existing games keep compiling, but nothing is
+   * rendered for it. Show the score in your game UI, or through `stats`.
    */
   score?: number;
 
   /**
-   * Custom stat lineup. Use for games that need more than just a score
-   * (lives, level, time, etc.). Replaces the score-only convenience.
+   * Custom stat lineup, e.g. lives, level or time. Each entry renders as a
+   * stat pill in the topbar.
    */
   stats?: GameTopbarStat[];
 
@@ -142,7 +142,6 @@ function toneClass(tone: IconTone): string {
  */
 export function GameTopbar({
   title,
-  score,
   stats,
   actions,
   rules,
@@ -155,12 +154,7 @@ export function GameTopbar({
   const [showAbout, setShowAbout] = useState(false);
   const sound = useSound();
 
-  const resolvedStats: GameTopbarStat[] =
-    stats && stats.length > 0
-      ? stats
-      : score !== undefined
-        ? [{ label: 'Score', value: score, accent: true }]
-        : [];
+  const resolvedStats: GameTopbarStat[] = stats ?? [];
 
   return (
     <>

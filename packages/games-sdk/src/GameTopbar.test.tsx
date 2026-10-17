@@ -20,11 +20,18 @@ describe('GameTopbar', () => {
     vi.unstubAllGlobals();
   });
 
-  it('shows the title and a score stat', () => {
+  it('shows the title and no score pill, even when score is passed (#348)', () => {
     render(<GameTopbar title="Demo Game" score={42} />);
     expect(screen.getByText('Demo Game')).toBeInTheDocument();
-    expect(screen.getByText('42')).toBeInTheDocument();
-    expect(screen.getByText('Score')).toBeInTheDocument();
+    expect(screen.queryByText('42')).toBeNull();
+    expect(screen.queryByText('Score')).toBeNull();
+  });
+
+  it('still renders custom stats after the score pill was removed (#348)', () => {
+    render(<GameTopbar title="Demo Game" score={42} stats={[{ label: 'Lives', value: 3 }]} />);
+    expect(screen.getByText('Lives')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.queryByText('42')).toBeNull();
   });
 
   it('marks an accent stat with the accent class', () => {
