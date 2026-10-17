@@ -3,6 +3,7 @@ import { routeAdminRequest } from './admin-request-router';
 import { serveAdminStatic } from './admin-static';
 import { handleAuthExchange, handleAuthMe, verifySession } from './auth';
 import { getGameAnalytics, putGameAnalyticsConfig } from './game-analytics';
+import { handlePlatformUsage } from './platform-usage';
 import { renderApiDocs } from './dashboard';
 import { driftReportFrom, type FleetRow, recentRuns, sweepFleet } from './drift';
 import { errorStats, listErrors, pruneErrors, recordError } from './errlog';
@@ -1302,6 +1303,19 @@ function buildRouteTable(data: ReturnType<typeof dataService>): Route[] {
           return jsonResponse({ error: 'invalid JSON' }, 400, request);
         }
         const result = await putGameAnalyticsConfig(env, id, caller.login, await data.registryItems(), body);
+        return jsonResponse(result.body, result.status, request);
+      },
+    },
+
+    // GET /api/analytics/platform — admin-only cross-game usage dashboard (#351).
+    // auth is 'login' so a signed-in non-admin gets 403 (the 'admin' gate answers
+    // 401 to everyone who isn't one, which hides who's actually signed in).
+    {
+      method: 'GET',
+      pattern: '/api/analytics/platform',
+      auth: 'login',
+      handler: async ({ request, caller, env }) => {
+        const result = await handlePlatformUsage(caller, env, await data.registryItems());
         return jsonResponse(result.body, result.status, request);
       },
     },

@@ -7,6 +7,7 @@ import { GamesList } from './GamesList.tsx';
 import { Grants } from './Grants.tsx';
 import { Ops } from './Ops.tsx';
 import { Overview } from './Overview.tsx';
+import { PlatformUsagePage } from './PlatformUsage.tsx';
 import { ProvisionForm } from './ProvisionForm.tsx';
 import { Sessions } from './Sessions.tsx';
 import { SessionView } from './SessionView.tsx';
@@ -25,7 +26,8 @@ type View =
   | { page: 'user'; id: string }
   | { page: 'sessions' }
   | { page: 'session'; id: string }
-  | { page: 'provision' };
+  | { page: 'provision' }
+  | { page: 'usage' };
 
 function parseHash(): View {
   const hash = window.location.hash.slice(1);
@@ -43,6 +45,7 @@ function parseHash(): View {
   const m = hash.match(/^\/sessions\/(.+)$/);
   if (m) return { page: 'session', id: m[1]! };
   if (hash === '/provision') return { page: 'provision' };
+  if (hash === '/usage') return { page: 'usage' };
   return { page: 'overview' };
 }
 
@@ -91,6 +94,7 @@ export default function App() {
             {view.page === 'sessions' && <Sessions navigate={navigate} />}
             {view.page === 'session' && <SessionView id={view.id} navigate={navigate} />}
             {view.page === 'provision' && <ProvisionForm />}
+            {view.page === 'usage' && <PlatformUsagePage navigate={navigate} />}
           </>
         )}
       </main>
@@ -160,6 +164,12 @@ function Header({ navigate, view }: { navigate: (h: string) => void; view: View 
               label="Games"
               hash="/games"
               active={view.page === 'games' || view.page === 'game'}
+              navigate={navigate}
+            />
+            <NavLink
+              label="Usage"
+              hash="/usage"
+              active={view.page === 'usage'}
               navigate={navigate}
             />
             <NavLink

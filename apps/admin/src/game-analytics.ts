@@ -118,7 +118,7 @@ export function buildStatsQueries(gameId: string, q: StatsQuery): Record<string,
   };
 }
 
-class StatsError extends Error {
+export class StatsError extends Error {
   constructor(
     readonly status: number,
     message: string,
@@ -127,7 +127,7 @@ class StatsError extends Error {
   }
 }
 
-async function cfAnalyticsSql<T>(env: AnalyticsEnv, sql: string): Promise<T[]> {
+export async function cfAnalyticsSql<T>(env: AnalyticsEnv, sql: string): Promise<T[]> {
   if (!env.CF_ACCOUNT_ID || !env.CF_ANALYTICS_API_TOKEN) {
     throw new StatsError(
       503,
