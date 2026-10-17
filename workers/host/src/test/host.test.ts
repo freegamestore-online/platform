@@ -383,7 +383,8 @@ describe("legacy fallback (integration shape only)", () => {
 });
 
 // --- analytics loader (fleet-wide /v1/analytics.js) ---
-import worker, { ANALYTICS_APP_ID_RE, buildAnalyticsLoader } from "../index";
+import worker from "../index";
+import { ANALYTICS_APP_ID_RE, buildAnalyticsLoader } from "../analytics";
 
 // The fetch handler must degrade a backend blip to a clean 503, not throw.
 describe("fetch handler resilience (D1 blip → 503, not raw 500)", () => {
@@ -428,11 +429,11 @@ describe("analytics loader", () => {
     expect(ANALYTICS_APP_ID_RE.test("")).toBe(false);
   });
 
-  it("returns valid JS with the app id embedded + a safe no-op event stub, no beacon when unset", () => {
+  it("returns valid JS with the app id embedded + a safe event sender, no beacon when unset", () => {
     const js = buildAnalyticsLoader("tetris", null);
     expect(js).toContain('"tetris"');
     expect(js).toContain("window.fgsAnalytics");
-    expect(js).toContain("function(){}");
+    expect(js).toContain("window.fgsAnalytics.event = function");
     expect(js).not.toContain("cloudflareinsights");
   });
 

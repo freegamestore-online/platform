@@ -31,3 +31,10 @@ bucket_name = "fgs-games"
 binding = "DB"
 database_name = "freegamestore"
 database_id = "a122751e-11a2-466e-b403-4696f3f4a698"
+
+# Game usage analytics (#350). Page views and custom events from every game are
+# written here (one data point per event, indexed by game id). Query with the SQL
+# API; the dataset is created on first write.
+[[analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "fgs_game_analytics"

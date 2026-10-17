@@ -7,6 +7,9 @@ export interface Env {
    *  api.freegamestore.online/v1/analytics.js loader injects the cookieless CF
    *  beacon; when unset the loader still serves valid JS (just no beacon). */
   CF_BEACON_TOKEN?: string;
+  /** Analytics Engine dataset for game page views and custom events (#350). Optional
+   *  so local runs and tests work without the binding; events are dropped when unset. */
+  ANALYTICS?: AnalyticsEngineDataset;
 }
 
 export interface Route {

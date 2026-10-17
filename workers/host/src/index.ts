@@ -13,6 +13,11 @@
  */
 
 import {
+  analyticsLoaderResponse,
+  collectEvents,
+  corsHeaders,
+} from "./analytics";
+import {
   buildSyntheticVersion,
   contentType,
   type Env,
@@ -77,6 +82,15 @@ export default {
       if (slug === "api" && url.pathname === "/v1/analytics.js") {
         return analyticsLoaderResponse(url, env, ctx);
       }
+      // Event ingest (#350). Called cross-origin from game pages, so OPTIONS
+      // answers the CORS preflight that sendBeacon/fetch JSON bodies trigger.
+      if (slug === "api" && url.pathname === "/v1/analytics/event") {
+        if (req.method === "OPTIONS") {
+          return new Response(null, { status: 204, headers: corsHeaders(req.headers.get("origin")) });
+        }
+        if (req.method === "POST") return await collectEvents(req, env);
+        return new Response("method not allowed", { status: 405, headers: { allow: "POST, OPTIONS" } });
+      }
 
       // hasOwnProperty, not `in`: `slug in obj` walks the prototype chain, so a
       // game published at constructor./toString./__proto__.freegamestore.online
@@ -109,60 +123,6 @@ function serviceUnavailable(): Response {
       "cache-control": "no-store",
     },
   });
-}
-
-// A game id: lowercase slug, may start with a digit (e.g. "2048"), ≤58 chars.
-export const ANALYTICS_APP_ID_RE = /^[a-z0-9](?:[a-z0-9-]{0,56}[a-z0-9])?$/;
-const ANALYTICS_CACHE_TTL = 3600;
-
-/** The public analytics loader every game injects. Cookieless, no PII. Injects
- *  the store-wide Cloudflare Web Analytics beacon when CF_BEACON_TOKEN is set,
- *  and always exposes a safe `window.fgsAnalytics` stub so game code calling it
- *  never throws. Centralized so analytics policy can change without redeploying
- *  every game repo. */
-export function buildAnalyticsLoader(appId: string, beaconToken: string | null): string {
-  const app = JSON.stringify(appId);
-  const beacon = beaconToken
-    ? `
-    try {
-      var s = document.createElement("script");
-      s.defer = true;
-      s.src = "https://static.cloudflareinsights.com/beacon.min.js";
-      s.setAttribute("data-cf-beacon", JSON.stringify({ token: ${JSON.stringify(beaconToken)}, spa: true }));
-      document.head.appendChild(s);
-    } catch (e) {}`
-    : "";
-  return `(function(){
-  var APP = ${app};${beacon}
-  window.fgsAnalytics = window.fgsAnalytics || {};
-  window.fgsAnalytics.app = APP;
-  if (typeof window.fgsAnalytics.event !== "function") window.fgsAnalytics.event = function(){};
-})();
-`;
-}
-
-/** GET api.freegamestore.online/v1/analytics.js?app=<id>. ALWAYS 200 valid JS
- *  (an invalid id no-ops), edge-cached, so a bad id can't become a console error
- *  on every game. */
-async function analyticsLoaderResponse(url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
-  const appId = url.searchParams.get("app") ?? "";
-  const valid = ANALYTICS_APP_ID_RE.test(appId);
-  const cacheUrl = `https://fgs-analytics-loader/${valid ? appId : "_invalid"}`;
-  const cache = caches.default;
-  const hit = await cache.match(cacheUrl);
-  if (hit) return hit;
-
-  const body = valid ? buildAnalyticsLoader(appId, env.CF_BEACON_TOKEN ?? null) : "/* fgs analytics: invalid app id */\n";
-  const res = new Response(body, {
-    status: 200,
-    headers: {
-      "content-type": "application/javascript; charset=utf-8",
-      "cache-control": `public, max-age=${ANALYTICS_CACHE_TTL}, s-maxage=${ANALYTICS_CACHE_TTL}`,
-      "access-control-allow-origin": "*",
-    },
-  });
-  ctx.waitUntil(cache.put(cacheUrl, res.clone()));
-  return res;
 }
 
 async function dispatchPlatform(req: Request, env: Env, slug: string, host: string): Promise<Response> {
