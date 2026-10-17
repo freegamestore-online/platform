@@ -1,4 +1,4 @@
-import { resolveCreatorUser, type SessionEnv } from './_auth';
+import { corsHeaders, resolveCreatorUser, type SessionEnv } from './_auth';
 import { type GameRepo, listUserGames } from './_games';
 
 interface Env extends SessionEnv {
@@ -24,7 +24,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   if (!cu) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders(context.request) },
     });
   }
   const user = cu.github;
@@ -45,7 +45,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         JSON.stringify({
           error: 'The game registry is temporarily unavailable. Please retry in a moment.',
         }),
-        { status: 503, headers: { 'Content-Type': 'application/json' } },
+        { status: 503, headers: { 'Content-Type': 'application/json', ...corsHeaders(context.request) } },
       );
     }
     throw e;
@@ -72,7 +72,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     remaining: Math.max(0, maxGames - owned.length),
   };
 
+  // CORS so the storefront's analytics page (freegamestore.online) can list the
+  // signed-in creator's games. corsHeaders only echoes first-party origins.
   return new Response(JSON.stringify({ user, creator }), {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...corsHeaders(context.request) },
   });
 };

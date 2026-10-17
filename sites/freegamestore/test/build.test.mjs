@@ -585,3 +585,40 @@ test("an unrecognised status does not hide a game", () => {
     rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+// #355: the public analytics page shows owner data fetched from the console API,
+// so it has to run under the strict storefront CSP (style-src 'self', no inline
+// script, no inline style attributes, no inline handlers).
+test("analytics page ships cache-busted with no inline script, style, or handler", () => {
+  const { tmp, tmpDist } = runBuild();
+  try {
+    const html = readFileSync(join(tmpDist, "analytics.html"), "utf8");
+    assert.match(html, /src="\/analytics\.js\?v=[a-f0-9]+"/, "analytics.js must be cache-busted");
+    assert.match(html, /src="\/theme\.js\?v=[a-f0-9]+"/, "theme.js must be cache-busted");
+    const inlineScripts = html.match(/<script(?![^>]*\ssrc=)[^>]*>/gi) || [];
+    assert.deepEqual(inlineScripts, [], "no inline <script> blocks under the strict CSP");
+    assert.doesNotMatch(html, /\sstyle="/, "no inline style attributes");
+    assert.doesNotMatch(html, /\son[a-z]+="/i, "no inline event handler attributes");
+    assert.doesNotMatch(html, /{{[A-Z_]+}}/, "no unsubstituted template placeholders");
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("analytics.js renders with DOM APIs only: no innerHTML, no inline styles", () => {
+  // Code only: the header comment names the banned APIs on purpose.
+  const js = readFileSync(join(REPO_ROOT, "analytics.js"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+  assert.doesNotMatch(js, /innerHTML|outerHTML|insertAdjacentHTML|document\.write/, "no HTML-string sinks");
+  assert.doesNotMatch(js, /\.style\b|setAttribute\(\s*["']style["']/, "no style attributes or CSSOM style writes");
+  // Its data source is the console, which the storefront CSP's connect-src allows.
+  assert.match(js, /https:\/\/console\.freegamestore\.online/);
+});
+
+test("console CORS allows the PUT the analytics page uses for tag saves", () => {
+  const auth = readFileSync(join(REPO_ROOT, "..", "..", "apps", "console", "functions", "api", "_auth.ts"), "utf8");
+  const methods = auth.match(/'Access-Control-Allow-Methods':\s*'([^']+)'/);
+  assert.ok(methods, "Access-Control-Allow-Methods is set");
+  assert.match(methods[1], /\bPUT\b/, "PUT must be allowed for the cross-origin tag save");
+});
