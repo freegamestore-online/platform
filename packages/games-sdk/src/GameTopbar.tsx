@@ -21,11 +21,17 @@ export interface GameTopbarProps {
   title?: string;
 
   /**
-   * @deprecated The live score pill was removed from the topbar (#348). The
-   * prop is still accepted so existing games keep compiling, but nothing is
-   * rendered for it. Show the score in your game UI, or through `stats`.
+   * The live score shown in the score pill. Only rendered when `showScore` is
+   * true. Without `showScore`, the pill stays hidden (#348).
    */
   score?: number;
+
+  /**
+   * Show the live score pill (#348). Off by default, so the topbar stays clean
+   * for games that do not use it. Games that want the pill set this to true
+   * and pass `score`.
+   */
+  showScore?: boolean;
 
   /**
    * Custom stat lineup, e.g. lives, level or time. Each entry renders as a
@@ -142,6 +148,8 @@ function toneClass(tone: IconTone): string {
  */
 export function GameTopbar({
   title,
+  score,
+  showScore = false,
   stats,
   actions,
   rules,
@@ -154,7 +162,9 @@ export function GameTopbar({
   const [showAbout, setShowAbout] = useState(false);
   const sound = useSound();
 
-  const resolvedStats: GameTopbarStat[] = stats ?? [];
+  const scorePill: GameTopbarStat[] =
+    showScore && score !== undefined ? [{ label: 'Score', value: score, accent: true }] : [];
+  const resolvedStats: GameTopbarStat[] = [...scorePill, ...(stats ?? [])];
 
   return (
     <>

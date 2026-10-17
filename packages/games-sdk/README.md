@@ -50,8 +50,11 @@ Root layout wrapper. Locks the game to `100svh`, prevents document scroll, disab
 The single allowed topbar. Same font, padding, and color tokens across every game.
 
 ```tsx
-// Simple: just the title
+// Simple: just the title. The score pill is hidden by default (#348)
 <GameTopbar title="Tetris" />
+
+// Opt in to the live score pill
+<GameTopbar title="Tetris" score={42} showScore />
 
 // Custom stats + play/pause controls
 <GameTopbar
@@ -71,7 +74,8 @@ The single allowed topbar. Same font, padding, and color tokens across every gam
 | Prop | Type | Description |
 |------|------|-------------|
 | `title` | `string?` | Game name, left side |
-| `score` | `number?` | **Deprecated, not rendered** (#348). Accepted so existing games keep compiling |
+| `score` | `number?` | Live score, shown only when `showScore` is set |
+| `showScore` | `boolean?` | Show the live score pill. Off by default (#348) |
 | `stats` | `GameTopbarStat[]?` | Custom stat lineup (lives, level, time) |
 | `actions` | `ReactNode?` | Right-side buttons (max 2) |
 | `rules` | `ReactNode?` | Game instructions — shows info icon, opens overlay on tap |

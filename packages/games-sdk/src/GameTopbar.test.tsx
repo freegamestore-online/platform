@@ -20,10 +20,21 @@ describe('GameTopbar', () => {
     vi.unstubAllGlobals();
   });
 
-  it('shows the title and no score pill, even when score is passed (#348)', () => {
+  it('hides the score pill by default, even when score is passed (#348)', () => {
     render(<GameTopbar title="Demo Game" score={42} />);
     expect(screen.getByText('Demo Game')).toBeInTheDocument();
     expect(screen.queryByText('42')).toBeNull();
+    expect(screen.queryByText('Score')).toBeNull();
+  });
+
+  it('shows the score pill when showScore is set (#348)', () => {
+    render(<GameTopbar title="Demo Game" score={42} showScore />);
+    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText('Score')).toBeInTheDocument();
+  });
+
+  it('shows no score pill with showScore set but no score value', () => {
+    render(<GameTopbar title="Demo Game" showScore />);
     expect(screen.queryByText('Score')).toBeNull();
   });
 
