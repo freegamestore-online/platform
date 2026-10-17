@@ -56,6 +56,23 @@ const TRACKERS: TrackerSpec[] = [
   { name: 'hotjar', patterns: [wb('hotjar')] },
   { name: 'plausible', patterns: [wb('plausible')] },
   { name: 'posthog', patterns: [wb('posthog')] },
+  // Cloudflare Web Analytics installed by hand. The platform loader injects the
+  // beacon itself with the game's own token, so a direct copy skips the policy.
+  // Its host is still allowed by no-external-scripts, which is why it's caught here.
+  {
+    name: 'cloudflare-web-analytics',
+    patterns: [
+      /static\.cloudflareinsights\.com/i,
+      /cloudflareinsights\.com\/beacon/i,
+      /data-cf-beacon/i,
+    ],
+  },
+  { name: 'matomo', patterns: [wb('matomo')] },
+  { name: 'umami', patterns: [wb('umami')] },
+  { name: 'fullstory', patterns: [/fullstory\.com/i] },
+  { name: 'logrocket', patterns: [/logrocket\.com/i] },
+  { name: 'heap', patterns: [/heapanalytics\.com/i] },
+  { name: 'microsoft-clarity', patterns: [/clarity\.ms/i] },
 ];
 
 const SCAN_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx', '.html', '.json']);

@@ -163,3 +163,46 @@ describe('checkNoTracking', () => {
     expect(r.status).toBe('pass');
   });
 });
+
+// #356: the platform loader is the only analytics a game may use. A direct
+// tracker fails, and the loader tag passes.
+describe('checkNoTracking: platform loader only (#356)', () => {
+  it('passes the platform analytics loader tag', async () => {
+    await writeFile(
+      join(dir, 'web', 'index.html'),
+      '<script src="https://api.freegamestore.online/v1/analytics.js?app=chess" defer></script>',
+    );
+    const r = await checkNoTracking(fsFileSource(dir));
+    expect(r.status).toBe('pass');
+  });
+
+  it('flags a hand-installed Cloudflare Web Analytics beacon', async () => {
+    await writeFile(
+      join(dir, 'web', 'index.html'),
+      '<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon=\'{"token":"abc"}\'></script>',
+    );
+    const r = await checkNoTracking(fsFileSource(dir));
+    expect(r.status).toBe('fail');
+    expect(r.detail).toMatch(/cloudflare-web-analytics/);
+  });
+
+  it('flags Matomo and Microsoft Clarity loaded directly', async () => {
+    await writeFile(
+      join(dir, 'web', 'index.html'),
+      '<script src="https://cdn.matomo.cloud/x.js"></script><script src="https://www.clarity.ms/tag/abc"></script>',
+    );
+    const r = await checkNoTracking(fsFileSource(dir));
+    expect(r.status).toBe('fail');
+    expect(r.detail).toMatch(/matomo/);
+    expect(r.detail).toMatch(/microsoft-clarity/);
+  });
+
+  it('does not flag the word "matomo" or "clarity" in ordinary game code', async () => {
+    await writeFile(
+      join(dir, 'web', 'lines.ts'),
+      "const clarity = 0.5; // clarity of the lens\nconst label = 'clarity mode';",
+    );
+    const r = await checkNoTracking(fsFileSource(dir));
+    expect(r.status).toBe('pass');
+  });
+});
