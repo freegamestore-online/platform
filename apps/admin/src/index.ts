@@ -2,6 +2,7 @@ import { normalizeErrorLogRow } from '../../../contracts/error-log/v1/contract';
 import { routeAdminRequest } from './admin-request-router';
 import { serveAdminStatic } from './admin-static';
 import { handleAuthExchange, handleAuthMe, verifySession } from './auth';
+import { getGameAnalytics, putGameAnalyticsConfig } from './game-analytics';
 import { renderApiDocs } from './dashboard';
 import { driftReportFrom, type FleetRow, recentRuns, sweepFleet } from './drift';
 import { errorStats, listErrors, pruneErrors, recordError } from './errlog';
@@ -46,6 +47,9 @@ interface Route {
 interface Env {
   CF_ACCOUNT_ID: string;
   CF_API_TOKEN: string;
+  /** Token with Analytics Engine read scope for the per-game stats (#354). Optional:
+   *  the stats endpoints answer 503 until it is set via `wrangler secret put`. */
+  CF_ANALYTICS_API_TOKEN?: string;
   GITHUB_TOKEN: string;
   /** This admin's OWN HS256 signing key — it mints + verifies its own
    *  sessions via /v1/auth/exchange (not shared with FAS). */
@@ -928,7 +932,7 @@ async function dispatchApiRoute(
 }
 
 /** Build the declarative route table. Handlers are defined inline here. */
-function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
+function buildRouteTable(data: ReturnType<typeof dataService>): Route[] {
   return [
     // GET /api/drift and GET /api/status/deploys
     {
@@ -1259,6 +1263,46 @@ function buildRouteTable(_data: ReturnType<typeof dataService>): Route[] {
             ...corsHeaders(request),
           },
         });
+      },
+    },
+
+    // GET /api/games/:id/analytics — owner-only usage stats + BYO tag config (#354).
+    {
+      method: 'GET',
+      pattern: /^\/api\/games\/([a-z0-9][a-z0-9-]*)\/analytics$/,
+      auth: 'login',
+      handler: async ({ request, match, caller, env }) => {
+        const id = match?.[1];
+        if (!id) return jsonResponse({ error: 'invalid game id' }, 400, request);
+        if (!caller.login) return jsonResponse({ error: 'unauthorized' }, 401, request);
+        const result = await getGameAnalytics(
+          env,
+          id,
+          caller.login,
+          await data.registryItems(),
+          new URL(request.url).searchParams,
+        );
+        return jsonResponse(result.body, result.status, request);
+      },
+    },
+
+    // PUT /api/games/:id/analytics — owner-only BYO tags (GA4, Plausible) (#354).
+    {
+      method: 'PUT',
+      pattern: /^\/api\/games\/([a-z0-9][a-z0-9-]*)\/analytics$/,
+      auth: 'login',
+      handler: async ({ request, match, caller, env }) => {
+        const id = match?.[1];
+        if (!id) return jsonResponse({ error: 'invalid game id' }, 400, request);
+        if (!caller.login) return jsonResponse({ error: 'unauthorized' }, 401, request);
+        let body: unknown;
+        try {
+          body = await request.json();
+        } catch {
+          return jsonResponse({ error: 'invalid JSON' }, 400, request);
+        }
+        const result = await putGameAnalyticsConfig(env, id, caller.login, await data.registryItems(), body);
+        return jsonResponse(result.body, result.status, request);
       },
     },
 

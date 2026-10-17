@@ -34,7 +34,12 @@ interface RumSite {
 }
 
 /** Calls the CF API and throws with CF's own message on any non-success response. */
-async function cfCall<T>(env: AnalyticsProvisionEnv, path: string, method = 'GET', body?: unknown): Promise<T> {
+async function cfCall<T>(
+  env: AnalyticsProvisionEnv,
+  path: string,
+  method = 'GET',
+  body?: unknown,
+): Promise<T> {
   const res = await fetch(`${CF_API}${path}`, {
     method,
     headers: { Authorization: `Bearer ${env.CF_API_TOKEN}`, 'Content-Type': 'application/json' },
@@ -42,14 +47,19 @@ async function cfCall<T>(env: AnalyticsProvisionEnv, path: string, method = 'GET
   });
   const json = (await res.json().catch(() => null)) as CfEnvelope<T> | null;
   if (!res.ok || json?.success !== true) {
-    throw new Error(json?.errors?.[0]?.message ?? `CF ${method} ${path} failed (HTTP ${res.status})`);
+    throw new Error(
+      json?.errors?.[0]?.message ?? `CF ${method} ${path} failed (HTTP ${res.status})`,
+    );
   }
   return json.result as T;
 }
 
 /** Scans the account's RUM sites for one whose host matches. Bounded paging so a
  *  large account can't turn one publish into an unbounded fan-out of calls. */
-async function findRumSiteTag(env: AnalyticsProvisionEnv, host: string): Promise<string | undefined> {
+async function findRumSiteTag(
+  env: AnalyticsProvisionEnv,
+  host: string,
+): Promise<string | undefined> {
   for (let page = 1; page <= LIST_MAX_PAGES; page++) {
     const sites = await cfCall<RumSite[]>(
       env,
@@ -72,13 +82,23 @@ export async function provisionGameAnalytics(
   gameId: string,
   host: string,
 ): Promise<Step> {
-  const skip = (detail: string): Step => ({ name: STEP_NAME, status: 'skip', detail: `(non-fatal) ${detail}` });
+  const skip = (detail: string): Step => ({
+    name: STEP_NAME,
+    status: 'skip',
+    detail: `(non-fatal) ${detail}`,
+  });
   try {
-    const existing = await env.DB.prepare('SELECT cf_beacon_token FROM game_analytics WHERE game_id = ?1')
+    const existing = await env.DB.prepare(
+      'SELECT cf_beacon_token FROM game_analytics WHERE game_id = ?1',
+    )
       .bind(gameId)
       .first<{ cf_beacon_token: string | null }>();
     if (existing?.cf_beacon_token && SITE_TAG_RE.test(existing.cf_beacon_token)) {
-      return { name: STEP_NAME, status: 'skip', detail: `Beacon token already provisioned for ${host}` };
+      return {
+        name: STEP_NAME,
+        status: 'skip',
+        detail: `Beacon token already provisioned for ${host}`,
+      };
     }
 
     let siteTag = await findRumSiteTag(env, host);
@@ -86,10 +106,15 @@ export async function provisionGameAnalytics(
     if (created) {
       // auto_install: false — the token is injected by the platform loader, not by
       // CF's own snippet injection, so the site must not also auto-inject.
-      const site = await cfCall<RumSite>(env, `/accounts/${env.CF_ACCOUNT_ID}/rum/site_info`, 'POST', {
-        host,
-        auto_install: false,
-      });
+      const site = await cfCall<RumSite>(
+        env,
+        `/accounts/${env.CF_ACCOUNT_ID}/rum/site_info`,
+        'POST',
+        {
+          host,
+          auto_install: false,
+        },
+      );
       siteTag = site.site_tag;
     }
     if (!siteTag || !SITE_TAG_RE.test(siteTag)) {
@@ -113,8 +138,16 @@ export async function provisionGameAnalytics(
     }
 
     return created
-      ? { name: STEP_NAME, status: 'ok', detail: `Minted RUM site for ${host} and stored its beacon token` }
-      : { name: STEP_NAME, status: 'skip', detail: `RUM site already exists for ${host}; beacon token stored` };
+      ? {
+          name: STEP_NAME,
+          status: 'ok',
+          detail: `Minted RUM site for ${host} and stored its beacon token`,
+        }
+      : {
+          name: STEP_NAME,
+          status: 'skip',
+          detail: `RUM site already exists for ${host}; beacon token stored`,
+        };
   } catch (err) {
     return skip(err instanceof Error ? err.message : String(err));
   }

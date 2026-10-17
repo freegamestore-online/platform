@@ -13,7 +13,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function fakeDb(opts: { row?: { cf_beacon_token: string | null } | null; failWrite?: boolean } = {}) {
+function fakeDb(
+  opts: { row?: { cf_beacon_token: string | null } | null; failWrite?: boolean } = {},
+) {
   const writes: unknown[][] = [];
   const db = {
     prepare: () => ({
@@ -68,7 +70,10 @@ describe('provisionGameAnalytics (#353)', () => {
 
     expect(step).toMatchObject({ name: 'CF Web Analytics', status: 'ok' });
     const post = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
-    expect(JSON.parse((post![1] as { body: string }).body)).toEqual({ host: HOST, auto_install: false });
+    expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
+      host: HOST,
+      auto_install: false,
+    });
     expect(writes).toHaveLength(1);
     expect(writes[0]).toEqual(['chess', TAG, expect.any(Number)]);
   });
@@ -76,7 +81,11 @@ describe('provisionGameAnalytics (#353)', () => {
   it('reuses a RUM site that already exists for the host instead of creating one', async () => {
     const { db, writes } = fakeDb({ row: null });
     const fetchMock = stubCf({
-      list: () => cfOk([{ host: 'other.freegamestore.online', site_tag: OTHER_TAG }, { host: HOST, site_tag: TAG }]),
+      list: () =>
+        cfOk([
+          { host: 'other.freegamestore.online', site_tag: OTHER_TAG },
+          { host: HOST, site_tag: TAG },
+        ]),
     });
 
     const step = await provisionGameAnalytics(env(db), 'chess', HOST);
@@ -89,7 +98,10 @@ describe('provisionGameAnalytics (#353)', () => {
 
   it('finds the host on a later page of the RUM site list', async () => {
     const { db, writes } = fakeDb({ row: null });
-    const fullPage = Array.from({ length: 100 }, (_, i) => ({ host: `g${i}.freegamestore.online`, site_tag: OTHER_TAG }));
+    const fullPage = Array.from({ length: 100 }, (_, i) => ({
+      host: `g${i}.freegamestore.online`,
+      site_tag: OTHER_TAG,
+    }));
     stubCf({
       list: (page) => (page === 1 ? cfOk(fullPage) : cfOk([{ host: HOST, site_tag: TAG }])),
     });
@@ -121,7 +133,7 @@ describe('provisionGameAnalytics (#353)', () => {
     expect(writes[0]).toEqual(['chess', TAG, expect.any(Number)]);
   });
 
-  it('is non-fatal when CF rejects the create: skip with CF\'s message, nothing stored', async () => {
+  it("is non-fatal when CF rejects the create: skip with CF's message, nothing stored", async () => {
     const { db, writes } = fakeDb({ row: null });
     stubCf({ create: () => cfErr('Authentication error') });
 
@@ -137,9 +149,12 @@ describe('provisionGameAnalytics (#353)', () => {
 
   it('is non-fatal when the CF API is unreachable (fetch throws)', async () => {
     const { db, writes } = fakeDb({ row: null });
-    vi.stubGlobal('fetch', vi.fn(async () => {
-      throw new Error('network down');
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('network down');
+      }),
+    );
 
     const step = await provisionGameAnalytics(env(db), 'chess', HOST);
 
