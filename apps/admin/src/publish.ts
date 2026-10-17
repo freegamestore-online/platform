@@ -1,6 +1,7 @@
 import { normalizeCategorySlug } from '../../../contracts/game-metadata/v1/contract.js';
 import { readRegistry } from './registryReader';
 import { REGISTRY_LOCATION } from './registryLocation';
+import { provisionGameAnalytics } from './analytics-provision';
 
 // Publish API -- provisions a new game on FreeGameStore via Path B.
 // POST /api/provision
@@ -1226,6 +1227,11 @@ export async function handlePublish(
   // existing, but still counts as fail in `success` so the caller retries.
   const hostingStep = await insertHostRoute(env, id);
   steps.push(hostingStep);
+
+  // Step 4: Web Analytics beacon (#353). Non-fatal by contract: it reports `skip`
+  // on any failure, never `fail`, so it can't flip `success`. A game publishes
+  // fine without it; its loader just has no beacon token until a later publish.
+  steps.push(await provisionGameAnalytics(env, id, `${id}.${STORE_CONFIG.domain}`));
 
   // The collaborator invite is informational — a transient GitHub failure there
   // must NOT fail the whole provision, or the caller sees success:false (→ HTTP
