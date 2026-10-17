@@ -24,6 +24,18 @@ describe("getTemplateFiles", () => {
     expect(gamesFiles["web/public/manifest.json"]).toContain("#10b981");
   });
 
+  // #356: every new game carries the platform analytics loader, the only
+  // analytics a game may use (the compliance check allows nothing else).
+  it("games index.html includes the platform analytics loader, per game", () => {
+    expect(gamesFiles["web/index.html"]).toContain(
+      '<script src="https://api.freegamestore.online/v1/analytics.js?app=APPNAME" defer></script>',
+    );
+  });
+
+  it("games index.html loads no direct analytics tracker", () => {
+    expect(gamesFiles["web/index.html"]).not.toMatch(/googletagmanager|google-analytics|cloudflareinsights/);
+  });
+
   it("games title references FreeGameStore", () => {
     expect(gamesFiles["web/index.html"]).toContain("FreeGameStore");
   });
