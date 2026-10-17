@@ -3,9 +3,15 @@
 # project name (convention: free<game>app, e.g. freebowlingapp).
 #
 # This is a thin caller for the reusable workflow at
-# freegamestore-online/freegamestore/.github/workflows/game-ci.yml.
+# freegamestore-online/ci-workflows/.github/workflows/game-ci.yml.
 # That central file pins node, the compliance CLI, and the build/deploy
 # pipeline; bumping anything across all 43 games is a single PR there.
+#
+# The first-deploy smoke test (the preview on 127.0.0.1:4173 and the headless
+# Chrome launch) is also in that central game-ci.yml, not in this file. Its
+# flake fix (a bounded preview wait that prints the log on failure, the
+# DBUS_SESSION_BUS_ADDRESS Chrome setting, and one retry) is tracked in
+# freegamestore-online/ci-workflows#1 and reaches every game once that lands.
 
 name: CI / Deploy
 
@@ -23,7 +29,7 @@ concurrency:
 
 jobs:
   ci-and-deploy:
-    uses: freegamestore-online/freegamestore/.github/workflows/game-ci.yml@main
+    uses: freegamestore-online/ci-workflows/.github/workflows/game-ci.yml@main
     with:
       cf_project: __CF_PROJECT_PLACEHOLDER__
     permissions:

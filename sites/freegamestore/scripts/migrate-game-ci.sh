@@ -67,7 +67,7 @@ concurrency:
 
 jobs:
   ci-and-deploy:
-    uses: freegamestore-online/freegamestore/.github/workflows/game-ci.yml@main
+    uses: freegamestore-online/ci-workflows/.github/workflows/game-ci.yml@main
     with:
       cf_project: ${cf_project}
     permissions:
