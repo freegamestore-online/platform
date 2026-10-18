@@ -6,3 +6,5 @@ dist/
 *.local
 test-results/
 *.bak
+
+**/.vibe-check/history/
