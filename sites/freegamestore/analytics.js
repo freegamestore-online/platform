@@ -223,7 +223,6 @@
         y: H - h,
         width: Math.max(1, slot - 2),
         height: h,
-        fill: 'var(--accent)',
         opacity: views > 0 ? '0.85' : '0.2',
       });
       var title = svgEl('title', {});

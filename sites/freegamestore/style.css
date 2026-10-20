@@ -2538,6 +2538,7 @@ footer .container {
 .an-value { font-size: 1.6rem; font-weight: 700; color: var(--ink); }
 .an-chart { width: 100%; }
 .an-chart-svg { width: 100%; height: 8rem; display: block; color: var(--muted); }
+.an-chart-svg rect { fill: var(--accent); }
 .an-axis { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; }
 .an-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .an-list { list-style: none; margin: 0; padding: 0; }
