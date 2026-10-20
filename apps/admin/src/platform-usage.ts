@@ -13,7 +13,7 @@
 import { ANALYTICS_DATASET, type AnalyticsEnv, cfAnalyticsSql, StatsError } from './game-analytics';
 import type { RegistryGame } from './registryReader';
 
-export const PLATFORM_DAYS = 30;
+const PLATFORM_DAYS = 30;
 const SHORT_WINDOW_DAYS = 7;
 const MAX_GAMES_ROWS = 5000;
 const MAX_DAILY_ROWS = 50000;

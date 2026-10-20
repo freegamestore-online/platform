@@ -121,7 +121,7 @@ const CATEGORY_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
  * provisioning normalizes away, and values had no length limit. Only the fields
  * present in `updates` are checked; absent fields are left as they are.
  */
-export function validateGameUpdates(
+function validateGameUpdates(
   updates: Record<string, unknown>,
   gameId: string,
 ): { values: Partial<Record<EditableField, string>> } | { error: string } {

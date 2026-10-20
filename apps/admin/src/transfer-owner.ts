@@ -167,7 +167,7 @@ export function gameRepo(game: Record<string, unknown>, gameId: string): string 
 
 /** Grant `to` push on `repo`, then revoke `from`'s direct access and pending
  *  invites unless `keepFrom`. Each GitHub call reports a step and never throws. */
-export async function syncCollaborators(
+async function syncCollaborators(
   env: PublishEnv,
   repo: string,
   from: string,

@@ -559,7 +559,7 @@ type DeployRun = {
  *  their own project over the scaffold), is real creator code. When GitHub
  *  can't answer, the run is treated as scaffold, so the game stays pending
  *  rather than being declared live on a guess. */
-export async function isScaffoldRun(
+async function isScaffoldRun(
   env: Pick<Env, 'GITHUB_TOKEN'>,
   id: string,
   run: DeployRun,

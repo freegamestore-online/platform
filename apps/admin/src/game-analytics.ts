@@ -61,7 +61,7 @@ export interface AnalyticsEnv {
 }
 
 /** Reads a game's owner config. Null fields mean "not set". */
-export async function readGameAnalyticsConfig(
+async function readGameAnalyticsConfig(
   db: D1Database,
   gameId: string,
 ): Promise<GameAnalyticsConfig> {
