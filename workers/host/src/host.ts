@@ -157,7 +157,7 @@ export const OPEN_FEATURES = [
 export const CLOSED_FEATURES: Record<string, string> = {
   // Games on FreeGameStore are free. A Payment Request sheet inside one is a
   // way to take money from players under a free listing. Revisit in the
-  // payment trade-off issue filed from #369.
+  // payment trade-off issue, #374.
   payment: "free store: a payment sheet in a free game is a way to scam players",
   // The Topics API builds an ad-interest profile of the player. No game
   // capability depends on it.

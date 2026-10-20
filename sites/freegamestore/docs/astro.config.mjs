@@ -67,6 +67,7 @@ export default defineConfig({
             { label: 'Brand tokens', slug: 'reference/brand-tokens' },
             { label: 'Required dependencies', slug: 'reference/dependencies' },
             { label: 'PWA + offline rules', slug: 'reference/pwa' },
+            { label: 'Browser capabilities', slug: 'reference/capabilities' },
           ],
         },
       ],
