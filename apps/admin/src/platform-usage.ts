@@ -150,6 +150,11 @@ export function buildPlatformUsage(input: PlatformUsageInput): PlatformUsageBody
     });
 
   const daily = keys.map((t) => ({ t, views: platformByDay.get(t) ?? 0 }));
+  // A page is a (game, path) pair. COUNT(DISTINCT blob3) over every game merged
+  // `/` in 140 games into one page (#361), so the total is the sum of the
+  // per-game distinct counts, which are exact for each game.
+  const sumPages = (rows: Array<{ distinct_pages: number }>) =>
+    rows.reduce((n, r) => n + (Number(r.distinct_pages) || 0), 0);
   return {
     generatedAt: now.toISOString(),
     days: PLATFORM_DAYS,
@@ -157,8 +162,8 @@ export function buildPlatformUsage(input: PlatformUsageInput): PlatformUsageBody
     totals: {
       views7: Number(input.totals7.views) || 0,
       views30: Number(input.totals30.views) || 0,
-      distinctPages7: Number(input.totals7.distinct_pages) || 0,
-      distinctPages30: Number(input.totals30.distinct_pages) || 0,
+      distinctPages7: sumPages(input.games7),
+      distinctPages30: sumPages(input.games30),
     },
     daily,
     games,

@@ -111,6 +111,25 @@ describe('buildPlatformUsage aggregation', () => {
     });
   });
 
+  it('counts the same path in two games as two pages (#361)', () => {
+    // Both games only have `/`. A platform-wide COUNT(DISTINCT path) says 1.
+    const body = buildPlatformUsage(
+      input({
+        games7: [
+          { gameId: 'chess', views: 4, distinct_pages: 1 },
+          { gameId: 'tetris', views: 1, distinct_pages: 1 },
+        ],
+        games30: [
+          { gameId: 'chess', views: 9, distinct_pages: 1 },
+          { gameId: 'tetris', views: 2, distinct_pages: 1 },
+        ],
+        totals7: { views: 5, distinct_pages: 1 },
+        totals30: { views: 11, distinct_pages: 1 },
+      }),
+    );
+    expect(body.totals).toEqual({ views7: 5, views30: 11, distinctPages7: 2, distinctPages30: 2 });
+  });
+
   it('zero-fills the daily series and normalises both timestamp shapes', () => {
     const body = buildPlatformUsage(input());
     const chess = body.games.find((g) => g.id === 'chess')!;
