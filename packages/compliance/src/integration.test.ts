@@ -87,6 +87,7 @@ describe('failing-app fixture', () => {
       'Gitignore complete',
       'Local storage for progress/scores',
       'No console.log',
+      'No page-level CSP',
       'No unsafe 100vh',
       'PWA meta tags',
       'Store link',

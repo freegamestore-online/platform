@@ -171,6 +171,15 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
     "status": "pass",
   },
   {
+    "detail": "web/index.html sets its own Content-Security-Policy with <meta http-equiv>, which can only remove capabilities the host allows",
+    "name": "No page-level CSP",
+    "status": "warn",
+    "suggestions": [
+      "Remove the <meta http-equiv> Content-Security-Policy tag. The host already sends both headers for every game, default-open (platform#369).",
+      "If you keep a stricter CSP on purpose, allow https://api.freegamestore.online in script-src and connect-src, or the platform analytics loader is blocked.",
+    ],
+  },
+  {
     "detail": "no payment SDK imports found — game is free forever",
     "name": "No payment SDKs",
     "status": "pass",

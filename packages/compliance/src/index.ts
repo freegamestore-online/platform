@@ -19,6 +19,7 @@ import { checkNoExcessiveInlineStyles } from './checks/no-excessive-inline-style
 import { checkNoExternalFetch } from './checks/no-external-fetch.js';
 import { checkNoExternalScripts } from './checks/no-external-scripts.js';
 import { checkNoHardcodedColors } from './checks/no-hardcoded-colors.js';
+import { checkNoPagePolicy } from './checks/no-page-policy.js';
 import { checkNoPaymentSdk } from './checks/no-payment-sdk.js';
 import { checkNoPlaceholders } from './checks/no-placeholders.js';
 import { checkNoScroll } from './checks/no-scroll.js';
@@ -96,6 +97,7 @@ export {
   checkNoExternalFetch,
   checkNoExternalScripts,
   checkNoHardcodedColors,
+  checkNoPagePolicy,
   checkNoPaymentSdk,
   checkNoPlaceholders,
   checkNoScroll,

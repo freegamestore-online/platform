@@ -29,6 +29,7 @@ export { checkNoExcessiveInlineStyles } from './checks/no-excessive-inline-style
 export { checkNoExternalFetch } from './checks/no-external-fetch.js';
 export { checkNoExternalScripts } from './checks/no-external-scripts.js';
 export { checkNoHardcodedColors } from './checks/no-hardcoded-colors.js';
+export { checkNoPagePolicy } from './checks/no-page-policy.js';
 export { checkNoPaymentSdk } from './checks/no-payment-sdk.js';
 export { checkNoPlaceholders } from './checks/no-placeholders.js';
 export { checkNoScroll } from './checks/no-scroll.js';

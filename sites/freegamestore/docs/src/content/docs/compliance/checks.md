@@ -94,6 +94,11 @@ that size on their own.
 **How:** Greps for `google-analytics.com`, `gtag(`, `plausible`, `sentry-cdn`, `mixpanel`, `segment.com`, `hotjar`, `posthog`, and a few others. Uses word boundaries so legit words like "segment" in 3D code don't false-flag.
 **Pass:** Don't add analytics. Use console logs in dev only.
 
+### `no-page-policy` (warning)
+**What:** `web/index.html` doesn't set its own Content-Security-Policy or Permissions-Policy with `<meta http-equiv>`.
+**How:** Looks for those `http-equiv` meta tags, ignoring HTML comments.
+**Pass:** Remove the tag. The host already sends both headers, default-open (see [Browser capabilities](/docs/reference/capabilities/)), and a page-level policy can only take capabilities away. A warning, not a failure: if you want a stricter policy, keep `https://api.freegamestore.online` in `script-src` and `connect-src` so the analytics loader still loads.
+
 ### `no-env-production`
 **What:** No `.env.production` file is in your repo.
 **How:** File lookup.
