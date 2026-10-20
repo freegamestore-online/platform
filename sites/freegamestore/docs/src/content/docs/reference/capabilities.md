@@ -56,3 +56,25 @@ Still restricted, each with its reason:
 - **SharedArrayBuffer / wasm threads.** These need cross-origin isolation (COOP/COEP), which the host doesn't send yet, because it would break cross-origin assets for every game. A per-game opt-in is proposed in [#371](https://github.com/freegamestore-online/platform/issues/371).
 - **Storefront preview.** Inside the storefront's preview iframe, a game only gets fullscreen, gamepad, autoplay and clipboard-write. Players get everything else when they open the game in its own tab. Delegating more to the preview is [#372](https://github.com/freegamestore-online/platform/issues/372).
 - **Compliance checks.** `fgs check` still fails a game for external `fetch`, external `<script src>` and `document.cookie`, even though the browser allows them. Whether to relax those is [#373](https://github.com/freegamestore-online/platform/issues/373).
+
+## Tell players what your game asks for
+
+Every game's storefront page has a **Permissions** section, and game cards show a small icon row, so players know what the browser will ask before it asks ([#370](https://github.com/freegamestore-online/platform/issues/370)). Declare each one with a one-line reason in your repo's root `package.json`:
+
+```json
+{
+  "name": "my-game",
+  "freegamestore": {
+    "permissions": {
+      "motion": "Tilt your phone to steer",
+      "gamepad": "Play with a controller"
+    }
+  }
+}
+```
+
+Known ids: `motion` (motion and orientation sensors), `microphone`, `camera`, `location`, `notifications`, `midi`, `clipboard-read`, `bluetooth`, `usb`, `serial`, `hid`, `xr` (VR/AR), `gamepad`, `wake-lock` (keeps the screen awake). The reason is optional and is cut to one line of 120 characters.
+
+`fgs check` looks for these APIs in your own source (`web/src` and `web/index.html`). It warns when it finds one you haven't declared, or a declaration with an unknown id. It never fails your build, and the listing shows detected permissions even when you haven't declared them; declaring adds your reason. Code in `node_modules` and in vendored files under `web/public` isn't scanned, so engine code your game never calls doesn't show up.
+
+If your game uses none, there's nothing to do: the listing says "No special permissions".

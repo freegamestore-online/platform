@@ -99,6 +99,11 @@ that size on their own.
 **How:** Looks for those `http-equiv` meta tags, ignoring HTML comments.
 **Pass:** Remove the tag. The host already sends both headers, default-open (see [Browser capabilities](/docs/reference/capabilities/)), and a page-level policy can only take capabilities away. A warning, not a failure: if you want a stricter policy, keep `https://api.freegamestore.online` in `script-src` and `connect-src` so the analytics loader still loads.
 
+### `permissions-declared` (warning)
+**What:** Every browser permission your code uses (motion sensors, microphone, camera, location, notifications, MIDI, gamepad, wake lock, …) is declared in `package.json` under `freegamestore.permissions`.
+**How:** Looks for the matching APIs in `web/src` and `web/index.html`, comments ignored, and compares them with your declaration.
+**Pass:** Add the missing ids with a one-line reason; see [Browser capabilities](/docs/reference/capabilities/#tell-players-what-your-game-asks-for). The storefront shows them on your listing.
+
 ### `no-env-production`
 **What:** No `.env.production` file is in your repo.
 **How:** File lookup.

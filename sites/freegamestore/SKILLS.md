@@ -346,6 +346,9 @@ allowed. Full matrix: https://freegamestore.online/docs/reference/capabilities/
 
 - Don't add a `<meta http-equiv="Content-Security-Policy">`: it can only take
   capabilities away, and it blocks the platform analytics loader.
+- Declare what the game asks for in root package.json, e.g.
+  `"freegamestore": { "permissions": { "motion": "Tilt to steer" } }`; the
+  storefront listing shows it and `fgs check` warns on undeclared use (#370).
 - SharedArrayBuffer (wasm threads) isn't available yet (#371).
 - The privacy rules and compliance checks below still apply (#373).
 
