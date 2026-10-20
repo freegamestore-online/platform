@@ -1,0 +1,565 @@
+{
+  "generatedAt": "2026-10-20T06:14:38.899Z",
+  "games": {
+    "2048": {
+      "declared": {},
+      "detected": []
+    },
+    "a-jungle-race": {
+      "declared": {},
+      "detected": []
+    },
+    "angrry": {
+      "declared": {},
+      "detected": []
+    },
+    "angry-birds3": {
+      "declared": {},
+      "detected": []
+    },
+    "apple-picking": {
+      "declared": {},
+      "detected": []
+    },
+    "asteroids": {
+      "declared": {},
+      "detected": []
+    },
+    "beat-star": {
+      "declared": {},
+      "detected": []
+    },
+    "billiards": {
+      "declared": {},
+      "detected": []
+    },
+    "blackjack": {
+      "declared": {},
+      "detected": []
+    },
+    "bladeblast": {
+      "declared": {},
+      "detected": []
+    },
+    "blockudoku": {
+      "declared": {},
+      "detected": []
+    },
+    "boltsort": {
+      "declared": {},
+      "detected": []
+    },
+    "bouncingball": {
+      "declared": {},
+      "detected": []
+    },
+    "bowling": {
+      "declared": {},
+      "detected": []
+    },
+    "breakout": {
+      "declared": {},
+      "detected": []
+    },
+    "brick-blast": {
+      "declared": {},
+      "detected": []
+    },
+    "bubbleshooter": {
+      "declared": {},
+      "detected": []
+    },
+    "candy-shop": {
+      "declared": {},
+      "detected": []
+    },
+    "candy-store-2": {
+      "declared": {},
+      "detected": []
+    },
+    "cart": {
+      "declared": {},
+      "detected": []
+    },
+    "cascade-keys": {
+      "declared": {},
+      "detected": []
+    },
+    "cat-clicker": {
+      "declared": {},
+      "detected": []
+    },
+    "chain-rush": {
+      "declared": {},
+      "detected": []
+    },
+    "checkers": {
+      "declared": {},
+      "detected": []
+    },
+    "chess": {
+      "declared": {},
+      "detected": []
+    },
+    "climberadventure": {
+      "declared": {},
+      "detected": []
+    },
+    "coinflip": {
+      "declared": {},
+      "detected": []
+    },
+    "color-match": {
+      "declared": {},
+      "detected": []
+    },
+    "command": {
+      "declared": {},
+      "detected": []
+    },
+    "connect4": {
+      "declared": {},
+      "detected": []
+    },
+    "crossweave": {
+      "declared": {},
+      "detected": []
+    },
+    "crossy-rivers": {
+      "declared": {},
+      "detected": []
+    },
+    "crossy-school": {
+      "declared": {},
+      "detected": []
+    },
+    "crystal-orbit": {
+      "declared": {},
+      "detected": []
+    },
+    "cubisworld": {
+      "declared": {},
+      "detected": []
+    },
+    "decaying-tic-tac-toe": {
+      "declared": {},
+      "detected": []
+    },
+    "dice": {
+      "declared": {},
+      "detected": []
+    },
+    "digicritter": {
+      "declared": {},
+      "detected": []
+    },
+    "dont-look-up": {
+      "declared": {},
+      "detected": []
+    },
+    "dragontap": {
+      "declared": {},
+      "detected": []
+    },
+    "dress-to-impress": {
+      "declared": {},
+      "detected": []
+    },
+    "endlesshighway": {
+      "declared": {},
+      "detected": []
+    },
+    "escape": {
+      "declared": {},
+      "detected": []
+    },
+    "fireboyandwatergirl": {
+      "declared": {},
+      "detected": []
+    },
+    "fish-life": {
+      "declared": {},
+      "detected": []
+    },
+    "flappy": {
+      "declared": {},
+      "detected": []
+    },
+    "flappyslaybird": {
+      "declared": {},
+      "detected": []
+    },
+    "flowarrow": {
+      "declared": {},
+      "detected": []
+    },
+    "fourfold": {
+      "declared": {},
+      "detected": []
+    },
+    "frofrogjumping": {
+      "declared": {},
+      "detected": []
+    },
+    "frogger": {
+      "declared": {},
+      "detected": []
+    },
+    "fruitydropz": {
+      "declared": {},
+      "detected": []
+    },
+    "glow-match": {
+      "declared": {},
+      "detected": []
+    },
+    "good-pizza-great-pizza": {
+      "declared": {},
+      "detected": []
+    },
+    "hangman": {
+      "declared": {},
+      "detected": []
+    },
+    "hexaspell": {
+      "declared": {},
+      "detected": []
+    },
+    "highlow": {
+      "declared": {},
+      "detected": []
+    },
+    "kart-racers": {
+      "declared": {},
+      "detected": []
+    },
+    "lavaman-and-icegirl": {
+      "declared": {},
+      "detected": []
+    },
+    "line-link": {
+      "declared": {},
+      "detected": []
+    },
+    "mahjong": {
+      "declared": {},
+      "detected": []
+    },
+    "match3": {
+      "declared": {},
+      "detected": []
+    },
+    "maze-racer": {
+      "declared": {},
+      "detected": []
+    },
+    "mcp-hybrid-test": {
+      "declared": {},
+      "detected": []
+    },
+    "mcp-proof": {
+      "declared": {},
+      "detected": []
+    },
+    "memory": {
+      "declared": {},
+      "detected": []
+    },
+    "memorymatch": {
+      "declared": {},
+      "detected": []
+    },
+    "minesweeper": {
+      "declared": {},
+      "detected": []
+    },
+    "minigolf": {
+      "declared": {},
+      "detected": []
+    },
+    "monster-attack": {
+      "declared": {},
+      "detected": []
+    },
+    "mosaic-rush": {
+      "declared": {},
+      "detected": []
+    },
+    "musicbot": {
+      "declared": {},
+      "detected": []
+    },
+    "my-dream-room": {
+      "declared": {},
+      "detected": []
+    },
+    "my-shopping-spree": {
+      "declared": {},
+      "detected": []
+    },
+    "nail-studio": {
+      "declared": {},
+      "detected": []
+    },
+    "neon-runner": {
+      "declared": {},
+      "detected": []
+    },
+    "number-match": {
+      "declared": {},
+      "detected": []
+    },
+    "obby": {
+      "declared": {},
+      "detected": []
+    },
+    "ocean-save": {
+      "declared": {},
+      "detected": []
+    },
+    "orb-cascade": {
+      "declared": {},
+      "detected": []
+    },
+    "pacman": {
+      "declared": {},
+      "detected": []
+    },
+    "phone-case-diy": {
+      "declared": {},
+      "detected": []
+    },
+    "pinball": {
+      "declared": {},
+      "detected": []
+    },
+    "pixelcode": {
+      "declared": {},
+      "detected": []
+    },
+    "pixeljump": {
+      "declared": {},
+      "detected": []
+    },
+    "pixline": {
+      "declared": {},
+      "detected": []
+    },
+    "platformer": {
+      "declared": {},
+      "detected": []
+    },
+    "pong": {
+      "declared": {},
+      "detected": []
+    },
+    "puppy-fashion": {
+      "declared": {},
+      "detected": []
+    },
+    "puzzle": {
+      "declared": {},
+      "detected": []
+    },
+    "puzzlepix": {
+      "declared": {},
+      "detected": []
+    },
+    "quickdice": {
+      "declared": {},
+      "detected": []
+    },
+    "quillcipher": {
+      "declared": {},
+      "detected": []
+    },
+    "race": {
+      "declared": {},
+      "detected": []
+    },
+    "racing": {
+      "declared": {},
+      "detected": []
+    },
+    "reversi": {
+      "declared": {},
+      "detected": []
+    },
+    "riichi": {
+      "declared": {},
+      "detected": []
+    },
+    "roboclean": {
+      "declared": {},
+      "detected": []
+    },
+    "rollway-ludo": {
+      "declared": {},
+      "detected": []
+    },
+    "royal-heist": {
+      "declared": {},
+      "detected": []
+    },
+    "seasons-matter": {
+      "declared": {},
+      "detected": []
+    },
+    "simon": {
+      "declared": {},
+      "detected": []
+    },
+    "sliceit": {
+      "declared": {},
+      "detected": []
+    },
+    "slicing-game": {
+      "declared": {},
+      "detected": []
+    },
+    "slither": {
+      "declared": {},
+      "detected": []
+    },
+    "snake": {
+      "declared": {},
+      "detected": []
+    },
+    "snake-io": {
+      "declared": {},
+      "detected": []
+    },
+    "solitaire": {
+      "declared": {},
+      "detected": []
+    },
+    "sort-puzzle": {
+      "declared": {},
+      "detected": []
+    },
+    "spaceinvaders": {
+      "declared": {},
+      "detected": []
+    },
+    "spaceshooter": {
+      "declared": {},
+      "detected": []
+    },
+    "squishy-swap": {
+      "declared": {},
+      "detected": []
+    },
+    "stack-pack": {
+      "declared": {},
+      "detected": []
+    },
+    "stacky-birdy": {
+      "declared": {},
+      "detected": []
+    },
+    "star-dodger": {
+      "declared": {},
+      "detected": []
+    },
+    "starship": {
+      "declared": {},
+      "detected": []
+    },
+    "sudoku": {
+      "declared": {},
+      "detected": []
+    },
+    "survive": {
+      "declared": {},
+      "detected": []
+    },
+    "tallyroll": {
+      "declared": {},
+      "detected": []
+    },
+    "tanks": {
+      "declared": {},
+      "detected": []
+    },
+    "tenwise": {
+      "declared": {},
+      "detected": []
+    },
+    "tetris": {
+      "declared": {},
+      "detected": []
+    },
+    "the-cycle-of-life": {
+      "declared": {},
+      "detected": []
+    },
+    "the-make-up-game": {
+      "declared": {},
+      "detected": []
+    },
+    "tictactoe": {
+      "declared": {},
+      "detected": []
+    },
+    "tilerun": {
+      "declared": {},
+      "detected": []
+    },
+    "toetap": {
+      "declared": {},
+      "detected": []
+    },
+    "trade": {
+      "declared": {},
+      "detected": []
+    },
+    "ts-probe": {
+      "declared": {},
+      "detected": []
+    },
+    "turtlecode": {
+      "declared": {},
+      "detected": []
+    },
+    "uno": {
+      "declared": {},
+      "detected": []
+    },
+    "war": {
+      "declared": {},
+      "detected": []
+    },
+    "whackamole": {
+      "declared": {},
+      "detected": []
+    },
+    "whispers-of-the-wild": {
+      "declared": {},
+      "detected": []
+    },
+    "wordguess": {
+      "declared": {},
+      "detected": []
+    },
+    "wordle": {
+      "declared": {},
+      "detected": []
+    },
+    "wordsearch": {
+      "declared": {},
+      "detected": []
+    },
+    "zap-drills": {
+      "declared": {},
+      "detected": []
+    },
+    "zombie": {
+      "declared": {},
+      "detected": []
+    },
+    "zombie-attack": {
+      "declared": {},
+      "detected": []
+    }
+  }
+}
