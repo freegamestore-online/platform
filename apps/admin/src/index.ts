@@ -189,6 +189,21 @@ function renderSignIn(signedInAs: string | null): string {
 }
 
 /** Minimal HTML-escape for values interpolated into the sign-in page. */
+/** /docs for any method: the API docs page for an admin, the sign-in page for
+ *  anyone else. Both are HTML. GET used to send the docs page JSON-encoded, as a
+ *  quoted string (#367). */
+function docsPage(caller: { admin: string | null; isAdmin: boolean }): Response {
+  if (!caller.isAdmin) {
+    return new Response(renderSignIn(caller.admin), {
+      status: 200,
+      headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+    });
+  }
+  return new Response(renderApiDocs(), {
+    headers: { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' },
+  });
+}
+
 function escapeHtml(s: string): string {
   return s.replace(
     /[&<>"']/g,
@@ -1095,15 +1110,7 @@ function buildRouteTable(data: ReturnType<typeof dataService>): Route[] {
       method: 'GET',
       pattern: '/docs',
       auth: 'public',
-      handler: async ({ request, caller }) => {
-        if (!caller.isAdmin) {
-          return new Response(renderSignIn(caller.admin), {
-            status: 200,
-            headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
-          });
-        }
-        return jsonResponse(renderApiDocs(), 200, request);
-      },
+      handler: async ({ caller }) => docsPage(caller),
     },
 
     // GET /api/status
@@ -1759,18 +1766,7 @@ export default {
     // the API docs page, everyone else the sign-in page. (The old per-route
     // copies of the /api handlers that used to sit here were unreachable and
     // were removed in #362.)
-    if (url.pathname === '/docs') {
-      const caller = await resolveCaller(request, env);
-      if (!caller.isAdmin) {
-        return new Response(renderSignIn(caller.admin), {
-          status: 200,
-          headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
-        });
-      }
-      return new Response(renderApiDocs(), {
-        headers: { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' },
-      });
-    }
+    if (url.pathname === '/docs') return docsPage(await resolveCaller(request, env));
 
     // Fallthrough (any unmatched path/method) also renders the console shell, so
     // it must be gated like "/" — otherwise GET /anything served the full,

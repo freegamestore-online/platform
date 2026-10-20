@@ -719,3 +719,23 @@ describe('non-GET /docs after the legacy router was removed (#362)', () => {
     expect(await res.text()).toContain('Sign in');
   });
 });
+
+describe('GET /docs serves HTML (#367)', () => {
+  it('sends an admin the docs page as text/html, not a JSON-encoded string', async () => {
+    const res = await worker.fetch(
+      req('/docs', { headers: { 'X-FGS-Token': 't' } }),
+      makeEnv({ meEmail: ADMIN, adminEmails: ADMIN }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('text/html');
+    const body = await res.text();
+    expect(body.startsWith('"')).toBe(false);
+    expect(body).toMatch(/<h2>Endpoints<\/h2>/);
+  });
+
+  it('still sends everyone else the sign-in page', async () => {
+    const res = await worker.fetch(req('/docs'), makeEnv({ meEmail: null, adminEmails: ADMIN }));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('Sign in');
+  });
+});
