@@ -1,4 +1,5 @@
 import type { FileSource } from '../lib/file-source.js';
+import { extOf } from '../lib/path.js';
 import { stripCommentsOnly } from '../lib/strip.js';
 import type { CheckResult } from '../types.js';
 
@@ -30,12 +31,6 @@ const HEX_COLOR_RE = /#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g;
 
 /** Lines that define CSS custom properties — these are fine. */
 const CSS_VAR_DEF_RE = /--[\w-]+\s*:\s*#/;
-
-function extOf(path: string): string {
-  const dot = path.lastIndexOf('.');
-  const slash = path.lastIndexOf('/');
-  return dot > slash ? path.slice(dot).toLowerCase() : '';
-}
 
 export async function checkNoHardcodedColors(source: FileSource): Promise<CheckResult> {
   let totalCount = 0;

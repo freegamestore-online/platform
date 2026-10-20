@@ -1,4 +1,5 @@
 import type { FileSource } from '../lib/file-source.js';
+import { extOf } from '../lib/path.js';
 import { stripCommentsForExt } from '../lib/strip.js';
 import type { CheckResult } from '../types.js';
 
@@ -116,10 +117,4 @@ export async function checkNoPaymentSdk(source: FileSource): Promise<CheckResult
       'If you need monetisation, publish on ProGameStore (progamestore.online) instead.',
     ],
   };
-}
-
-function extOf(path: string): string {
-  const dot = path.lastIndexOf('.');
-  const slash = path.lastIndexOf('/');
-  return dot > slash ? path.slice(dot).toLowerCase() : '';
 }

@@ -1,4 +1,5 @@
 import type { FileSource } from '../lib/file-source.js';
+import { extOf } from '../lib/path.js';
 import { stripCommentsForExt } from '../lib/strip.js';
 import type { CheckResult } from '../types.js';
 
@@ -97,12 +98,6 @@ const PATTERNS: Array<{ re: RegExp; label: string }> = [
   { re: /(?<![\w-])min-h-screen(?![\w-])/g, label: 'min-h-screen (Tailwind: → min-height: 100vh)' },
   { re: /(?<![\w-])max-h-screen(?![\w-])/g, label: 'max-h-screen (Tailwind: → max-height: 100vh)' },
 ];
-
-function extOf(path: string): string {
-  const dot = path.lastIndexOf('.');
-  const slash = path.lastIndexOf('/');
-  return dot > slash ? path.slice(dot).toLowerCase() : '';
-}
 
 function lineNumberAt(content: string, index: number): number {
   let n = 1;

@@ -1,4 +1,5 @@
 import type { FileSource } from '../lib/file-source.js';
+import { extOf } from '../lib/path.js';
 import { stripCommentsOnly } from '../lib/strip.js';
 import type { CheckResult } from '../types.js';
 
@@ -37,12 +38,6 @@ function isAllowedUrl(url: string): boolean {
     if (hostname === allowed || hostname.endsWith(`.${allowed}`)) return true;
   }
   return false;
-}
-
-function extOf(path: string): string {
-  const dot = path.lastIndexOf('.');
-  const slash = path.lastIndexOf('/');
-  return dot > slash ? path.slice(dot).toLowerCase() : '';
 }
 
 export async function checkNoExternalFetch(source: FileSource): Promise<CheckResult> {

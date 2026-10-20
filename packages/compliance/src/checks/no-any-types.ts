@@ -1,4 +1,5 @@
 import type { FileSource } from '../lib/file-source.js';
+import { extOf } from '../lib/path.js';
 import { stripCommentsAndStrings } from '../lib/strip.js';
 import type { CheckResult } from '../types.js';
 
@@ -18,12 +19,6 @@ import type { CheckResult } from '../types.js';
  */
 
 const SCAN_EXTS = new Set(['.ts', '.tsx']);
-
-function extOf(path: string): string {
-  const dot = path.lastIndexOf('.');
-  const slash = path.lastIndexOf('/');
-  return dot > slash ? path.slice(dot).toLowerCase() : '';
-}
 
 function isExcluded(path: string): boolean {
   if (path.startsWith('web/src/test/')) return true;

@@ -1,4 +1,5 @@
 import type { FileSource } from '../lib/file-source.js';
+import { extOf } from '../lib/path.js';
 import { stripCommentsForExt } from '../lib/strip.js';
 import type { CheckResult } from '../types.js';
 
@@ -133,10 +134,4 @@ export async function checkNoTracking(source: FileSource): Promise<CheckResult> 
       'Configure GA4 or Plausible in the Analytics panel for the game in the Studio (PUT https://console.freegamestore.online/api/analytics/<id>). The loader emits the right tags, so policy can change without redeploying every game.',
     ],
   };
-}
-
-function extOf(path: string): string {
-  const dot = path.lastIndexOf('.');
-  const slash = path.lastIndexOf('/');
-  return dot > slash ? path.slice(dot).toLowerCase() : '';
 }

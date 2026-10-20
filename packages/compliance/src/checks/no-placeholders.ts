@@ -1,4 +1,5 @@
 import type { FileSource } from '../lib/file-source.js';
+import { extOf } from '../lib/path.js';
 import type { CheckResult } from '../types.js';
 
 const TEXT_EXTS = new Set([
@@ -47,10 +48,4 @@ export async function checkNoPlaceholders(source: FileSource): Promise<CheckResu
       'Or do a project-wide find/replace: APPNAME → your app id (lowercase, hyphenated).',
     ],
   };
-}
-
-function extOf(path: string): string {
-  const dot = path.lastIndexOf('.');
-  const slash = path.lastIndexOf('/');
-  return dot > slash ? path.slice(dot).toLowerCase() : '';
 }

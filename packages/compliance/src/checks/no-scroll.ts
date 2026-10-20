@@ -1,4 +1,5 @@
 import type { FileSource } from '../lib/file-source.js';
+import { extOf } from '../lib/path.js';
 import { isGameProject } from '../lib/project-type.js';
 import type { CheckResult } from '../types.js';
 
@@ -106,12 +107,6 @@ const FORBIDDEN_OVERFLOW = [
 const FORBIDDEN_MIN_HEIGHT = [/(?:^|[\s,{])(?:html|body)\s*\{[^}]*min-height\s*:\s*100vh/im];
 
 const VIEWPORT_LOCK = /(?:height|max-height)\s*:\s*100(?:s?vh)|GameShell|@freegamestore\/games/i;
-
-function extOf(path: string): string {
-  const dot = path.lastIndexOf('.');
-  const slash = path.lastIndexOf('/');
-  return dot > slash ? path.slice(dot).toLowerCase() : '';
-}
 
 function lineNumberAt(content: string, index: number): number {
   let n = 1;

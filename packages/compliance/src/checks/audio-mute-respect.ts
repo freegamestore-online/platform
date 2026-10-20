@@ -1,4 +1,5 @@
 import type { FileSource } from '../lib/file-source.js';
+import { extOf } from '../lib/path.js';
 import { stripForExt } from '../lib/strip.js';
 import type { CheckResult } from '../types.js';
 
@@ -69,10 +70,4 @@ export async function checkAudioMuteRespect(source: FileSource): Promise<CheckRe
       'For game-specific sounds (bowling pin crash, simon tones), keep your code but import useSound() and gate playback on `muted === false`.',
     ],
   };
-}
-
-function extOf(path: string): string {
-  const dot = path.lastIndexOf('.');
-  const slash = path.lastIndexOf('/');
-  return dot > slash ? path.slice(dot).toLowerCase() : '';
 }

@@ -1,4 +1,5 @@
 import type { FileSource } from '../lib/file-source.js';
+import { extOf } from '../lib/path.js';
 import { stripCommentsOnly, stripCssComments } from '../lib/strip.js';
 import type { CheckResult } from '../types.js';
 
@@ -277,12 +278,6 @@ function sliceFontValue(content: string, start: number, isJsx: boolean): string 
     i++;
   }
   return content.slice(start, i);
-}
-
-function extOf(path: string): string {
-  const dot = path.lastIndexOf('.');
-  const slash = path.lastIndexOf('/');
-  return dot > slash ? path.slice(dot).toLowerCase() : '';
 }
 
 function lineNumberAt(content: string, index: number): number {

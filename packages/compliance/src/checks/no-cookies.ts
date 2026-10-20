@@ -1,4 +1,5 @@
 import type { FileSource } from '../lib/file-source.js';
+import { extOf } from '../lib/path.js';
 import { stripCommentsForExt } from '../lib/strip.js';
 import type { CheckResult } from '../types.js';
 
@@ -61,10 +62,4 @@ export async function checkNoCookies(source: FileSource): Promise<CheckResult> {
       'Cookies leak data to servers on every request and conflict with the platform cookieless analytics mandate.',
     ],
   };
-}
-
-function extOf(path: string): string {
-  const dot = path.lastIndexOf('.');
-  const slash = path.lastIndexOf('/');
-  return dot > slash ? path.slice(dot).toLowerCase() : '';
 }

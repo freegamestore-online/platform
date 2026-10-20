@@ -1,4 +1,5 @@
 import type { FileSource } from '../lib/file-source.js';
+import { extOf } from '../lib/path.js';
 import { stripCommentsForExt } from '../lib/strip.js';
 import type { CheckResult } from '../types.js';
 
@@ -86,10 +87,4 @@ export async function checkUsesGameSdk(source: FileSource): Promise<CheckResult>
     detail: issues.join('; '),
     suggestions,
   };
-}
-
-function extOf(path: string): string {
-  const dot = path.lastIndexOf('.');
-  const slash = path.lastIndexOf('/');
-  return dot > slash ? path.slice(dot).toLowerCase() : '';
 }
