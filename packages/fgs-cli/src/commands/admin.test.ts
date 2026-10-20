@@ -1,5 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { adminCommand, adminToken, formatTransferFailure } from './admin.js';
+import {
+  adminCommand,
+  adminToken,
+  formatCollaboratorSteps,
+  formatTransferFailure,
+} from './admin.js';
+
+describe('formatCollaboratorSteps (#359)', () => {
+  it('prints successes and skips, and sends failures to stderr as warnings', () => {
+    expect(
+      formatCollaboratorSteps([
+        { name: 'Grant', status: 'ok', detail: 'bob invited' },
+        { name: 'Revoke', status: 'fail', detail: 'could not remove alice (500)' },
+        { name: 'Revoke invite', status: 'skip', detail: 'no pending invite for alice' },
+      ]),
+    ).toEqual({
+      out: '  ✓ bob invited\n  · no pending invite for alice\n',
+      err: 'fgs: warning: repo access: could not remove alice (500)\n',
+    });
+  });
+
+  it('prints nothing for an empty list', () => {
+    expect(formatCollaboratorSteps([])).toEqual({ out: '', err: '' });
+  });
+});
 
 describe('adminToken', () => {
   it('reads FGS_ADMIN_TOKEN and trims it', () => {
@@ -49,7 +73,9 @@ describe('fgs admin transfer-owner', () => {
     expect(cmd).toBeDefined();
     expect(cmd!.registeredArguments.map((arg) => arg.name())).toEqual(['game']);
     const flags = cmd!.options.map((option) => option.long);
-    expect(flags).toEqual(expect.arrayContaining(['--from', '--to', '--reason', '--json']));
+    expect(flags).toEqual(
+      expect.arrayContaining(['--from', '--to', '--reason', '--keep-from-access', '--json']),
+    );
     for (const name of ['--from', '--to', '--reason']) {
       expect(cmd!.options.find((option) => option.long === name)?.required).toBe(true);
     }

@@ -38,6 +38,25 @@ export function formatTransferFailure(status: number, text: string): string {
   return `transfer-owner failed (${status}): ${msg}`;
 }
 
+/** One repo-access step from the transfer response (#359). */
+export interface CollaboratorStep {
+  name: string;
+  status: 'ok' | 'skip' | 'fail';
+  detail: string;
+}
+
+/** Repo-access lines: successes and skips for stdout, failures as warnings
+ *  for stderr. A failure does not mean the transfer failed; the owner moved. */
+export function formatCollaboratorSteps(steps: CollaboratorStep[]): { out: string; err: string } {
+  let out = '';
+  let err = '';
+  for (const step of steps) {
+    if (step.status === 'fail') err += `fgs: warning: repo access: ${step.detail}\n`;
+    else out += `  ${step.status === 'ok' ? '✓' : '·'} ${step.detail}\n`;
+  }
+  return { out, err };
+}
+
 function requireAdminToken(): string {
   const token = adminToken();
   if (!token) {
@@ -67,11 +86,21 @@ export const adminCommand = new Command('admin')
       .requiredOption('--from <login>', 'current owner GitHub login (compare-and-set)')
       .requiredOption('--to <login>', 'new owner GitHub login')
       .requiredOption('--reason <text>', 'why the owner is changing (stored in the audit record)')
+      .option(
+        '--keep-from-access',
+        "leave --from's push access to the game repo in place (default: revoke it)",
+      )
       .option('--json', 'print the response JSON')
       .action(
         async (
           game: string,
-          opts: { from: string; to: string; reason: string; json?: boolean },
+          opts: {
+            from: string;
+            to: string;
+            reason: string;
+            keepFromAccess?: boolean;
+            json?: boolean;
+          },
         ) => {
           requireGameId(game);
           const token = requireAdminToken();
@@ -83,6 +112,7 @@ export const adminCommand = new Command('admin')
               from_login: opts.from,
               to_login: opts.to,
               reason: opts.reason,
+              ...(opts.keepFromAccess ? { keep_previous_access: true } : {}),
             }),
           });
           const text = await res.text();
@@ -99,10 +129,14 @@ export const adminCommand = new Command('admin')
             from_login: string;
             to_login: string;
             audit_error?: string;
+            collaborators?: CollaboratorStep[];
           };
           process.stdout.write(
             `✓ ${body.game_id} owner is now ${body.to_login} (was ${body.from_login})\n`,
           );
+          const access = formatCollaboratorSteps(body.collaborators ?? []);
+          if (access.out) process.stdout.write(access.out);
+          if (access.err) process.stderr.write(access.err);
           if (body.audit_error) process.stderr.write(`fgs: warning: ${body.audit_error}\n`);
         },
       ),
