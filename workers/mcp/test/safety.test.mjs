@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
@@ -23,7 +23,7 @@ const readToolModules = async () => Promise.all(TOOL_MODULES.map(read));
 const toolSource = async () => (await readToolModules()).join('\n');
 
 const { isReadOnly, requireWritable, requireConfirmation, dryRun, audit, listAuditEvents } =
-  await import(resolve(root, 'src/safety.ts'));
+  await import(pathToFileURL(resolve(root, 'src/safety.ts')).href);
 
 // Minimal in-memory KVNamespace stand-in (put/get/list with prefix + limit).
 function fakeKV() {

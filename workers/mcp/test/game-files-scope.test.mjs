@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { registerHooks } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // The tool modules import siblings as './x.js' (TS NodeNext style); Node's type
 // stripping loads .ts but won't map the .js specifier. Retry as .ts.
@@ -24,8 +24,8 @@ registerHooks({
 });
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const { registerGameFilesTools } = await import(resolve(root, 'src/tools/game-files.ts'));
-const { textToB64 } = await import(resolve(root, 'src/github.ts'));
+const { registerGameFilesTools } = await import(pathToFileURL(resolve(root, 'src/tools/game-files.ts')).href);
+const { textToB64 } = await import(pathToFileURL(resolve(root, 'src/github.ts')).href);
 
 const ORG = 'freegamestore-online';
 const env = { GITHUB_ORG: ORG, STORE_REPO: 'platform', GITHUB_TOKEN: 'org-token' };

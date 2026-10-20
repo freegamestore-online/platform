@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { registerHooks } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // Tool modules import siblings as './x.js'; Node's type stripping loads .ts but
 // won't map the .js specifier. Retry as .ts.
@@ -26,7 +26,7 @@ registerHooks({
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { listRepoFiles, readRepoFile, readRegistryGames, GitHubError, textToB64 } = await import(
-  resolve(root, 'src/github.ts')
+  pathToFileURL(resolve(root, 'src/github.ts')).href
 );
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });

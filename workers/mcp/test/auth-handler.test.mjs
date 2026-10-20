@@ -16,12 +16,12 @@
 import assert from 'node:assert/strict';
 import { dirname, resolve } from 'node:path';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 
-const { default: handler } = await import(resolve(root, 'src/auth-handler.ts'));
+const { default: handler } = await import(pathToFileURL(resolve(root, 'src/auth-handler.ts')).href);
 
 const AUTH_BASE = 'https://auth.freegamestore.online';
 const ORIGIN = 'https://mcp.freegamestore.online';

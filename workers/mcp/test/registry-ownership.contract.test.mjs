@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { registerHooks } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // Tool modules import siblings as './x.js'; Node's type stripping loads .ts but
 // won't map the .js specifier. Retry as .ts.
@@ -23,7 +23,7 @@ registerHooks({
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const contracts = resolve(root, '../../contracts/registry-ownership-remix/v1');
 const { readRegistryGames, ownershipFacts, validateGameId } = await import(
-  resolve(root, 'src/github.ts')
+  pathToFileURL(resolve(root, 'src/github.ts')).href
 );
 const load = async (name) => JSON.parse(await readFile(resolve(contracts, name), 'utf8'));
 

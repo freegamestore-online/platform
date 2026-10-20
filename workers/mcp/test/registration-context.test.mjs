@@ -7,7 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { registerHooks } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // Tool modules import siblings as './x.js'; Node's type stripping loads .ts but
 // won't map the .js specifier. Retry as .ts.
@@ -25,8 +25,8 @@ registerHooks({
 });
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const { createRegistrationContext } = await import(resolve(root, 'src/tools/registration.ts'));
-const { registerGameFilesTools } = await import(resolve(root, 'src/tools/game-files.ts'));
+const { createRegistrationContext } = await import(pathToFileURL(resolve(root, 'src/tools/registration.ts')).href);
+const { registerGameFilesTools } = await import(pathToFileURL(resolve(root, 'src/tools/game-files.ts')).href);
 
 const env = { GITHUB_ORG: 'freegamestore-online', STORE_REPO: 'platform', GITHUB_TOKEN: 't' };
 

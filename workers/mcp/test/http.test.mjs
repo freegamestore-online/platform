@@ -11,11 +11,11 @@
 import assert from 'node:assert/strict';
 import { dirname, resolve } from 'node:path';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { fgsApi, fgsPost, fgsDelete, getDeployStatus, readBody, safeFetch } = await import(
-  resolve(root, 'src/http.ts')
+  pathToFileURL(resolve(root, 'src/http.ts')).href
 );
 
 const API = 'https://admin.freegamestore.online';

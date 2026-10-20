@@ -11,7 +11,10 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..', '..', '..');
-const workflow = await readFile(resolve(repoRoot, '.github/workflows/deploy-mcp.yml'), 'utf8');
+// A Windows checkout may have CRLF; the assertions below match on \n.
+const workflow = (
+  await readFile(resolve(repoRoot, '.github/workflows/deploy-mcp.yml'), 'utf8')
+).replace(/\r\n/g, '\n');
 
 test('deploy-mcp never uses npm to install', () => {
   assert.doesNotMatch(workflow, /\bnpm (ci|install|i)\b/);
