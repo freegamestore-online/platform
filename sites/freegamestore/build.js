@@ -46,7 +46,14 @@ function validateRegistry(items) {
     else if (seenIds.has(g.id)) errors.push(`duplicate id: ${JSON.stringify(g.id)}`);
     if (!safeText(g.name, 80)) errors.push(`name must be 1-80 chars without control chars`);
     if (!g.appUrl || !URL_RE.test(g.appUrl)) errors.push(`appUrl must be https://*.freegamestore.online, got ${JSON.stringify(g.appUrl)}`);
-    if (g.iconBg && !COLOR_RE.test(g.iconBg)) errors.push(`iconBg must be a #hex color, got ${JSON.stringify(g.iconBg)}`);
+    // iconBg is cosmetic (it only feeds card-styles.css), so a bad one falls back
+    // to the default colour instead of hiding the game. "##000000" kept the live
+    // game `starship` out of the store (#361). Clearing it also keeps a hostile
+    // value like url(javascript:…) out of the CSS.
+    if (g.iconBg && !COLOR_RE.test(g.iconBg)) {
+      console.warn(`⚠ Registry: ${g.id}: iconBg must be a #hex color, got ${JSON.stringify(g.iconBg)}; using the default`);
+      g.iconBg = '';
+    }
     // Display-only optional fields: an EMPTY value means "not provided" (the
     // publish flow writes description:"" by default), and a present-but-malformed
     // value is a cosmetic problem — never a reason to hide a live, hosted game

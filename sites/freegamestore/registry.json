@@ -2088,7 +2088,7 @@
       "name": "Starship",
       "category": "casual",
       "icon": "🚀",
-      "iconBg": "##000000",
+      "iconBg": "#000000",
       "description": "Build starships and battle against space pirates",
       "appUrl": "https://starship.freegamestore.online",
       "repo": "freegamestore-online/starship",

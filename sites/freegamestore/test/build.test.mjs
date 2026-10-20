@@ -28,6 +28,9 @@ const FIXTURE_ID = "xss-probe";
 // so "every game is present" assertions don't trip over deliberately-excluded
 // fixtures like mcp-hybrid-test / mcp-snake-test.
 const isFixture = (g) => g.test === true || /(?:^|-)(?:test|fixture)$/i.test(g.id || "");
+// Mirror build.js's build-status gate (#22): pending/failed games are hidden
+// until a build succeeds, so they are not expected on the store pages.
+const isHidden = (g) => isFixture(g) || g.status === "pending" || g.status === "failed";
 
 function runBuild() {
   const tmp = mkdtempSync(join(tmpdir(), "fgs-build-test-"));
@@ -76,7 +79,7 @@ test("build.js writes index.html containing every game id", () => {
   try {
     const indexHtml = readFileSync(join(tmpDist, "index.html"), "utf8");
     for (const g of registry.games) {
-      if (isFixture(g)) continue; // fixtures are intentionally excluded from the store
+      if (isHidden(g)) continue; // fixtures and not-yet-built games are excluded from the store
       assert.ok(
         indexHtml.includes(`data-id="${g.id}"`),
         `index.html is missing game id "${g.id}"`,
@@ -163,14 +166,19 @@ test("validator drops wrong-host appUrl, build still succeeds", () => {
   }
 });
 
-test("validator drops bad iconBg, build still succeeds", () => {
+test("a bad iconBg falls back to the default colour and keeps the game (#361)", () => {
   const { ok, stderr, tmp } = runBuildWithRegistry([
     { ...VALID_GAME, iconBg: "url(javascript:alert(1))" },
   ]);
   try {
     assert.equal(ok, true, stderr);
     assert.match(stderr, /iconBg must be a #hex color/);
-    assert.match(stderr, /skipped 1 invalid game/);
+    assert.doesNotMatch(stderr, /skipped 1 invalid game/);
+    const index = readFileSync(join(tmp, "dist", "index.html"), "utf8");
+    assert.ok(index.includes(VALID_GAME.id), "the game is still listed");
+    const css = readFileSync(join(tmp, "dist", "card-styles.css"), "utf8");
+    assert.doesNotMatch(css, /javascript/);
+    assert.match(css, /#10b981/);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -388,7 +396,7 @@ test("cards have no inline style attribute; iconBg lives in card-styles.css", ()
     );
     const css = readFileSync(join(tmpDist, "card-styles.css"), "utf8");
     for (const g of registry.games) {
-      if (isFixture(g)) continue; // fixtures are intentionally excluded from the store
+      if (isHidden(g)) continue; // fixtures and not-yet-built games are excluded from the store
       assert.ok(
         css.includes(`.app-card[data-id="${g.id}"] .app-icon`),
         `card-styles.css missing rule for "${g.id}"`,
@@ -621,4 +629,13 @@ test("console CORS allows the PUT the analytics page uses for tag saves", () => 
   const methods = auth.match(/'Access-Control-Allow-Methods':\s*'([^']+)'/);
   assert.ok(methods, "Access-Control-Allow-Methods is set");
   assert.match(methods[1], /\bPUT\b/, "PUT must be allowed for the cross-origin tag save");
+});
+
+test("analytics chart colours bars from the stylesheet, not var() in an SVG attribute", () => {
+  // Browsers don't resolve var() inside SVG presentation attributes, so
+  // fill="var(--accent)" rendered the bars black (#361).
+  const js = readFileSync(join(REPO_ROOT, "analytics.js"), "utf8");
+  assert.doesNotMatch(js, /fill:\s*['"]var\(/);
+  const css = readFileSync(join(REPO_ROOT, "style.css"), "utf8");
+  assert.match(css, /\.an-chart-svg rect\s*\{\s*fill:\s*var\(--accent\)/);
 });
