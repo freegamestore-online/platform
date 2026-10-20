@@ -18,7 +18,7 @@ export interface AnalyticsProvisionEnv {
 const STEP_NAME = 'CF Web Analytics';
 const CF_API = 'https://api.cloudflare.com/client/v4';
 // Same shape the host loader and the static site accept for a beacon token.
-const SITE_TAG_RE = /^[a-f0-9]{32,}$/i;
+const TOKEN_RE = /^[a-f0-9]{32,}$/i;
 const LIST_PAGE_SIZE = 100;
 const LIST_MAX_PAGES = 10;
 
@@ -30,7 +30,21 @@ interface CfEnvelope<T> {
 
 interface RumSite {
   host?: string;
+  /** The site's API identifier. NOT the beacon token. */
   site_tag?: string;
+  /** The token the beacon sends (`data-cf-beacon='{"token": …}'`). */
+  site_token?: string;
+  /** CF's own install snippet, which embeds the beacon token. */
+  snippet?: string;
+}
+
+/** The beacon token for a RUM site: `site_token`, else the token in its snippet.
+ *  #353 stored `site_tag`, the API identifier, which the beacon doesn't accept
+ *  (#361). */
+export function beaconToken(site: RumSite | undefined): string | undefined {
+  if (!site) return undefined;
+  if (site.site_token && TOKEN_RE.test(site.site_token)) return site.site_token;
+  return site.snippet?.match(/"token"\s*:\s*"([a-f0-9]{32,})"/i)?.[1];
 }
 
 /** Calls the CF API and throws with CF's own message on any non-success response. */
@@ -56,17 +70,14 @@ async function cfCall<T>(
 
 /** Scans the account's RUM sites for one whose host matches. Bounded paging so a
  *  large account can't turn one publish into an unbounded fan-out of calls. */
-async function findRumSiteTag(
-  env: AnalyticsProvisionEnv,
-  host: string,
-): Promise<string | undefined> {
+async function findRumSite(env: AnalyticsProvisionEnv, host: string): Promise<RumSite | undefined> {
   for (let page = 1; page <= LIST_MAX_PAGES; page++) {
     const sites = await cfCall<RumSite[]>(
       env,
       `/accounts/${env.CF_ACCOUNT_ID}/rum/site_info/list?page=${page}&per_page=${LIST_PAGE_SIZE}`,
     );
     const match = sites.find((s) => s.host === host);
-    if (match?.site_tag) return match.site_tag;
+    if (match) return match;
     if (sites.length < LIST_PAGE_SIZE) break;
   }
   return undefined;
@@ -93,32 +104,30 @@ export async function provisionGameAnalytics(
     )
       .bind(gameId)
       .first<{ cf_beacon_token: string | null }>();
-    if (existing?.cf_beacon_token && SITE_TAG_RE.test(existing.cf_beacon_token)) {
-      return {
-        name: STEP_NAME,
-        status: 'skip',
-        detail: `Beacon token already provisioned for ${host}`,
-      };
-    }
-
-    let siteTag = await findRumSiteTag(env, host);
-    const created = siteTag === undefined;
-    if (created) {
+    // Always ask CF for the site rather than trusting any stored hex string:
+    // rows written by #353 hold the site tag, and this is how they heal.
+    let site = await findRumSite(env, host);
+    const created = site === undefined;
+    if (!created) {
+      const token = beaconToken(site);
+      if (token && existing?.cf_beacon_token === token) {
+        return {
+          name: STEP_NAME,
+          status: 'skip',
+          detail: `Beacon token already provisioned for ${host}`,
+        };
+      }
+    } else {
       // auto_install: false — the token is injected by the platform loader, not by
       // CF's own snippet injection, so the site must not also auto-inject.
-      const site = await cfCall<RumSite>(
-        env,
-        `/accounts/${env.CF_ACCOUNT_ID}/rum/site_info`,
-        'POST',
-        {
-          host,
-          auto_install: false,
-        },
-      );
-      siteTag = site.site_tag;
+      site = await cfCall<RumSite>(env, `/accounts/${env.CF_ACCOUNT_ID}/rum/site_info`, 'POST', {
+        host,
+        auto_install: false,
+      });
     }
-    if (!siteTag || !SITE_TAG_RE.test(siteTag)) {
-      return skip(`CF returned no usable site tag for ${host}`);
+    const token = beaconToken(site);
+    if (!token) {
+      return skip(`CF returned no usable beacon token for ${host}`);
     }
 
     try {
@@ -128,7 +137,7 @@ export async function provisionGameAnalytics(
              cf_beacon_token = excluded.cf_beacon_token,
              updated_at = excluded.updated_at`,
       )
-        .bind(gameId, siteTag, Date.now())
+        .bind(gameId, token, Date.now())
         .run();
     } catch (err) {
       // The RUM site now exists, so the next publish finds it via the list and

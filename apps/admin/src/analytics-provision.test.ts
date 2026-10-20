@@ -1,13 +1,24 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { type AnalyticsProvisionEnv, provisionGameAnalytics } from './analytics-provision';
+import {
+  type AnalyticsProvisionEnv,
+  beaconToken,
+  provisionGameAnalytics,
+} from './analytics-provision';
 
 // #353: publish provisions a CF Web Analytics beacon token per game. These cover
 // the create, reuse and stored-token paths, and every failure mode, which must
 // come back as a non-fatal `skip` and never throw.
+//
+// #361: a RUM site has a `site_tag` (its API identifier) and a separate
+// `site_token` (what the beacon sends). #353 stored the tag. The fixtures keep
+// the two different so storing the wrong one fails these tests.
 
 const HOST = 'chess.freegamestore.online';
 const TAG = 'a'.repeat(32);
+const TOKEN = 'c'.repeat(32);
 const OTHER_TAG = 'b'.repeat(32);
+const OTHER_TOKEN = 'd'.repeat(32);
+const SITE = { host: HOST, site_tag: TAG, site_token: TOKEN };
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -53,13 +64,25 @@ function stubCf(handlers: { list?: (page: number) => Response; create?: () => Re
       return handlers.list ? handlers.list(page) : cfOk([]);
     }
     if (url.endsWith('/rum/site_info') && init?.method === 'POST') {
-      return handlers.create ? handlers.create() : cfOk({ site_tag: TAG });
+      return handlers.create ? handlers.create() : cfOk(SITE);
     }
     throw new Error(`unexpected CF call ${init?.method ?? 'GET'} ${url}`);
   });
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
 }
+
+describe('beaconToken (#361)', () => {
+  it('uses site_token, never site_tag', () => {
+    expect(beaconToken(SITE)).toBe(TOKEN);
+    expect(beaconToken({ site_tag: TAG })).toBeUndefined();
+  });
+
+  it("falls back to the token in CF's snippet", () => {
+    const snippet = `<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "${TOKEN}"}'></script>`;
+    expect(beaconToken({ site_tag: TAG, snippet })).toBe(TOKEN);
+  });
+});
 
 describe('provisionGameAnalytics (#353)', () => {
   it('creates a RUM site for a new game and stores its beacon token', async () => {
@@ -75,7 +98,7 @@ describe('provisionGameAnalytics (#353)', () => {
       auto_install: false,
     });
     expect(writes).toHaveLength(1);
-    expect(writes[0]).toEqual(['chess', TAG, expect.any(Number)]);
+    expect(writes[0]).toEqual(['chess', TOKEN, expect.any(Number)]);
   });
 
   it('reuses a RUM site that already exists for the host instead of creating one', async () => {
@@ -83,8 +106,8 @@ describe('provisionGameAnalytics (#353)', () => {
     const fetchMock = stubCf({
       list: () =>
         cfOk([
-          { host: 'other.freegamestore.online', site_tag: OTHER_TAG },
-          { host: HOST, site_tag: TAG },
+          { host: 'other.freegamestore.online', site_tag: OTHER_TAG, site_token: OTHER_TOKEN },
+          SITE,
         ]),
     });
 
@@ -93,7 +116,7 @@ describe('provisionGameAnalytics (#353)', () => {
     expect(step.status).toBe('skip');
     expect(step.detail).toMatch(/already exists/);
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
-    expect(writes[0]).toEqual(['chess', TAG, expect.any(Number)]);
+    expect(writes[0]).toEqual(['chess', TOKEN, expect.any(Number)]);
   });
 
   it('finds the host on a later page of the RUM site list', async () => {
@@ -101,26 +124,37 @@ describe('provisionGameAnalytics (#353)', () => {
     const fullPage = Array.from({ length: 100 }, (_, i) => ({
       host: `g${i}.freegamestore.online`,
       site_tag: OTHER_TAG,
+      site_token: OTHER_TOKEN,
     }));
     stubCf({
-      list: (page) => (page === 1 ? cfOk(fullPage) : cfOk([{ host: HOST, site_tag: TAG }])),
+      list: (page) => (page === 1 ? cfOk(fullPage) : cfOk([SITE])),
     });
 
     const step = await provisionGameAnalytics(env(db), 'chess', HOST);
 
     expect(step.status).toBe('skip');
-    expect(writes[0]).toEqual(['chess', TAG, expect.any(Number)]);
+    expect(writes[0]).toEqual(['chess', TOKEN, expect.any(Number)]);
   });
 
-  it('makes no CF calls when the game already has a valid beacon token', async () => {
-    const { db, writes } = fakeDb({ row: { cf_beacon_token: TAG } });
-    const fetchMock = stubCf({});
+  it('writes nothing when the stored token already matches the site', async () => {
+    const { db, writes } = fakeDb({ row: { cf_beacon_token: TOKEN } });
+    const fetchMock = stubCf({ list: () => cfOk([SITE]) });
 
     const step = await provisionGameAnalytics(env(db), 'chess', HOST);
 
     expect(step.status).toBe('skip');
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(step.detail).toMatch(/already provisioned/);
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
     expect(writes).toHaveLength(0);
+  });
+
+  it('heals a row that #353 filled with the site tag (#361)', async () => {
+    const { db, writes } = fakeDb({ row: { cf_beacon_token: TAG } });
+    stubCf({ list: () => cfOk([SITE]) });
+
+    await provisionGameAnalytics(env(db), 'chess', HOST);
+
+    expect(writes).toEqual([['chess', TOKEN, expect.any(Number)]]);
   });
 
   it('re-provisions when the stored token is malformed', async () => {
@@ -130,7 +164,7 @@ describe('provisionGameAnalytics (#353)', () => {
     const step = await provisionGameAnalytics(env(db), 'chess', HOST);
 
     expect(step.status).toBe('ok');
-    expect(writes[0]).toEqual(['chess', TAG, expect.any(Number)]);
+    expect(writes[0]).toEqual(['chess', TOKEN, expect.any(Number)]);
   });
 
   it("is non-fatal when CF rejects the create: skip with CF's message, nothing stored", async () => {
@@ -163,14 +197,15 @@ describe('provisionGameAnalytics (#353)', () => {
     expect(writes).toHaveLength(0);
   });
 
-  it('is non-fatal when CF returns no usable site tag', async () => {
+  it('is non-fatal when CF returns no usable beacon token', async () => {
     const { db, writes } = fakeDb({ row: null });
-    stubCf({ create: () => cfOk({ site_tag: 'tag-123' }) });
+    // A tag alone is not a beacon token, and a malformed token isn't either.
+    stubCf({ create: () => cfOk({ site_tag: TAG, site_token: 'tok-123' }) });
 
     const step = await provisionGameAnalytics(env(db), 'chess', HOST);
 
     expect(step.status).toBe('skip');
-    expect(step.detail).toMatch(/no usable site tag/);
+    expect(step.detail).toMatch(/no usable beacon token/);
     expect(writes).toHaveLength(0);
   });
 
