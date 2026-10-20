@@ -34,6 +34,7 @@ import { checkNoPaymentSdk } from './checks/no-payment-sdk.js';
 import { checkNoPlaceholders } from './checks/no-placeholders.js';
 import { checkNoScroll } from './checks/no-scroll.js';
 import { checkNoTracking } from './checks/no-tracking.js';
+import { checkPermissionsDeclared } from './checks/permissions-declared.js';
 import { checkPwaIcons } from './checks/pwa-icons.js';
 import { checkMaskableIcon } from './checks/pwa-maskable-icon.js';
 import { checkPwaMeta } from './checks/pwa-meta.js';
@@ -70,6 +71,7 @@ export async function runChecksOn(source: FileSource): Promise<CheckResult[]> {
     checkNoExternalScripts(source),
     checkNoExternalFetch(source),
     checkNoPagePolicy(source),
+    checkPermissionsDeclared(source),
     // Brand & design
     checkAudioMuteRespect(source),
     checkBrandFonts(source),

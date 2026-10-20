@@ -249,6 +249,15 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
     ],
   },
   {
+    "detail": "used but not declared: gamepad",
+    "name": "Permissions declared",
+    "status": "warn",
+    "suggestions": [
+      "Declare them in package.json: "freegamestore": { "permissions": { "gamepad": "<why the game needs it>" } }",
+      "Known ids: motion, microphone, camera, location, notifications, midi, clipboard-read, bluetooth, usb, serial, hid, xr, gamepad, wake-lock.",
+    ],
+  },
+  {
     "detail": "no web/src/main.tsx found (not a React project)",
     "name": "React StrictMode",
     "status": "pass",

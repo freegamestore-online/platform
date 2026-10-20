@@ -34,6 +34,7 @@ export { checkNoPaymentSdk } from './checks/no-payment-sdk.js';
 export { checkNoPlaceholders } from './checks/no-placeholders.js';
 export { checkNoScroll } from './checks/no-scroll.js';
 export { checkNoTracking } from './checks/no-tracking.js';
+export { checkPermissionsDeclared } from './checks/permissions-declared.js';
 export { checkPwaIcons } from './checks/pwa-icons.js';
 export { checkMaskableIcon } from './checks/pwa-maskable-icon.js';
 export { checkPwaMeta } from './checks/pwa-meta.js';
@@ -49,6 +50,11 @@ export { checkUsesLocalStorage } from './checks/uses-localstorage.js';
 export { checkViewportSupport } from './checks/viewport-support.js';
 export { GAME_CI_WORKFLOW, GAME_DEPLOY_WORKFLOW } from './game-deploy-workflow.js';
 export { type FileSource, mapFileSource } from './lib/file-source.js';
+export {
+  detectPermissions,
+  PERMISSIONS,
+  parseDeclaredPermissions,
+} from './lib/permissions.js';
 export { isGameProject } from './lib/project-type.js';
 export type { LiveAuditInput, LiveAuditReport } from './live/index.js';
 export {

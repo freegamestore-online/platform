@@ -24,6 +24,7 @@ import { checkNoPaymentSdk } from './checks/no-payment-sdk.js';
 import { checkNoPlaceholders } from './checks/no-placeholders.js';
 import { checkNoScroll } from './checks/no-scroll.js';
 import { checkNoTracking } from './checks/no-tracking.js';
+import { checkPermissionsDeclared } from './checks/permissions-declared.js';
 import { checkPwaIcons } from './checks/pwa-icons.js';
 import { checkMaskableIcon } from './checks/pwa-maskable-icon.js';
 import { checkPwaMeta } from './checks/pwa-meta.js';
@@ -58,6 +59,15 @@ export {
   type ReferenceViewport,
 } from './game-metadata.js';
 export type { FileSource } from './lib/file-source.js';
+export {
+  type DeclaredPermissions,
+  detectPermissions,
+  detectPermissionsInText,
+  PERMISSION_IDS,
+  PERMISSIONS,
+  type PermissionInfo,
+  parseDeclaredPermissions,
+} from './lib/permissions.js';
 export type { LiveAuditInput, LiveAuditReport } from './live/index.js';
 // Live-URL audit (used by the compliance audit Worker; runs in
 // browser/Workers env, no filesystem). Separate export path so callers
@@ -102,6 +112,7 @@ export {
   checkNoPlaceholders,
   checkNoScroll,
   checkNoTracking,
+  checkPermissionsDeclared,
   checkPwaIcons,
   checkPwaMeta,
   checkPwaOffline,

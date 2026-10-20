@@ -90,6 +90,7 @@ describe('failing-app fixture', () => {
       'No page-level CSP',
       'No unsafe 100vh',
       'PWA meta tags',
+      'Permissions declared',
       'Store link',
       'Tech stack versions',
     ]);
