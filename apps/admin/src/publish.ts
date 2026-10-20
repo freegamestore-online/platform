@@ -101,6 +101,16 @@ const MAX_DESCRIPTION = 300;
 const MAX_CATEGORY = 32;
 const MAX_ICON = 24; // an emoji (incl. ZWJ sequences) or an HTML entity like &#128290;
 const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+const DEFAULT_ICON_BG = '#ecfdf5';
+
+/** A provision's iconBg as a hex colour the storefront accepts. Provision took
+ *  any string, and "##000000" made the store drop the live game `starship`
+ *  (#361). Repairs a doubled or missing `#`; anything else gets the default. */
+export function normalizeIconBg(raw: unknown): string {
+  if (typeof raw !== 'string') return DEFAULT_ICON_BG;
+  const v = `#${raw.trim().replace(/^#+/, '')}`;
+  return HEX_COLOR.test(v) ? v : DEFAULT_ICON_BG;
+}
 const CATEGORY_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /**
@@ -910,7 +920,7 @@ export async function handlePublish(
   // (PLATFORM-ISSUES A1 + REGISTRY-VALIDATION-RECOMMENDATIONS). `||` falls back on
   // "" too, so a blank field is never persisted.
   const icon = req.icon || '🎮';
-  const iconBg = req.iconBg || '#ecfdf5';
+  const iconBg = normalizeIconBg(req.iconBg);
   const category = normalizeCategorySlug(req.category) || 'casual';
   const description = req.description || req.oneliner || req.name;
   const name = displayName(req.name, id);

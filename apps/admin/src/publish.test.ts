@@ -6,6 +6,7 @@ import {
   handleUpdateGame,
   lifecycleStatus,
   normalizeForkedFrom,
+  normalizeIconBg,
   provisionStatus,
   readGameStatus,
   renderRemixAttributionShell,
@@ -1467,5 +1468,20 @@ describe('registry write retry and lifecycle error codes (#66)', () => {
     expect(provisionStatus(fail('Fork attribution'))).toBe(400);
     expect(provisionStatus(fail('GitHub repo'))).toBe(502);
     expect(provisionStatus(fail('Store registry'))).toBe(502);
+  });
+});
+
+describe('normalizeIconBg (#361)', () => {
+  it.each([
+    ['##000000', '#000000'],
+    ['000000', '#000000'],
+    [' #ABCDEF ', '#ABCDEF'],
+    ['#abc', '#abc'],
+    ['', '#ecfdf5'],
+    [undefined, '#ecfdf5'],
+    ['url(javascript:alert(1))', '#ecfdf5'],
+    ['#12345', '#ecfdf5'],
+  ])('%j -> %s', (raw, expected) => {
+    expect(normalizeIconBg(raw)).toBe(expected);
   });
 });
