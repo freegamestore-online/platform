@@ -37,6 +37,8 @@ Live in 30 seconds at `https://asteroids.freegamestore.online`.
 | `fgs publish` | Provisions repo + hosting route + storefront entry. Auto-runs `fgs check` first. |
 | `fgs list` (alias `fgs ls`) | List your published games. |
 | `fgs logs <id>` | Tail the live deployment logs. |
+| `fgs admin transfer-owner <id> --from <login> --to <login> --reason <text>` | Admin only. Moves a game to a new owner, refused unless `--from` is the current owner. Undo by swapping `--from` and `--to`. Needs `FGS_ADMIN_TOKEN` (an admin Google session's `fgs_token`), not `fgs login`. |
+| `fgs admin transfers <id>` | Admin only. Lists a game's ownership transfers (audit records). |
 
 ## `fgs publish` flags
 

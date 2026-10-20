@@ -1,7 +1,7 @@
 import { normalizeCategorySlug } from '../../../contracts/game-metadata/v1/contract.js';
-import { readRegistry } from './registryReader';
-import { REGISTRY_LOCATION } from './registryLocation';
 import { provisionGameAnalytics } from './analytics-provision';
+import { REGISTRY_LOCATION } from './registryLocation';
+import { readRegistry } from './registryReader';
 
 // Publish API -- provisions a new game on FreeGameStore via Path B.
 // POST /api/provision
@@ -205,7 +205,7 @@ export const STORE_CONFIG = {
   r2Bucket: 'fgs-games',
 };
 
-async function ghApi(env: PublishEnv, path: string, method = 'GET', body?: unknown) {
+export async function ghApi(env: PublishEnv, path: string, method = 'GET', body?: unknown) {
   const res = await fetch(`https://api.github.com${path}`, {
     method,
     headers: {
@@ -1287,7 +1287,7 @@ export function provisionStatus(result: {
   return failed && (failed.name === 'Validation' || failed.name === 'Fork attribution') ? 400 : 502;
 }
 
-type RegistryMutation<T> =
+export type RegistryMutation<T> =
   | { ok: true; value: T }
   | { ok: false; error: string; code: LifecycleErrorCode };
 
@@ -1299,7 +1299,7 @@ type RegistryMutation<T> =
  * update/delete used to write once and surface the raw sha mismatch as a 400
  * (#66); provision and setGameStatuses already retried.
  */
-async function mutateRegistry<T>(
+export async function mutateRegistry<T>(
   env: PublishEnv,
   message: string,
   mutate: (items: Array<Record<string, unknown>>) => RegistryMutation<T>,

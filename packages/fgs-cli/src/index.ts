@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
+import { adminCommand } from './commands/admin.js';
 import { checkCommand } from './commands/check.js';
 import { doctorCommand } from './commands/doctor.js';
 import { initCommand } from './commands/init.js';
@@ -38,6 +39,7 @@ program.addCommand(doctorCommand);
 program.addCommand(checkCommand);
 program.addCommand(screencheckCommand);
 program.addCommand(listCommand);
+program.addCommand(adminCommand);
 
 async function main(): Promise<void> {
   if (process.argv.length === 2) {

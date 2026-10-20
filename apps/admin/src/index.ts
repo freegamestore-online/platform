@@ -2,13 +2,13 @@ import { normalizeErrorLogRow } from '../../../contracts/error-log/v1/contract';
 import { routeAdminRequest } from './admin-request-router';
 import { serveAdminStatic } from './admin-static';
 import { handleAuthExchange, handleAuthMe, verifySession } from './auth';
-import { getGameAnalytics, putGameAnalyticsConfig } from './game-analytics';
-import { handlePlatformUsage } from './platform-usage';
 import { renderApiDocs } from './dashboard';
 import { driftReportFrom, type FleetRow, recentRuns, sweepFleet } from './drift';
 import { errorStats, listErrors, pruneErrors, recordError } from './errlog';
+import { getGameAnalytics, putGameAnalyticsConfig } from './game-analytics';
 import { createGameLifecycle } from './lifecycle/game-lifecycle';
 import { createRegistryState, createRemixSource } from './lifecycle/registry-state';
+import { handlePlatformUsage } from './platform-usage';
 import {
   type GameStatus,
   insertHostRoute,
@@ -18,6 +18,12 @@ import {
   readGameStatus,
 } from './publish';
 import { type RegistryGame, readRegistry } from './registryReader';
+import {
+  GAME_ID_RE,
+  listOwnerTransfers,
+  parseTransferBody,
+  transferGameOwner,
+} from './transfer-owner';
 
 type CallerCredentials = {
   admin: string | null;
@@ -1203,6 +1209,49 @@ function buildRouteTable(data: ReturnType<typeof dataService>): Route[] {
       },
     },
 
+    // POST /api/admin/transfer-owner — admin-only compare-and-set ownership
+    // transfer (#358). GET lists one game's transfer audit. Gated in the
+    // handler rather than with auth: 'admin' so a signed-in non-admin gets 403,
+    // not the 401 that means "not signed in".
+    {
+      method: ['GET', 'POST'],
+      pattern: '/api/admin/transfer-owner',
+      auth: 'public',
+      handler: async ({ request, url, caller, env }) => {
+        if (!caller.admin && !caller.login) {
+          return jsonResponse({ error: 'unauthorized' }, 401, request);
+        }
+        // The audit record names a person: the admin's verified email.
+        if (!caller.isAdmin || !caller.admin) {
+          return jsonResponse({ error: 'admin session required' }, 403, request);
+        }
+        if (request.method === 'GET') {
+          const gameId = (url.searchParams.get('game_id') ?? '').trim();
+          if (!GAME_ID_RE.test(gameId)) {
+            return jsonResponse({ error: 'invalid game id' }, 400, request);
+          }
+          return jsonResponse(
+            { transfers: await listOwnerTransfers(env.DB, gameId) },
+            200,
+            request,
+          );
+        }
+        let body: unknown;
+        try {
+          body = await request.json();
+        } catch {
+          return jsonResponse({ error: 'expected a JSON object' }, 400, request);
+        }
+        const parsed = parseTransferBody(body);
+        if (!parsed.ok) return jsonResponse({ error: parsed.error }, 400, request);
+        const outcome = await transferGameOwner(env, parsed.value, caller.admin);
+        console.log(
+          `[transfer-owner] ${parsed.value.game_id} ${parsed.value.from_login} -> ${parsed.value.to_login} by ${caller.admin}: ${outcome.status}`,
+        );
+        return jsonResponse(outcome.body, outcome.status, request);
+      },
+    },
+
     // POST /api/internal/error
     {
       method: 'POST',
@@ -1302,7 +1351,13 @@ function buildRouteTable(data: ReturnType<typeof dataService>): Route[] {
         } catch {
           return jsonResponse({ error: 'invalid JSON' }, 400, request);
         }
-        const result = await putGameAnalyticsConfig(env, id, caller.login, await data.registryItems(), body);
+        const result = await putGameAnalyticsConfig(
+          env,
+          id,
+          caller.login,
+          await data.registryItems(),
+          body,
+        );
         return jsonResponse(result.body, result.status, request);
       },
     },
