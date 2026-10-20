@@ -53,10 +53,25 @@ function makeDB(routeSlugs: string[]) {
 
 /** Global-fetch stub: answers the registry read (contents API or raw CDN) with
  *  `games`, or a 500 when `games` is null (simulating a total read failure). */
-function registryFetch(games: unknown[] | null) {
+function registryFetch(
+  games: unknown[] | null,
+  repos: Record<string, 'live' | 'archived' | 'error'> = {},
+) {
   return async (input: unknown) => {
     const url = typeof input === 'string' ? input : (input as Request).url;
-    if (url.includes('/contents/sites/freegamestore/registry.json') || url.includes('raw.githubusercontent')) {
+    // GET /repos/<org>/<slug>: the orphan guard (#363). Unlisted repos are gone
+    // (404), which is what deleting a game leaves behind.
+    const repo = url.match(/api\.github\.com\/repos\/freegamestore-online\/([^/?]+)$/);
+    if (repo) {
+      const state = repos[repo[1]!];
+      if (state === 'error') return new Response('rate limited', { status: 403 });
+      if (!state) return new Response('{"message":"Not Found"}', { status: 404 });
+      return new Response(JSON.stringify({ archived: state === 'archived' }), { status: 200 });
+    }
+    if (
+      url.includes('/contents/sites/freegamestore/registry.json') ||
+      url.includes('raw.githubusercontent')
+    ) {
       if (games === null) return new Response('upstream down', { status: 500 });
       return new Response(JSON.stringify({ games }), { status: 200 });
     }
@@ -506,7 +521,10 @@ describe('GET /api/drift', () => {
   ) {
     return async (input: unknown, init?: { headers?: Record<string, string> }) => {
       const url = typeof input === 'string' ? input : (input as Request).url;
-      if (url.includes('/contents/sites/freegamestore/registry.json') || url.includes('raw.githubusercontent')) {
+      if (
+        url.includes('/contents/sites/freegamestore/registry.json') ||
+        url.includes('raw.githubusercontent')
+      ) {
         if (games === null) return new Response('upstream down', { status: 500 });
         const raw = (init?.headers?.Accept ?? '').includes('raw');
         return new Response(
@@ -644,7 +662,10 @@ describe('GET /api/status/deploys', () => {
   ) {
     return async (input: unknown, init?: { headers?: Record<string, string> }) => {
       const url = typeof input === 'string' ? input : (input as Request).url;
-      if (url.includes('/contents/sites/freegamestore/registry.json') || url.includes('raw.githubusercontent')) {
+      if (
+        url.includes('/contents/sites/freegamestore/registry.json') ||
+        url.includes('raw.githubusercontent')
+      ) {
         const raw = (init?.headers?.Accept ?? '').includes('raw');
         return new Response(
           raw
@@ -721,7 +742,10 @@ describe('GET /api/games/:id/detail', () => {
   function detailFetch(games: unknown[], opts: { headOk?: boolean } = {}) {
     return async (input: unknown, init?: { method?: string; headers?: Record<string, string> }) => {
       const url = typeof input === 'string' ? input : (input as Request).url;
-      if (url.includes('/contents/sites/freegamestore/registry.json') || url.includes('raw.githubusercontent')) {
+      if (
+        url.includes('/contents/sites/freegamestore/registry.json') ||
+        url.includes('raw.githubusercontent')
+      ) {
         const raw = (init?.headers?.Accept ?? '').includes('raw');
         return new Response(
           raw
@@ -1446,13 +1470,20 @@ describe('reconcile heals only from a fresh registry read (#64)', () => {
   function twoSourceFetch(contents: unknown[] | null, raw: unknown[]) {
     return async (input: unknown) => {
       const url = typeof input === 'string' ? input : (input as Request).url;
-      if (url.includes('api.github.com') && url.includes('/contents/sites/freegamestore/registry.json')) {
+      if (
+        url.includes('api.github.com') &&
+        url.includes('/contents/sites/freegamestore/registry.json')
+      ) {
         return contents === null
           ? new Response(JSON.stringify({ message: 'API rate limit exceeded' }), { status: 403 })
           : new Response(JSON.stringify({ games: contents }), { status: 200 });
       }
       if (url.includes('raw.githubusercontent')) {
         return new Response(JSON.stringify({ games: raw }), { status: 200 });
+      }
+      // The orphans here stand for deleted games, so their repos are gone (#363).
+      if (/api\.github\.com\/repos\/freegamestore-online\/[^/?]+$/.test(url)) {
+        return new Response('{"message":"Not Found"}', { status: 404 });
       }
       return new Response('{}', { status: 200 });
     };
@@ -1543,5 +1574,59 @@ describe('readRegistry reports its source (#64)', () => {
         : new Response(JSON.stringify({ games: [{ id: 'a' }] }), { status: 200 }),
     );
     expect(await readRegistry('t')).toMatchObject({ status: 'available', source: 'raw' });
+  });
+});
+
+describe('reconcile never deletes the route of a game whose repo is live (#363)', () => {
+  const errorMessages = (calls: { sql: string; binds: unknown[] }[]) =>
+    calls.filter((c) => /INSERT INTO error_log/i.test(c.sql)).map((c) => String(c.binds[3]));
+  const deletes = (calls: { sql: string; binds: unknown[] }[]) =>
+    calls.filter((c) => /DELETE FROM routes/i.test(c.sql)).map((c) => c.binds[0]);
+
+  it('keeps an "orphan" route whose repo is live, and logs it (the #363 failure)', async () => {
+    // The registry this build read doesn't list mosaic-rush (in #363 it was the
+    // archived repo's copy), but the game's repo is live: the read is what's wrong.
+    vi.stubGlobal('fetch', registryFetch([{ id: 'tetris' }], { 'mosaic-rush': 'live' }));
+    const { calls, db } = makeDB(['tetris', 'mosaic-rush']);
+    await runScheduled({ GITHUB_TOKEN: 'x', DB: db });
+
+    expect(deletes(calls)).toEqual([]);
+    expect(errorMessages(calls).join('\n')).toContain(
+      'kept 1 route(s) with a live repo but no registry entry: mosaic-rush',
+    );
+  });
+
+  it('still deletes the route of a deleted (archived) game', async () => {
+    vi.stubGlobal('fetch', registryFetch([{ id: 'tetris' }], { 'old-game': 'archived' }));
+    const { calls, db } = makeDB(['tetris', 'old-game']);
+    await runScheduled({ GITHUB_TOKEN: 'x', DB: db });
+    expect(deletes(calls)).toEqual(['old-game']);
+  });
+
+  it('keeps the route when GitHub cannot say (rate limit, outage)', async () => {
+    vi.stubGlobal('fetch', registryFetch([{ id: 'tetris' }], { flaky: 'error' }));
+    const { calls, db } = makeDB(['tetris', 'flaky']);
+    await runScheduled({ GITHUB_TOKEN: 'x', DB: db });
+    expect(deletes(calls)).toEqual([]);
+  });
+
+  it('logs a skipped heal instead of only warning (a stale read every hour went unseen)', async () => {
+    // Contents API refused (rate limit) → reader falls back to the raw CDN copy.
+    vi.stubGlobal('fetch', async (input: unknown) => {
+      const url = typeof input === 'string' ? input : (input as Request).url;
+      if (url.includes('/contents/sites/freegamestore/registry.json'))
+        return new Response('rate limited', { status: 403 });
+      if (url.includes('raw.githubusercontent'))
+        return new Response(JSON.stringify({ games: [{ id: 'chess' }] }), { status: 200 });
+      return new Response('{}', { status: 200 });
+    });
+    const { calls, db } = makeDB(['orphan']);
+    await runScheduled({ GITHUB_TOKEN: 'x', DB: db });
+
+    expect(deletes(calls)).toEqual([]);
+    expect(calls.filter((c) => /INSERT INTO routes/i.test(c.sql))).toHaveLength(0);
+    expect(errorMessages(calls).join('\n')).toContain(
+      'route heal skipped (stale registry read): 1 missingRoute, 1 orphanRoute left as is',
+    );
   });
 });

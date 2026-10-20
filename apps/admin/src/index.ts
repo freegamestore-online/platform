@@ -670,7 +670,36 @@ interface ReconcileReport {
   /** Registry entries still `pending` — provisioned, first build not yet confirmed. */
   pending?: string[];
   /** Populated only on the scheduled (heal=true) path: what was actually fixed. */
-  healed?: { insertedRoutes: string[]; deletedRoutes: string[]; statusFlips?: string[] };
+  healed?: {
+    insertedRoutes: string[];
+    deletedRoutes: string[];
+    /** Orphans NOT deleted because their game repo is still live (#363). */
+    keptRoutes?: string[];
+    statusFlips?: string[];
+  };
+}
+
+/** Whether an orphan route's game is really gone. A route is only deleted when
+ *  its repo is missing or archived (what deleting a game does). A live repo
+ *  means the registry read is the thing that's wrong: #363's 19 games had their
+ *  routes deleted every hour by an admin build reading the archived registry.
+ *  Any doubt (GitHub error, rate limit) keeps the route. */
+async function orphanRepoIsGone(env: Env, slug: string): Promise<boolean> {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${ORG}/${encodeURIComponent(slug)}`, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'freegamestore-admin',
+        ...(env.GITHUB_TOKEN ? { Authorization: `Bearer ${env.GITHUB_TOKEN}` } : {}),
+      },
+    });
+    if (res.status === 404) return true;
+    if (!res.ok) return false;
+    const repo = (await res.json()) as { archived?: unknown };
+    return repo.archived === true;
+  } catch {
+    return false;
+  }
 }
 
 /** Compare the storefront registry against the D1 `routes` table and surface —
@@ -757,10 +786,18 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
   if (heal && report.drift && !freshRegistry) {
     report.healSkipped = 'stale-registry';
     console.warn('[reconcile] registry came from the cached raw copy — route heal skipped');
+    // Logged, not just warned: a skip that repeats every hour leaves listed
+    // games unserved, and a console line nobody tails let #363 run for days.
+    await recordError(env.DB, {
+      source: 'admin/reconcile',
+      context: `heal=${heal}`,
+      message: `route heal skipped (stale registry read): ${missingRoute.length} missingRoute, ${orphanRoute.length} orphanRoute left as is`,
+    });
   }
   if (heal && env.DB && report.drift && freshRegistry) {
     const insertedRoutes: string[] = [];
     const deletedRoutes: string[] = [];
+    const keptRoutes: string[] = [];
     // Re-insert routes for listed-but-unrouted games (idempotent, same shape as
     // provision). registry is the source of truth for what SHOULD be served.
     for (const id of missingRoute) {
@@ -773,6 +810,11 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
       // Extra guard: never delete a route touched in the last few minutes;
       // if it is truly orphaned, a later run removes it.
       if (Date.now() - (routeUpdatedAt.get(slug) ?? 0) < ORPHAN_GRACE_MS) continue;
+      // And never delete one whose game repo is still live (#363).
+      if (!(await orphanRepoIsGone(env, slug))) {
+        keptRoutes.push(slug);
+        continue;
+      }
       try {
         await env.DB.prepare('DELETE FROM routes WHERE slug = ? AND zone = ?')
           .bind(slug, DOMAIN)
@@ -782,7 +824,18 @@ async function reconcile(env: Env, heal = false): Promise<ReconcileReport> {
         /* best-effort; next run retries */
       }
     }
-    report.healed = { insertedRoutes, deletedRoutes };
+    report.healed = {
+      insertedRoutes,
+      deletedRoutes,
+      ...(keptRoutes.length ? { keptRoutes } : {}),
+    };
+    if (keptRoutes.length) {
+      await recordError(env.DB, {
+        source: 'admin/reconcile',
+        context: `heal=${heal}`,
+        message: `kept ${keptRoutes.length} route(s) with a live repo but no registry entry: ${keptRoutes.join(', ')}`,
+      });
+    }
   }
 
   // Backstop for the build-status field (#22). The agent reports the CI outcome
