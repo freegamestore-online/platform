@@ -75,9 +75,12 @@ export async function readGameAnalyticsConfig(
 /** Parses ?days, ?kind, ?bucket and ?path. Out-of-range days are clamped; a bad
  *  kind is an error. An empty or missing value falls back to the default. */
 export function parseStatsQuery(params: URLSearchParams): StatsQuery | { error: string } {
+  // `?days=` (empty) or a non-number used to become 0 and clamp to 1 day (#361).
+  const rawDays = (params.get('days') ?? '').trim();
+  const asked = rawDays ? Number(rawDays) : Number.NaN;
   const days = Math.min(
     STATS_DAYS_MAX,
-    Math.max(1, Number(params.get('days') ?? STATS_DAYS_DEFAULT) | 0),
+    Math.max(1, Number.isFinite(asked) ? asked | 0 : STATS_DAYS_DEFAULT),
   );
   const kind = (params.get('kind') ?? 'pageview').trim().toLowerCase();
   if (!EVENT_KIND_RE.test(kind)) return { error: 'invalid kind' };
@@ -285,21 +288,28 @@ export async function putGameAnalyticsConfig(
   if (denied) return denied;
   const checked = validateAnalyticsConfig(input);
   if (!checked.ok) return { status: 400, body: { error: checked.error } };
+  // Only the fields the caller sent are written. A field left out keeps its
+  // saved value; before, PUT {"ga4": …} also wiped Plausible (#361).
+  const sent = input as Record<string, unknown>;
+  const hasGa4 = 'ga4' in sent ? 1 : 0;
+  const hasPlausible = 'plausible' in sent ? 1 : 0;
+  let saved: GameAnalyticsConfig;
   try {
     await env.DB.prepare(
       `INSERT INTO game_analytics (game_id, ga4, plausible, updated_at) VALUES (?1, ?2, ?3, ?4)
          ON CONFLICT (game_id) DO UPDATE SET
-           ga4 = excluded.ga4,
-           plausible = excluded.plausible,
+           ga4 = CASE WHEN ?5 = 1 THEN excluded.ga4 ELSE game_analytics.ga4 END,
+           plausible = CASE WHEN ?6 = 1 THEN excluded.plausible ELSE game_analytics.plausible END,
            updated_at = excluded.updated_at`,
     )
-      .bind(gameId, checked.value.ga4, checked.value.plausible, now)
+      .bind(gameId, checked.value.ga4, checked.value.plausible, now, hasGa4, hasPlausible)
       .run();
+    saved = await readGameAnalyticsConfig(env.DB, gameId);
   } catch (err) {
     return {
       status: 500,
       body: { error: err instanceof Error ? err.message : 'config write failed' },
     };
   }
-  return { status: 200, body: { ok: true, config: checked.value } };
+  return { status: 200, body: { ok: true, config: saved } };
 }

@@ -303,7 +303,8 @@ describe('validateAnalyticsConfig', () => {
 
 describe('putGameAnalyticsConfig', () => {
   it('lets the owner write the BYO tags and never touches the beacon token', async () => {
-    const { db, writes } = fakeDb();
+    // The fake answers the read-back with what was just stored.
+    const { db, writes } = fakeDb({ ga4: 'G-ABC123', plausible: null });
     const res = await putGameAnalyticsConfig(
       { ...CONFIGURED, DB: db },
       'chess',
@@ -319,7 +320,8 @@ describe('putGameAnalyticsConfig', () => {
     expect(writes).toHaveLength(1);
     expect(writes[0]!.sql).toContain('ON CONFLICT (game_id)');
     expect(writes[0]!.sql).not.toContain('cf_beacon_token');
-    expect(writes[0]!.args).toEqual(['chess', 'G-ABC123', null, 1_000]);
+    // The trailing flags say which fields were sent: ga4 yes, plausible no.
+    expect(writes[0]!.args).toEqual(['chess', 'G-ABC123', null, 1_000, 1, 0]);
   });
 
   it('refuses a non-owner before validating or writing anything', async () => {
@@ -346,5 +348,86 @@ describe('putGameAnalyticsConfig', () => {
     );
     expect(res.status).toBe(400);
     expect(writes).toHaveLength(0);
+  });
+});
+
+describe('analytics config on real SQL (#361)', () => {
+  // Vite's loader doesn't resolve node:sqlite, so it comes through require.
+  type Sqlite = {
+    DatabaseSync: new (
+      path: string,
+    ) => {
+      exec(sql: string): void;
+      prepare(sql: string): {
+        run(...args: unknown[]): unknown;
+        get(...args: unknown[]): unknown;
+      };
+    };
+  };
+  const MODULE = 'node:module';
+
+  /** A D1Database over an in-memory SQLite built from the real migration. */
+  async function sqliteDb(): Promise<D1Database | null> {
+    const { createRequire } = (await import(/* @vite-ignore */ MODULE)) as {
+      createRequire(url: string): (id: string) => unknown;
+    };
+    const req = createRequire(import.meta.url);
+    let sqlite: Sqlite;
+    let readFileSync: (p: URL, enc: 'utf8') => string;
+    try {
+      sqlite = req('node:sqlite') as Sqlite;
+      readFileSync = (req('node:fs') as { readFileSync: typeof readFileSync }).readFileSync;
+    } catch {
+      return null;
+    }
+    const db = new sqlite.DatabaseSync(':memory:');
+    db.exec(
+      readFileSync(
+        new URL('../../../workers/host/migrations/0002_create_game_analytics.sql', import.meta.url),
+        'utf8',
+      ),
+    );
+    return {
+      prepare: (sql: string) => ({
+        bind: (...args: unknown[]) => ({
+          run: async () => db.prepare(sql).run(...args),
+          first: async () => db.prepare(sql).get(...args) ?? null,
+        }),
+      }),
+    } as unknown as D1Database;
+  }
+
+  it('keeps a saved tag the PUT leaves out, and clears one sent as null', async () => {
+    const db = await sqliteDb();
+    if (!db) return; // node:sqlite unavailable on this Node
+    const env = { ...CONFIGURED, DB: db };
+    await putGameAnalyticsConfig(env, 'chess', 'alice', REGISTRY, {
+      ga4: 'G-ABC123',
+      plausible: 'chess.freegamestore.online',
+    });
+
+    const onlyGa4 = await putGameAnalyticsConfig(env, 'chess', 'alice', REGISTRY, {
+      ga4: 'G-NEW999',
+    });
+    expect(onlyGa4).toEqual({
+      status: 200,
+      body: { ok: true, config: { ga4: 'G-NEW999', plausible: 'chess.freegamestore.online' } },
+    });
+
+    const cleared = await putGameAnalyticsConfig(env, 'chess', 'alice', REGISTRY, {
+      plausible: null,
+    });
+    expect(cleared.body).toEqual({ ok: true, config: { ga4: 'G-NEW999', plausible: null } });
+  });
+});
+
+describe('parseStatsQuery days fallback (#361)', () => {
+  it('treats an empty or non-numeric ?days as the default, not 1 day', () => {
+    const fallback = parseStatsQuery(new URLSearchParams()) as { days: number };
+    expect(parseStatsQuery(new URLSearchParams('days='))).toMatchObject({ days: fallback.days });
+    expect(parseStatsQuery(new URLSearchParams('days=abc'))).toMatchObject({
+      days: fallback.days,
+    });
+    expect(fallback.days).toBeGreaterThan(1);
   });
 });
