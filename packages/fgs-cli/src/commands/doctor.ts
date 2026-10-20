@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { dim, green, red, yellow } from '../lib/style.js';
 import { type DoctorCheckResult, runDoctor } from '../one-shot/doctor.js';
 
 const ICON: Record<DoctorCheckResult['status'], string> = {
@@ -6,14 +7,6 @@ const ICON: Record<DoctorCheckResult['status'], string> = {
   warn: '!',
   fail: '✗',
 };
-
-// ANSI color codes — same approach as lib/style.ts but inlined for simplicity
-const isTTY = Boolean(process.stdout.isTTY) && process.env.NO_COLOR !== '1';
-const c = (open: string) => (s: string) => (isTTY ? `\x1b[${open}m${s}\x1b[39m` : s);
-const green = c('32');
-const yellow = c('33');
-const red = c('31');
-const dim = (s: string) => (isTTY ? `\x1b[2m${s}\x1b[22m` : s);
 
 const COLOR: Record<DoctorCheckResult['status'], (s: string) => string> = {
   pass: green,

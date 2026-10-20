@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { readConfig } from '../lib/config.js';
 import { type AppHistory, fetchAppHistory, formatRelative } from '../lib/history.js';
+import { bold, dim } from '../lib/style.js';
 
 interface ListedApp {
   id: string;
@@ -15,10 +16,6 @@ interface ListedApp {
   appUrl: string;
   repoUrl: string;
 }
-
-const isTTY = Boolean(process.stdout.isTTY) && process.env.NO_COLOR !== '1';
-const dim = (s: string) => (isTTY ? `\x1b[2m${s}\x1b[22m` : s);
-const bold = (s: string) => (isTTY ? `\x1b[1m${s}\x1b[22m` : s);
 
 export const listCommand = new Command('list')
   .alias('ls')
