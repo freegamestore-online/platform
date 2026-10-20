@@ -341,7 +341,8 @@ Games get every browser feature a website on its own origin has (#369). Motion
 sensors, gamepad, fullscreen, screen wake lock, autoplay, mic, camera,
 geolocation, MIDI, WebXR, clipboard and web share are all `=(self)` on
 `<id>.freegamestore.online`; the browser asks the player where it needs to.
-Only `payment` and `browsing-topics` are off. WebAssembly and workers are
+Only `payment` (policy: free games take no payments, #376) and `browsing-topics`
+are off. WebAssembly and workers are
 allowed. Full matrix: https://freegamestore.online/docs/reference/capabilities/
 
 - Don't add a `<meta http-equiv="Content-Security-Policy">`: it can only take
@@ -351,6 +352,16 @@ allowed. Full matrix: https://freegamestore.online/docs/reference/capabilities/
   storefront listing shows it and `fgs check` warns on undeclared use (#370).
 - SharedArrayBuffer (wasm threads) isn't available yet (#371).
 - The privacy rules and compliance checks below still apply (#373).
+
+---
+
+## No payments
+
+FreeGameStore games take no payments of any kind (#376): no in-game
+purchases, tips, checkout or payment sheet. The host sends `payment=()` on every
+game response, and `fgs check` fails Payment Request / payment handler / Apple
+Pay / Google Pay code, `allow="payment"` iframes, payment members in the web
+manifest and payment SDKs. A link to the creator's own donation page is fine.
 
 ---
 

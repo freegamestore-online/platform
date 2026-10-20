@@ -89,6 +89,11 @@ that size on their own.
 
 ## Privacy & licensing
 
+### `no-payment-capabilities`
+**What:** Your game uses no browser payment capability. FreeGameStore games take no payments ([#376](https://github.com/freegamestore-online/platform/issues/376)).
+**How:** Fails on the Payment Request API, the Payment Handler API (`paymentManager`, `paymentrequest`/`canmakepayment` events), Apple Pay or Google Pay JS, an iframe with `allow="payment"`, `payment*` or `serviceworker` members in your web app manifest, or `payment` in `freegamestore.permissions`. Scans `web/src` and `web/index.html` with comments ignored. Payment-provider SDKs are `no-payment-sdk`'s job.
+**Pass:** Remove the payment code. The word "payment" in text, and a link to your own donation page, are fine.
+
 ### `no-tracking`
 **What:** Your bundle contains no known tracking scripts or endpoints.
 **How:** Greps for `google-analytics.com`, `gtag(`, `plausible`, `sentry-cdn`, `mixpanel`, `segment.com`, `hotjar`, `posthog`, and a few others. Uses word boundaries so legit words like "segment" in 3D code don't false-flag.

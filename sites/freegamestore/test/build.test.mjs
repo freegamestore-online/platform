@@ -820,3 +820,24 @@ test("saving from the stats-less page keeps both saved tags (#364)", async () =>
   const put = page.calls.find((c) => c.init && c.init.method === "PUT");
   assert.deepEqual(JSON.parse(put.init.body), { ga4: "G-ABC123", plausible: "chess.freegamestore.online" });
 });
+
+test("storefront never lets a game take payments: payment=() and no payment delegation (#376)", () => {
+  const { tmp, tmpDist } = runBuild();
+  try {
+    const headers = readFileSync(join(tmpDist, "_headers"), "utf8");
+    assert.match(headers, /Permissions-Policy:[^\n]*\bpayment=\(\)/);
+    // The preview iframes delegate some features to the embedded game, never payment.
+    const pages = [readFileSync(join(tmpDist, "index.html"), "utf8")];
+    const detailDir = join(tmpDist, "games");
+    for (const f of readdirSync(detailDir).filter((n) => n.endsWith(".html")).slice(0, 5)) {
+      pages.push(readFileSync(join(detailDir, f), "utf8"));
+    }
+    for (const html of pages) {
+      for (const m of html.matchAll(/<iframe\b[^>]*\ballow="([^"]*)"/g)) {
+        assert.doesNotMatch(m[1], /\bpayment\b/, `iframe allow="${m[1]}" delegates payment`);
+      }
+    }
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});

@@ -28,7 +28,7 @@ The host sends these headers on every game file. Source: `workers/host/src/host.
 | `bluetooth`, `hid`, `serial`, `usb` | on (self) | Custom controllers |
 | `keyboard-map`, `local-fonts`, `window-management`, `idle-detection`, `compute-pressure`, `storage-access` | on (self) | Less common, available |
 | `publickey-credentials-create`, `publickey-credentials-get` | on (self) | Passkeys |
-| `payment` | **off** | FreeGameStore games are free, and a payment sheet inside one is a way to take money from players. See [#374](https://github.com/freegamestore-online/platform/issues/374). |
+| `payment` | **off, by policy** | FreeGameStore games take no payments ([#376](https://github.com/freegamestore-online/platform/issues/376)). The header is `payment=()` on every game response, and `fgs check` fails payment code. See [Developer guidelines](/docs/guidelines/). |
 | `browsing-topics` | **off** | Builds an ad-targeting profile of the player; no game needs it. |
 
 Pointer lock, vibration, notifications and persistent storage have no Permissions-Policy feature, and nothing on the platform limits them. (Pointer lock and notifications still need a user gesture or permission prompt from the browser.)

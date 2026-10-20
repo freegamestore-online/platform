@@ -13,6 +13,18 @@ These rules are not optional:
 
 - **Free means free.** No freemium mechanics, ads, paid plans, paywalls, or
   "upgrade to unlock" flows.
+- **No payments.** A FreeGameStore game takes no money in any form: no
+  in-game purchases, tips, checkout or payment sheet. This is enforced, not
+  just a rule ([#376](https://github.com/freegamestore-online/platform/issues/376)):
+  - every game response carries `Permissions-Policy: payment=()`, so the
+    browser refuses the Payment Request API;
+  - `fgs check` fails a game that uses payment APIs (Payment Request, payment
+    handlers, Apple Pay, Google Pay), delegates `payment` to an iframe, puts
+    `payment*` or `serviceworker` members in its web app manifest, declares a
+    `payment` permission, or loads a payment-provider SDK.
+
+  A link to your own donation or sponsor page (Ko-fi, GitHub Sponsors) is fine:
+  that isn't the game taking a payment. Paid games belong on ProGameStore.
 - **No tracking.** No analytics SDKs, tracking cookies, fingerprinting, or
   unnecessary data collection.
 - **Open source.** Games should be public, MIT-licensed, and inspectable on
