@@ -23,12 +23,11 @@
 // failure is reported in `collaborators` and never undoes the registry
 // transfer, which is the ownership record and has already committed.
 
+import { VALID_GH_LOGIN } from '../../../contracts/registry-ownership/v1/contract';
 import { ghApi, mutateRegistry, type PublishEnv, STORE_CONFIG, type Step } from './publish';
 
 /** Shape check only. Whether the game exists is decided by the registry. */
 export const GAME_ID_RE = /^[a-z0-9][a-z0-9-]{0,62}$/;
-/** GitHub login: 1–39 of [A-Za-z0-9-], not starting or ending with a hyphen. */
-const LOGIN_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/;
 const REASON_MAX = 500;
 
 export interface TransferInput {
@@ -91,9 +90,9 @@ export function parseTransferBody(
   if (!game_id) return { ok: false, error: 'game_id is required' };
   if (!GAME_ID_RE.test(game_id)) return { ok: false, error: 'invalid game id' };
   if (!from_login) return { ok: false, error: 'from_login is required' };
-  if (!LOGIN_RE.test(from_login)) return { ok: false, error: 'invalid from_login' };
+  if (!VALID_GH_LOGIN.test(from_login)) return { ok: false, error: 'invalid from_login' };
   if (!to_login) return { ok: false, error: 'to_login is required' };
-  if (!LOGIN_RE.test(to_login)) return { ok: false, error: 'invalid to_login' };
+  if (!VALID_GH_LOGIN.test(to_login)) return { ok: false, error: 'invalid to_login' };
   if (!reason) return { ok: false, error: 'reason is required' };
   if (reason.length > REASON_MAX) return { ok: false, error: 'reason is too long' };
   const keep = raw.keep_previous_access;
