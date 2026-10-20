@@ -111,18 +111,74 @@ export function etagsMatch(headerValue: string | null, objectEtag: string): bool
 }
 
 /**
+ * Browser features a hosted game gets on its own origin (#369). Default-open:
+ * the browser already asks the player before mic, camera, location, a USB or
+ * serial device and the like, so blocking them in Permissions-Policy only
+ * broke games and protected nobody. `=(self)` grants the game's own origin and
+ * no cross-origin iframe inside it: third-party embeds stay off by default.
+ *
+ * Pointer lock, vibration, notifications, persistent storage and wake-up by
+ * push have no Permissions-Policy feature; nothing here limits them.
+ */
+export const OPEN_FEATURES = [
+  "accelerometer",
+  "autoplay",
+  "bluetooth",
+  "camera",
+  "clipboard-read",
+  "clipboard-write",
+  "compute-pressure",
+  "display-capture",
+  "encrypted-media",
+  "fullscreen",
+  "gamepad",
+  "geolocation",
+  "gyroscope",
+  "hid",
+  "idle-detection",
+  "keyboard-map",
+  "local-fonts",
+  "magnetometer",
+  "microphone",
+  "midi",
+  "picture-in-picture",
+  "publickey-credentials-create",
+  "publickey-credentials-get",
+  "screen-wake-lock",
+  "serial",
+  "storage-access",
+  "usb",
+  "web-share",
+  "window-management",
+  "xr-spatial-tracking",
+] as const;
+
+/** The only features turned off, each with the reason it harms the player. */
+export const CLOSED_FEATURES: Record<string, string> = {
+  // Games on FreeGameStore are free. A Payment Request sheet inside one is a
+  // way to take money from players under a free listing. Revisit in the
+  // payment trade-off issue filed from #369.
+  payment: "free store: a payment sheet in a free game is a way to scam players",
+  // The Topics API builds an ad-interest profile of the player. No game
+  // capability depends on it.
+  "browsing-topics": "builds an ad-targeting profile of the player; no game needs it",
+};
+
+/** The Permissions-Policy header value for every game response. */
+export function permissionsPolicy(): string {
+  return [
+    ...OPEN_FEATURES.map((f) => `${f}=(self)`),
+    ...Object.keys(CLOSED_FEATURES).map((f) => `${f}=()`),
+  ].join(", ");
+}
+
+/**
  * Build the security headers we attach to every R2-served response. Split
  * out from the index.ts respond() helper so the policy is unit-testable
- * without spinning up the full Worker, and so the next person to tighten
- * CSP can edit one place. Pass-through args:
+ * without spinning up the full Worker. Pass-through args:
  *   - revalidate: true for stable-named files whose content changes across
  *     deploys (HTML, version.json) — short cache + must-revalidate. false for
  *     content-hashed bundle assets, which are safe to cache immutably.
- *
- * Analytics origins are listed explicitly in script-src + connect-src so
- * a future tightening (removing the broad `https:` and replacing with
- * an allowlist) doesn't silently break the platform analytics loader,
- * CF Web Analytics, or BYO GA4 / Plausible tags.
  */
 export function securityHeaders(opts: { revalidate: boolean }): Headers {
   const headers = new Headers();
@@ -131,36 +187,34 @@ export function securityHeaders(opts: { revalidate: boolean }): Headers {
   } else {
     headers.set("cache-control", "public, max-age=31536000, immutable");
   }
-  // frame-ancestors lets the freegamestore.online storefront iframe
-  // games for previews.
-  // Games are untrusted user content. The two CSP directives that used a blanket
-  // `https:` — script-src and connect-src — were the real runtime holes: a
-  // malicious game could load arbitrary external JS, or exfiltrate data
-  // (gameplay, a stolen token) to any host via fetch/XHR/beacon/WebSocket.
-  // Games are self-contained bundles served from their own origin and only need
-  // to talk to the platform (*.freegamestore.online: auth, leaderboard, rooms)
-  // plus CF analytics, so we drop the wildcards. This is enforced at serve time,
-  // so a creator can't bypass it the way they can a CI check. (img/style/font
-  // keep https: — loading external media is common and low-risk; the residual
-  // GET-in-URL exfil channel is far narrower than connect-src.)
-  // Trusted external origins: the platform analytics loader + the opt-in BYO
-  // analytics vendors (Cloudflare / GA4 / Plausible) games may legitimately
-  // load. Everything else is dropped — script-src and connect-src no longer
-  // carry a blanket `https:`, so a malicious game can't inject arbitrary
-  // external JS or exfiltrate data to an attacker host. Platform calls go to
-  // *.freegamestore.online (auth, leaderboard, rooms).
-  const analyticsScript =
-    "https://static.cloudflareinsights.com https://api.freegamestore.online https://www.googletagmanager.com https://plausible.io";
-  const analyticsConnect =
-    "https://cloudflareinsights.com https://api.freegamestore.online https://www.google-analytics.com https://region1.google-analytics.com https://plausible.io";
+  // Default-open (#369): a game may load scripts, call APIs and open
+  // WebSockets on any https host, like any website on its own origin. The old
+  // allowlist (platform + analytics only) was meant to stop exfiltration of "a
+  // stolen token", but a game page holds no platform credential it can read
+  // (the session cookie is on auth.freegamestore.online, HttpOnly; the only
+  // token a game sees is a 5-minute leaderboard handoff for that game), inline
+  // script is allowed anyway, and img-src https: already lets a page send data
+  // out. Blocking connect/script only stopped multiplayer servers, public APIs
+  // and engines loaded from a CDN.
+  //
+  // What stays restricted, and why:
+  //   - object-src 'none': plugins (Flash, Java) are dead and only an attack
+  //     surface; no game feature uses <object>/<embed> plugins.
+  //   - base-uri 'self': an injected <base href> would re-point every relative
+  //     URL on the page (scripts included) at another host.
+  //   - frame-ancestors: only the game itself and the storefront may embed a
+  //     game, so other sites can't frame it for clickjacking.
+  //   - upgrade-insecure-requests: plain http subresources are blocked as mixed
+  //     content anyway; this upgrades them instead of failing.
   const csp = [
     "default-src 'self' https: data: blob:",
-    `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${analyticsScript}`,
-    "worker-src 'self' blob:",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https: blob:",
+    "worker-src 'self' blob: data:",
     "style-src 'self' 'unsafe-inline' https:",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data: https:",
-    `connect-src 'self' https://*.freegamestore.online wss://*.freegamestore.online ${analyticsConnect}`,
+    "media-src 'self' data: blob: https:",
+    "connect-src 'self' https: wss: data: blob:",
     "frame-src 'self' https:",
     "frame-ancestors 'self' https://freegamestore.online https://*.freegamestore.online https://freegamestore.pages.dev",
     "base-uri 'self'",
@@ -168,10 +222,7 @@ export function securityHeaders(opts: { revalidate: boolean }): Headers {
     "upgrade-insecure-requests",
   ].join("; ");
   headers.set("content-security-policy", csp);
-  headers.set(
-    "permissions-policy",
-    "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=(), midi=(), interest-cohort=()",
-  );
+  headers.set("permissions-policy", permissionsPolicy());
   headers.set("x-content-type-options", "nosniff");
   headers.set("referrer-policy", "strict-origin-when-cross-origin");
   headers.set("strict-transport-security", "max-age=31536000; includeSubDomains");

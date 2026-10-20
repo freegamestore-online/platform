@@ -11,6 +11,8 @@ import {
   resolveRoute,
   resolveRouteCached,
   securityHeaders,
+  OPEN_FEATURES,
+  CLOSED_FEATURES,
   shouldRevalidate,
 } from "../host";
 
@@ -247,79 +249,104 @@ describe("securityHeaders", () => {
     expect(asset.get("cache-control")).toContain("immutable");
   });
 
-  it("CSP allows this store's own analytics loader endpoint (FGS, not FAS)", () => {
-    const csp = html.get("content-security-policy") ?? "";
-    expect(csp).toContain("https://api.freegamestore.online");
-    expect(csp).toMatch(/script-src[^;]*https:\/\/api\.freegamestore\.online/);
-    expect(csp).toMatch(/connect-src[^;]*https:\/\/api\.freegamestore\.online/);
+  // #369: default-open. Every value is asserted exactly so any future
+  // tightening is a deliberate, reviewed change to this table.
+  const directive = (name: string) =>
+    (html.get("content-security-policy") ?? "")
+      .split(";")
+      .map((d) => d.trim())
+      .find((d) => d === name || d.startsWith(`${name} `));
+
+  it.each([
+    ["default-src", "default-src 'self' https: data: blob:"],
+    ["script-src", "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https: blob:"],
+    ["worker-src", "worker-src 'self' blob: data:"],
+    ["style-src", "style-src 'self' 'unsafe-inline' https:"],
+    ["img-src", "img-src 'self' data: blob: https:"],
+    ["font-src", "font-src 'self' data: https:"],
+    ["media-src", "media-src 'self' data: blob: https:"],
+    ["connect-src", "connect-src 'self' https: wss: data: blob:"],
+    ["frame-src", "frame-src 'self' https:"],
+    [
+      "frame-ancestors",
+      "frame-ancestors 'self' https://freegamestore.online https://*.freegamestore.online https://freegamestore.pages.dev",
+    ],
+    ["base-uri", "base-uri 'self'"],
+    ["object-src", "object-src 'none'"],
+    ["upgrade-insecure-requests", "upgrade-insecure-requests"],
+  ])("CSP %s is exactly the default-open value", (name, value) => {
+    expect(directive(name)).toBe(value);
+  });
+
+  it("CSP has no directives beyond the asserted ones", () => {
+    expect((html.get("content-security-policy") ?? "").split(";")).toHaveLength(13);
+  });
+
+  it("CSP still reaches the platform and the analytics vendors through https:/wss:", () => {
+    expect(directive("connect-src")).toContain(" https:");
+    expect(directive("connect-src")).toContain(" wss:");
+    expect(directive("script-src")).toContain(" https:");
     // Regression: must NOT reference a sibling store's origin.
-    expect(csp).not.toContain("freeappstore.online");
-  });
-
-  it("CSP allows CF Web Analytics beacon (cookieless first-party)", () => {
-    const csp = html.get("content-security-policy") ?? "";
-    expect(csp).toContain("https://static.cloudflareinsights.com");
-    expect(csp).toContain("https://cloudflareinsights.com");
-  });
-
-  it("CSP allows BYO Google Analytics 4 tags", () => {
-    const csp = html.get("content-security-policy") ?? "";
-    expect(csp).toContain("https://www.googletagmanager.com");
-    expect(csp).toContain("https://www.google-analytics.com");
-  });
-
-  it("CSP allows BYO Plausible tags", () => {
-    const csp = html.get("content-security-policy") ?? "";
-    expect(csp).toContain("https://plausible.io");
-  });
-
-  it("CSP has NO wildcard https:/wss: in script-src or connect-src (games can't inject/exfil)", () => {
-    const csp = html.get("content-security-policy") ?? "";
-    const sources = (name: string) =>
-      (
-        csp
-          .split(";")
-          .map((d) => d.trim())
-          .find((d) => d.startsWith(`${name} `)) ?? ""
-      )
-        .split(/\s+/)
-        .slice(1);
-    // A bare `https:`/`wss:` source would let a malicious game load arbitrary
-    // external scripts or exfiltrate data to any host. Only the named
-    // platform + analytics allowlist may appear.
-    expect(sources("script-src")).not.toContain("https:");
-    expect(sources("connect-src")).not.toContain("https:");
-    expect(sources("connect-src")).not.toContain("wss:");
-    // ...but the sanctioned platform origin is still reachable.
-    expect(sources("connect-src")).toContain("https://*.freegamestore.online");
-  });
-
-  it("CSP locks down object-src and base-uri (defense-in-depth)", () => {
-    const csp = html.get("content-security-policy") ?? "";
-    expect(csp).toMatch(/object-src 'none'/);
-    expect(csp).toMatch(/base-uri 'self'/);
-  });
-
-  it("frame-ancestors allows storefront preview iframes only", () => {
-    const csp = html.get("content-security-policy") ?? "";
-    expect(csp).toContain("frame-ancestors 'self' https://freegamestore.online");
-    expect(csp).toContain("https://freegamestore.pages.dev");
-    expect(csp).toContain("https://*.freegamestore.online");
+    expect(html.get("content-security-policy")).not.toContain("freeappstore.online");
   });
 
   it("upgrades insecure requests + sets HSTS", () => {
-    expect(html.get("content-security-policy")).toContain("upgrade-insecure-requests");
     expect(html.get("strict-transport-security")).toMatch(/max-age=\d+/);
     expect(html.get("strict-transport-security")).toContain("includeSubDomains");
   });
 
-  it("disables powerful APIs by default (Permissions-Policy)", () => {
-    const pp = html.get("permissions-policy") ?? "";
-    expect(pp).toContain("geolocation=()");
-    expect(pp).toContain("camera=()");
-    expect(pp).toContain("microphone=()");
-    expect(pp).toContain("payment=()");
-    expect(pp).toContain("interest-cohort=()");
+  const policy = () =>
+    new Map(
+      (html.get("permissions-policy") ?? "").split(",").map((entry) => {
+        const [feature, allow] = entry.trim().split("=");
+        return [feature, allow] as const;
+      }),
+    );
+
+  it.each([
+    "accelerometer",
+    "autoplay",
+    "bluetooth",
+    "camera",
+    "clipboard-read",
+    "clipboard-write",
+    "compute-pressure",
+    "display-capture",
+    "encrypted-media",
+    "fullscreen",
+    "gamepad",
+    "geolocation",
+    "gyroscope",
+    "hid",
+    "idle-detection",
+    "keyboard-map",
+    "local-fonts",
+    "magnetometer",
+    "microphone",
+    "midi",
+    "picture-in-picture",
+    "publickey-credentials-create",
+    "publickey-credentials-get",
+    "screen-wake-lock",
+    "serial",
+    "storage-access",
+    "usb",
+    "web-share",
+    "window-management",
+    "xr-spatial-tracking",
+  ])("Permissions-Policy opens %s on the game's own origin", (feature) => {
+    expect(policy().get(feature)).toBe("(self)");
+  });
+
+  it.each(["payment", "browsing-topics"])("Permissions-Policy closes %s, with a written reason", (feature) => {
+    expect(policy().get(feature)).toBe("()");
+    expect(CLOSED_FEATURES[feature]).toMatch(/\w/);
+  });
+
+  it("Permissions-Policy lists exactly the open and closed features, nothing else", () => {
+    expect([...policy().keys()].sort()).toEqual([...OPEN_FEATURES, ...Object.keys(CLOSED_FEATURES)].sort());
+    // interest-cohort was FLoC; Chrome no longer recognises it and logs a warning.
+    expect(policy().has("interest-cohort")).toBe(false);
   });
 
   it("sets nosniff + strict referrer policy", () => {
