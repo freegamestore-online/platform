@@ -1,1 +1,6 @@
-tsconfig.base.json
+// A real file, not a symlink to tsconfig.base.json: on Windows
+// (core.symlinks=false) the symlink checked out as a one-line text file and
+// broke every tool that reads the nearest tsconfig (#368).
+{
+  "extends": "./tsconfig.base.json"
+}

@@ -1,0 +1,16 @@
+# Keep text files LF on every checkout. Windows clones were getting CRLF
+# working copies of LF files, which showed up as whole-file diffs and broke
+# tests that match on a newline (#368).
+* text=auto eol=lf
+
+# Binary assets: never touch line endings.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.wasm binary
+*.zip binary
