@@ -467,6 +467,90 @@ function iconHtml(game) {
   return escapeHtml((game.name || '?').trim().charAt(0).toUpperCase() || '?');
 }
 
+// --- Permissions on listings (#370) ---
+// What each game will ask the player for, so the browser's prompt is no
+// surprise. Data: game-permissions.json, written by
+// scripts/scan-game-permissions.mjs (declared in the game's package.json, plus
+// detected in its source). This catalog mirrors PERMISSIONS in
+// packages/compliance/src/lib/permissions.ts; a build test keeps them equal.
+const PERMISSION_INFO = {
+  motion: { name: 'Motion sensors', icon: '📱' },
+  microphone: { name: 'Microphone', icon: '🎤' },
+  camera: { name: 'Camera', icon: '📷' },
+  location: { name: 'Location', icon: '📍' },
+  notifications: { name: 'Notifications', icon: '🔔' },
+  midi: { name: 'MIDI devices', icon: '🎹' },
+  'clipboard-read': { name: 'Read clipboard', icon: '📋' },
+  bluetooth: { name: 'Bluetooth devices', icon: '🔵' },
+  usb: { name: 'USB devices', icon: '🔌' },
+  serial: { name: 'Serial devices', icon: '🔌' },
+  hid: { name: 'Game controllers (HID)', icon: '🕹️' },
+  xr: { name: 'VR / AR', icon: '🥽' },
+  gamepad: { name: 'Gamepad', icon: '🎮' },
+  'wake-lock': { name: 'Keeps screen awake', icon: '☀️' },
+};
+const PERMISSIONS_PATH = process.env.FGS_PERMISSIONS_PATH || path.join(ROOT, 'game-permissions.json');
+let permissionsData = {};
+try {
+  permissionsData = JSON.parse(fs.readFileSync(PERMISSIONS_PATH, 'utf8')).games || {};
+} catch {
+  console.warn(`⚠ No readable ${path.basename(PERMISSIONS_PATH)}: listings will say permissions are not checked yet.`);
+}
+
+/** A game's permissions in catalog order, or null when it hasn't been scanned.
+ *  Declared and detected are merged; an unknown id from either is dropped. */
+function gamePermissions(id) {
+  const entry = permissionsData[id];
+  if (!entry || typeof entry !== 'object') return null;
+  const declared = entry.declared && typeof entry.declared === 'object' ? entry.declared : {};
+  const detected = new Set(Array.isArray(entry.detected) ? entry.detected : []);
+  return Object.keys(PERMISSION_INFO)
+    .filter((pid) => pid in declared || detected.has(pid))
+    .map((pid) => ({
+      id: pid,
+      ...PERMISSION_INFO[pid],
+      reason: typeof declared[pid] === 'string' ? declared[pid] : '',
+      declared: pid in declared,
+    }));
+}
+
+/** The compact icon row on a game card. Empty when there's nothing to show. */
+function renderCardPermissions(id) {
+  const perms = gamePermissions(id);
+  if (!perms || perms.length === 0) return '';
+  const names = perms.map((p) => p.name).join(', ');
+  const icons = perms.map((p) => `<span aria-hidden="true">${p.icon}</span>`).join('');
+  return `<span class="app-perms" role="img" aria-label="Asks for: ${escapeHtml(names)}" title="Asks for: ${escapeHtml(names)}">${icons}</span>`;
+}
+
+/** The 'Permissions' section on a game's listing page. */
+function renderPermissionsSection(id) {
+  const perms = gamePermissions(id);
+  let body;
+  if (perms === null) {
+    body = '<p class="app-perm-none">Not checked yet.</p>';
+  } else if (perms.length === 0) {
+    body =
+      '<p class="app-perm-none">No special permissions. This game won’t ask for your camera, microphone, location, sensors or devices.</p>';
+  } else {
+    const items = perms
+      .map((p) => {
+        const reason = p.reason
+          ? escapeHtml(p.reason)
+          : p.declared
+            ? ''
+            : 'Found in the game’s code';
+        return `<li class="app-perm"><span class="app-perm-icon" aria-hidden="true">${p.icon}</span><span class="app-perm-text"><span class="app-perm-name">${escapeHtml(p.name)}</span>${reason ? `<span class="app-perm-reason">${reason}</span>` : ''}</span></li>`;
+      })
+      .join('');
+    body = `<p class="app-perm-intro">Your browser asks before the game can use these.</p><ul class="app-perm-list">${items}</ul>`;
+  }
+  return `<section class="app-section" id="permissions">
+      <h2>Permissions</h2>
+      ${body}
+    </section>`;
+}
+
 function renderGameCard(game) {
   const icon = iconHtml(game);
   return `        <div class="app-card compact" data-id="${escapeHtml(game.id)}" data-category="${escapeHtml(game.category)}" data-published="${escapeHtml(game.firstPublished || '')}" data-about="/games/${escapeHtml(game.id)}.html">
@@ -474,6 +558,7 @@ function renderGameCard(game) {
           <div class="app-body">
             <span class="app-name">${escapeHtml(game.name)}</span>
             <span class="app-meta">${escapeHtml(categoryLabel(game.category))}</span>
+            ${renderCardPermissions(game.id)}
           </div>
           <a href="${escapeHtml(game.appUrl)}" rel="noopener" class="app-cta" aria-label="Play ${escapeHtml(game.name)}">
             <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="6,4 20,12 6,20" /></svg>
@@ -893,6 +978,7 @@ games.forEach((game, i) => {
     .replace(/\{\{ACCOUNT\}\}/g, account)
     .replace(/\{\{PUBLISHED_LINE\}\}/g, renderPublishedLine(history))
     .replace(/\{\{HISTORY_SECTION\}\}/g, renderHistorySection(game.repo, history))
+    .replace(/\{\{PERMISSIONS_SECTION\}\}/g, renderPermissionsSection(game.id))
     .replace(/\{\{AUDIT_BADGE\}\}/g, renderAuditBadge(auditMap.get(game.id)))
     .replace(/\{\{VIEWPORT_BADGE\}\}/g, renderViewportBadge(manifests[i]));
   html = replaceAssetVersions(html);

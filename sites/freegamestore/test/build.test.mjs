@@ -119,15 +119,21 @@ test("build.js escapes <script> payloads in game descriptions", () => {
   }
 });
 
-function runBuildWithRegistry(games) {
+function runBuildWithRegistry(games, permissions) {
   const tmp = mkdtempSync(join(tmpdir(), "fgs-build-validator-"));
   const tmpRegistry = join(tmp, "registry.json");
   const tmpDist = join(tmp, "dist");
   writeFileSync(tmpRegistry, JSON.stringify({ games }, null, 2));
+  // #370: optional game-permissions.json for the listing sections.
+  const permEnv = {};
+  if (permissions) {
+    permEnv.FGS_PERMISSIONS_PATH = join(tmp, "game-permissions.json");
+    writeFileSync(permEnv.FGS_PERMISSIONS_PATH, JSON.stringify({ games: permissions }));
+  }
   // spawnSync captures stderr on success too — the resilient validator warns
   // about dropped entries via stderr while still exiting 0, and tests assert it.
   const res = spawnSync(process.execPath, [BUILD_JS], {
-    env: { ...process.env, FGS_REGISTRY_PATH: tmpRegistry, FGS_DIST: tmpDist },
+    env: { ...process.env, FGS_REGISTRY_PATH: tmpRegistry, FGS_DIST: tmpDist, ...permEnv },
     cwd: REPO_ROOT,
     encoding: "utf8",
     timeout: 60_000,
@@ -638,4 +644,81 @@ test("analytics chart colours bars from the stylesheet, not var() in an SVG attr
   assert.doesNotMatch(js, /fill:\s*['"]var\(/);
   const css = readFileSync(join(REPO_ROOT, "style.css"), "utf8");
   assert.match(css, /\.an-chart-svg rect\s*\{\s*fill:\s*var\(--accent\)/);
+});
+
+// --- #370: permissions on listings ---
+
+const PERM_GAMES = [
+  { ...VALID_GAME, id: "tilt-game", name: "Tilt", appUrl: "https://tilt-game.freegamestore.online" },
+  { ...VALID_GAME, id: "plain-game", name: "Plain", appUrl: "https://plain-game.freegamestore.online" },
+  { ...VALID_GAME, id: "new-game", name: "New", appUrl: "https://new-game.freegamestore.online" },
+];
+const PERMS = {
+  "tilt-game": {
+    declared: { motion: "Tilt the phone to steer <b>fast</b>", gamepad: "" },
+    detected: ["motion", "microphone"],
+  },
+  "plain-game": { declared: {}, detected: [] },
+  // new-game: not scanned yet.
+};
+
+function withPermissionBuild(fn) {
+  const { ok, stderr, tmp, tmpDist } = runBuildWithRegistry(PERM_GAMES, PERMS);
+  try {
+    assert.equal(ok, true, stderr);
+    fn((id) => readFileSync(join(tmpDist, "games", `${id}.html`), "utf8"), readFileSync(join(tmpDist, "index.html"), "utf8"));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+test("listing shows declared + detected permissions with icon, name and reason (#370)", () => {
+  withPermissionBuild((page) => {
+    const html = page("tilt-game");
+    const section = html.slice(html.indexOf('id="permissions"'), html.indexOf("</section>", html.indexOf('id="permissions"')));
+    assert.match(section, /<h2>Permissions<\/h2>/);
+    // Catalog order: motion, microphone, gamepad.
+    const names = [...section.matchAll(/app-perm-name">([^<]+)</g)].map((m) => m[1]);
+    assert.deepEqual(names, ["Motion sensors", "Microphone", "Gamepad"]);
+    // Creator reason is escaped; an undeclared detection says where it came from.
+    assert.ok(section.includes("Tilt the phone to steer &lt;b&gt;fast&lt;/b&gt;"));
+    assert.ok(!section.includes("<b>fast</b>"));
+    assert.ok(section.includes("Found in the game’s code"));
+  });
+});
+
+test("listing says 'No special permissions' for a scanned game with none, 'Not checked yet' otherwise (#370)", () => {
+  withPermissionBuild((page) => {
+    assert.match(page("plain-game"), /No special permissions\./);
+    assert.match(page("new-game"), /<h2>Permissions<\/h2>\s*<p class="app-perm-none">Not checked yet\.<\/p>/);
+  });
+});
+
+test("game cards carry a compact permission icon row only when there is one (#370)", () => {
+  withPermissionBuild((_page, index) => {
+    const card = (id) => {
+      const start = index.indexOf(`data-id="${id}"`);
+      return index.slice(start, index.indexOf("</a>", start));
+    };
+    assert.match(card("tilt-game"), /class="app-perms" role="img" aria-label="Asks for: Motion sensors, Microphone, Gamepad"/);
+    assert.ok(!card("plain-game").includes("app-perms"));
+    assert.ok(!card("new-game").includes("app-perms"));
+  });
+});
+
+test("the storefront's permission catalog matches the compliance package's (#370)", () => {
+  const ts = readFileSync(join(REPO_ROOT, "..", "..", "packages", "compliance", "src", "lib", "permissions.ts"), "utf8");
+  const fromCompliance = [...ts.matchAll(/\{ id: '([^']+)', name: '([^']+)', icon: '([^']+)'/g)].map((m) => [m[1], m[2], m[3]]);
+  const js = readFileSync(BUILD_JS, "utf8");
+  const block = js.slice(js.indexOf("const PERMISSION_INFO = {"), js.indexOf("};", js.indexOf("const PERMISSION_INFO = {")));
+  const fromStorefront = [...block.matchAll(/^\s+'?([\w-]+)'?: \{ name: '([^']+)', icon: '([^']+)' \}/gm)].map((m) => [m[1], m[2], m[3]]);
+  assert.ok(fromCompliance.length >= 10, "parsed the compliance catalog");
+  assert.deepEqual(fromStorefront, fromCompliance);
+});
+
+test("the backfilled game-permissions.json covers every registry game (#370)", () => {
+  const registry = JSON.parse(readFileSync(REAL_REGISTRY, "utf8"));
+  const data = JSON.parse(readFileSync(join(REPO_ROOT, "game-permissions.json"), "utf8"));
+  const missing = registry.games.map((g) => g.id).filter((id) => !data.games[id]);
+  assert.deepEqual(missing, []);
 });
