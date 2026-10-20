@@ -15,9 +15,15 @@
 // failed insert is reported in the response (`audit_id: null`) rather than
 // undoing a transfer that already happened.
 //
-// Registry only: repo collaborator access on GitHub is not changed here.
+// Repo access follows the owner (#359). After the registry commit, `to_login`
+// is granted push on the game repo, and `from_login`'s direct collaborator
+// grant and any pending invite are revoked unless `keep_previous_access` is
+// set. So undo (the same call with the logins swapped) restores the old state,
+// apart from the old owner having to accept a fresh invite. A collaborator
+// failure is reported in `collaborators` and never undoes the registry
+// transfer, which is the ownership record and has already committed.
 
-import { ghApi, mutateRegistry, type PublishEnv } from './publish';
+import { ghApi, mutateRegistry, type PublishEnv, STORE_CONFIG, type Step } from './publish';
 
 /** Shape check only. Whether the game exists is decided by the registry. */
 export const GAME_ID_RE = /^[a-z0-9][a-z0-9-]{0,62}$/;
@@ -30,6 +36,8 @@ export interface TransferInput {
   from_login: string;
   to_login: string;
   reason: string;
+  /** Leave `from_login`'s repo access in place (#359). Default false. */
+  keep_previous_access?: boolean;
 }
 
 export interface TransferAudit {
@@ -53,6 +61,7 @@ export type TransferOutcome =
         owner_login: string;
         audit_id: number | null;
         audit_error?: string;
+        collaborators: Step[];
       };
     }
   | { status: 400; body: { error: string; login?: string } }
@@ -87,7 +96,20 @@ export function parseTransferBody(
   if (!LOGIN_RE.test(to_login)) return { ok: false, error: 'invalid to_login' };
   if (!reason) return { ok: false, error: 'reason is required' };
   if (reason.length > REASON_MAX) return { ok: false, error: 'reason is too long' };
-  return { ok: true, value: { game_id, from_login, to_login, reason } };
+  const keep = raw.keep_previous_access;
+  if (keep !== undefined && typeof keep !== 'boolean') {
+    return { ok: false, error: 'keep_previous_access must be a boolean' };
+  }
+  return {
+    ok: true,
+    value: {
+      game_id,
+      from_login,
+      to_login,
+      reason,
+      ...(keep ? { keep_previous_access: true } : {}),
+    },
+  };
 }
 
 /** Same table as workers/host/migrations/0003_create_game_owner_transfers.sql.
@@ -123,6 +145,129 @@ async function canonicalLogin(env: PublishEnv, login: string): Promise<string | 
   return user.login as string;
 }
 
+/** The game repo, from the registry entry when it names one in our org, else
+ *  `<org>/<game_id>` (the provision default). Null for a repo outside the org:
+ *  this path never touches access on a repo the platform doesn't own. */
+export function gameRepo(game: Record<string, unknown>, gameId: string): string | null {
+  const org = STORE_CONFIG.org;
+  const repo = typeof game.repo === 'string' ? game.repo.trim() : '';
+  if (!repo) return `${org}/${gameId}`;
+  const [owner, name, ...rest] = repo.split('/');
+  if (rest.length || !owner || !name || !same(owner, org)) return null;
+  return `${org}/${name}`;
+}
+
+/** Grant `to` push on `repo`, then revoke `from`'s direct access and pending
+ *  invites unless `keepFrom`. Each GitHub call reports a step and never throws. */
+export async function syncCollaborators(
+  env: PublishEnv,
+  repo: string,
+  from: string,
+  to: string,
+  keepFrom: boolean,
+): Promise<Step[]> {
+  const steps: Step[] = [];
+  const user = (login: string) => encodeURIComponent(login);
+  try {
+    const grant = await ghApi(env, `/repos/${repo}/collaborators/${user(to)}`, 'PUT', {
+      permission: 'push',
+    });
+    if (grant.__status === 201) {
+      steps.push({
+        name: 'Grant',
+        status: 'ok',
+        detail: `${to} invited as push collaborator on ${repo}; they must accept at https://github.com/${repo}/invitations`,
+      });
+    } else if (grant.__status === 204) {
+      steps.push({ name: 'Grant', status: 'skip', detail: `${to} already has access to ${repo}` });
+    } else {
+      steps.push({
+        name: 'Grant',
+        status: 'fail',
+        detail: `could not grant ${to} push on ${repo} (${grant.__status}): ${grant.message ?? 'no message'}`,
+      });
+    }
+  } catch (err) {
+    steps.push({ name: 'Grant', status: 'fail', detail: `could not grant ${to}: ${String(err)}` });
+  }
+
+  if (keepFrom) {
+    steps.push({
+      name: 'Revoke',
+      status: 'skip',
+      detail: `${from} keeps access (keep_previous_access)`,
+    });
+    return steps;
+  }
+
+  try {
+    const removed = await ghApi(env, `/repos/${repo}/collaborators/${user(from)}`, 'DELETE');
+    if (removed.__status === 204 || removed.__status === 404) {
+      steps.push({
+        name: 'Revoke',
+        status: 'ok',
+        detail: `${from} is not a direct collaborator on ${repo}`,
+      });
+    } else {
+      steps.push({
+        name: 'Revoke',
+        status: 'fail',
+        detail: `could not remove ${from} from ${repo} (${removed.__status}): ${removed.message ?? 'no message'}`,
+      });
+    }
+  } catch (err) {
+    steps.push({
+      name: 'Revoke',
+      status: 'fail',
+      detail: `could not remove ${from}: ${String(err)}`,
+    });
+  }
+
+  try {
+    const invites = await ghApi(env, `/repos/${repo}/invitations?per_page=100`);
+    if (invites.__status !== 200 || !Array.isArray(invites)) {
+      steps.push({
+        name: 'Revoke invite',
+        status: 'fail',
+        detail: `could not list invitations on ${repo} (${invites.__status})`,
+      });
+    } else {
+      const pending = (invites as Array<{ id?: unknown; invitee?: { login?: unknown } }>).filter(
+        (inv) =>
+          typeof inv?.id === 'number' &&
+          typeof inv.invitee?.login === 'string' &&
+          same(inv.invitee.login, from),
+      );
+      if (!pending.length) {
+        steps.push({
+          name: 'Revoke invite',
+          status: 'skip',
+          detail: `no pending invite for ${from}`,
+        });
+      }
+      for (const inv of pending) {
+        const del = await ghApi(env, `/repos/${repo}/invitations/${inv.id}`, 'DELETE');
+        steps.push(
+          del.__status === 204 || del.__status === 404
+            ? {
+                name: 'Revoke invite',
+                status: 'ok',
+                detail: `pending invite for ${from} withdrawn`,
+              }
+            : {
+                name: 'Revoke invite',
+                status: 'fail',
+                detail: `could not withdraw invite ${inv.id} for ${from} (${del.__status})`,
+              },
+        );
+      }
+    }
+  } catch (err) {
+    steps.push({ name: 'Revoke invite', status: 'fail', detail: String(err) });
+  }
+  return steps;
+}
+
 /**
  * Move a game's `creatorGithub` from `from_login` to `to_login`.
  *
@@ -145,6 +290,7 @@ export async function transferGameOwner(
     return { status: 400, body: { error: 'unknown login', login: input.to_login } };
 
   let previous = '';
+  let repo: string | null = null;
   const message =
     `Transfer ${input.game_id} owner from ${input.from_login} to ${toLogin}\n\n` +
     `Admin: ${actor}\nReason: ${input.reason}\nRefs #358`;
@@ -159,6 +305,7 @@ export async function transferGameOwner(
     }
     if (same(owner, toLogin)) return { ok: false, error: 'already', code: 'invalid' };
     previous = owner;
+    repo = gameRepo(game, input.game_id);
     game.creatorGithub = toLogin;
     // `developer` is the display credit and defaults to the creator. Move it
     // with the owner only when it still shows the old owner.
@@ -186,6 +333,22 @@ export async function transferGameOwner(
       };
     }
     return { status: 502, body: { error: result.error || 'registry update failed' } };
+  }
+
+  const collaborators: Step[] = repo
+    ? await syncCollaborators(env, repo, previous, toLogin, input.keep_previous_access === true)
+    : [
+        {
+          name: 'Grant',
+          status: 'skip',
+          detail: 'registry entry names a repo outside the org; access unchanged',
+        },
+      ];
+  const failed = collaborators.filter((s) => s.status === 'fail');
+  if (failed.length) {
+    console.error(
+      `[transfer-owner] ${input.game_id}: collaborator sync: ${failed.map((s) => s.detail).join('; ')}`,
+    );
   }
 
   let auditId: number | null = null;
@@ -216,6 +379,7 @@ export async function transferGameOwner(
       owner_login: toLogin,
       audit_id: auditId,
       ...(auditError ? { audit_error: auditError } : {}),
+      collaborators,
     },
   };
 }

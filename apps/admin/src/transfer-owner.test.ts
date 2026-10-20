@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import worker from './index';
 import type { PublishEnv } from './publish';
-import { parseTransferBody, transferGameOwner } from './transfer-owner';
+import { gameRepo, parseTransferBody, transferGameOwner } from './transfer-owner';
 
 // #358: admin-only compare-and-set game ownership transfer, mirroring
 // freeappstore-online/platform#274. The owner lives on the registry.json entry
@@ -14,13 +14,25 @@ afterEach(() => {
 
 type Game = Record<string, unknown>;
 
-/** GitHub stub: registry.json read/write plus /users/:login lookups. */
+/** GitHub stub: registry.json read/write, /users/:login lookups, and the repo
+ *  collaborator + invitation calls (#359). */
 function stubGitHub(
   registry: Game[],
-  opts: { users?: string[]; putStatus?: number; usersDown?: boolean } = {},
+  opts: {
+    users?: string[];
+    putStatus?: number;
+    usersDown?: boolean;
+    /** PUT /collaborators/:to status: 201 invited, 204 already has access. */
+    grantStatus?: number;
+    revokeStatus?: number;
+    invitations?: Array<{ id: number; invitee: { login: string } }>;
+    invitationsStatus?: number;
+  } = {},
 ) {
   const users = opts.users ?? ['alice', 'Bob', 'carol'];
   const puts: Array<{ message: string; games: Game[] }> = [];
+  /** Every collaborator/invitation call, as "METHOD /repos/...". */
+  const access: string[] = [];
   const fetchFn = vi.fn(async (input: unknown, init?: { method?: string; body?: string }) => {
     const url = typeof input === 'string' ? input : (input as Request).url;
     const method = init?.method ?? 'GET';
@@ -39,6 +51,23 @@ function stubGitHub(
         ? new Response(JSON.stringify({ content: { sha: 's2' } }), { status })
         : new Response(JSON.stringify({ message: 'nope' }), { status });
     }
+    const path = url.replace('https://api.github.com', '');
+    if (/^\/repos\/[^/]+\/[^/]+\/(collaborators|invitations)/.test(path)) {
+      access.push(`${method} ${path}`);
+      if (path.includes('/collaborators/')) {
+        const status = method === 'PUT' ? (opts.grantStatus ?? 201) : (opts.revokeStatus ?? 204);
+        if (status === 204) return new Response(null, { status });
+        return new Response(JSON.stringify(status === 201 ? { id: 1 } : { message: 'nope' }), {
+          status,
+        });
+      }
+      if (method === 'GET') {
+        return new Response(JSON.stringify(opts.invitations ?? []), {
+          status: opts.invitationsStatus ?? 200,
+        });
+      }
+      return new Response(null, { status: 204 });
+    }
     const user = url.match(/\/users\/([^/?]+)$/);
     if (user) {
       if (opts.usersDown) return new Response('down', { status: 503 });
@@ -50,7 +79,7 @@ function stubGitHub(
     return new Response('unexpected', { status: 500 });
   });
   vi.stubGlobal('fetch', fetchFn);
-  return { puts, fetchFn };
+  return { puts, fetchFn, access };
 }
 
 /** D1 fake that records every statement and can fail the audit insert. */
@@ -97,6 +126,7 @@ describe('transferGameOwner (#358)', () => {
         to_login: 'Bob', // GitHub's canonical casing
         owner_login: 'Bob',
         audit_id: 7,
+        collaborators: expect.any(Array),
       },
     });
     expect(puts).toHaveLength(1);
@@ -333,5 +363,123 @@ describe('POST /api/admin/transfer-owner gate (#358)', () => {
       routeEnv('intruder@example.com', fakeDb().db),
     );
     expect(res.status).toBe(403);
+  });
+});
+
+describe('collaborator sync on transfer (#359)', () => {
+  it('invites the new owner and revokes the old one on the game repo', async () => {
+    const { access } = stubGitHub([{ id: 'chess', creatorGithub: 'alice' }]);
+    const out = await transferGameOwner(env(fakeDb().db), INPUT, 'a@x');
+    expect(out.status).toBe(200);
+    expect(access).toEqual([
+      'PUT /repos/freegamestore-online/chess/collaborators/Bob',
+      'DELETE /repos/freegamestore-online/chess/collaborators/alice',
+      'GET /repos/freegamestore-online/chess/invitations?per_page=100',
+    ]);
+    if (out.status !== 200) throw new Error('unreachable');
+    expect(out.body.collaborators.map((s) => [s.name, s.status])).toEqual([
+      ['Grant', 'ok'],
+      ['Revoke', 'ok'],
+      ['Revoke invite', 'skip'],
+    ]);
+    expect(out.body.collaborators[0]!.detail).toMatch(/invited.*accept/);
+  });
+
+  it('withdraws a pending invite for the old owner, and only theirs', async () => {
+    const { access } = stubGitHub([{ id: 'chess', creatorGithub: 'alice' }], {
+      invitations: [
+        { id: 41, invitee: { login: 'someone' } },
+        { id: 42, invitee: { login: 'ALICE' } },
+      ],
+    });
+    const out = await transferGameOwner(env(fakeDb().db), INPUT, 'a@x');
+    expect(access).toContain('DELETE /repos/freegamestore-online/chess/invitations/42');
+    expect(access).not.toContain('DELETE /repos/freegamestore-online/chess/invitations/41');
+    if (out.status !== 200) throw new Error('unreachable');
+    expect(out.body.collaborators.at(-1)).toMatchObject({ name: 'Revoke invite', status: 'ok' });
+  });
+
+  it('reports a new owner who already has access as a skip', async () => {
+    stubGitHub([{ id: 'chess', creatorGithub: 'alice' }], { grantStatus: 204 });
+    const out = await transferGameOwner(env(fakeDb().db), INPUT, 'a@x');
+    if (out.status !== 200) throw new Error('unreachable');
+    expect(out.body.collaborators[0]).toMatchObject({ name: 'Grant', status: 'skip' });
+  });
+
+  it('leaves the old owner alone with keep_previous_access', async () => {
+    const { access } = stubGitHub([{ id: 'chess', creatorGithub: 'alice' }]);
+    const out = await transferGameOwner(
+      env(fakeDb().db),
+      { ...INPUT, keep_previous_access: true },
+      'a@x',
+    );
+    expect(access).toEqual(['PUT /repos/freegamestore-online/chess/collaborators/Bob']);
+    if (out.status !== 200) throw new Error('unreachable');
+    expect(out.body.collaborators[1]).toMatchObject({ name: 'Revoke', status: 'skip' });
+  });
+
+  it('reports GitHub failures without undoing the committed transfer', async () => {
+    const { puts } = stubGitHub([{ id: 'chess', creatorGithub: 'alice' }], {
+      grantStatus: 403,
+      revokeStatus: 500,
+      invitationsStatus: 502,
+    });
+    const { db, runs } = fakeDb();
+    const out = await transferGameOwner(env(db), INPUT, 'a@x');
+    expect(out.status).toBe(200);
+    expect(puts).toHaveLength(1); // the registry still moved, once
+    expect(runs.some((r) => r.sql.includes('INSERT'))).toBe(true); // and was audited
+    if (out.status !== 200) throw new Error('unreachable');
+    expect(out.body.collaborators.map((s) => s.status)).toEqual(['fail', 'fail', 'fail']);
+    expect(out.body.collaborators[0]!.detail).toMatch(/403/);
+  });
+
+  it('touches no repo access when the transfer is refused', async () => {
+    const { access } = stubGitHub([{ id: 'chess', creatorGithub: 'carol' }]);
+    const out = await transferGameOwner(env(fakeDb().db), INPUT, 'a@x');
+    expect(out.status).toBe(409);
+    expect(access).toHaveLength(0);
+  });
+
+  it('uses the repo the registry entry names, and never one outside the org', async () => {
+    const named = stubGitHub([
+      { id: 'chess', creatorGithub: 'alice', repo: 'freegamestore-online/chess-2' },
+    ]);
+    await transferGameOwner(env(fakeDb().db), INPUT, 'a@x');
+    expect(named.access[0]).toBe('PUT /repos/freegamestore-online/chess-2/collaborators/Bob');
+
+    const outside = stubGitHub([{ id: 'chess', creatorGithub: 'alice', repo: 'alice/chess' }]);
+    const out = await transferGameOwner(env(fakeDb().db), INPUT, 'a@x');
+    expect(outside.access).toHaveLength(0);
+    if (out.status !== 200) throw new Error('unreachable');
+    expect(out.body.collaborators).toEqual([
+      expect.objectContaining({ name: 'Grant', status: 'skip' }),
+    ]);
+  });
+
+  it('undo swaps access back: re-invites the old owner and revokes the new one', async () => {
+    const { access } = stubGitHub([{ id: 'chess', creatorGithub: 'Bob' }]);
+    const out = await transferGameOwner(
+      env(fakeDb().db),
+      { ...INPUT, from_login: 'Bob', to_login: 'alice' },
+      'a@x',
+    );
+    expect(out.status).toBe(200);
+    expect(access.slice(0, 2)).toEqual([
+      'PUT /repos/freegamestore-online/chess/collaborators/alice',
+      'DELETE /repos/freegamestore-online/chess/collaborators/Bob',
+    ]);
+  });
+});
+
+describe('gameRepo', () => {
+  it.each([
+    [{}, 'freegamestore-online/chess'],
+    [{ repo: 'freegamestore-online/other' }, 'freegamestore-online/other'],
+    [{ repo: 'FreeGameStore-Online/other' }, 'freegamestore-online/other'],
+    [{ repo: 'mallory/chess' }, null],
+    [{ repo: 'freegamestore-online/a/b' }, null],
+  ])('%j -> %s', (game, repo) => {
+    expect(gameRepo(game, 'chess')).toBe(repo);
   });
 });
