@@ -67,7 +67,7 @@ export type TransferOutcome =
   | { status: 400; body: { error: string; login?: string } }
   | { status: 404; body: { error: string; game_id: string } }
   | { status: 409; body: { error: string; game_id: string; owner_login: string | null } }
-  | { status: 502; body: { error: string } };
+  | { status: 502 | 503; body: { error: string } };
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -136,13 +136,22 @@ async function ensureTransfersTable(db: D1Database): Promise<void> {
     .run();
 }
 
-/** GitHub's canonical casing for `login`, null when no such account exists,
- *  or undefined when GitHub could not be asked. */
-async function canonicalLogin(env: PublishEnv, login: string): Promise<string | null | undefined> {
+/** GitHub's canonical casing for `login`. Refuses an account that isn't a
+ *  person (an organization or bot can't accept a collaborator invite, so the
+ *  game would end up with no one able to push to it). */
+async function canonicalLogin(
+  env: PublishEnv,
+  login: string,
+): Promise<
+  { ok: true; login: string } | { ok: false; reason: 'unknown' | 'not_user' | 'unavailable' }
+> {
   const user = await ghApi(env, `/users/${encodeURIComponent(login)}`);
-  if (user.__status === 404) return null;
-  if (user.__status !== 200 || typeof user.login !== 'string') return undefined;
-  return user.login as string;
+  if (user.__status === 404) return { ok: false, reason: 'unknown' };
+  if (user.__status !== 200 || typeof user.login !== 'string') {
+    return { ok: false, reason: 'unavailable' };
+  }
+  if (user.type !== 'User') return { ok: false, reason: 'not_user' };
+  return { ok: true, login: user.login as string };
 }
 
 /** The game repo, from the registry entry when it names one in our org, else
@@ -196,6 +205,16 @@ export async function syncCollaborators(
       name: 'Revoke',
       status: 'skip',
       detail: `${from} keeps access (keep_previous_access)`,
+    });
+    return steps;
+  }
+  // Never take access away when the new owner didn't get it: that would leave
+  // the game with no creator who can push to it (#361).
+  if (steps[0]?.status === 'fail') {
+    steps.push({
+      name: 'Revoke',
+      status: 'skip',
+      detail: `${from} keeps access because ${to} could not be granted it; retry the grant, then revoke`,
     });
     return steps;
   }
@@ -284,10 +303,20 @@ export async function transferGameOwner(
   input: TransferInput,
   actor: string,
 ): Promise<TransferOutcome> {
-  const toLogin = await canonicalLogin(env, input.to_login);
-  if (toLogin === undefined) return { status: 502, body: { error: 'could not verify to_login' } };
-  if (toLogin === null)
-    return { status: 400, body: { error: 'unknown login', login: input.to_login } };
+  const checked = await canonicalLogin(env, input.to_login);
+  if (!checked.ok) {
+    if (checked.reason === 'unavailable') {
+      return { status: 502, body: { error: 'could not verify to_login' } };
+    }
+    return {
+      status: 400,
+      body: {
+        error: checked.reason === 'unknown' ? 'unknown login' : 'to_login is not a user account',
+        login: input.to_login,
+      },
+    };
+  }
+  const toLogin = checked.login;
 
   let previous = '';
   let repo: string | null = null;
@@ -331,6 +360,11 @@ export async function transferGameOwner(
         status: 409,
         body: { error: 'owner mismatch', game_id: input.game_id, owner_login: owner || null },
       };
+    }
+    if (result.code === 'conflict') {
+      // The registry kept changing under us (mutateRegistry retries once).
+      // Nothing was written; the caller can simply run the transfer again.
+      return { status: 503, body: { error: 'registry is busy; nothing changed, retry' } };
     }
     return { status: 502, body: { error: result.error || 'registry update failed' } };
   }

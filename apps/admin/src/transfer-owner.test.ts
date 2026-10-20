@@ -27,9 +27,15 @@ function stubGitHub(
     revokeStatus?: number;
     invitations?: Array<{ id: number; invitee: { login: string } }>;
     invitationsStatus?: number;
+    /** Logins GitHub reports as organizations, not users. */
+    orgs?: string[];
+    /** Registry PUT statuses in order (then putStatus); runs onPut first. */
+    putStatuses?: number[];
+    onPut?: () => void;
   } = {},
 ) {
   const users = opts.users ?? ['alice', 'Bob', 'carol'];
+  const putQueue = [...(opts.putStatuses ?? [])];
   const puts: Array<{ message: string; games: Game[] }> = [];
   /** Every collaborator/invitation call, as "METHOD /repos/...". */
   const access: string[] = [];
@@ -46,7 +52,8 @@ function stubGitHub(
       const body = JSON.parse(init?.body ?? '{}') as { message: string; content: string };
       const written = JSON.parse(atob(body.content)) as { games: Game[] };
       puts.push({ message: body.message, games: written.games });
-      const status = opts.putStatus ?? 200;
+      opts.onPut?.();
+      const status = putQueue.shift() ?? opts.putStatus ?? 200;
       return status === 200
         ? new Response(JSON.stringify({ content: { sha: 's2' } }), { status })
         : new Response(JSON.stringify({ message: 'nope' }), { status });
@@ -71,9 +78,14 @@ function stubGitHub(
     const user = url.match(/\/users\/([^/?]+)$/);
     if (user) {
       if (opts.usersDown) return new Response('down', { status: 503 });
-      const hit = users.find((u) => u.toLowerCase() === decodeURIComponent(user[1]!).toLowerCase());
+      const name = decodeURIComponent(user[1]!).toLowerCase();
+      const hit = users.find((u) => u.toLowerCase() === name);
+      const org = (opts.orgs ?? []).find((u) => u.toLowerCase() === name);
+      if (org) {
+        return new Response(JSON.stringify({ login: org, type: 'Organization' }), { status: 200 });
+      }
       return hit
-        ? new Response(JSON.stringify({ login: hit }), { status: 200 })
+        ? new Response(JSON.stringify({ login: hit, type: 'User' }), { status: 200 })
         : new Response(JSON.stringify({ message: 'Not Found' }), { status: 404 });
     }
     return new Response('unexpected', { status: 500 });
@@ -420,7 +432,7 @@ describe('collaborator sync on transfer (#359)', () => {
 
   it('reports GitHub failures without undoing the committed transfer', async () => {
     const { puts } = stubGitHub([{ id: 'chess', creatorGithub: 'alice' }], {
-      grantStatus: 403,
+      grantStatus: 201,
       revokeStatus: 500,
       invitationsStatus: 502,
     });
@@ -430,8 +442,8 @@ describe('collaborator sync on transfer (#359)', () => {
     expect(puts).toHaveLength(1); // the registry still moved, once
     expect(runs.some((r) => r.sql.includes('INSERT'))).toBe(true); // and was audited
     if (out.status !== 200) throw new Error('unreachable');
-    expect(out.body.collaborators.map((s) => s.status)).toEqual(['fail', 'fail', 'fail']);
-    expect(out.body.collaborators[0]!.detail).toMatch(/403/);
+    expect(out.body.collaborators.map((s) => s.status)).toEqual(['ok', 'fail', 'fail']);
+    expect(out.body.collaborators[1]!.detail).toMatch(/500/);
   });
 
   it('touches no repo access when the transfer is refused', async () => {
@@ -481,5 +493,71 @@ describe('gameRepo', () => {
     [{ repo: 'freegamestore-online/a/b' }, null],
   ])('%j -> %s', (game, repo) => {
     expect(gameRepo(game, 'chess')).toBe(repo);
+  });
+});
+
+describe('transfer edge cases found in the #361 sweep', () => {
+  it('refuses an organization as the new owner and changes nothing', async () => {
+    const { puts, access } = stubGitHub([{ id: 'chess', creatorGithub: 'alice' }], {
+      orgs: ['some-org'],
+    });
+    const out = await transferGameOwner(
+      env(fakeDb().db),
+      { ...INPUT, to_login: 'some-org' },
+      'a@x',
+    );
+    expect(out).toEqual({
+      status: 400,
+      body: { error: 'to_login is not a user account', login: 'some-org' },
+    });
+    expect(puts).toHaveLength(0);
+    expect(access).toHaveLength(0);
+  });
+
+  it('keeps the old owner when the new owner could not be granted access', async () => {
+    const { access } = stubGitHub([{ id: 'chess', creatorGithub: 'alice' }], {
+      grantStatus: 422,
+    });
+    const out = await transferGameOwner(env(fakeDb().db), INPUT, 'a@x');
+    expect(out.status).toBe(200);
+    // Only the grant was attempted: no DELETE of alice, no invite withdrawn.
+    expect(access).toEqual(['PUT /repos/freegamestore-online/chess/collaborators/Bob']);
+    if (out.status !== 200) throw new Error('unreachable');
+    expect(out.body.collaborators.map((s) => [s.name, s.status])).toEqual([
+      ['Grant', 'fail'],
+      ['Revoke', 'skip'],
+    ]);
+  });
+
+  it('re-checks the owner after losing a registry race, and refuses if it moved', async () => {
+    const registry: Game[] = [{ id: 'chess', creatorGithub: 'alice' }];
+    const { puts, access } = stubGitHub(registry, {
+      putStatuses: [409],
+      // Another writer moved the game to carol between our read and our write.
+      onPut: () => {
+        registry[0] = { id: 'chess', creatorGithub: 'carol' };
+      },
+    });
+    const { db, runs } = fakeDb();
+    const out = await transferGameOwner(env(db), INPUT, 'a@x');
+    expect(out).toEqual({
+      status: 409,
+      body: { error: 'owner mismatch', game_id: 'chess', owner_login: 'carol' },
+    });
+    expect(puts).toHaveLength(1); // the losing write, never a second one
+    expect(access).toHaveLength(0);
+    expect(runs.some((r) => r.sql.includes('INSERT'))).toBe(false);
+  });
+
+  it('answers a retryable 503 when the registry stays contended', async () => {
+    const { access } = stubGitHub([{ id: 'chess', creatorGithub: 'alice' }], {
+      putStatuses: [409, 409],
+    });
+    const out = await transferGameOwner(env(fakeDb().db), INPUT, 'a@x');
+    expect(out).toEqual({
+      status: 503,
+      body: { error: 'registry is busy; nothing changed, retry' },
+    });
+    expect(access).toHaveLength(0);
   });
 });
