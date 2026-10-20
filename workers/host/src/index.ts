@@ -22,6 +22,7 @@ import {
   contentType,
   type Env,
   etagsMatch,
+  permissionsPolicy,
   type Route,
   r2KeyFor,
   resolveRouteCached,
@@ -121,6 +122,8 @@ function serviceUnavailable(): Response {
       "content-type": "text/plain; charset=utf-8",
       "retry-after": "5",
       "cache-control": "no-store",
+      // Every response on a game host carries the policy, errors included (#376).
+      "permissions-policy": permissionsPolicy(),
     },
   });
 }
@@ -173,7 +176,10 @@ async function dispatchPlatform(req: Request, env: Env, slug: string, host: stri
 
 async function serve(bucket: R2Bucket, route: Route, url: URL, req: Request, _ctx: ExecutionContext): Promise<Response> {
   if (req.method !== "GET" && req.method !== "HEAD") {
-    return new Response("Method Not Allowed", { status: 405, headers: { allow: "GET, HEAD" } });
+    return new Response("Method Not Allowed", {
+      status: 405,
+      headers: { allow: "GET, HEAD", "permissions-policy": permissionsPolicy() },
+    });
   }
 
   // version.json — the deploy stamp, or a fallback synthesized from R2 metadata.
@@ -270,6 +276,6 @@ function notFound(domain: string, path?: string): Response {
   const body = path ? `Not Found: ${domain} has no asset at ${path}\n` : `Not Found: no game registered at ${domain}.\n`;
   return new Response(body, {
     status: 404,
-    headers: { "content-type": "text/plain; charset=utf-8" },
+    headers: { "content-type": "text/plain; charset=utf-8", "permissions-policy": permissionsPolicy() },
   });
 }
