@@ -24,7 +24,17 @@ export interface GameAnalyticsResponse {
   bucket: 'hour' | 'day';
   path: string | null;
   config: GameAnalyticsConfig;
-  stats: GameAnalyticsStats;
+  /** Null when the numbers can't be served; the config is still there (#364). */
+  stats: GameAnalyticsStats | null;
+  /** Why `stats` is null: no stats token on this environment, or the query failed. */
+  statsUnavailable?: 'not-configured' | 'unavailable';
+}
+
+/** Owner-facing text for a missing-stats reason. */
+export function statsUnavailableMessage(reason: GameAnalyticsResponse['statsUnavailable']): string {
+  return reason === 'not-configured'
+    ? 'Page-view numbers aren’t switched on for this environment yet. Your tags below still work.'
+    : 'Page-view numbers couldn’t be loaded right now. Try again in a few minutes. Your tags below still work.';
 }
 
 export interface StatsRequest {

@@ -106,3 +106,66 @@ describe('GameAnalytics panel (#354)', () => {
     expect(JSON.parse(put![1]!.body as string)).toEqual({ ga4: 'G-ZZZ999', plausible: null });
   });
 });
+
+// #364: when the numbers can't load, the API still answers 200 with the saved
+// tags. The panel says why and keeps the tag form usable, seeded with them.
+describe('GameAnalytics panel without stats (#364)', () => {
+  const NO_STATS = {
+    ...STATS,
+    config: { ga4: 'G-ABC123', plausible: 'chess.freegamestore.online' },
+    stats: null,
+    statsUnavailable: 'not-configured',
+  };
+
+  it('explains the missing numbers and shows the saved tags', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify(NO_STATS), { status: 200 })),
+    );
+    render(<GameAnalytics gameId="chess" />);
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'aren’t switched on for this environment yet',
+    );
+    expect(screen.getByDisplayValue('G-ABC123')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('chess.freegamestore.online')).toBeInTheDocument();
+    expect(screen.queryByTestId('total-views')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('says the numbers are temporarily unavailable when the query failed', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ ...NO_STATS, statsUnavailable: 'unavailable' }), {
+            status: 200,
+          }),
+      ),
+    );
+    render(<GameAnalytics gameId="chess" />);
+    expect(await screen.findByRole('status')).toHaveTextContent('couldn’t be loaded right now');
+  });
+
+  it('saving keeps both saved tags instead of clearing them', async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: { method?: string }) => {
+      if (init?.method === 'PUT') {
+        return new Response(JSON.stringify({ ok: true, config: NO_STATS.config }), {
+          status: 200,
+        });
+      }
+      return new Response(JSON.stringify(NO_STATS), { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<GameAnalytics gameId="chess" />);
+
+    await screen.findByDisplayValue('G-ABC123');
+    fireEvent.click(screen.getByRole('button', { name: 'Save tags' }));
+    expect(await screen.findByText(/Saved\./)).toBeInTheDocument();
+    const put = fetchCalls(fetchMock).find((c) => c[1]?.method === 'PUT');
+    expect(JSON.parse(put![1]!.body as string)).toEqual({
+      ga4: 'G-ABC123',
+      plausible: 'chess.freegamestore.online',
+    });
+  });
+});

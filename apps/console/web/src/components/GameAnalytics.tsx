@@ -6,6 +6,7 @@ import {
   type GameAnalyticsResponse,
   saveGameAnalyticsConfig,
   seriesBars,
+  statsUnavailableMessage,
 } from '../lib/gameAnalytics';
 import { Button, Card, Field, Input } from './ui';
 
@@ -67,7 +68,11 @@ export function GameAnalytics({ gameId }: { gameId: string }) {
     );
   }
 
-  const bars = data ? seriesBars(data.stats.series, CHART_W, CHART_H) : [];
+  const stats = data?.stats ?? null;
+  const bars = stats ? seriesBars(stats.series, CHART_W, CHART_H) : [];
+  // #364: the API answers 200 with the saved tags even when the numbers can't
+  // load; say why instead of drawing an empty chart.
+  const statsMissing = data !== null && stats === null;
 
   return (
     <Card className="mt-6">
@@ -97,12 +102,18 @@ export function GameAnalytics({ gameId }: { gameId: string }) {
         </p>
       )}
 
-      {!error && (
+      {statsMissing && (
+        <p role="status" className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
+          {statsUnavailableMessage(data?.statsUnavailable)}
+        </p>
+      )}
+
+      {!error && !statsMissing && (
         <>
           <div className="flex gap-6 mb-4">
             <div>
               <div className="text-2xl font-bold" data-testid="total-views">
-                {data ? data.stats.total_views.toLocaleString() : loading ? '…' : '0'}
+                {stats ? stats.total_views.toLocaleString() : loading ? '…' : '0'}
               </div>
               <div className="text-xs" style={{ color: 'var(--muted)' }}>
                 {kind === 'pageview' ? 'Page views' : `“${kind}” events`}
@@ -110,7 +121,7 @@ export function GameAnalytics({ gameId }: { gameId: string }) {
             </div>
             <div>
               <div className="text-2xl font-bold">
-                {data ? data.stats.unique_paths.toLocaleString() : loading ? '…' : '0'}
+                {stats ? stats.unique_paths.toLocaleString() : loading ? '…' : '0'}
               </div>
               <div className="text-xs" style={{ color: 'var(--muted)' }}>
                 Distinct pages
@@ -140,32 +151,32 @@ export function GameAnalytics({ gameId }: { gameId: string }) {
             ))}
           </svg>
 
-          {data && (
+          {stats && (
             <div className="grid gap-4 sm:grid-cols-2 text-sm">
               <BreakdownList
                 title="Top pages"
-                rows={data.stats.top_paths.map((r) => [r.path, r.views])}
+                rows={stats.top_paths.map((r) => [r.path, r.views])}
               />
               <BreakdownList
                 title="Referrers"
-                rows={data.stats.top_referrers.map((r) => [r.referrer, r.views])}
+                rows={stats.top_referrers.map((r) => [r.referrer, r.views])}
               />
               <BreakdownList
                 title="Countries"
-                rows={data.stats.top_countries.map((r) => [r.country, r.views])}
+                rows={stats.top_countries.map((r) => [r.country, r.views])}
               />
               <BreakdownList
                 title="Devices"
-                rows={data.stats.device_split.map((r) => [r.device, r.views])}
+                rows={stats.device_split.map((r) => [r.device, r.views])}
               />
             </div>
           )}
 
-          {data && data.stats.events.length > 0 && (
+          {stats && stats.events.length > 0 && (
             <div className="mt-4 text-sm">
               <h3 className="font-semibold mb-1">Custom events</h3>
               <ul className="flex flex-wrap gap-2">
-                {data.stats.events.map((e) => (
+                {stats.events.map((e) => (
                   <li key={e.kind}>
                     <button
                       type="button"
