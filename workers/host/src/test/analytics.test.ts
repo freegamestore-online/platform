@@ -233,3 +233,104 @@ describe("ingest helpers", () => {
     expect(effectiveTimestamp(undefined, NOW)).toBe(NOW);
   });
 });
+
+describe("loader behaviour in a page (#361)", () => {
+  /** Runs the loader against stubbed browser globals and records what it sends. */
+  function runLoader(js: string, beaconOk = true) {
+    const beacons: Array<{ url: string; type: string; body: Promise<string> }> = [];
+    const sentKinds: string[] = [];
+    const location = { pathname: "/" };
+    const listeners: Record<string, () => void> = {};
+    const history = {
+      pushState(_s: unknown, _t: string, url: string) {
+        location.pathname = url;
+      },
+      replaceState(_s: unknown, _t: string, url: string) {
+        location.pathname = url;
+      },
+    };
+    const navigator = {
+      sendBeacon(url: string, blob: Blob) {
+        const body = blob.text();
+        beacons.push({ url, type: blob.type, body });
+        body.then((b) => sentKinds.push(JSON.parse(b).kind as string));
+        return beaconOk;
+      },
+    };
+    const window = { addEventListener: (name: string, fn: () => void) => (listeners[name] = fn) } as Record<
+      string,
+      unknown
+    >;
+    const document = { referrer: "", head: { appendChild() {} }, createElement: () => ({ setAttribute() {} }) };
+    new Function("window", "document", "navigator", "location", "history", "Blob", "fetch", js)(
+      window,
+      document,
+      navigator,
+      location,
+      history,
+      Blob,
+      () => Promise.resolve(),
+    );
+    return { beacons, sentKinds, history, listeners, window };
+  }
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+
+  it("sends beacons as text/plain so the browser needs no CORS preflight", async () => {
+    const { buildGameLoader } = await import("../analytics");
+    const { beacons } = runLoader(buildGameLoader("2048", null, null));
+    expect(beacons).toHaveLength(1);
+    expect(beacons[0].type).toBe("text/plain;charset=utf-8");
+    expect(JSON.parse(await beacons[0].body)).toMatchObject({ app: "2048", kind: "pageview" });
+  });
+
+  it("counts a pageview per path change, not per replaceState call", async () => {
+    const { buildGameLoader } = await import("../analytics");
+    const page = runLoader(buildGameLoader("2048", null, null));
+    page.history.replaceState({}, "", "/"); // same path: scroll/query update
+    page.history.replaceState({}, "", "/");
+    page.history.pushState({}, "", "/level/2");
+    page.history.replaceState({}, "", "/level/2");
+    await flush();
+    expect(page.sentKinds).toEqual(["pageview", "pageview"]);
+  });
+
+  it("initialises gtag so a GA4 id actually reports", async () => {
+    const { buildGameLoader } = await import("../analytics");
+    const js = buildGameLoader("2048", { cf_beacon_token: null, ga4: "G-ABC123", plausible: null, custom_head: null }, null);
+    const page = runLoader(js);
+    const dataLayer = page.window.dataLayer as unknown[][];
+    expect(dataLayer.map((args) => args[0])).toEqual(["js", "config"]);
+    expect(dataLayer[1][1]).toBe("G-ABC123");
+  });
+
+  it("recreates custom_head scripts so they run", async () => {
+    const { buildGameLoader } = await import("../analytics");
+    const js = buildGameLoader("2048", { cf_beacon_token: null, ga4: null, plausible: null, custom_head: "<script>1</script>" }, null);
+    expect(js).toMatch(/n\.nodeName === "SCRIPT"[\s\S]*createElement\("script"\)/);
+  });
+});
+
+describe("ingest tolerates hostile field types (#361)", () => {
+  it("skips an event whose fields are not strings and still writes the rest of the batch", async () => {
+    const analytics = fakeAnalytics();
+    const res = await collectEvents(
+      eventReq({
+        events: [
+          { app: 5, kind: "pageview" },
+          { app: "tetris", kind: 7 },
+          { app: "tetris", kind: "pageview", path: 42, referrer: {}, props: "nope" },
+          { app: "tetris", kind: "level_won" },
+        ],
+      }),
+      { ANALYTICS: analytics } as unknown as Env,
+      NOW,
+    );
+    expect(res.status).toBe(204);
+    // { kind: 7 } falls back to "pageview"; path 42 falls back to "/".
+    expect(res.headers.get("x-events-accepted")).toBe("3");
+    const blobs = analytics.writeDataPoint.mock.calls.map((c) => c[0].blobs);
+    expect(blobs[1].slice(1, 4)).toEqual(["pageview", "/", ""]);
+    expect(blobs[1][6]).toBe("");
+    expect(blobs[2][1]).toBe("level_won");
+  });
+});

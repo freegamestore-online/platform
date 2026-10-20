@@ -78,8 +78,12 @@ export function buildGameLoader(
     );
   }
   if (config?.ga4 && GA4_RE.test(config.ga4)) {
+    // gtag.js only reports once dataLayer has the js + config calls. Loading the
+    // script alone recorded nothing (#361).
+    const id = JSON.stringify(config.ga4);
     parts.push(
-      `script("https://www.googletagmanager.com/gtag/js?id=" + ${JSON.stringify(config.ga4)}, {async: true});`,
+      `window.dataLayer = window.dataLayer || []; window.gtag = window.gtag || function(){ window.dataLayer.push(arguments); }; window.gtag("js", new Date()); window.gtag("config", ${id});`,
+      `script("https://www.googletagmanager.com/gtag/js?id=" + ${id}, {async: true});`,
     );
   }
   if (config?.plausible && DOMAIN_RE.test(config.plausible)) {
@@ -105,13 +109,27 @@ export function buildGameLoader(
   function raw(html){
     var t = document.createElement("template");
     t.innerHTML = html;
-    while (t.content.firstChild) document.head.appendChild(t.content.firstChild);
+    while (t.content.firstChild) {
+      var n = t.content.firstChild;
+      t.content.removeChild(n);
+      // Scripts parsed via innerHTML never run; recreate them so they do.
+      if (n.nodeName === "SCRIPT") {
+        var s = document.createElement("script");
+        for (var i = 0; i < n.attributes.length; i++) s.setAttribute(n.attributes[i].name, n.attributes[i].value);
+        s.text = n.text;
+        n = s;
+      }
+      document.head.appendChild(n);
+    }
   }
   function send(kind, props){
     var evt = {app: APP, kind: kind, path: location.pathname, referrer: document.referrer, props: props || null, t: Date.now()};
     var body = JSON.stringify(evt);
     try {
-      if (navigator.sendBeacon && navigator.sendBeacon(EVENT_URL, new Blob([body], {type: "application/json"}))) return;
+      // text/plain is CORS-safelisted, so the beacon needs no preflight. An
+      // application/json beacon is a credentialed preflight that the ingest
+      // doesn't allow, and sendBeacon had already returned true (#361).
+      if (navigator.sendBeacon && navigator.sendBeacon(EVENT_URL, new Blob([body], {type: "text/plain;charset=UTF-8"}))) return;
     } catch (e) {}
     try {
       fetch(EVENT_URL, {method: "POST", headers: {"Content-Type": "application/json"}, body: body, keepalive: true, mode: "cors"}).catch(function(){});
@@ -121,11 +139,15 @@ export function buildGameLoader(
   window.fgsAnalytics.app = APP;
   window.fgsAnalytics.event = function(kind, props){ send(String(kind || "event").toLowerCase(), props); };
   ${parts.join("\n  ")}
+  // One pageview per path change. Routers call replaceState for scroll or
+  // query updates without navigating, and each call counted as a view (#361).
+  var lastPath = location.pathname;
+  function navigated(){ if (location.pathname !== lastPath) { lastPath = location.pathname; send("pageview"); } }
   send("pageview");
   var _push = history.pushState, _replace = history.replaceState;
-  history.pushState = function(){ _push.apply(this, arguments); send("pageview"); };
-  history.replaceState = function(){ _replace.apply(this, arguments); send("pageview"); };
-  window.addEventListener("popstate", function(){ send("pageview"); });
+  history.pushState = function(){ _push.apply(this, arguments); navigated(); };
+  history.replaceState = function(){ _replace.apply(this, arguments); navigated(); };
+  window.addEventListener("popstate", navigated);
 })();
 `;
 }
@@ -299,19 +321,24 @@ export async function collectEvents(req: Request, env: Env, nowMs: number = Date
   const ip = req.headers.get("cf-connecting-ip") ?? "";
   const country = ((req as Request & { cf?: { country?: string } }).cf?.country ?? "").slice(0, 2);
 
+  // Fields come from any browser. A non-string used to throw on .trim(), which
+  // the worker turned into a 503 and dropped the rest of the batch (#361).
+  const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
   let accepted = 0;
   for (const item of collectItems(body)) {
-    const gameId = (item.app ?? "").trim();
+    const gameId = (str(item.app) ?? "").trim();
     if (!ANALYTICS_APP_ID_RE.test(gameId)) continue;
-    const kind = (item.kind ?? "pageview").trim().toLowerCase();
+    const kind = (str(item.kind) ?? "pageview").trim().toLowerCase();
     if (!EVENT_KIND_RE.test(kind)) continue;
     if (!shouldAccept(`${gameId}:${ip}:${kind}`, nowMs)) continue;
     accepted++;
     if (!env.ANALYTICS) continue;
-    const path = (item.path ?? "/").slice(0, PATH_MAX);
+    const path = (str(item.path) ?? "/").slice(0, PATH_MAX);
+    const props =
+      item.props && typeof item.props === "object" && !Array.isArray(item.props) ? item.props : undefined;
     env.ANALYTICS.writeDataPoint({
       indexes: [gameId],
-      blobs: [gameId, kind, path, safeReferrerHost(item.referrer), country, uaClass, flattenProps(item.props)],
+      blobs: [gameId, kind, path, safeReferrerHost(str(item.referrer)), country, uaClass, flattenProps(props)],
       // doubles[0] = event count; doubles[1] = event time (ms). Queries prefer
       // doubles[1] so replayed events land on the day they happened.
       doubles: [1, effectiveTimestamp(item.t, nowMs)],
