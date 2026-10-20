@@ -1,7 +1,5 @@
 import {
-  type ForkedFrom,
   type GameStatus,
-  normalizeForkedFrom,
   type PublishEnv,
   readGameStatus,
   type Step,
@@ -18,19 +16,7 @@ export interface RegistryState {
   ): Promise<{ ok: boolean; updated: string[]; detail: string }>;
 }
 
-export interface RemixSource {
-  normalize(
-    value: unknown,
-    items: Array<Record<string, unknown>>,
-    firstPublished?: unknown,
-  ): ForkedFrom | undefined;
-}
-
-/** Registry status and immutable remix provenance are independent read/write seams. */
+/** The registry status read/write seam. */
 export function createRegistryState(): RegistryState {
   return { readStatus: readGameStatus, setStatus: setGameStatus, setStatuses: setGameStatuses };
-}
-
-export function createRemixSource(): RemixSource {
-  return { normalize: normalizeForkedFrom };
 }

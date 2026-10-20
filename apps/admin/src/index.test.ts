@@ -697,3 +697,25 @@ describe('Google admin sessions reach the admin paths (#361)', () => {
     expect(del).not.toHaveBeenCalled();
   });
 });
+
+describe('non-GET /docs after the legacy router was removed (#362)', () => {
+  // GET /docs is in the route table; other methods fall through to the worker's
+  // own /docs handling. Pinned so the dead-code removal can't change it.
+  it('serves the HTML API docs to an admin', async () => {
+    const res = await worker.fetch(
+      req('/docs', { method: 'POST', headers: { 'X-FGS-Token': 't' } }),
+      makeEnv({ meEmail: ADMIN, adminEmails: ADMIN }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('text/html');
+  });
+
+  it('serves the sign-in page to anyone else', async () => {
+    const res = await worker.fetch(
+      req('/docs', { method: 'POST' }),
+      makeEnv({ meEmail: null, adminEmails: ADMIN }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('Sign in');
+  });
+});
