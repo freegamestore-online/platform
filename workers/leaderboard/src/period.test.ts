@@ -33,10 +33,11 @@ const optional = <T>(id: string): T | null => {
   }
 };
 const sqlite = optional<SqliteModule>('node:sqlite');
-const fs = optional<{ readFileSync(path: string, encoding: 'utf8'): string }>('node:fs');
+const fs = optional<{ readFileSync(path: URL, encoding: 'utf8'): string }>('node:fs');
 
-const here = (relative: string) => decodeURIComponent(new URL(relative, import.meta.url).pathname);
-const read = (relative: string) => fs!.readFileSync(here(relative), 'utf8');
+// Pass the file URL itself: `URL.pathname` is `/C:/…` on Windows, which
+// readFileSync resolved to `C:\C:\…` and failed every test here.
+const read = (relative: string) => fs!.readFileSync(new URL(relative, import.meta.url), 'utf8');
 
 // The scores table as it shipped before periods (schema.sql before #161).
 const LEGACY_SCORES_SQL = `
