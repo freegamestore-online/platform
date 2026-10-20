@@ -476,3 +476,30 @@ describe("analytics loader", () => {
     expect(js).not.toContain('APP = "a";');
   });
 });
+
+describe("live header check script stays in step with the host (#369)", () => {
+  it("expects exactly the features the host opens and closes", async () => {
+    // @ts-expect-error -- plain .mjs script without type declarations
+    const script = await import("../../../../scripts/check-game-headers.mjs");
+    expect([...script.EXPECTED_OPEN].sort()).toEqual([...OPEN_FEATURES].sort());
+    expect([...script.EXPECTED_CLOSED].sort()).toEqual(Object.keys(CLOSED_FEATURES).sort());
+  });
+
+  it("finds no problems with the headers the host actually sends", async () => {
+    // @ts-expect-error -- plain .mjs script without type declarations
+    const { headerProblems } = await import("../../../../scripts/check-game-headers.mjs");
+    expect(headerProblems(securityHeaders({ revalidate: true }))).toEqual([]);
+  });
+
+  it("reports the old locked-down headers as problems", async () => {
+    // @ts-expect-error -- plain .mjs script without type declarations
+    const { headerProblems } = await import("../../../../scripts/check-game-headers.mjs");
+    const old = new Headers({
+      "permissions-policy": "geolocation=(), microphone=(), camera=(), payment=()",
+      "content-security-policy": "script-src 'self'; connect-src 'self' https://*.freegamestore.online",
+    });
+    const problems = headerProblems(old) as string[];
+    expect(problems).toContain("permissions-policy microphone=(), want (self)");
+    expect(problems).toContain("csp connect-src lacks https:");
+  });
+});

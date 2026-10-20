@@ -57,3 +57,16 @@ jobs:
           STATUS=$(curl -s -o /dev/null -w '%{http_code}' https://publish.freegamestore.online)
           echo "publish.freegamestore.online → $STATUS"
           [ "$STATUS" = "200" ] || exit 1
+
+  game-headers:
+    # Hosted games must be served with the default-open capability headers
+    # (#369): sensors, gamepad, mic, camera etc. =(self), CSP open to https:.
+    # A regression here is how a creator ends up removing a working feature.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Default-open headers on sample games
+        run: node scripts/check-game-headers.mjs tetris chess snake
