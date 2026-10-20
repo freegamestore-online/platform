@@ -204,7 +204,19 @@ function gateOwner(
   return null;
 }
 
-/** GET /api/games/:id/analytics — owner-only stats plus the current BYO config. */
+/** Why `stats` is null in a GET response (#364). */
+export type StatsUnavailable = 'not-configured' | 'unavailable';
+
+/** GET /api/games/:id/analytics — owner-only stats plus the current BYO config.
+ *
+ *  The tag config is the owner's own data and doesn't depend on Analytics
+ *  Engine, so a stats problem never hides it (#364). When the stats token isn't
+ *  set (`not-configured`) or the Cloudflare query fails (`unavailable`), the
+ *  answer is still 200 with the config, `stats: null` and `statsUnavailable`.
+ *  Before, both were a 503/502 with no config: the owner couldn't see their
+ *  saved tags, and saving the empty form would clear them. A failed config read
+ *  is still an error, since a form that can't show what's saved shouldn't be
+ *  offered. */
 export async function getGameAnalytics(
   env: AnalyticsEnv,
   gameId: string,
@@ -217,8 +229,20 @@ export async function getGameAnalytics(
   const parsed = parseStatsQuery(params);
   if ('error' in parsed) return { status: 400, body: { error: parsed.error } };
   try {
-    const [stats, config] = await Promise.all([
-      queryGameStats(env, gameId, parsed),
+    const [statsResult, config] = await Promise.all([
+      queryGameStats(env, gameId, parsed).then(
+        (stats) => ({ stats, unavailable: undefined }),
+        (err: unknown) => {
+          const notConfigured = err instanceof StatsError && err.status === 503;
+          if (!notConfigured) {
+            console.error(`[analytics] stats for ${gameId} failed: ${String(err)}`);
+          }
+          return {
+            stats: null,
+            unavailable: (notConfigured ? 'not-configured' : 'unavailable') as StatsUnavailable,
+          };
+        },
+      ),
       readGameAnalyticsConfig(env.DB, gameId),
     ]);
     return {
@@ -230,14 +254,14 @@ export async function getGameAnalytics(
         bucket: parsed.bucket,
         path: parsed.path || null,
         config,
-        stats,
+        stats: statsResult.stats,
+        ...(statsResult.unavailable ? { statsUnavailable: statsResult.unavailable } : {}),
       },
     };
   } catch (err) {
-    if (err instanceof StatsError) return { status: err.status, body: { error: err.message } };
     return {
       status: 502,
-      body: { error: err instanceof Error ? err.message : 'stats query failed' },
+      body: { error: err instanceof Error ? err.message : 'config read failed' },
     };
   }
 }

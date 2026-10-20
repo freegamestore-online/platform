@@ -150,21 +150,46 @@ describe('queryGameStats', () => {
     });
   });
 
-  it('answers 503 when the stats token is not configured', async () => {
+  // #364: a stats problem never hides the owner's saved tags.
+  it('still returns the saved config when the stats token is not configured', async () => {
     const fetchMock = stubAnalyticsEngine();
     const res = await getGameAnalytics(
-      { DB: fakeDb().db } as AnalyticsEnv,
+      {
+        DB: fakeDb({ ga4: 'G-ABC123', plausible: 'chess.freegamestore.online' }).db,
+      } as AnalyticsEnv,
       'chess',
       'alice',
       REGISTRY,
       new URLSearchParams(),
     );
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      config: { ga4: 'G-ABC123', plausible: 'chess.freegamestore.online' },
+      stats: null,
+      statsUnavailable: 'not-configured',
+    });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('answers 502 when the Analytics Engine SQL call fails', async () => {
+  it('still returns the saved config when the Analytics Engine SQL call fails', async () => {
     stubAnalyticsEngine(500);
+    const res = await getGameAnalytics(
+      { ...CONFIGURED, DB: fakeDb({ ga4: 'G-ABC123', plausible: null }).db },
+      'chess',
+      'alice',
+      REGISTRY,
+      new URLSearchParams(),
+    );
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      config: { ga4: 'G-ABC123', plausible: null },
+      stats: null,
+      statsUnavailable: 'unavailable',
+    });
+  });
+
+  it('has no statsUnavailable when the stats load', async () => {
+    stubAnalyticsEngine();
     const res = await getGameAnalytics(
       { ...CONFIGURED, DB: fakeDb().db },
       'chess',
@@ -172,7 +197,30 @@ describe('queryGameStats', () => {
       REGISTRY,
       new URLSearchParams(),
     );
+    expect(res.status).toBe(200);
+    expect(res.body).not.toHaveProperty('statsUnavailable');
+  });
+
+  it('is an error, not an empty form, when the saved config cannot be read', async () => {
+    stubAnalyticsEngine();
+    const failing = {
+      prepare: () => ({
+        bind: () => ({
+          first: async () => {
+            throw new Error('D1 down');
+          },
+        }),
+      }),
+    } as unknown as D1Database;
+    const res = await getGameAnalytics(
+      { ...CONFIGURED, DB: failing },
+      'chess',
+      'alice',
+      REGISTRY,
+      new URLSearchParams(),
+    );
     expect(res.status).toBe(502);
+    expect(res.body).not.toHaveProperty('config');
   });
 });
 
