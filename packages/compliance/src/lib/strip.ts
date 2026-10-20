@@ -70,11 +70,7 @@ export function stripCssComments(src: string): string {
   let i = 0;
   while (i < src.length) {
     if (src[i] === '/' && src[i + 1] === '*') {
-      const start = i;
-      i += 2;
-      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i++;
-      i = Math.min(src.length, i + 2);
-      blank(out, start, i);
+      i = blankBlockComment(src, out, i);
       continue;
     }
     i++;
@@ -89,6 +85,22 @@ export function stripCssComments(src: string): string {
  * JS-flavoured.
  */
 export function stripForExt(src: string, ext: string): string {
+  return stripByExt(src, ext, stripCommentsAndStrings);
+}
+
+/**
+ * Like `stripForExt` but preserves string-literal contents — useful
+ * when the regex needs to match tokens that legitimately appear inside
+ * strings (e.g. `@amplitude/` inside an `import from "@amplitude/..."`,
+ * which is the literal package-name string we want to catch).
+ */
+export function stripCommentsForExt(src: string, ext: string): string {
+  return stripByExt(src, ext, stripCommentsOnly);
+}
+
+/** The per-extension dispatch both of the above share; only the JS-like
+ *  fallback differs. */
+function stripByExt(src: string, ext: string, jsLike: (src: string) => string): string {
   switch (ext.toLowerCase()) {
     case '.html':
     case '.htm':
@@ -99,29 +111,18 @@ export function stripForExt(src: string, ext: string): string {
     case '.json':
       return src; // JSON has no comments
     default:
-      return stripCommentsAndStrings(src);
+      return jsLike(src);
   }
 }
 
-/**
- * Like `stripForExt` but preserves string-literal contents — useful
- * when the regex needs to match tokens that legitimately appear inside
- * strings (e.g. `@amplitude/` inside an `import from "@amplitude/..."`,
- * which is the literal package-name string we want to catch).
- */
-export function stripCommentsForExt(src: string, ext: string): string {
-  switch (ext.toLowerCase()) {
-    case '.html':
-    case '.htm':
-      return stripHtmlComments(src);
-    case '.css':
-    case '.scss':
-      return stripCssComments(src);
-    case '.json':
-      return src;
-    default:
-      return stripCommentsOnly(src);
-  }
+/** Blanks the block comment that opens at `start` (through its closing marker,
+ *  or the end of `src` if unterminated) and returns the index just past it. */
+function blankBlockComment(src: string, out: string[], start: number): number {
+  let i = start + 2;
+  while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i++;
+  i = Math.min(src.length, i + 2);
+  blank(out, start, i);
+  return i;
 }
 
 function stripCode(src: string, opts: { strings: boolean }): string {
@@ -136,11 +137,7 @@ function stripCode(src: string, opts: { strings: boolean }): string {
       continue;
     }
     if (c === '/' && src[i + 1] === '*') {
-      const start = i;
-      i += 2;
-      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i++;
-      i = Math.min(src.length, i + 2);
-      blank(out, start, i);
+      i = blankBlockComment(src, out, i);
       continue;
     }
     if (c === '"' || c === "'" || c === '`') {
