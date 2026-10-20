@@ -20,7 +20,8 @@ const MAX_DAILY_ROWS = 50000;
 
 // Prefer the client-recorded time (double2) for replayed events, else the server
 // timestamp. Same expression the per-game stats use, so the two views agree.
-const EFFECTIVE_TIME = 'if(length(doubles) > 1, fromUnixTimestamp64Milli(toInt64(double2)), timestamp)';
+const EFFECTIVE_TIME =
+  'if(length(doubles) > 1, fromUnixTimestamp64Milli(toInt64(double2)), timestamp)';
 
 interface TotalsRow {
   views: number;
@@ -197,20 +198,25 @@ export async function getPlatformUsage(
     };
   } catch (err) {
     if (err instanceof StatsError) return { status: err.status, body: { error: err.message } };
-    return { status: 502, body: { error: err instanceof Error ? err.message : 'usage query failed' } };
+    return {
+      status: 502,
+      body: { error: err instanceof Error ? err.message : 'usage query failed' },
+    };
   }
 }
 
 /** The route's decision. Anonymous callers get 401, signed-in non-admins 403, and
  *  admins the dashboard. Kept here, not in the router table, so the gate can be
- *  tested without the whole worker. */
+ *  tested without the whole worker. An admin signs in with Google: `admin` is
+ *  that session's email and it carries no GitHub `login`, so either one counts
+ *  as signed in (#361: gating on `login` alone answered every admin 401). */
 export async function handlePlatformUsage(
-  caller: { login: string | null; isAdmin: boolean },
+  caller: { admin: string | null; login: string | null; isAdmin: boolean },
   env: AnalyticsEnv,
   registry: RegistryGame[] | null,
   now?: Date,
 ): Promise<{ status: number; body: unknown }> {
-  if (!caller.login) return { status: 401, body: { error: 'unauthorized' } };
+  if (!caller.admin && !caller.login) return { status: 401, body: { error: 'unauthorized' } };
   if (!caller.isAdmin) return { status: 403, body: { error: 'forbidden: admin only' } };
   return getPlatformUsage(env, registry, now);
 }

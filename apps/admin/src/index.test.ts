@@ -644,3 +644,56 @@ describe('provision creator identity (#63)', () => {
     expect(JSON.stringify(await response.json())).toMatch(/invalid creatorgithub/i);
   });
 });
+
+describe('Google admin sessions reach the admin paths (#361)', () => {
+  // An admin signs in with Google: /me returns their email, and the token has
+  // no GitHub `login`. Routes gated on auth: 'login' turned these away with 401.
+  const googleAdmin = { 'X-FGS-Token': 't' };
+
+  it('GET /api/analytics/platform is not 401 for an allowlisted Google admin', async () => {
+    vi.stubGlobal('fetch', async () => new Response('{}', { status: 404 }));
+    const res = await worker.fetch(
+      req('/api/analytics/platform', { headers: googleAdmin }),
+      makeEnv({ meEmail: ADMIN, adminEmails: ADMIN }),
+    );
+    expect(res.status).not.toBe(401);
+    expect(res.status).not.toBe(403);
+  });
+
+  it('GET /api/analytics/platform is 403 for a Google session that is not an admin', async () => {
+    vi.stubGlobal('fetch', async () => new Response('{}', { status: 404 }));
+    const res = await worker.fetch(
+      req('/api/analytics/platform', { headers: googleAdmin }),
+      makeEnv({ meEmail: 'someone@example.com', adminEmails: ADMIN }),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it('GET /api/analytics/platform is 401 when nobody is signed in', async () => {
+    const res = await worker.fetch(
+      req('/api/analytics/platform'),
+      makeEnv({ meEmail: null, adminEmails: ADMIN }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('DELETE /api/games/:id lets a Google admin use the admin override', async () => {
+    const del = vi.spyOn(publish, 'handleDeleteGame').mockResolvedValue({ ok: true });
+    const res = await worker.fetch(
+      req('/api/games/chess', { method: 'DELETE', headers: googleAdmin }),
+      makeEnv({ meEmail: ADMIN, adminEmails: ADMIN }),
+    );
+    expect(res.status).toBe(200);
+    expect(del).toHaveBeenCalledWith('chess', ADMIN, expect.anything(), { adminOverride: true });
+  });
+
+  it('DELETE /api/games/:id still refuses a Google session that is not an admin', async () => {
+    const del = vi.spyOn(publish, 'handleDeleteGame').mockResolvedValue({ ok: true });
+    const res = await worker.fetch(
+      req('/api/games/chess', { method: 'DELETE', headers: googleAdmin }),
+      makeEnv({ meEmail: 'someone@example.com', adminEmails: ADMIN }),
+    );
+    expect(res.status).toBe(401);
+    expect(del).not.toHaveBeenCalled();
+  });
+});

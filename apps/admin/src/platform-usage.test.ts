@@ -22,7 +22,11 @@ const REGISTRY = [
   { id: 'tetris', name: 'Tetris', creatorGithub: 'bob' },
   { id: 'ghost', name: 'Ghost Game' }, // no views at all: must be flagged
 ];
-const CONFIGURED: AnalyticsEnv = { DB: undefined as unknown as D1Database, CF_ACCOUNT_ID: 'acct', CF_ANALYTICS_API_TOKEN: 'tok' };
+const CONFIGURED: AnalyticsEnv = {
+  DB: undefined as unknown as D1Database,
+  CF_ACCOUNT_ID: 'acct',
+  CF_ANALYTICS_API_TOKEN: 'tok',
+};
 
 function input(overrides: Partial<PlatformUsageInput> = {}): PlatformUsageInput {
   return {
@@ -89,12 +93,22 @@ describe('buildPlatformUsage aggregation', () => {
   it('reports per-game 7- and 30-day views and distinct pages', () => {
     const body = buildPlatformUsage(input());
     const chess = body.games.find((g) => g.id === 'chess')!;
-    expect(chess).toMatchObject({ views7: 40, views30: 100, distinctPages7: 2, distinctPages30: 3 });
+    expect(chess).toMatchObject({
+      views7: 40,
+      views30: 100,
+      distinctPages7: 2,
+      distinctPages30: 3,
+    });
   });
 
   it('reports platform totals as given by the totals queries', () => {
     const body = buildPlatformUsage(input());
-    expect(body.totals).toEqual({ views7: 50, views30: 125, distinctPages7: 3, distinctPages30: 4 });
+    expect(body.totals).toEqual({
+      views7: 50,
+      views30: 125,
+      distinctPages7: 3,
+      distinctPages30: 4,
+    });
   });
 
   it('zero-fills the daily series and normalises both timestamp shapes', () => {
@@ -135,8 +149,14 @@ describe('buildPlatformUsage aggregation', () => {
 
   it('carries status and creator through, as null when absent', () => {
     const body = buildPlatformUsage(input());
-    expect(body.games.find((g) => g.id === 'chess')).toMatchObject({ status: 'live', creatorGithub: 'alice' });
-    expect(body.games.find((g) => g.id === 'ghost')).toMatchObject({ status: null, creatorGithub: null });
+    expect(body.games.find((g) => g.id === 'chess')).toMatchObject({
+      status: 'live',
+      creatorGithub: 'alice',
+    });
+    expect(body.games.find((g) => g.id === 'ghost')).toMatchObject({
+      status: null,
+      creatorGithub: null,
+    });
   });
 
   it('ignores analytics rows for games the registry does not list', () => {
@@ -156,13 +176,19 @@ describe('getPlatformUsage', () => {
   it('answers 503 when the analytics token is not configured', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
-    const res = await getPlatformUsage({ ...CONFIGURED, CF_ANALYTICS_API_TOKEN: undefined }, REGISTRY);
+    const res = await getPlatformUsage(
+      { ...CONFIGURED, CF_ANALYTICS_API_TOKEN: undefined },
+      REGISTRY,
+    );
     expect(res.status).toBe(503);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('answers 502 when the Analytics Engine call fails', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('boom', { status: 500 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('boom', { status: 500 })),
+    );
     const res = await getPlatformUsage(CONFIGURED, REGISTRY);
     expect(res.status).toBe(502);
   });
@@ -171,10 +197,12 @@ describe('getPlatformUsage', () => {
     const fetchMock = vi.fn(async (_url: string, init?: { body?: string }) => {
       const sql = init?.body ?? '';
       let data: unknown[] = [];
-      if (sql.includes('toStartOfDay')) data = [{ gameId: 'chess', t: '2026-10-18 00:00:00', views: 7 }];
+      if (sql.includes('toStartOfDay'))
+        data = [{ gameId: 'chess', t: '2026-10-18 00:00:00', views: 7 }];
       else if (sql.includes('GROUP BY gameId') && sql.includes("INTERVAL '7' DAY"))
         data = [{ gameId: 'chess', views: 7, distinct_pages: 1 }];
-      else if (sql.includes('GROUP BY gameId')) data = [{ gameId: 'chess', views: 9, distinct_pages: 2 }];
+      else if (sql.includes('GROUP BY gameId'))
+        data = [{ gameId: 'chess', views: 9, distinct_pages: 2 }];
       else if (sql.includes("INTERVAL '7' DAY")) data = [{ views: 7, distinct_pages: 1 }];
       else data = [{ views: 9, distinct_pages: 2 }];
       return new Response(JSON.stringify({ data }), { status: 200 });
@@ -183,7 +211,10 @@ describe('getPlatformUsage', () => {
     const res = await getPlatformUsage(CONFIGURED, REGISTRY, NOW);
     expect(res.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledTimes(5);
-    const body = res.body as { totals: { views30: number }; games: Array<{ id: string; views30: number }> };
+    const body = res.body as {
+      totals: { views30: number };
+      games: Array<{ id: string; views30: number }>;
+    };
     expect(body.totals.views30).toBe(9);
     expect(body.games.find((g) => g.id === 'chess')!.views30).toBe(9);
   });
@@ -193,7 +224,11 @@ describe('handlePlatformUsage (#351 admin-only gate)', () => {
   it('answers 401 to an anonymous caller without querying anything', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
-    const res = await handlePlatformUsage({ login: null, isAdmin: false }, CONFIGURED, REGISTRY);
+    const res = await handlePlatformUsage(
+      { admin: null, login: null, isAdmin: false },
+      CONFIGURED,
+      REGISTRY,
+    );
     expect(res.status).toBe(401);
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -201,14 +236,35 @@ describe('handlePlatformUsage (#351 admin-only gate)', () => {
   it('answers 403 to a signed-in creator who is not an admin, without querying anything', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
-    const res = await handlePlatformUsage({ login: 'alice', isAdmin: false }, CONFIGURED, REGISTRY);
+    const res = await handlePlatformUsage(
+      { admin: null, login: 'alice', isAdmin: false },
+      CONFIGURED,
+      REGISTRY,
+    );
     expect(res.status).toBe(403);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('serves the dashboard to an admin', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: [] }), { status: 200 })));
-    const res = await handlePlatformUsage({ login: 'serge', isAdmin: true }, CONFIGURED, REGISTRY, NOW);
+  it('answers 403 to a Google session that is not an admin', async () => {
+    const res = await handlePlatformUsage(
+      { admin: 'someone@example.com', login: null, isAdmin: false },
+      CONFIGURED,
+      REGISTRY,
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it('serves the dashboard to an admin, whose Google session has no GitHub login (#361)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ data: [] }), { status: 200 })),
+    );
+    const res = await handlePlatformUsage(
+      { admin: 'serge.the.dev@gmail.com', login: null, isAdmin: true },
+      CONFIGURED,
+      REGISTRY,
+      NOW,
+    );
     expect(res.status).toBe(200);
   });
 });

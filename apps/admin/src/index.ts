@@ -1190,7 +1190,10 @@ function buildRouteTable(data: ReturnType<typeof dataService>): Route[] {
     {
       method: 'DELETE',
       pattern: /^\/api\/games\/([a-z0-9][a-z0-9-]*)$/,
-      auth: 'login',
+      // 'public': the handler requires a creator login OR an admin. auth: 'login'
+      // turned away an admin's Google session (no GitHub login), so the admin
+      // override below could never run (#361).
+      auth: 'public',
       handler: async ({ request, match, caller, env }) => {
         const id = match?.[1];
         if (!id) return jsonResponse({ error: 'invalid game id' }, 400, request);
@@ -1363,12 +1366,13 @@ function buildRouteTable(data: ReturnType<typeof dataService>): Route[] {
     },
 
     // GET /api/analytics/platform — admin-only cross-game usage dashboard (#351).
-    // auth is 'login' so a signed-in non-admin gets 403 (the 'admin' gate answers
-    // 401 to everyone who isn't one, which hides who's actually signed in).
+    // Gated in handlePlatformUsage: 401 anonymous, 403 signed-in non-admin. Not
+    // auth: 'login', which needs a GitHub login that an admin's Google session
+    // never has, so every admin got 401 (#361).
     {
       method: 'GET',
       pattern: '/api/analytics/platform',
-      auth: 'login',
+      auth: 'public',
       handler: async ({ request, caller, env }) => {
         const result = await handlePlatformUsage(caller, env, await data.registryItems());
         return jsonResponse(result.body, result.status, request);
