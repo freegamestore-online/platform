@@ -147,7 +147,7 @@ export function checkNoTrackingLive(html: string): CheckResult {
     detail: `${found.length} direct-tracker pattern${found.length === 1 ? '' : 's'} matched`,
     suggestions: [
       'Replace the direct SDK with the platform loader: <script src="https://api.freegamestore.online/v1/analytics.js?app=<id>" defer></script>.',
-      'Configure providers via PUT /v1/apps/<id>/analytics so policy can evolve without a redeploy.',
+      'Configure GA4 or Plausible in the Analytics panel for the game in the Studio, so policy can change without a redeploy.',
     ],
   };
 }

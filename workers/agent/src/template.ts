@@ -135,7 +135,7 @@ const GAME_FILES: Record<string, string> = {
     <meta name="mobile-web-app-capable" content="yes" />
     <title>APPNAME — FreeGameStore</title>
     <!-- Platform analytics loader. CF Web Analytics is auto-provisioned at publish;
-         GA4 / Plausible / custom <head> are opt-in via PUT /v1/apps/APPNAME/analytics. -->
+         GA4 and Plausible are opt-in in the game's Analytics panel in the Studio. -->
     <script src="https://api.freegamestore.online/v1/analytics.js?app=APPNAME" defer></script>
   </head>
   <body>

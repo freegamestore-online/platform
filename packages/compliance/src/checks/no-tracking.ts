@@ -58,7 +58,7 @@ const TRACKERS: TrackerSpec[] = [
   { name: 'posthog', patterns: [wb('posthog')] },
   // Cloudflare Web Analytics installed by hand. The platform loader injects the
   // beacon itself with the game's own token, so a direct copy skips the policy.
-  // Its host is still allowed by no-external-scripts, which is why it's caught here.
+  // no-external-scripts blocks its host too; this check names the problem.
   {
     name: 'cloudflare-web-analytics',
     patterns: [
@@ -130,7 +130,7 @@ export async function checkNoTracking(source: FileSource): Promise<CheckResult> 
       .join('; ')}${hits.length > 3 ? '…' : ''}`,
     suggestions: [
       'Remove the direct SDK and reference the platform loader instead: <script src="https://api.freegamestore.online/v1/analytics.js?app=<id>" defer></script>.',
-      'Configure providers (GA4, Plausible, custom <head>) via PUT /v1/apps/<id>/analytics — the loader emits the right tags so policy can evolve without redeploying every app.',
+      'Configure GA4 or Plausible in the Analytics panel for the game in the Studio (PUT https://console.freegamestore.online/api/analytics/<id>). The loader emits the right tags, so policy can change without redeploying every game.',
     ],
   };
 }
