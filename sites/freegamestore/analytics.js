@@ -147,8 +147,26 @@
     });
   }
 
+  // #364: the API answers 200 with the saved tags even when the numbers can't
+  // load (stats: null, statsUnavailable says why). Keep the tag form usable.
+  function statsMissingNodes(gameId, data) {
+    var why =
+      data.statsUnavailable === 'not-configured'
+        ? 'Page-view numbers aren’t switched on yet. Your tags below still work.'
+        : 'Page-view numbers couldn’t be loaded right now. Try again in a few minutes. Your tags below still work.';
+    return [
+      el('p', { class: 'an-back' }, [el('a', { class: 'an-link', href: '/analytics.html' }, '← All games')]),
+      el('div', { class: 'an-card' }, [
+        el('h2', { class: 'an-game-name' }, gameId),
+        el('p', { class: 'an-meta', role: 'status' }, why),
+      ]),
+      tagForm(gameId, data.config || {}),
+    ];
+  }
+
   function gameNodes(gameId, data, days, kind) {
     var stats = data.stats;
+    if (!stats) return statsMissingNodes(gameId, data);
     return [
       el('p', { class: 'an-back' }, [el('a', { class: 'an-link', href: '/analytics.html' }, '← All games')]),
       el('div', { class: 'an-card an-row' }, [

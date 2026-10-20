@@ -722,3 +722,101 @@ test("the backfilled game-permissions.json covers every registry game (#370)", (
   const missing = registry.games.map((g) => g.id).filter((id) => !data.games[id]);
   assert.deepEqual(missing, []);
 });
+
+// --- #364: the analytics page keeps the tag form when stats are unavailable ---
+
+/** Runs analytics.js against a tiny fake DOM and a stubbed fetch. */
+async function runAnalyticsPage(search, responses) {
+  const { runInNewContext } = await import("node:vm");
+  class Node {
+    constructor(tag) {
+      this.tagName = tag;
+      this.attributes = {};
+      this.children = [];
+      this.listeners = {};
+      this.className = "";
+      this._text = null;
+    }
+    setAttribute(k, v) { this.attributes[k] = String(v); }
+    appendChild(c) { this.children.push(c); return c; }
+    replaceChildren(...nodes) { this.children = nodes; }
+    addEventListener(type, fn) { this.listeners[type] = fn; }
+    get textContent() { return this._text !== null ? this._text : this.children.map((c) => c.textContent).join(""); }
+    set textContent(v) { this._text = String(v); this.children = []; }
+    get value() { return this._value !== undefined ? this._value : this.attributes.value || ""; }
+    set value(v) { this._value = v; }
+  }
+  const text = (t) => ({ textContent: t, children: [] });
+  const root = new Node("div");
+  const calls = [];
+  const document = {
+    getElementById: (id) => (id === "an-content" ? root : null),
+    createElement: (t) => new Node(t),
+    createElementNS: (_ns, t) => new Node(t),
+    createTextNode: text,
+  };
+  const fetch = async (url, init) => {
+    calls.push({ url, init });
+    const r = responses(url, init);
+    return { ok: r.status < 400, status: r.status, json: async () => r.body };
+  };
+  runInNewContext(readFileSync(join(REPO_ROOT, "analytics.js"), "utf8"), {
+    document,
+    fetch,
+    location: { search },
+    URLSearchParams,
+    encodeURIComponent,
+    JSON,
+    Number,
+    Array,
+    Object,
+    String,
+  });
+  for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r));
+  const all = [];
+  const walk = (n) => { all.push(n); (n.children || []).forEach(walk); };
+  walk(root);
+  return { root, calls, all, flush: () => new Promise((r) => setImmediate(r)) };
+}
+
+const NO_STATS_BODY = {
+  appId: "chess",
+  days: 7,
+  kind: "pageview",
+  bucket: "day",
+  path: null,
+  config: { ga4: "G-ABC123", plausible: "chess.freegamestore.online" },
+  stats: null,
+  statsUnavailable: "not-configured",
+};
+
+test("analytics page explains missing stats and keeps the tag form seeded (#364)", async () => {
+  const page = await runAnalyticsPage("?game=chess", () => ({ status: 200, body: NO_STATS_BODY }));
+  const textAll = page.root.textContent;
+  assert.match(textAll, /aren’t switched on yet/);
+  assert.match(textAll, /Your analytics tags/);
+  assert.doesNotMatch(textAll, /Something went wrong|not set up yet/);
+  const inputs = page.all.filter((n) => n.tagName === "input");
+  assert.deepEqual(inputs.map((n) => n.value), ["G-ABC123", "chess.freegamestore.online"]);
+});
+
+test("analytics page says 'couldn't be loaded' when the stats query failed (#364)", async () => {
+  const page = await runAnalyticsPage("?game=chess", () => ({
+    status: 200,
+    body: { ...NO_STATS_BODY, statsUnavailable: "unavailable" },
+  }));
+  assert.match(page.root.textContent, /couldn’t be loaded right now/);
+});
+
+test("saving from the stats-less page keeps both saved tags (#364)", async () => {
+  const page = await runAnalyticsPage("?game=chess", (_url, init) =>
+    init && init.method === "PUT"
+      ? { status: 200, body: { ok: true, config: NO_STATS_BODY.config } }
+      : { status: 200, body: NO_STATS_BODY },
+  );
+  const form = page.all.find((n) => n.tagName === "form");
+  form.listeners.submit({ preventDefault() {} });
+  await page.flush();
+  const put = page.calls.find((c) => c.init && c.init.method === "PUT");
+  assert.deepEqual(JSON.parse(put.init.body), { ga4: "G-ABC123", plausible: "chess.freegamestore.online" });
+});
