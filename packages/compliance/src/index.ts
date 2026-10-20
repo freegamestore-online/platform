@@ -20,6 +20,7 @@ import { checkNoExternalFetch } from './checks/no-external-fetch.js';
 import { checkNoExternalScripts } from './checks/no-external-scripts.js';
 import { checkNoHardcodedColors } from './checks/no-hardcoded-colors.js';
 import { checkNoPagePolicy } from './checks/no-page-policy.js';
+import { checkNoPaymentCapabilities } from './checks/no-payment-capabilities.js';
 import { checkNoPaymentSdk } from './checks/no-payment-sdk.js';
 import { checkNoPlaceholders } from './checks/no-placeholders.js';
 import { checkNoScroll } from './checks/no-scroll.js';
@@ -108,6 +109,7 @@ export {
   checkNoExternalScripts,
   checkNoHardcodedColors,
   checkNoPagePolicy,
+  checkNoPaymentCapabilities,
   checkNoPaymentSdk,
   checkNoPlaceholders,
   checkNoScroll,

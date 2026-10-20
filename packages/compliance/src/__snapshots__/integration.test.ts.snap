@@ -185,6 +185,15 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
     "status": "pass",
   },
   {
+    "detail": "1 payment capability: Payment Request API (PaymentRequest) in web/src/pay.ts",
+    "name": "No payment capabilities",
+    "status": "fail",
+    "suggestions": [
+      "FreeGameStore games are free and take no payments: the host blocks the Payment Request API (Permissions-Policy payment=()). Remove the payment code.",
+      "A link to your own donation or sponsor page is fine. Paid games belong on ProGameStore.",
+    ],
+  },
+  {
     "detail": "not a game project — check skipped",
     "name": "No scroll (games only)",
     "status": "pass",

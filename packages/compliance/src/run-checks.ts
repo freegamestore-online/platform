@@ -30,6 +30,7 @@ import { checkNoExternalFetch } from './checks/no-external-fetch.js';
 import { checkNoExternalScripts } from './checks/no-external-scripts.js';
 import { checkNoHardcodedColors } from './checks/no-hardcoded-colors.js';
 import { checkNoPagePolicy } from './checks/no-page-policy.js';
+import { checkNoPaymentCapabilities } from './checks/no-payment-capabilities.js';
 import { checkNoPaymentSdk } from './checks/no-payment-sdk.js';
 import { checkNoPlaceholders } from './checks/no-placeholders.js';
 import { checkNoScroll } from './checks/no-scroll.js';
@@ -67,6 +68,7 @@ export async function runChecksOn(source: FileSource): Promise<CheckResult[]> {
     checkNoPlaceholders(source),
     checkNoTracking(source),
     checkNoPaymentSdk(source),
+    checkNoPaymentCapabilities(source),
     checkNoCookies(source),
     checkNoExternalScripts(source),
     checkNoExternalFetch(source),
