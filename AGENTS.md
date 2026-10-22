@@ -4,7 +4,7 @@
 
 **Straight to `main`. No branches, no pull requests.** Declared 2026-08-16.
 
-**Interim (since 2026-10-15): GitHub Actions is down for this PRIVATE platform repo (public game repos still build and deploy themselves), so a push here deploys nothing.** Run the checks locally. Deploy only in a run for a filed `Deploy: …` issue, from the local machine. The commands and credentials are in `CLAUDE.md` § "Interim: deploy from local while GitHub Actions is down".
+**Production deployments are automated only through GitHub Actions on main. Never deploy production from a local machine, including during an Actions outage.** Run checks locally; report billing, credential, or external permission blockers to Serge without requesting or exposing plaintext secrets. See CLAUDE.md for release verification.
 
 ## Hard rules
 

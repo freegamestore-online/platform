@@ -13,24 +13,34 @@ permissions:
 
 concurrency:
   group: deploy-storefront
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: sites/freegamestore
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
+      - name: Test storefront and deployment contract
+        run: npm test
       - name: Build
         run: npm run build
+      - name: Install SDK docs dependencies
+        run: pnpm --dir docs install --frozen-lockfile --ignore-workspace
+      - name: Build SDK docs into dist/docs
+        run: npm --prefix docs run build
+      - name: Verify combined deployment artifact
+        run: node scripts/verify-dist.mjs
       - name: Deploy to Cloudflare Pages
-        run: npx wrangler pages deploy dist --project-name=freegamestore
+        run: npx wrangler pages deploy dist --project-name=freegamestore --branch=main --commit-hash=${{ github.sha }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

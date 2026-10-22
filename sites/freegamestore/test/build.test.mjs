@@ -38,6 +38,8 @@ function runBuild() {
   const tmpDist = join(tmp, "dist");
   mkdirSync(join(tmpDist, "games"), { recursive: true });
   writeFileSync(join(tmpDist, "games", "stale-game.html"), "stale");
+  mkdirSync(join(tmpDist, "docs"), { recursive: true });
+  writeFileSync(join(tmpDist, "docs", "index.html"), "existing SDK docs");
 
   const realRegistry = JSON.parse(readFileSync(REAL_REGISTRY, "utf8"));
   realRegistry.games.push({
@@ -104,6 +106,7 @@ test("build.js removes stale generated game detail pages", () => {
   const { tmp, tmpDist } = runBuild();
   try {
     assert.equal(existsSync(join(tmpDist, "games", "stale-game.html")), false);
+    assert.equal(readFileSync(join(tmpDist, "docs", "index.html"), "utf8"), "existing SDK docs");
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

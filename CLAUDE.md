@@ -104,44 +104,31 @@ never committed. See `SECURITY.md`.
 
 **Straight to `main`. No branches, no pull requests.** Declared 2026-08-16.
 
-## Interim: deploy from local while GitHub Actions is down (since 2026-10-15)
+## Production deployment policy
 
-GitHub Actions on the `freegamestore-online` org is refusing to start jobs
-("recent account payments have failed or your spending limit needs to be
-increased"). **This only affects this repo, which is private.** Game repos
-are public, so their Actions minutes are free and their own `deploy.yml`
-(compliance plus R2 upload) keeps running on every push. Don't deploy games by
-hand. Here, CI, Quality and every `deploy-*.yml` are blocked, so a push to
-`main` of this repo deploys **nothing**, and a red CI run says nothing about the
-code. Until this section is removed:
+Production deployments are automated only through GitHub Actions on `main`.
+Never deploy production from a local machine, even for a deploy ticket or during
+an Actions outage. Local installs, tests, and builds are allowed. Never request,
+print, copy, or transmit plaintext credentials. Serge must manage missing or
+invalid Actions secrets through GitHub settings, and resolve account billing or
+external permission failures. Do not change account access or spending settings.
 
-- **Deploys happen only through a deploy ticket.** A deploy is its own GitHub
-  issue (label `chore`, title `Deploy: <what>`), filed once the dev tickets it
-  ships are closed, and worked by the PAGS coder agent for this repo. A dev
-  ticket's run commits and pushes to `main` but does **not** deploy. The deploy
-  ticket lists the commits/issues it ships and is closed only after the live
-  check passes.
+The storefront workflow is `.github/workflows/deploy-storefront.yml`. It runs
+storefront tests, builds the storefront, installs SDK docs dependencies from the
+committed lockfile, builds docs into `sites/freegamestore/dist/docs`, and verifies
+the combined artifact before deploying to the existing `freegamestore` Pages
+project. Storefront pushes trigger it; `workflow_dispatch` on `main` supports a
+retry after an outage. Do not dispatch other services for a storefront release.
+Existing Actions secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are used
+only by the remote deployment step.
 
-- **Run the checks yourself before you push** — the same steps the workflow
-  would have run (install, typecheck, test, lint) in that service's directory.
-- **In a deploy-ticket run, deploy from the local machine** with the commands the workflow uses.
-  Load credentials with `set -a; source ~/.cloudflare/tokens.env; set +a`,
-  then `export CLOUDFLARE_API_TOKEN=$CF_TOKEN_PERSONAL
-  CLOUDFLARE_ACCOUNT_ID=$CF_ACCOUNT_PERSONAL`. Only the PERSONAL token reaches
-  FGS; the WORK one does not. Never echo the values.
+If Actions cannot start, inspect the run annotation and job/runner metadata.
+A billing rejection before any steps run is not a build failure and cannot be
+fixed by changing application code or substituting a local deploy. Record the
+run URL and exact blocker on the issue and leave it open for Serge.
 
-| Service | Local deploy (from the repo root) |
-|---|---|
-| admin | `pnpm install --frozen-lockfile && pnpm --filter admin test && npm install --prefix apps/admin/web && npm run --prefix apps/admin/web build && (cd apps/admin && npx wrangler deploy)` |
-| agent | `pnpm install --frozen-lockfile && pnpm build && cd workers/agent && npx tsc --noEmit && pnpm test && pnpm exec wrangler deploy` |
-| auth / host / leaderboard | `cd workers/<name> && pnpm install --frozen-lockfile --ignore-workspace && pnpm typecheck && pnpm test && npx wrangler deploy` (auth has no `typecheck`) |
-| mcp | `pnpm install --frozen-lockfile && pnpm --filter @freegamestore/contracts build && pnpm --filter freegamestore-mcp typecheck && pnpm --filter freegamestore-mcp test && (cd workers/mcp && npx wrangler deploy)` |
-| console | `cd apps/console && pnpm install --frozen-lockfile && pnpm typecheck && pnpm test && (cd web && pnpm build) && npx wrangler pages deploy web/dist --project-name=freegamestore-publisher` |
-| storefront | `cd sites/freegamestore && npm install && npm run build && npx wrangler pages deploy dist --project-name=freegamestore` |
-| a game | **Not needed:** the game repo is public and its own `deploy.yml` builds and uploads to `fgs-games/games/<slug>/` on every push. A game's deploy ticket only has to make sure it's provisioned (registry entry plus host route), so `https://<slug>.freegamestore.online` serves it. |
-
-- **After each deploy, verify the live URL yourself** (the service's health
-  route, or the game at `https://<slug>.freegamestore.online`), and record in the
-  issue that it was deployed locally, with the commit SHA.
-- Remove this section once Actions runs again, and re-run the skipped workflows
-  on `main`.
+A release is complete only after a remotely executed deployment succeeds.
+Record the Actions run URL, deployed commit SHA and Pages deployment URL, then
+verify live HTTP HTML, referenced CSS/assets, a game detail page, and `/docs/`
+(including its assets). Storefront changes prohibit browser tests. Leave release
+and implementation issues open until their acceptance criteria are evidenced.

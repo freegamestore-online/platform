@@ -2,14 +2,14 @@
 
 Static HTML storefront for FreeGameStore (freegamestore.online). Built by
 `build.js` (reads `registry.json` + `templates/*`, emits `dist/`), deployed to
-Cloudflare Pages via `.github/workflows/deploy.yml` on every push to `main`.
+Cloudflare Pages via `.github/workflows/deploy-storefront.yml` on every push to `main`.
 
 - `templates/*.html` → generated pages (index, game-detail, developers, author, quality)
 - root `*.html` + `ai/*.html` → static pages, copied to `dist/` as-is
 - `theme.js` → site-wide theme/text-size toggles + CSP-safe mobile hamburger nav
 - `build.js` → build + security headers (`dist/_headers`, incl. the strict CSP)
 
-Push to `main` = auto-build + auto-deploy. `dist/` is gitignored (a build artifact).
+Production deployments run only through GitHub Actions on main. Never deploy from a local machine, even during an outage. The workflow tests the storefront and builds SDK docs into dist/docs before uploading. Report account billing or permission blockers to Serge; never request plaintext credentials. `dist/` is gitignored (a build artifact).
 
 ## Special Instructions
 
