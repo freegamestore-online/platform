@@ -29,7 +29,7 @@
   const localHaystacks = localCards.map((el) => {
     const text = (el.textContent || '').toLowerCase();
     const cat = (el.getAttribute('data-category') || '').toLowerCase();
-    return { el, hay: `${text} ${cat}` };
+    return { el, hay: `${text} ${cat} ${(el.dataset.id || '').toLowerCase()} ${(el.dataset.description || '').toLowerCase()}` };
   });
 
   let crossItems = [];
@@ -91,21 +91,21 @@
     const needle = q.trim().toLowerCase();
     let localShown = 0;
 
+    const category = window.__fgsActiveCategory ? window.__fgsActiveCategory() : 'all';
+    for (const { el, hay } of localHaystacks) {
+      const match = !needle || hay.includes(needle);
+      el.dataset.searchHidden = match ? '0' : '1';
+      el.hidden = !match || (category !== 'all' && (el.getAttribute('data-category') || '').toLowerCase() !== category);
+      if (!el.hidden) localShown++;
+    }
+    emptyMsg.hidden = localShown > 0;
+    if (window.__fgsUpdateCount) window.__fgsUpdateCount();
+
     if (needle === '') {
-      // Empty query — restore default: show all local, hide cross.
-      for (const { el } of localHaystacks) el.hidden = false;
-      emptyMsg.hidden = true;
       crossSection.hidden = true;
       crossGrid.innerHTML = '';
       return;
     }
-
-    for (const { el, hay } of localHaystacks) {
-      const match = hay.includes(needle);
-      el.hidden = !match;
-      if (match) localShown++;
-    }
-    emptyMsg.hidden = localShown > 0;
 
     // Cross-store hits.
     crossGrid.innerHTML = '';

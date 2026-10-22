@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -65,6 +65,7 @@
   __CF_BEACON__
 </head>
 <body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
   <header>
     <div class="container">
       <a href="/" class="brand" aria-label="FreeGameStore — Free Web Games">
@@ -101,44 +102,29 @@
     </div>
   </header>
 
-  <main class="container">
-    <section class="create-cta" aria-label="Create your own game">
-      <div class="create-cta-text">
-        <h2>Make your own game</h2>
-        <p>Describe it, AI builds it, and it's live on FreeGameStore — free, in minutes.</p>
-      </div>
-      <a class="btn-primary btn-lg" href="https://console.freegamestore.online/create">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-        Create a Game
-      </a>
-    </section>
+  <main class="container" id="main-content">
+    <div class="catalog-intro">
+      <p class="catalog-eyebrow">Free forever. Open source.</p>
+      <h1>Your next game starts here.</h1>
+      <p>Pick a game and play in your browser. No installs, no subscriptions.</p>
+    </div>
 
     <section class="apps-section" id="games">
-      <div class="input-wrap" id="searchInputWrap">
-        <svg class="input-icon muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-        <input
-          class="search-input"
-          type="search"
-          id="storefront-search"
-          placeholder="Search games…"
-          autocomplete="off"
-          aria-label="Search games"
-        />
-      </div>
-
-      <div class="apps-header">
-        <div class="apps-header-title">
-          <h2>All Games</h2>
-          <div class="count" id="apps-count">{{GAMES_COUNT}} total</div>
+      <div class="apps-toolbar">
+        <div class="input-wrap" id="searchInputWrap">
+          <svg class="input-icon muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input class="search-input" type="search" id="storefront-search" placeholder="Search games…" autocomplete="off" aria-label="Search games" />
         </div>
-        <div class="apps-sort">
-          <label for="sort-select" class="sort-label">Sort:</label>
-          <select id="sort-select" class="sort-select">
-            <option value="name">A–Z</option>
-            <option value="newest">Newest</option>
-            <option value="category">Category</option>
-          </select>
+        <div class="filter-bar" id="categoryFilter" role="toolbar" aria-label="Filter by genre">
+          <button class="filter-btn active" type="button" data-category="all" aria-pressed="true">All</button>
+          {{CATEGORY_FILTERS}}
         </div>
+        <div class="filter-bar" id="sortBar" role="toolbar" aria-label="Sort games">
+          <button class="filter-btn" type="button" data-sort="name" aria-pressed="false">A→Z</button>
+          <button class="filter-btn active" type="button" data-sort="newest" aria-pressed="true">Newest</button>
+          <button class="filter-btn" type="button" data-sort="category" aria-pressed="false">Category</button>
+        </div>
+        <div class="apps-count" id="apps-count" role="status">{{GAMES_COUNT}} games</div>
       </div>
 
       <div class="split-layout">
@@ -188,9 +174,13 @@
     <script type="application/json" id="cross-store-registry">{{CROSS_STORE_REGISTRY}}</script>
     <script src="/search.js" integrity="{{SRI_SEARCH_JS}}" defer></script>
 
-    <aside class="aside-note">
-      Looking for apps? Visit <a href="https://freeappstore.online" class="text-accent-bold">FreeAppStore</a> — free-forever web apps.
-    </aside>
+    <section class="create-cta catalog-create" aria-label="Create your own game">
+      <div class="create-cta-text">
+        <h2>Have a game idea?</h2>
+        <p>Build it with AI in Studio, or start with a game template.</p>
+      </div>
+      <a class="btn-primary" href="/get-started.html">Build a game <span aria-hidden="true">↗</span></a>
+    </section>
   </main>
 
   <footer>

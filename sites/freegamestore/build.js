@@ -424,8 +424,11 @@ const jsVersions = Object.fromEntries(
   JS_ASSETS.map((f) => [f, crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, f))).digest('hex').slice(0, 12)]),
 );
 
+const footerHtml = fs.readFileSync(path.join(ROOT, 'partials/footer.html'), 'utf8').trim();
+
 function replaceAssetVersions(html) {
   return html
+    .replace(/<footer>[\s\S]*?<\/footer>/g, footerHtml)
     .replaceAll('{{STYLE_VERSION}}', styleVersion)
     .replaceAll('{{CARD_STYLES_VERSION}}', cardStylesVersion)
     // Cache-bust local stylesheet links, including copied static pages that
@@ -551,9 +554,11 @@ function renderPermissionsSection(id) {
     </section>`;
 }
 
+const cardHistories = readCache();
 function renderGameCard(game) {
   const icon = iconHtml(game);
-  return `        <div class="app-card compact" data-id="${escapeHtml(game.id)}" data-category="${escapeHtml(game.category)}" data-published="${escapeHtml(game.firstPublished || '')}" data-about="/games/${escapeHtml(game.id)}.html">
+  const published = game.firstPublished || cardHistories[game.repo]?.meta?.created_at || '';
+  return `        <div class="app-card compact" data-id="${escapeHtml(game.id)}" data-name="${escapeHtml(game.name)}" data-description="${escapeHtml(game.description || '')}" role="button" tabindex="0" aria-label="View details for ${escapeHtml(game.name)}" data-category="${escapeHtml(game.category)}" data-published="${escapeHtml(published)}" data-about="/games/${escapeHtml(game.id)}.html">
           <div class="app-icon">${icon}</div>
           <div class="app-body">
             <span class="app-name">${escapeHtml(game.name)}</span>
@@ -568,6 +573,10 @@ function renderGameCard(game) {
 }
 
 const gameCards = games.map(renderGameCard).join('\n\n');
+const categoryFilters = [...new Set(games.map(game => String(game.category || '').toLowerCase()).filter(Boolean))]
+  .sort((a, b) => categoryLabel(a).localeCompare(categoryLabel(b)))
+  .map(category => `<button class="filter-btn" type="button" data-category="${escapeHtml(category)}" aria-pressed="false">${escapeHtml(categoryLabel(category))}</button>`)
+  .join('\n          ');
 
 // SHA-256 of the inline no-flash theme bootstrap so CSP can whitelist it
 // without 'unsafe-inline'. The bootstrap is the first <script> inside <head>.
@@ -597,6 +606,7 @@ let indexHtml = indexTemplate
   .replaceAll('__CF_BEACON__', CF_BEACON_SNIPPET)
   .replaceAll('{{INLINE_SCRIPT_HASH}}', inlineScriptHash)
   .replaceAll('{{GAMES_GRID}}', gameCards)
+  .replaceAll('{{CATEGORY_FILTERS}}', categoryFilters)
   .replaceAll('{{GAMES_COUNT}}', String(games.length));
 indexHtml = replaceAssetVersions(indexHtml);
 for (const [k, v] of Object.entries(sriHashes)) {

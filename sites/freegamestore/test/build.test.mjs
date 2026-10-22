@@ -78,6 +78,16 @@ test("build.js writes index.html containing every game id", () => {
   const { tmp, tmpDist, registry } = runBuild();
   try {
     const indexHtml = readFileSync(join(tmpDist, "index.html"), "utf8");
+    assert.match(indexHtml, /aria-label="Filter by genre"/);
+    assert.match(indexHtml, /data-sort="newest"/);
+    assert.doesNotMatch(indexHtml, /maximum-scale|user-scalable=no/);
+    // Generated detail pages and copied guides must receive the same footer.
+    for (const file of ['index.html', 'about.html', 'developers.html', `games/${FIXTURE_ID}.html`, 'ai/codex.html']) {
+      const html = readFileSync(join(tmpDist, file), 'utf8');
+      assert.equal((html.match(/aria-label="Footer"/g) || []).length, 1, file);
+      assert.match(html, /<h2>Build a game<\/h2>/, file);
+      assert.match(html, /<h2>Explore<\/h2>/, file);
+    }
     for (const g of registry.games) {
       if (isHidden(g)) continue; // fixtures and not-yet-built games are excluded from the store
       assert.ok(

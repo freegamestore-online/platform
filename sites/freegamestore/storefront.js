@@ -1,6 +1,6 @@
 /**
  * FreeGameStore storefront interactions:
- *   - sort dropdown (A-Z / Newest / Category)
+ *   - genre filters and sort tabs (A-Z / Newest / Category)
  *   - split-pane preview (load game iframe on >=1024px, navigate to about on <1024px)
  *   - ?game=<id> deep link, plus a fullscreen toolbar button (games need it)
  *
@@ -8,44 +8,82 @@
  * Vendored — each store ships its own copy.
  */
 (function () {
+  function updateCount() {
+    var cards = Array.from(document.querySelectorAll('#apps-grid .app-card'));
+    var count = document.getElementById('apps-count');
+    var shown = cards.filter(function (card) { return !card.hidden; }).length;
+    if (count) count.textContent = shown === cards.length ? cards.length + ' games' : shown + ' of ' + cards.length + ' games';
+    var empty = document.getElementById('search-empty');
+    if (empty) empty.hidden = shown > 0;
+  }
+  window.__fgsUpdateCount = updateCount;
+  updateCount(); // Search may already have restored ?q= before this deferred script.
+
+  var activeCategory = 'all';
+  window.__fgsActiveCategory = function () { return activeCategory; };
+  var filterBar = document.getElementById('categoryFilter');
+  if (filterBar) filterBar.addEventListener('click', function (e) {
+    var button = e.target.closest('[data-category]');
+    if (!button) return;
+    activeCategory = button.dataset.category;
+    filterBar.querySelectorAll('[data-category]').forEach(function (btn) {
+      var active = btn === button;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
+    document.querySelectorAll('#apps-grid .app-card').forEach(function (card) {
+      card.hidden = card.dataset.searchHidden === '1' || (activeCategory !== 'all' && (card.dataset.category || '').toLowerCase() !== activeCategory);
+    });
+    updateCount();
+  });
+
   // ---------- Sort ----------
   (function () {
-    var select = document.getElementById('sort-select');
+    var sortBar = document.getElementById('sortBar');
     var grid = document.getElementById('apps-grid');
-    if (!select || !grid) return;
+    if (!sortBar || !grid) return;
 
-    select.addEventListener('change', function () {
+    function applySort(sort) {
+      sortBar.querySelectorAll('[data-sort]').forEach(function (btn) {
+        var active = btn.dataset.sort === sort;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-pressed', String(active));
+      });
       var cards = Array.from(grid.querySelectorAll('.app-card.compact'));
       cards.sort(function (a, b) {
-        switch (select.value) {
+        var byName = (a.dataset.name || a.dataset.id).localeCompare(b.dataset.name || b.dataset.id, undefined, { sensitivity: 'base', numeric: true });
+        switch (sort) {
           case 'newest': {
             var ap = a.dataset.published || '';
             var bp = b.dataset.published || '';
             // Games with dates first (newest first), undated at end (A-Z)
-            if (ap && bp) return bp.localeCompare(ap);
+            if (ap && bp) return bp.localeCompare(ap) || byName;
             if (ap) return -1;
             if (bp) return 1;
-            var an = a.querySelector('.app-name');
-            var bn = b.querySelector('.app-name');
-            return (an ? an.textContent : '').localeCompare(bn ? bn.textContent : '');
+            return byName;
           }
           case 'category': {
             var ac = a.dataset.category || '';
             var bc = b.dataset.category || '';
             if (ac !== bc) return ac.localeCompare(bc);
-            var an2 = a.querySelector('.app-name');
-            var bn2 = b.querySelector('.app-name');
-            return (an2 ? an2.textContent : '').localeCompare(bn2 ? bn2.textContent : '');
+            return byName;
           }
           default: {
-            var an3 = a.querySelector('.app-name');
-            var bn3 = b.querySelector('.app-name');
-            return (an3 ? an3.textContent : '').localeCompare(bn3 ? bn3.textContent : '');
+            return byName;
           }
         }
       });
       cards.forEach(function (c) { grid.appendChild(c); });
+      var url = new URL(window.location.href);
+      url.searchParams.set('sort', sort);
+      history.replaceState(null, '', url.toString());
+    }
+    sortBar.addEventListener('click', function (e) {
+      var button = e.target.closest('[data-sort]');
+      if (button) applySort(button.dataset.sort);
     });
+    var initial = new URL(window.location.href).searchParams.get('sort');
+    applySort(['name', 'newest', 'category'].indexOf(initial) >= 0 ? initial : 'newest');
   })();
 
   // ---------- Split-pane preview ----------
@@ -60,6 +98,8 @@
     var btnAbout = document.getElementById('previewAbout');
     var btnClose = document.getElementById('previewClose');
     var btnFullscreen = document.getElementById('previewFullscreen');
+    var layout = pane.parentElement;
+    var selectedCard = null;
     var current = null;
     var loadTimeout = null;
     var loadToken = 0;
@@ -115,13 +155,20 @@
       try {
         var u = new URL(window.location.href);
         if (value) u.searchParams.set('game', value);
-        else u.searchParams.delete('game');
+        else { u.searchParams.delete('game'); u.searchParams.delete('app'); }
         history.replaceState(null, '', u.pathname + (u.search || '') + u.hash);
       } catch (e) {}
     }
 
     function loadInPane(meta, card) {
       current = meta;
+      selectedCard = card;
+      var token = ++loadToken;
+      if (loadTimeout) { clearTimeout(loadTimeout); loadTimeout = null; }
+      frame.removeAttribute('src');
+      layout.classList.add('has-preview');
+      layout.scrollIntoView({ block: 'start' });
+      if (card) card.scrollIntoView({ block: 'nearest' });
       restoreEmpty();
       pane.classList.add('is-loading');
       frame.hidden = false;
@@ -136,7 +183,6 @@
 
       // Pre-flight reachability — catches DNS / network errors that the
       // iframe load event misses (browsers fire `load` on their own error pages).
-      var token = ++loadToken;
       fetch(meta.url, { method: 'GET', mode: 'no-cors', cache: 'no-store', credentials: 'omit' })
         .then(function () {
           if (token !== loadToken) return;
@@ -144,8 +190,9 @@
           if (loadTimeout) clearTimeout(loadTimeout);
           loadTimeout = setTimeout(function () { showLoadError(meta); }, 10000);
           frame.addEventListener('load', function once() {
-            pane.classList.remove('is-loading');
             frame.removeEventListener('load', once);
+            if (token !== loadToken) return;
+            pane.classList.remove('is-loading');
             if (loadTimeout) { clearTimeout(loadTimeout); loadTimeout = null; }
           });
         })
@@ -170,21 +217,20 @@
       setTitle(null, '');
       activate(null);
       pane.classList.remove('is-loading');
+      layout.classList.remove('has-preview');
       setUrlParam(null);
+      if (selectedCard) {
+        selectedCard.focus({ preventScroll: true });
+        selectedCard.scrollIntoView({ block: 'nearest' });
+        selectedCard = null;
+      }
     }
 
     function cardMeta(card) {
       var cta = card.querySelector('.app-cta');
-      var name = card.querySelector('.app-name');
-      var nameText = 'Game';
-      if (name) {
-        var n = name.firstChild;
-        while (n && n.nodeType !== Node.TEXT_NODE) n = n.nextSibling;
-        nameText = (n && n.textContent.trim()) || name.textContent.trim();
-      }
       return {
         id: card.dataset.id || '',
-        name: nameText,
+        name: card.dataset.name || 'Game',
         url: cta ? cta.getAttribute('href') : null,
         aboutUrl: card.dataset.about || null,
       };
@@ -194,6 +240,7 @@
       var aboutUrl = card.dataset.about;
       card.style.cursor = 'pointer';
       card.addEventListener('click', function (e) {
+        if (e.target.closest('a:not(.app-cta), button')) return;
         var onCta = !!e.target.closest('.app-cta');
         if (SPLIT_MQ.matches) {
           e.preventDefault();
@@ -201,6 +248,12 @@
           return;
         }
         if (!onCta && aboutUrl) window.location.href = aboutUrl;
+      });
+      card.addEventListener('keydown', function (e) {
+        if (e.target !== card || (e.key !== 'Enter' && e.key !== ' ')) return;
+        e.preventDefault();
+        if (SPLIT_MQ.matches) loadInPane(cardMeta(card), card);
+        else if (aboutUrl) window.location.href = aboutUrl;
       });
     });
 
@@ -227,7 +280,7 @@
     } catch (e) {}
 
     if (SPLIT_MQ.addEventListener) {
-      SPLIT_MQ.addEventListener('change', function (e) { if (!e.matches) activate(null); });
+      SPLIT_MQ.addEventListener('change', function (e) { if (!e.matches && current) clearPane(); });
     }
   })();
 })();
