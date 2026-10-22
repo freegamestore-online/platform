@@ -46,24 +46,31 @@ Quick map for the code you are most often sent to:
 
 ## The workspace gotcha — read before running anything
 
-`pnpm-workspace.yaml` covers **`packages/*` only**. The root scripts are
-`pnpm -r …`, so they recurse the workspace and therefore touch *just the three
-npm packages*:
+Read the current `pnpm-workspace.yaml`: the root workspace includes
+**`packages/*`, `workers/*`, and `apps/admin`**. Root `pnpm -r …` scripts run
+workspace members that define the requested script:
 
 ```bash
-pnpm install && pnpm build && pnpm test    # packages/ ONLY — not apps/, not workers/
+pnpm install --frozen-lockfile
+pnpm build
+pnpm test
 ```
 
-Each app, worker, and job is self-contained, with its own `package.json` and its
-own `pnpm-lock.yaml`. To work on one, install and run **from its own directory**:
+For root workspace services, install and build from the root, then use the
+service's package name to run its checks. The creator console has its own
+nested workspace (`apps/console` plus `web`) and installs separately:
 
 ```bash
-cd workers/agent && pnpm install && pnpm test
-cd apps/console  && pnpm install && pnpm test    # also: test:web, test:functions
+pnpm --filter @freegamestore/agent test
+pnpm --dir apps/console install --frozen-lockfile
+pnpm --dir apps/console test
 ```
 
-A green root `pnpm test` says nothing about the agent or the console. Run the
-service's own suite before claiming a change passes.
+`jobs/auditor` and `sites/freegamestore/docs` install with their own lockfiles
+and `--ignore-workspace`; the storefront uses Node's test runner. These and the
+console are outside root test coverage. The admin web frontend also has its
+own install/build. Check the relevant existing workflow and `package.json`
+instead of assuming every directory is an independent pnpm project.
 
 Script coverage is uneven — `workers/agent` has `dev/deploy/typecheck/test/lint`,
 while `apps/admin` has only `test`. Check the service's `package.json` rather
