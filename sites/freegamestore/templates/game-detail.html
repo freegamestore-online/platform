@@ -118,14 +118,14 @@
             title="{{NAME}} live preview"
             loading="lazy"
             referrerpolicy="no-referrer"
-            allow="clipboard-write; fullscreen; gamepad"
+            allow="gamepad 'src'; fullscreen 'src'; autoplay 'src'; screen-wake-lock 'src'; accelerometer 'src'; gyroscope 'src'; magnetometer 'src'"
           ></iframe>
         </div>
         <div class="preview-actions">
-          <a class="app-cta" href="{{APP_URL}}" rel="noopener">Play &rarr;</a>
+          <a class="app-cta" href="{{APP_URL}}" target="_blank" rel="noopener" aria-describedby="previewCapabilities">Play in a new tab &rarr;</a>
           <button type="button" class="app-btn-secondary" data-action="reload-preview">Reload</button>
         </div>
-        <p class="preview-note">If the preview doesn't load, open in a new tab.</p>
+        <p class="preview-note" id="previewCapabilities">{{PREVIEW_NOTE}}</p>
       </aside>
     </div>
 

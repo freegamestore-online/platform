@@ -98,6 +98,7 @@
     var btnAbout = document.getElementById('previewAbout');
     var btnClose = document.getElementById('previewClose');
     var btnFullscreen = document.getElementById('previewFullscreen');
+    var capabilities = document.getElementById('previewCapabilities');
     var layout = pane.parentElement;
     var selectedCard = null;
     var current = null;
@@ -178,6 +179,10 @@
       if (btnFullscreen) btnFullscreen.hidden = false;
       btnClose.hidden = false;
       setTitle(meta.name, meta.url);
+      if (capabilities) {
+        capabilities.textContent = meta.previewNote || 'Preview features depend on your browser and device. For features unavailable here, play in a new tab. Payments are never supported.';
+        capabilities.hidden = false;
+      }
       activate(card);
       setUrlParam(meta.id);
 
@@ -211,6 +216,7 @@
       empty.hidden = false;
       restoreEmpty();
       btnNewTab.hidden = true;
+      if (capabilities) { capabilities.hidden = true; capabilities.textContent = ''; }
       if (btnAbout) btnAbout.hidden = true;
       if (btnFullscreen) btnFullscreen.hidden = true;
       btnClose.hidden = true;
@@ -228,7 +234,9 @@
 
     function cardMeta(card) {
       var cta = card.querySelector('.app-cta');
+      var note = card.querySelector('.preview-capabilities');
       return {
+        previewNote: note ? note.textContent : '',
         id: card.dataset.id || '',
         name: card.dataset.name || 'Game',
         url: cta ? cta.getAttribute('href') : null,

@@ -834,6 +834,65 @@ test("saving from the stats-less page keeps both saved tags (#364)", async () =>
   assert.deepEqual(JSON.parse(put.init.body), { ga4: "G-ABC123", plausible: "chess.freegamestore.online" });
 });
 
+test("both preview surfaces delegate only seven features and keep sensitive capabilities blocked (#372)", () => {
+  const allowed = ['gamepad', 'fullscreen', 'autoplay', 'screen-wake-lock', 'accelerometer', 'gyroscope', 'magnetometer'];
+  const denied = ['microphone', 'camera', 'geolocation', 'midi', 'usb', 'payment', 'bluetooth', 'hid', 'serial', 'clipboard-read', 'clipboard-write', 'xr-spatial-tracking', 'display-capture'];
+  const { tmp, tmpDist } = runBuild();
+  try {
+    const headers = readFileSync(join(tmpDist, '_headers'), 'utf8');
+    const policy = headers.match(/Permissions-Policy: ([^\n]+)/)[1];
+    const entries = new Map(policy.split(', ').map((entry) => entry.split('=')));
+    for (const feature of allowed) assert.equal(entries.get(feature), '(self "https://*.freegamestore.online")');
+    for (const feature of denied) assert.equal(entries.get(feature), '()');
+    assert.equal(entries.size, allowed.length + denied.length);
+    for (const page of ['index.html', `games/${FIXTURE_ID}.html`]) {
+      const html = readFileSync(join(tmpDist, page), 'utf8');
+      const frames = [...html.matchAll(/<iframe\b[^>]*\ballow="([^"]*)"/g)];
+      assert.equal(frames.length, 1, page);
+      assert.deepEqual(frames[0][1].split('; '), allowed.map((feature) => `${feature} 'src'`));
+      assert.match(html, /aria-describedby="previewCapabilities"/);
+      assert.match(html, /Play in a new tab/);
+      assert.doesNotMatch(html, /\{\{PREVIEW_NOTE\}\}/);
+    }
+    const detail = readFileSync(join(tmpDist, `games/${FIXTURE_ID}.html`), 'utf8');
+    assert.match(detail, /href="https:\/\/xss-probe.freegamestore.online" target="_blank" rel="noopener"/);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('declared and detected prompting/device capabilities explain the new-tab path without promising preview access', () => {
+  for (const pid of ['microphone', 'camera', 'location', 'notifications', 'midi', 'usb', 'bluetooth', 'hid', 'serial', 'clipboard-read', 'xr']) {
+    for (const source of ['declared', 'detected']) {
+      const entry = source === 'declared' ? { declared: { [pid]: '<script>reason</script>' } } : { detected: [pid] };
+      const { tmp, tmpDist, ok, stderr } = runBuildWithRegistry([VALID_GAME], { 'valid-game': entry });
+      try {
+        assert.equal(ok, true, stderr);
+        for (const page of ['index.html', 'games/valid-game.html']) {
+          const html = readFileSync(join(tmpDist, page), 'utf8');
+          assert.match(html, /unavailable in preview\. Play in a new tab to use supported features; your browser may ask for permission/);
+          assert.match(html, /Payments are never supported/);
+          assert.doesNotMatch(html, /<script>reason<\/script>/);
+        }
+      } finally { rmSync(tmp, { recursive: true, force: true }); }
+    }
+  }
+});
+
+test('motion, gamepad and wake-lock declarations retain preview support messaging without a false blocked warning', () => {
+  const { tmp, tmpDist, ok, stderr } = runBuildWithRegistry([VALID_GAME], {
+    'valid-game': { declared: { motion: 'Tilt to steer', gamepad: 'Use a controller', 'wake-lock': 'Keep awake' } },
+  });
+  try {
+    assert.equal(ok, true, stderr);
+    for (const page of ['index.html', 'games/valid-game.html']) {
+      const html = readFileSync(join(tmpDist, page), 'utf8');
+      assert.match(html, /Preview features depend on your browser and device/);
+      assert.doesNotMatch(html, /Motion sensors[^<]*unavailable in preview/);
+    }
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+});
+
 test("storefront never lets a game take payments: payment=() and no payment delegation (#376)", () => {
   const { tmp, tmpDist } = runBuild();
   try {

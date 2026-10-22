@@ -150,13 +150,14 @@
             <button class="preview-btn" id="previewFullscreen" type="button" title="Fullscreen" aria-label="Fullscreen" hidden>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V3h4M21 7V3h-4M3 17v4h4M21 17v4h-4"/></svg>
             </button>
-            <button class="preview-btn" id="previewNewTab" type="button" title="Open in new tab" aria-label="Open in new tab" hidden>
+            <button class="preview-btn" id="previewNewTab" type="button" title="Play in a new tab" aria-label="Play in a new tab" aria-describedby="previewCapabilities" hidden>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7"/><path d="M10 14L21 3"/><path d="M21 13v7a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h7"/></svg>
             </button>
             <button class="preview-btn" id="previewClose" type="button" title="Close preview" aria-label="Close preview" hidden>
               <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
+          <p class="preview-note" id="previewCapabilities" role="status" hidden></p>
           <div class="preview-body">
             <div class="preview-empty" id="previewEmpty">
               <span class="empty-icon" aria-hidden="true">
@@ -165,7 +166,7 @@
               <span class="empty-title">Pick any game to play it here</span>
               <span class="empty-tip">Click a game on the left and it loads instantly in this pane. Use <strong>⛶</strong> for fullscreen or <strong>↗</strong> to pop it into a new tab.</span>
             </div>
-            <iframe class="preview-frame" id="previewFrame" title="Game preview" allow="fullscreen; autoplay; gamepad" sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads" referrerpolicy="no-referrer-when-downgrade" loading="lazy" hidden></iframe>
+            <iframe class="preview-frame" id="previewFrame" title="Game preview" allow="gamepad 'src'; fullscreen 'src'; autoplay 'src'; screen-wake-lock 'src'; accelerometer 'src'; gyroscope 'src'; magnetometer 'src'" sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads" referrerpolicy="no-referrer-when-downgrade" loading="lazy" hidden></iframe>
           </div>
         </aside>
       </div>

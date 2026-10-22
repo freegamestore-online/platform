@@ -96,7 +96,8 @@ function setup({ desktop = true, query = '' } = {}) {
     return element({
       dataset: { id, name, category, published, description, about: `/games/${id}.html` },
       textContent: `${name} ${category}`,
-      querySelector: (s) => (s === '.app-cta' ? cta : null),
+      querySelector: (s) => s === '.app-cta' ? cta : s === '.preview-capabilities' && id === 'chess'
+        ? { textContent: 'Microphone unavailable in preview. Play in a new tab to use supported features; your browser may ask for permission. Payments are never supported.' } : null,
       closest() {
         return null;
       },
@@ -142,6 +143,7 @@ function setup({ desktop = true, query = '' } = {}) {
     previewAbout: element(),
     previewClose: element(),
     previewFullscreen: element(),
+    previewCapabilities: element({ hidden: true }),
   };
   const mq = element({ matches: desktop });
   const opened = [];
@@ -242,16 +244,32 @@ test('keyboard preview keeps fullscreen/new-tab; close restores catalogue, focus
   await settle();
   assert.equal(ui.layout.classList.contains('has-preview'), true);
   assert.equal(ui.frame.src, 'https://chess.freegamestore.online');
+  assert.equal(ui.elements.previewCapabilities.hidden, false);
+  assert.match(ui.elements.previewCapabilities.textContent, /Microphone unavailable in preview/);
   fire(ui.elements.previewFullscreen, 'click');
   assert.equal(ui.fullscreens.length, 1);
   fire(ui.elements.previewNewTab, 'click');
   assert.equal(ui.opened[0][0], 'https://chess.freegamestore.online');
+  assert.deepEqual(ui.opened[0], ['https://chess.freegamestore.online', '_blank', 'noopener']);
   fire(ui.elements.previewClose, 'click');
   assert.equal(ui.layout.classList.contains('has-preview'), false);
   assert.equal(ui.frame.hidden, true);
+  assert.equal(ui.elements.previewCapabilities.hidden, true);
   assert.equal(card.focused, true);
   assert.equal(new URL(ui.location.href).searchParams.get('q'), 'chess');
   assert.equal(new URL(ui.location.href).searchParams.has('game'), false);
+});
+
+test('preview capability messaging follows selection and deep links without stale warnings', async () => {
+  const ui = setup({ query: '?game=chess' });
+  await settle();
+  assert.match(ui.elements.previewCapabilities.textContent, /Microphone unavailable/);
+  fire(ui.cards.find((card) => card.dataset.id === 'arcade'), 'keydown', event(ui.cards.find((card) => card.dataset.id === 'arcade'), 'Enter'));
+  await settle();
+  assert.doesNotMatch(ui.elements.previewCapabilities.textContent, /Microphone/);
+  assert.match(ui.elements.previewCapabilities.textContent, /depend on your browser and device/);
+  fire(ui.elements.previewNewTab, 'click');
+  assert.equal(ui.opened[0][0], 'https://arcade.freegamestore.online');
 });
 test('mobile selection opens details while the Play link keeps native navigation', () => {
   const ui = setup({ desktop: false });

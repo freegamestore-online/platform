@@ -517,6 +517,13 @@ function gamePermissions(id) {
     }));
 }
 
+function previewNote(id) {
+  const restricted = (gamePermissions(id) || []).filter((p) => !['motion', 'gamepad', 'wake-lock'].includes(p.id));
+  return restricted.length
+    ? `${restricted.map((p) => p.name).join(', ')} unavailable in preview. Play in a new tab to use supported features; your browser may ask for permission. Payments are never supported.`
+    : 'Preview features depend on your browser and device. For features unavailable here, play in a new tab. Payments are never supported.';
+}
+
 /** The compact icon row on a game card. Empty when there's nothing to show. */
 function renderCardPermissions(id) {
   const perms = gamePermissions(id);
@@ -546,7 +553,7 @@ function renderPermissionsSection(id) {
         return `<li class="app-perm"><span class="app-perm-icon" aria-hidden="true">${p.icon}</span><span class="app-perm-text"><span class="app-perm-name">${escapeHtml(p.name)}</span>${reason ? `<span class="app-perm-reason">${reason}</span>` : ''}</span></li>`;
       })
       .join('');
-    body = `<p class="app-perm-intro">Your browser asks before the game can use these.</p><ul class="app-perm-list">${items}</ul>`;
+    body = `<p class="app-perm-intro">These features depend on browser and device support. Some require permission and are available only when playing in a new tab.</p><ul class="app-perm-list">${items}</ul>`;
   }
   return `<section class="app-section" id="permissions">
       <h2>Permissions</h2>
@@ -559,6 +566,7 @@ function renderGameCard(game) {
   const icon = iconHtml(game);
   const published = game.firstPublished || cardHistories[game.repo]?.meta?.created_at || '';
   return `        <div class="app-card compact" data-id="${escapeHtml(game.id)}" data-name="${escapeHtml(game.name)}" data-description="${escapeHtml(game.description || '')}" role="button" tabindex="0" aria-label="View details for ${escapeHtml(game.name)}" data-category="${escapeHtml(game.category)}" data-published="${escapeHtml(published)}" data-about="/games/${escapeHtml(game.id)}.html">
+          <span hidden class="preview-capabilities">${escapeHtml(previewNote(game.id))}</span>
           <div class="app-icon">${icon}</div>
           <div class="app-body">
             <span class="app-name">${escapeHtml(game.name)}</span>
@@ -989,6 +997,7 @@ games.forEach((game, i) => {
     .replace(/\{\{PUBLISHED_LINE\}\}/g, renderPublishedLine(history))
     .replace(/\{\{HISTORY_SECTION\}\}/g, renderHistorySection(game.repo, history))
     .replace(/\{\{PERMISSIONS_SECTION\}\}/g, renderPermissionsSection(game.id))
+    .replaceAll('{{PREVIEW_NOTE}}', escapeHtml(previewNote(game.id)))
     .replace(/\{\{AUDIT_BADGE\}\}/g, renderAuditBadge(auditMap.get(game.id)))
     .replace(/\{\{VIEWPORT_BADGE\}\}/g, renderViewportBadge(manifests[i]));
   html = replaceAssetVersions(html);
@@ -1111,7 +1120,9 @@ fs.writeFileSync(path.join(DIST, '_headers'), [
   '  Referrer-Policy: strict-origin-when-cross-origin',
   '  Strict-Transport-Security: max-age=31536000; includeSubDomains',
   '  Cross-Origin-Opener-Policy: same-origin',
-  '  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=(), midi=()',
+  '  Permissions-Policy: ' + ['gamepad', 'fullscreen', 'autoplay', 'screen-wake-lock', 'accelerometer', 'gyroscope', 'magnetometer']
+    .map((feature) => `${feature}=(self "https://*.freegamestore.online")`)
+    .concat(['geolocation', 'microphone', 'camera', 'payment', 'usb', 'midi', 'bluetooth', 'hid', 'serial', 'clipboard-read', 'clipboard-write', 'xr-spatial-tracking', 'display-capture'].map((feature) => `${feature}=()`)).join(', '),
   '  Reporting-Endpoints: csp-endpoint="/v1/csp-report"',
   `  Content-Security-Policy: ${csp}`,
   // No Content-Security-Policy-Report-Only: it was byte-identical to the
