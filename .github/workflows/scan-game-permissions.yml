@@ -1,0 +1,60 @@
+name: Scan game permissions
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: scan-game-permissions
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GIT_TERMINAL_PROMPT: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Reads pnpm@10.30.3 from package.json's packageManager field.
+      - uses: pnpm/action-setup@v4
+      - name: Install compliance dependencies
+        run: pnpm --filter @freegamestore/compliance install --frozen-lockfile
+      - name: Build compliance
+        run: pnpm --filter @freegamestore/compliance build
+      - uses: actions/cache@v4
+        with:
+          path: .game-clones
+          key: game-clones-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: game-clones-${{ runner.os }}-
+      - name: Scan game permissions
+        run: node scripts/scan-game-permissions.mjs --clones .game-clones
+      - name: Commit changes and dispatch storefront deployment
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- sites/freegamestore/game-permissions.json; then
+            echo 'No permission changes detected, skipping commit and deploy.'
+            exit 0
+          fi
+          git config user.email "actions@github.com"
+          git config user.name "github-actions[bot]"
+          git add sites/freegamestore/game-permissions.json
+          git commit -m "chore: refresh game-permissions.json [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
+          # GITHUB_TOKEN pushes do not trigger push workflows. Dispatch the
+          # existing production workflow explicitly, with the same token.
+          gh workflow run deploy-storefront.yml --ref main

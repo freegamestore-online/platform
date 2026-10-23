@@ -22,6 +22,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REGISTRY = join(ROOT, 'sites/freegamestore/registry.json');
@@ -43,16 +44,20 @@ export async function scanRepo(dir, compliance) {
   return { declared, detected };
 }
 
-async function main() {
-  const compliance = await import(
-    pathToFileURL(join(ROOT, 'packages/compliance/dist/index.js')).href
-  );
-  const registry = JSON.parse(readFileSync(REGISTRY, 'utf8'));
-  const only = arg('--only')?.split(',');
-  const clones = arg('--clones') ?? mkdtempSync(join(tmpdir(), 'fgs-perm-scan-'));
+export async function scanGames({
+  compliance,
+  registryPath = REGISTRY,
+  outputPath = OUT,
+  clones = mkdtempSync(join(tmpdir(), 'fgs-perm-scan-')),
+  only,
+  runGit = execFileSync,
+} = {}) {
+  const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
   mkdirSync(clones, { recursive: true });
 
-  const previous = existsSync(OUT) ? (JSON.parse(readFileSync(OUT, 'utf8')).games ?? {}) : {};
+  const previous = existsSync(outputPath)
+    ? (JSON.parse(readFileSync(outputPath, 'utf8')).games ?? {})
+    : {};
   const games = { ...previous };
   const failed = [];
   for (const g of registry.games) {
@@ -60,14 +65,16 @@ async function main() {
     const repo = typeof g.repo === 'string' ? g.repo : `freegamestore-online/${g.id}`;
     const dir = join(clones, g.id);
     try {
+      // Registry ids must stay inside the dedicated clone directory, including
+      // before refreshing an existing worktree with reset --hard.
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(g.id)) throw new Error('Invalid game id');
       if (!existsSync(join(dir, '.git'))) {
-        execFileSync(
-          'git',
-          ['clone', '-q', '--depth', '1', `https://github.com/${repo}.git`, dir],
-          {
-            stdio: 'ignore',
-          },
-        );
+        runGit('git', ['clone', '-q', '--depth', '1', `https://github.com/${repo}.git`, dir], {
+          stdio: 'ignore',
+        });
+      } else {
+        runGit('git', ['-C', dir, 'fetch', '--depth=1', 'origin', 'HEAD'], { stdio: 'ignore' });
+        runGit('git', ['-C', dir, 'reset', '--hard', 'FETCH_HEAD'], { stdio: 'ignore' });
       }
       games[g.id] = await scanRepo(dir, compliance);
     } catch {
@@ -79,15 +86,31 @@ async function main() {
       .sort()
       .map((id) => [id, games[id]]),
   );
-  writeFileSync(
-    OUT,
-    `${JSON.stringify({ generatedAt: new Date().toISOString(), games: sorted }, null, 2)}\n`,
-  );
+  const changed = !existsSync(outputPath) || !isDeepStrictEqual(previous, sorted);
+  if (changed) {
+    writeFileSync(
+      outputPath,
+      `${JSON.stringify({ generatedAt: new Date().toISOString(), games: sorted }, null, 2)}\n`,
+    );
+  }
   const withAny = Object.values(sorted).filter(
     (r) => r.detected.length || Object.keys(r.declared).length,
   ).length;
-  console.log(`scanned ${Object.keys(sorted).length} games, ${withAny} with permissions → ${OUT}`);
-  if (failed.length) console.log(`could not scan: ${failed.join(', ')}`);
+  console.log(
+    `scanned ${Object.keys(sorted).length} games, ${withAny} with permissions → ${outputPath}`,
+  );
+  if (failed.length) console.error(`could not scan: ${failed.join(', ')}`);
+  return { changed, failed };
 }
 
-if (process.argv[1]?.endsWith('scan-game-permissions.mjs')) await main();
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const compliance = await import(
+    pathToFileURL(join(ROOT, 'packages/compliance/dist/index.js')).href
+  );
+  const { failed } = await scanGames({
+    compliance,
+    clones: arg('--clones'),
+    only: arg('--only')?.split(','),
+  });
+  if (failed.length) process.exitCode = 1;
+}
