@@ -22,6 +22,7 @@ import {
   contentType,
   type Env,
   etagsMatch,
+  isolationHeaders,
   permissionsPolicy,
   type Route,
   r2KeyFor,
@@ -105,7 +106,23 @@ export default {
       // so a 60s in-isolate cache collapses a 50-asset page from 50 D1 reads to
       // one, and a D1 hiccup can't 500 the whole fleet on every asset.
       const route = await resolveRouteCached(env.DB, host);
-      if (route) return await serve(env.APPS, route, url, req, ctx);
+      if (route) {
+        // The deployed registry is shared with storefront rendering. Its existing
+        // 60s cache avoids a registry fetch per asset; no route migration needed.
+        const game = await publicGame(route);
+        let response: Response;
+        try {
+          response = await serve(env.APPS, route, url, req, ctx, game);
+        } catch {
+          response = serviceUnavailable();
+        }
+        if (game?.crossOriginIsolated === true) {
+          const headers = new Headers(response.headers);
+          isolationHeaders(headers, true);
+          return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+        }
+        return response;
+      }
 
       return notFound(host);
     } catch {
@@ -175,7 +192,7 @@ async function dispatchPlatform(req: Request, env: Env, slug: string, host: stri
   });
 }
 
-async function serve(bucket: R2Bucket, route: Route, url: URL, req: Request, _ctx: ExecutionContext): Promise<Response> {
+async function serve(bucket: R2Bucket, route: Route, url: URL, req: Request, _ctx: ExecutionContext, game: Awaited<ReturnType<typeof publicGame>>): Promise<Response> {
   if (req.method !== "GET" && req.method !== "HEAD") {
     return new Response("Method Not Allowed", {
       status: 405,
@@ -186,7 +203,6 @@ async function serve(bucket: R2Bucket, route: Route, url: URL, req: Request, _ct
   const root = url.pathname === '/' || url.pathname === '/index.html';
   const crawl = url.pathname === '/robots.txt' || url.pathname === '/sitemap.xml';
   if (root || crawl) {
-    const game = await publicGame(route);
     const canonical = `https://${route.slug}.${route.zone}/`;
     if (crawl) {
       // A pre-provisioned route is insufficient: the game must have built.

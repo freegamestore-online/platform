@@ -931,3 +931,34 @@ test("storefront never lets a game take payments: payment=() and no payment dele
     rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+
+test('isolated listings omit embedded games and publish a strict boolean opt-in', () => {
+  const { ok, stderr, tmp, tmpDist } = runBuildWithRegistry([
+    { ...VALID_GAME, id: 'threaded', crossOriginIsolated: true },
+    { ...VALID_GAME, id: 'standard', crossOriginIsolated: false },
+    { ...VALID_GAME, id: 'legacy' },
+    { ...VALID_GAME, id: 'invalid-flag', crossOriginIsolated: 'true' },
+  ]);
+  try {
+    assert.equal(ok, true, stderr);
+    assert.match(stderr, /crossOriginIsolated must be a boolean/);
+    const isolated = readFileSync(join(tmpDist, 'games/threaded.html'), 'utf8');
+    assert.doesNotMatch(isolated, /<iframe|data-action="reload-preview"/);
+    assert.match(isolated, /shared memory/);
+    assert.match(isolated, /target="_blank" rel="noopener"[^>]*>Play in a new tab/);
+    for (const id of ['standard', 'legacy']) {
+      const html = readFileSync(join(tmpDist, 'games', id + '.html'), 'utf8');
+      assert.match(html, /<iframe/);
+      assert.match(html, /data-action="reload-preview"/);
+    }
+    const index = readFileSync(join(tmpDist, 'index.html'), 'utf8');
+    assert.match(index, /data-id="threaded"[^>]*data-isolated="true"/);
+    assert.match(index, /target="_blank"[^>]*aria-label="Play Valid \(opens in a new tab\)"/);
+    const registry = JSON.parse(readFileSync(join(tmpDist, 'registry.json'), 'utf8'));
+    assert.equal(registry.games.find((g) => g.id === 'threaded').crossOriginIsolated, true);
+    assert.ok(!registry.games.some((g) => g.id === 'invalid-flag'));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});

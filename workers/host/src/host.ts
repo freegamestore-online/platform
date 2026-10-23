@@ -181,8 +181,16 @@ export function permissionsPolicy(): string {
  *     deploys (HTML, version.json) — short cache + must-revalidate. false for
  *     content-hashed bundle assets, which are safe to cache immutably.
  */
-export function securityHeaders(opts: { revalidate: boolean }): Headers {
+export function isolationHeaders(headers: Headers, enabled: boolean): void {
+  if (enabled) {
+    headers.set('cross-origin-opener-policy', 'same-origin');
+    headers.set('cross-origin-embedder-policy', 'credentialless');
+  }
+}
+
+export function securityHeaders(opts: { revalidate: boolean; crossOriginIsolated?: boolean }): Headers {
   const headers = new Headers();
+  isolationHeaders(headers, opts.crossOriginIsolated === true);
   if (opts.revalidate) {
     headers.set("cache-control", "public, max-age=60, must-revalidate");
   } else {

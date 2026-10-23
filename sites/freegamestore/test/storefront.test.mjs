@@ -70,7 +70,7 @@ function event(target, key) {
 function fire(node, type, e = event(node)) {
   for (const fn of node.handlers[type] || []) fn(e);
 }
-function setup({ desktop = true, query = '', crossRegistry = null } = {}) {
+function setup({ desktop = true, query = '', crossRegistry = null, isolated = [] } = {}) {
   const location = {
     href: `https://freegamestore.online/${query}`,
     get search() {
@@ -94,7 +94,7 @@ function setup({ desktop = true, query = '', crossRegistry = null } = {}) {
       closest: (s) => (s === '.app-cta' ? cta : null),
     });
     return element({
-      dataset: { id, name, category, published, description, about: `/games/${id}` },
+      dataset: { id, name, category, published, description, about: `/games/${id}`, isolated: String(isolated.includes(id)) },
       textContent: `${name} ${category}`,
       querySelector: (s) => s === '.app-cta' ? cta : s === '.preview-capabilities' && id === 'chess'
         ? { textContent: 'Microphone unavailable in preview. Play in a new tab to use supported features; your browser may ask for permission. Payments are never supported.' } : null,
@@ -323,4 +323,41 @@ test('a stale iframe load cannot clear the next game loading state', async () =>
   assert.equal(ui.elements.previewPane.classList.contains('is-loading'), true);
   fire(ui.frame, 'load');
   assert.equal(ui.elements.previewPane.classList.contains('is-loading'), false);
+});
+
+
+test('isolated selection opens a new tab and cancels an existing embedded preview', async () => {
+  const ui = setup({ isolated: ['arcade'] });
+  fire(ui.cards.find((c) => c.dataset.id === 'chess'), 'click', event(ui.cards.find((c) => c.dataset.id === 'chess')));
+  await settle();
+  const selected = ui.cards.find((c) => c.dataset.id === 'arcade');
+  const previousRequests = ui.requests.length;
+  fire(selected, 'click', event(selected.querySelector('.app-cta')));
+  await settle();
+  assert.deepEqual(ui.opened[0], ['https://arcade.freegamestore.online', '_blank', 'noopener']);
+  assert.equal(ui.requests.length, previousRequests);
+  assert.equal(ui.frame.hidden, true);
+  assert.equal(ui.elements.previewFullscreen.hidden, true);
+  assert.match(ui.elements.previewCapabilities.textContent, /shared memory.*new tab/);
+});
+
+test('isolated deep links require an explicit Play action and never fetch an iframe', async () => {
+  const ui = setup({ isolated: ['chess'], query: '?game=chess' });
+  await settle();
+  assert.equal(ui.opened.length, 0);
+  assert.equal(ui.requests.length, 0);
+  assert.equal(ui.frame.hidden, true);
+  assert.equal(ui.elements.previewNewTab.hidden, false);
+  fire(ui.elements.previewNewTab, 'click');
+  assert.deepEqual(ui.opened[0], ['https://chess.freegamestore.online', '_blank', 'noopener']);
+});
+
+test('isolated games open a new tab from keyboard activation on desktop and mobile', () => {
+  for (const desktop of [true, false]) {
+    const ui = setup({ desktop, isolated: ['chess'] });
+    const selected = ui.cards.find((c) => c.dataset.id === 'chess');
+    fire(selected, 'keydown', event(selected, 'Enter'));
+    assert.deepEqual(ui.opened[0], ['https://chess.freegamestore.online', '_blank', 'noopener']);
+    assert.equal(ui.requests.length, 0);
+  }
 });

@@ -10,6 +10,10 @@ Serves every published game from R2 via wildcard subdomain routing on `*.freegam
 4. Streams the asset from the `fgs-games` R2 bucket at `games/<slug>/<path>`
 5. Adds security headers (CSP, HSTS, X-Frame-Options, etc.)
 
+## Cross-origin isolation
+
+A public game can opt in with `crossOriginIsolated: true` in its storefront registry entry. The host reads the deployed registry (cached for 60 seconds) and adds `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: credentialless` to all responses for that game. Absent/false preserves existing headers. The storefront uses new-tab play instead of an iframe for these games. No D1 migration is required. See the storefront SDK capabilities reference for asset and browser limitations. Live threaded-demo verification is tracked separately in #371.
+
 ## Infrastructure
 
 | Resource | Value |

@@ -25,12 +25,13 @@ beforeAll(async () => {
       { id: 'legacy', name: 'Legacy', description: 'Legacy description', appUrl: 'https://legacy.freegamestore.online' },
       { id: 'empty', name: 'Empty', description: '', appUrl: 'https://empty.freegamestore.online' },
       { id: 'unbuilt', name: 'Unbuilt', description: 'No build', appUrl: 'https://unbuilt.freegamestore.online' },
+      { id: 'isolated', name: 'Threaded', description: 'Shared memory', appUrl: 'https://isolated.freegamestore.online', crossOriginIsolated: true },
     ] }),
   });
   const db = await mf.getD1Database('DB');
   await db.exec('CREATE TABLE routes (slug TEXT, zone TEXT, r2_prefix TEXT, store TEXT, hosted_on TEXT)');
   const bucket = await mf.getR2Bucket('APPS');
-  for (const slug of ['live', 'pending', 'failed', 'private', 'unpublished', 'approved', 'published', 'typo', 'legacy', 'empty', 'unbuilt', 'unlisted']) {
+  for (const slug of ['live', 'pending', 'failed', 'private', 'unpublished', 'approved', 'published', 'typo', 'legacy', 'empty', 'unbuilt', 'unlisted', 'isolated']) {
     await db.prepare("INSERT INTO routes VALUES (?1, 'freegamestore.online', ?2, 'games', 'r2')").bind(slug, `games/${slug}`).run();
     if (slug !== 'unbuilt') await bucket.put(`games/${slug}/index.html`, ['pending', 'failed', 'private', 'unpublished', 'typo', 'unlisted'].includes(slug) ? draftHtml : html);
     await bucket.put(`games/${slug}/assets/game.js`, 'gameplay();');
@@ -87,4 +88,15 @@ describe('public-game SEO', () => {
       expect((await hit('live', path, { method: 'POST' })).status).toBe(405);
     }
   });
+});
+
+it('uses deployed registry isolation on transformed HTML and worker assets in the Workers runtime', async () => {
+  for (const slug of ['isolated', 'live']) {
+    for (const path of ['/', '/assets/game.js']) {
+      const response = await hit(slug, path);
+      expect(response.status).toBe(200);
+      expect(response.headers.get('cross-origin-opener-policy')).toBe(slug === 'isolated' ? 'same-origin' : null);
+      expect(response.headers.get('cross-origin-embedder-policy')).toBe(slug === 'isolated' ? 'credentialless' : null);
+    }
+  }
 });

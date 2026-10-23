@@ -73,6 +73,9 @@ function validateRegistry(items) {
     if (g.creatorGithub != null && (typeof g.creatorGithub !== 'string' || !GITHUB_USER_RE.test(g.creatorGithub))) {
       errors.push(`creatorGithub must be a GitHub username, got ${JSON.stringify(g.creatorGithub)}`);
     }
+    if (g.crossOriginIsolated !== undefined && typeof g.crossOriginIsolated !== 'boolean') {
+      errors.push('crossOriginIsolated must be a boolean');
+    }
     if (g.repo != null && (typeof g.repo !== 'string' || g.repo.length > 100 || !/^[\w.-]+\/[\w.-]+$/.test(g.repo))) {
       errors.push(`repo must be "owner/name", got ${JSON.stringify(g.repo)}`);
     }
@@ -518,6 +521,9 @@ function gamePermissions(id) {
 }
 
 function previewNote(id) {
+  if (games.find((game) => game.id === id)?.crossOriginIsolated === true) {
+    return 'This game uses shared memory and opens in a new tab. Embedded previews are unavailable. Payments are never supported.';
+  }
   const restricted = (gamePermissions(id) || []).filter((p) => !['motion', 'gamepad', 'wake-lock'].includes(p.id));
   return restricted.length
     ? `${restricted.map((p) => p.name).join(', ')} unavailable in preview. Play in a new tab to use supported features; your browser may ask for permission. Payments are never supported.`
@@ -565,7 +571,7 @@ const cardHistories = readCache();
 function renderGameCard(game) {
   const icon = iconHtml(game);
   const published = game.firstPublished || cardHistories[game.repo]?.meta?.created_at || '';
-  return `        <div class="app-card compact" data-id="${escapeHtml(game.id)}" data-name="${escapeHtml(game.name)}" data-description="${escapeHtml(game.description || '')}" role="button" tabindex="0" aria-label="View details for ${escapeHtml(game.name)}" data-category="${escapeHtml(game.category)}" data-published="${escapeHtml(published)}" data-about="/games/${escapeHtml(game.id)}">
+  return `        <div class="app-card compact" data-id="${escapeHtml(game.id)}" data-name="${escapeHtml(game.name)}" data-description="${escapeHtml(game.description || '')}" role="button" tabindex="0" aria-label="${game.crossOriginIsolated === true ? 'Play in a new tab: ' : 'View details for '}${escapeHtml(game.name)}" data-category="${escapeHtml(game.category)}" data-published="${escapeHtml(published)}" data-about="/games/${escapeHtml(game.id)}" data-isolated="${game.crossOriginIsolated === true}">
           <span hidden class="preview-capabilities">${escapeHtml(previewNote(game.id))}</span>
           <div class="app-icon">${icon}</div>
           <div class="app-body">
@@ -573,9 +579,9 @@ function renderGameCard(game) {
             <span class="app-meta">${escapeHtml(categoryLabel(game.category))}</span>
             ${renderCardPermissions(game.id)}
           </div>
-          <a href="${escapeHtml(game.appUrl)}" rel="noopener" class="app-cta" aria-label="Play ${escapeHtml(game.name)}">
+          <a href="${escapeHtml(game.appUrl)}" rel="noopener" ${game.crossOriginIsolated === true ? 'target="_blank"' : ''} class="app-cta" aria-label="Play ${escapeHtml(game.name)}${game.crossOriginIsolated === true ? ' (opens in a new tab)' : ''}">
             <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="6,4 20,12 6,20" /></svg>
-            <span class="cta-label">Play</span>
+            <span class="cta-label">${game.crossOriginIsolated === true ? 'Play in a new tab' : 'Play'}</span>
           </a>
         </div>`;
 }
@@ -1000,6 +1006,10 @@ games.forEach((game, i) => {
     .replaceAll('{{PREVIEW_NOTE}}', escapeHtml(previewNote(game.id)))
     .replace(/\{\{AUDIT_BADGE\}\}/g, renderAuditBadge(auditMap.get(game.id)))
     .replace(/\{\{VIEWPORT_BADGE\}\}/g, renderViewportBadge(manifests[i]));
+  if (game.crossOriginIsolated === true) {
+    html = html.replace(/<!-- GAME_PREVIEW_START -->[\s\S]*?<!-- GAME_PREVIEW_END -->/, '<div class="phone-frame"><p>This game uses shared memory. Play in a new tab to start.</p></div>')
+      .replace(/<button[^>]*data-action="reload-preview"[^>]*>[\s\S]*?<\/button>/, '');
+  }
   html = replaceAssetVersions(html);
 
   for (const [k, v] of Object.entries(sriHashes)) {

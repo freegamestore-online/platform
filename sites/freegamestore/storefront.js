@@ -161,7 +161,7 @@
       } catch (e) {}
     }
 
-    function loadInPane(meta, card) {
+    function loadInPane(meta, card, userInitiated) {
       current = meta;
       selectedCard = card;
       var token = ++loadToken;
@@ -185,6 +185,20 @@
       }
       activate(card);
       setUrlParam(meta.id);
+
+      if (meta.isolated) {
+        frame.hidden = true;
+        empty.hidden = false;
+        pane.classList.remove('is-loading');
+        if (btnFullscreen) btnFullscreen.hidden = true;
+        if (capabilities) {
+          capabilities.textContent = 'This game uses shared memory and opens in a new tab. Embedded previews are unavailable.';
+        }
+        // Deep links present the Play action; only an explicit user gesture
+        // opens a tab, so restoring a URL never attempts a blocked popup.
+        if (userInitiated) window.open(meta.url, '_blank', 'noopener');
+        return;
+      }
 
       // Pre-flight reachability — catches DNS / network errors that the
       // iframe load event misses (browsers fire `load` on their own error pages).
@@ -237,6 +251,7 @@
       var note = card.querySelector('.preview-capabilities');
       return {
         previewNote: note ? note.textContent : '',
+        isolated: card.dataset.isolated === 'true',
         id: card.dataset.id || '',
         name: card.dataset.name || 'Game',
         url: cta ? cta.getAttribute('href') : null,
@@ -250,6 +265,11 @@
       card.addEventListener('click', function (e) {
         if (e.target.closest('a:not(.app-cta), button')) return;
         var onCta = !!e.target.closest('.app-cta');
+        if (card.dataset.isolated === 'true') {
+          e.preventDefault();
+          loadInPane(cardMeta(card), card, true);
+          return;
+        }
         if (SPLIT_MQ.matches) {
           e.preventDefault();
           loadInPane(cardMeta(card), card);
@@ -260,7 +280,8 @@
       card.addEventListener('keydown', function (e) {
         if (e.target !== card || (e.key !== 'Enter' && e.key !== ' ')) return;
         e.preventDefault();
-        if (SPLIT_MQ.matches) loadInPane(cardMeta(card), card);
+        if (card.dataset.isolated === 'true') loadInPane(cardMeta(card), card, true);
+        else if (SPLIT_MQ.matches) loadInPane(cardMeta(card), card);
         else if (aboutUrl) window.location.href = aboutUrl;
       });
     });

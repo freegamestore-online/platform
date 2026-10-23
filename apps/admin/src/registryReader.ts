@@ -9,6 +9,8 @@ import { registryContentsUrl, registryRawUrl } from './registryLocation';
 
 export interface RegistryGame {
   id: string;
+  /** Opt in to COOP same-origin + COEP credentialless for wasm threads. */
+  crossOriginIsolated?: boolean;
   name?: string;
   creatorGithub?: string;
   firstPublished?: string;

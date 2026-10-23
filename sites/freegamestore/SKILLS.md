@@ -350,7 +350,7 @@ allowed. Full matrix: https://freegamestore.online/docs/reference/capabilities/
 - Declare what the game asks for in root package.json, e.g.
   `"freegamestore": { "permissions": { "motion": "Tilt to steer" } }`; the
   storefront listing shows it and `fgs check` warns on undeclared use (#370).
-- SharedArrayBuffer (wasm threads) isn't available yet (#371).
+- SharedArrayBuffer and wasm threads require opting in with `crossOriginIsolated: true` in the game's registry entry (COOP/COEP headers). The storefront opens these games in a new tab. Browser support still applies. See [capabilities reference](/docs/reference/capabilities/) and #371.
 - The privacy rules and compliance checks below still apply (#373).
 
 ---

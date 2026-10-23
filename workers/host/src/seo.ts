@@ -6,6 +6,8 @@ interface Game {
   status?: unknown;
   name?: string;
   description?: string;
+  /** Only literal true enables COOP/COEP; absent and false preserve defaults. */
+  crossOriginIsolated?: boolean;
 }
 
 let cached: { games: Game[]; expires: number } | undefined;

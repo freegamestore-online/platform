@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+vi.mock('../seo', async (original) => ({ ...await original<typeof import('../seo')>(), publicGame: vi.fn().mockResolvedValue(undefined) }));
 import { __clearRouteCache, type Route } from "../host";
 import worker from "../index";
 
