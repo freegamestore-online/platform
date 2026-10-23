@@ -1,8 +1,12 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { CONFETTI_COLOURS, Confetti } from './Confetti.js';
+import {
+  GameResultScreen,
+  type GameResultScreenProps,
+  RESULT_SCREEN_CSS,
+} from './GameResultScreen.js';
 import * as sdk from './index.js';
-import { Confetti, CONFETTI_COLOURS } from './Confetti.js';
-import { GameResultScreen, RESULT_SCREEN_CSS, type GameResultScreenProps } from './GameResultScreen.js';
 
 const BASE: GameResultScreenProps = {
   tone: 'win',
@@ -150,7 +154,9 @@ describe('RESULT_SCREEN_CSS', () => {
   });
 
   it('stops every animation under prefers-reduced-motion', () => {
-    const reduced = RESULT_SCREEN_CSS.slice(RESULT_SCREEN_CSS.indexOf('@media (prefers-reduced-motion: reduce)'));
+    const reduced = RESULT_SCREEN_CSS.slice(
+      RESULT_SCREEN_CSS.indexOf('@media (prefers-reduced-motion: reduce)'),
+    );
     expect(reduced).toContain('.fgs-result-overlay');
     expect(reduced).toContain('animation: none');
   });

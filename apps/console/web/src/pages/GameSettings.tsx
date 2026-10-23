@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Nav } from '../components/Nav';
 import { GameAnalytics } from '../components/GameAnalytics';
+import { Nav } from '../components/Nav';
 import { ErrorShell, LoadingShell, SignInShell } from '../components/PageShell';
 import { Badge, Button, Card, Field, Input, Select, Textarea } from '../components/ui';
 import { useAuth } from '../hooks/useAuth';

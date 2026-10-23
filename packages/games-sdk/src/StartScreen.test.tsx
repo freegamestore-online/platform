@@ -52,7 +52,12 @@ describe('StartScreen', () => {
   it('calls onHowToPlay instead of opening the built-in overlay', () => {
     const onHowToPlay = vi.fn();
     render(
-      <StartScreen title="Demo Game" howToPlay={STEPS} onHowToPlay={onHowToPlay} onPlay={() => {}} />,
+      <StartScreen
+        title="Demo Game"
+        howToPlay={STEPS}
+        onHowToPlay={onHowToPlay}
+        onPlay={() => {}}
+      />,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'How to play' }));
@@ -74,7 +79,9 @@ describe('StartScreen', () => {
   });
 
   it('renders no artwork wrapper when artwork is null', () => {
-    const { container } = render(<StartScreen title="Demo Game" artwork={null} onPlay={() => {}} />);
+    const { container } = render(
+      <StartScreen title="Demo Game" artwork={null} onPlay={() => {}} />,
+    );
     expect(container.querySelector('.fgs-start-artwork')).toBeNull();
   });
 
@@ -109,7 +116,9 @@ describe('START_SCREEN_CSS', () => {
   });
 
   it('stops every animation under prefers-reduced-motion', () => {
-    const reduced = START_SCREEN_CSS.slice(START_SCREEN_CSS.indexOf('@media (prefers-reduced-motion: reduce)'));
+    const reduced = START_SCREEN_CSS.slice(
+      START_SCREEN_CSS.indexOf('@media (prefers-reduced-motion: reduce)'),
+    );
     expect(reduced).toContain('.fgs-start-enter');
     expect(reduced).toContain('animation: none');
   });
@@ -117,7 +126,14 @@ describe('START_SCREEN_CSS', () => {
 
 describe('backward compatibility', () => {
   it('keeps the existing SDK exports and adds StartScreen', () => {
-    for (const name of ['GameShell', 'GameTopbar', 'GameButton', 'GameModal', 'GameOverScreen', 'StartScreen']) {
+    for (const name of [
+      'GameShell',
+      'GameTopbar',
+      'GameButton',
+      'GameModal',
+      'GameOverScreen',
+      'StartScreen',
+    ]) {
       expect(sdk, name).toHaveProperty(name);
     }
   });

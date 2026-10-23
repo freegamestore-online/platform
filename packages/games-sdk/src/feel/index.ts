@@ -5,8 +5,16 @@
  * from the package root.
  */
 
-export { type Easing, easeInOutQuad, easeInQuad, easeOutBack, easeOutCubic, easeOutQuad, linear } from './easing.js';
-export { type VibrationPattern, HAPTICS, vibrate } from './haptics.js';
+export {
+  type Easing,
+  easeInOutQuad,
+  easeInQuad,
+  easeOutBack,
+  easeOutCubic,
+  easeOutQuad,
+  linear,
+} from './easing.js';
+export { HAPTICS, type VibrationPattern, vibrate } from './haptics.js';
 export {
   type BurstOptions,
   createBurst,
@@ -17,9 +25,9 @@ export {
   stepParticles,
 } from './particles.js';
 export { prefersReducedMotion } from './reducedMotion.js';
-export { shakeKeyframes } from './shake.js';
 export { SCORE_POP_CSS, SCORE_POP_MS, ScorePopup, type ScorePopupProps } from './ScorePopup.js';
+export { shakeKeyframes } from './shake.js';
 export { tweenProgress, tweenValue } from './tween.js';
-export { type ParticleEmitter, useParticles } from './useParticles.js';
 export { type Haptics, useHaptics } from './useHaptics.js';
+export { type ParticleEmitter, useParticles } from './useParticles.js';
 export { type ShakeOptions, useShake } from './useShake.js';

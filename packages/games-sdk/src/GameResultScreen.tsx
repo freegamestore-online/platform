@@ -211,7 +211,11 @@ export function GameResultScreen({
         {stats.length > 0 && (
           <dl className="fgs-result-stats">
             {stats.map((stat, i) => (
-              <div key={stat.label} className="fgs-result-stat" style={{ '--i': i } as React.CSSProperties}>
+              <div
+                key={stat.label}
+                className="fgs-result-stat"
+                style={{ '--i': i } as React.CSSProperties}
+              >
                 <dt>{stat.label}</dt>
                 <dd>{stat.value}</dd>
               </div>

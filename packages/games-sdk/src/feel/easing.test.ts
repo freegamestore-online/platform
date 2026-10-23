@@ -1,7 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { easeInOutQuad, easeInQuad, easeOutBack, easeOutCubic, easeOutQuad, linear } from './easing.js';
+import {
+  easeInOutQuad,
+  easeInQuad,
+  easeOutBack,
+  easeOutCubic,
+  easeOutQuad,
+  linear,
+} from './easing.js';
 
-const CURVES = { linear, easeInQuad, easeOutQuad, easeOutCubic, easeInOutQuad, easeOutBack: easeOutBack() };
+const CURVES = {
+  linear,
+  easeInQuad,
+  easeOutQuad,
+  easeOutCubic,
+  easeInOutQuad,
+  easeOutBack: easeOutBack(),
+};
 
 describe('easing curves', () => {
   it.each(Object.entries(CURVES))('%s starts at 0 and ends at 1', (_name, ease) => {

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { readRegistry } from './registryReader';
-import { REGISTRY_LOCATION } from './registryLocation';
 import { STORE_CONFIG } from './publish';
+import { REGISTRY_LOCATION } from './registryLocation';
+import { readRegistry } from './registryReader';
 
 // Regression for #213: the reader pointed at the archived `freegamestore`
 // repo while publish wrote to `platform`, so reconcile treated new games as

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { vibrate, type VibrationPattern } from './haptics.js';
+import { type VibrationPattern, vibrate } from './haptics.js';
 
 export interface Haptics {
   /** Vibrate with a pattern. Silent when haptics are off or unsupported. */

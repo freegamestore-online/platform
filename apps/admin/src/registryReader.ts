@@ -87,7 +87,9 @@ export async function readRegistry(githubToken?: string): Promise<RegistryReadRe
   if (contents.state === 'available')
     return { status: 'available', games: contents.games!, source: 'contents' };
 
-  const raw = await readAttempt(registryRawUrl(), { headers: { 'User-Agent': 'freegamestore-admin' } });
+  const raw = await readAttempt(registryRawUrl(), {
+    headers: { 'User-Agent': 'freegamestore-admin' },
+  });
   if (raw.state === 'available') return { status: 'available', games: raw.games!, source: 'raw' };
   if (contents.state === 'missing' && raw.state === 'missing') return { status: 'missing' };
   return { status: 'unavailable' };

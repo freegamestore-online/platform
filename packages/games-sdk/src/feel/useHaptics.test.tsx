@@ -27,7 +27,9 @@ describe('useHaptics', () => {
   });
 
   it('keeps the same object while enabled is unchanged', () => {
-    const { result, rerender } = renderHook(({ on }) => useHaptics(on), { initialProps: { on: true } });
+    const { result, rerender } = renderHook(({ on }) => useHaptics(on), {
+      initialProps: { on: true },
+    });
     const first = result.current;
     rerender({ on: true });
     expect(result.current).toBe(first);

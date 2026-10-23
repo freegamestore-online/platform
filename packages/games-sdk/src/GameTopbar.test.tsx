@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameTopbar } from './GameTopbar.js';
 import { GAME_TOKENS_CSS } from './tokens.js';
@@ -53,7 +53,13 @@ describe('GameTopbar', () => {
 
   it('does not add a style attribute to any topbar control', () => {
     const { container } = render(
-      <GameTopbar title="Demo" score={1} rules={<p>Rules</p>} onPlayPause={() => {}} onRestart={() => {}} />,
+      <GameTopbar
+        title="Demo"
+        score={1}
+        rules={<p>Rules</p>}
+        onPlayPause={() => {}}
+        onRestart={() => {}}
+      />,
     );
     for (const control of container.querySelectorAll('[data-fgs-tb-btn]')) {
       expect(control.getAttribute('style')).toBeNull();
@@ -68,7 +74,9 @@ describe('GameTopbar', () => {
   it('gives every control the shared button class', () => {
     render(<GameTopbar title="Demo" score={1} onRestart={() => {}} />);
     for (const name of ['Browse all games', 'About this game', 'Mute', 'Restart']) {
-      expect(screen.getByRole(name === 'Browse all games' ? 'link' : 'button', { name }).className).toMatch(/button/);
+      expect(
+        screen.getByRole(name === 'Browse all games' ? 'link' : 'button', { name }).className,
+      ).toMatch(/button/);
     }
   });
 
@@ -110,7 +118,9 @@ describe('GameTopbar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'About this game' }));
 
     expect(screen.getByRole('dialog', { name: 'About' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: 'Demo Game' }).className).toMatch(/aboutHeading/);
+    expect(screen.getByRole('heading', { level: 1, name: 'Demo Game' }).className).toMatch(
+      /aboutHeading/,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('dialog')).toBeNull();

@@ -33,11 +33,27 @@ type SortKey = 'name' | 'views7' | 'views30' | 'distinctPages30' | 'flagged';
 const fmt = (n: number) => n.toLocaleString();
 
 /** Bars for a series, as SVG geometry. Plain attributes, so no style props. */
-function Bars({ values, height, width, label }: { values: number[]; height: number; width: number; label: string }) {
+function Bars({
+  values,
+  height,
+  width,
+  label,
+}: {
+  values: number[];
+  height: number;
+  width: number;
+  label: string;
+}) {
   const max = Math.max(1, ...values);
   const slot = width / Math.max(1, values.length);
   return (
-    <svg role="img" aria-label={label} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="w-full h-full">
+    <svg
+      role="img"
+      aria-label={label}
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+      className="w-full h-full"
+    >
       {values.map((v, i) => {
         const h = Math.max(v > 0 ? 1 : 0, (v / max) * (height - 1));
         return (
@@ -60,7 +76,10 @@ function Bars({ values, height, width, label }: { values: number[]; height: numb
 
 function Card({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div className="rounded-xl border p-4" style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}>
+    <div
+      className="rounded-xl border p-4"
+      style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
+    >
       <div className="text-xs uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
         {label}
       </div>
@@ -94,12 +113,14 @@ export function PlatformUsagePage({ navigate }: { navigate: (h: string) => void 
     if (!data) return [];
     const q = search.trim().toLowerCase();
     const filtered = data.games.filter(
-      (g) => (!flaggedOnly || g.flagged) && (!q || g.name.toLowerCase().includes(q) || g.id.includes(q)),
+      (g) =>
+        (!flaggedOnly || g.flagged) && (!q || g.name.toLowerCase().includes(q) || g.id.includes(q)),
     );
     const dir = sortDesc ? -1 : 1;
     return [...filtered].sort((a, b) => {
       if (sortKey === 'name') return a.name.localeCompare(b.name) * dir;
-      if (sortKey === 'flagged') return (Number(a.flagged) - Number(b.flagged)) * dir || a.name.localeCompare(b.name);
+      if (sortKey === 'flagged')
+        return (Number(a.flagged) - Number(b.flagged)) * dir || a.name.localeCompare(b.name);
       return (a[sortKey] - b[sortKey]) * dir || a.name.localeCompare(b.name);
     });
   }, [data, sortKey, sortDesc, flaggedOnly, search]);
@@ -117,7 +138,12 @@ export function PlatformUsagePage({ navigate }: { navigate: (h: string) => void 
   const arrow = (key: SortKey) => (key === sortKey ? (sortDesc ? ' ↓' : ' ↑') : '');
   const th = (key: SortKey, text: string, align: 'left' | 'right' = 'right') => (
     <th className={`py-2 px-2 font-medium ${align === 'left' ? 'text-left' : 'text-right'}`}>
-      <button type="button" onClick={() => sortBy(key)} className="font-medium" style={{ color: 'var(--muted)' }}>
+      <button
+        type="button"
+        onClick={() => sortBy(key)}
+        className="font-medium"
+        style={{ color: 'var(--muted)' }}
+      >
         {text}
         {arrow(key)}
       </button>
@@ -135,8 +161,8 @@ export function PlatformUsagePage({ navigate }: { navigate: (h: string) => void 
             </span>
           </h1>
           <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
-            Page views from the platform loader. Visitors aren&apos;t recorded (no cookie, no IP stored), so
-            &ldquo;distinct pages&rdquo; stands in for them.
+            Page views from the platform loader. Visitors aren&apos;t recorded (no cookie, no IP
+            stored), so &ldquo;distinct pages&rdquo; stands in for them.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -169,7 +195,10 @@ export function PlatformUsagePage({ navigate }: { navigate: (h: string) => void 
         <Card label="Distinct pages · 30 days" value={fmt(data.totals.distinctPages30)} />
       </div>
 
-      <div className="rounded-xl border p-4 mb-4" style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}>
+      <div
+        className="rounded-xl border p-4 mb-4"
+        style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
+      >
         <div className="text-xs mb-2" style={{ color: 'var(--muted)' }}>
           All games, last {data.days} days
         </div>
@@ -183,7 +212,10 @@ export function PlatformUsagePage({ navigate }: { navigate: (h: string) => void 
         </div>
       </div>
 
-      <div className="rounded-xl border overflow-x-auto" style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}>
+      <div
+        className="rounded-xl border overflow-x-auto"
+        style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
+      >
         <table className="w-full text-sm">
           <thead style={{ borderBottom: '1px solid var(--line)' }}>
             <tr>
@@ -219,7 +251,12 @@ export function PlatformUsagePage({ navigate }: { navigate: (h: string) => void 
                 <td className="py-2 px-2 text-right tabular-nums">{fmt(g.distinctPages30)}</td>
                 <td className="py-2 px-2 w-32">
                   <div className="h-8">
-                    <Bars values={g.daily} height={30} width={g.daily.length} label={`${g.name} views, last 30 days`} />
+                    <Bars
+                      values={g.daily}
+                      height={30}
+                      width={g.daily.length}
+                      label={`${g.name} views, last 30 days`}
+                    />
                   </div>
                 </td>
                 <td className="py-2 px-2">
@@ -254,7 +291,9 @@ export function PlatformUsagePage({ navigate }: { navigate: (h: string) => void 
               </td>
               <td className="py-2 px-2 text-right tabular-nums">{fmt(data.totals.views7)}</td>
               <td className="py-2 px-2 text-right tabular-nums">{fmt(data.totals.views30)}</td>
-              <td className="py-2 px-2 text-right tabular-nums">{fmt(data.totals.distinctPages30)}</td>
+              <td className="py-2 px-2 text-right tabular-nums">
+                {fmt(data.totals.distinctPages30)}
+              </td>
               <td />
               <td className="py-2 px-2 text-xs font-normal" style={{ color: 'var(--muted)' }}>
                 {data.flaggedCount} with no views

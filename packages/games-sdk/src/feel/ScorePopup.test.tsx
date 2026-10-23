@@ -8,7 +8,10 @@ import { SCORE_POP_MS, ScorePopup } from './ScorePopup.js';
  * that does not move with fake time, so the stub passes Date.now(), which does.
  */
 function stubFrameClock() {
-  vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 16) as unknown as number);
+  vi.stubGlobal(
+    'requestAnimationFrame',
+    (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 16) as unknown as number,
+  );
   vi.stubGlobal('cancelAnimationFrame', (id: number) => clearTimeout(id));
 }
 

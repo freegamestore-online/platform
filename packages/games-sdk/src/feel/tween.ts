@@ -1,4 +1,4 @@
-import { easeOutQuad, type Easing } from './easing.js';
+import { type Easing, easeOutQuad } from './easing.js';
 
 /** Progress through a tween, from 0 to 1. Clamped, so a zero duration or a time past the end is safe. */
 export function tweenProgress(elapsed: number, duration: number): number {

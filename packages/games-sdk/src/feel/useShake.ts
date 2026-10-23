@@ -1,4 +1,4 @@
-import { useCallback, type RefObject } from 'react';
+import { type RefObject, useCallback } from 'react';
 import { prefersReducedMotion } from './reducedMotion.js';
 import { shakeKeyframes } from './shake.js';
 

@@ -1,8 +1,8 @@
 import type * as React from 'react';
 import type { ReactNode } from 'react';
 import { forwardRef, useEffect, useRef, useState } from 'react';
-import { useSound } from './SoundContext.js';
 import styles from './GameTopbar.module.css';
+import { useSound } from './SoundContext.js';
 
 export interface GameTopbarStat {
   /** Short uppercase label, e.g. "Score", "Lives", "Level". */
@@ -100,7 +100,10 @@ interface TopbarIconButtonProps {
  * games that already target it keep working.
  */
 const TopbarIconButton = forwardRef<HTMLButtonElement, Omit<TopbarIconButtonProps, 'ref'>>(
-  function TopbarIconButton({ onClick, href, target, rel, tone = 'muted', ariaLabel, ariaPressed, children }, ref) {
+  function TopbarIconButton(
+    { onClick, href, target, rel, tone = 'muted', ariaLabel, ariaPressed, children },
+    ref,
+  ) {
     const className = `${styles.button} ${toneClass(tone)}`;
 
     if (href) {
@@ -478,7 +481,13 @@ function RulesOverlay({
   }, [onClose]);
 
   return (
-    <div ref={overlayRef} role="dialog" aria-modal="true" aria-label={title} className={styles.overlay}>
+    <div
+      ref={overlayRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      className={styles.overlay}
+    >
       <div className={styles.overlayHeader}>
         <span className={styles.overlayTitle}>{title}</span>
         <TopbarIconButton ref={closeButtonRef} onClick={onClose} ariaLabel="Close">
@@ -493,7 +502,9 @@ function RulesOverlay({
 function Stat({ stat }: { stat: GameTopbarStat }): React.JSX.Element {
   return (
     <div className={styles.stat}>
-      <div className={`${styles.statValue} ${stat.accent === true ? styles.statAccent : ''}`}>{stat.value}</div>
+      <div className={`${styles.statValue} ${stat.accent === true ? styles.statAccent : ''}`}>
+        {stat.value}
+      </div>
       <div className={styles.statLabel}>{stat.label}</div>
     </div>
   );

@@ -13,6 +13,13 @@
  *   <GameShell topbar={<GameTopbar score={42} />}>{your game}</GameShell>
  */
 
+export {
+  CONFETTI_COLOURS,
+  CONFETTI_CSS,
+  Confetti,
+  type ConfettiProps,
+} from './Confetti.js';
+export * from './feel/index.js';
 export { GameAuth } from './GameAuth.js';
 export {
   GameButton,
@@ -23,6 +30,12 @@ export {
 export { GameConfirm, type GameConfirmProps } from './GameConfirm.js';
 export { GameModal, type GameModalProps } from './GameModal.js';
 export { GameOverScreen, type GameOverScreenProps } from './GameOverScreen.js';
+export {
+  GameResultScreen,
+  type GameResultScreenProps,
+  type GameResultStat,
+  RESULT_SCREEN_CSS,
+} from './GameResultScreen.js';
 export { GameShell, type GameShellProps } from './GameShell.js';
 export { GameTextSizeToggle } from './GameTextSizeToggle.js';
 export { GameThemeToggle } from './GameThemeToggle.js';
@@ -31,25 +44,17 @@ export {
   type GameTopbarProps,
   type GameTopbarStat,
 } from './GameTopbar.js';
+// Hidden: leaderboard not currently surfaced to users (issue #31) — remove the
+// comment markers to re-enable. Leaderboard.tsx and useLeaderboard.ts are left
+// intact on purpose, as is the workers/leaderboard API and its data.
+// export { Leaderboard, type LeaderboardProps } from './Leaderboard.js';
+export { useSound } from './SoundContext.js';
 export {
   START_SCREEN_CSS,
   StartScreen,
   type StartScreenProps,
   type StartScreenStep,
 } from './StartScreen.js';
-export * from './feel/index.js';
-export {
-  CONFETTI_COLOURS,
-  CONFETTI_CSS,
-  Confetti,
-  type ConfettiProps,
-} from './Confetti.js';
-export {
-  GameResultScreen,
-  type GameResultScreenProps,
-  type GameResultStat,
-  RESULT_SCREEN_CSS,
-} from './GameResultScreen.js';
 export {
   type ColourTokens,
   DARK_COLOUR_OVERRIDES,
@@ -64,11 +69,6 @@ export {
   TYPOGRAPHY_TOKENS,
   type TypographyTokens,
 } from './tokens.js';
-// Hidden: leaderboard not currently surfaced to users (issue #31) — remove the
-// comment markers to re-enable. Leaderboard.tsx and useLeaderboard.ts are left
-// intact on purpose, as is the workers/leaderboard API and its data.
-// export { Leaderboard, type LeaderboardProps } from './Leaderboard.js';
-export { useSound } from './SoundContext.js';
 export { type User, useAuth } from './useAuth.js';
 export { useGameSounds } from './useGameSounds.js';
 // Hidden: see the note on Leaderboard above (issue #31).

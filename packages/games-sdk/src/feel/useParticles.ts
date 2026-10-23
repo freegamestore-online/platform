@@ -1,5 +1,12 @@
-import { useEffect, useMemo, useRef, type RefObject } from 'react';
-import { createBurst, MAX_PARTICLES, particleAlpha, stepParticles, type BurstOptions, type Particle } from './particles.js';
+import { type RefObject, useEffect, useMemo, useRef } from 'react';
+import {
+  type BurstOptions,
+  createBurst,
+  MAX_PARTICLES,
+  type Particle,
+  particleAlpha,
+  stepParticles,
+} from './particles.js';
 import { prefersReducedMotion } from './reducedMotion.js';
 
 /** Highest device pixel ratio used for the canvas. Higher ratios cost fill time for no visible gain. */
@@ -85,7 +92,12 @@ function drawFrame(canvas: HTMLCanvasElement, particles: readonly Particle[]): v
   for (const particle of particles) {
     ctx.globalAlpha = particleAlpha(particle);
     ctx.fillStyle = particle.colour;
-    ctx.fillRect(particle.x - particle.size / 2, particle.y - particle.size / 2, particle.size, particle.size);
+    ctx.fillRect(
+      particle.x - particle.size / 2,
+      particle.y - particle.size / 2,
+      particle.size,
+      particle.size,
+    );
   }
   ctx.globalAlpha = 1;
 }

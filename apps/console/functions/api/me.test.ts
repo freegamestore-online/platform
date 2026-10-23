@@ -13,12 +13,17 @@ const SECRET = 'test-secret';
 
 function b64url(bytes: Uint8Array | string): string {
   const raw = typeof bytes === 'string' ? new TextEncoder().encode(bytes) : bytes;
-  return btoa(String.fromCharCode(...raw)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+  return btoa(String.fromCharCode(...raw))
+    .replace(/=+$/, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
 }
 
 async function signSession(login: string): Promise<string> {
   const head = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const body = b64url(JSON.stringify({ login, sub: 'github:1', exp: Math.floor(Date.now() / 1000) + 3600 }));
+  const body = b64url(
+    JSON.stringify({ login, sub: 'github:1', exp: Math.floor(Date.now() / 1000) + 3600 }),
+  );
   const key = await crypto.subtle.importKey(
     'raw',
     new TextEncoder().encode(SECRET),
@@ -73,6 +78,8 @@ describe('/api/me CORS for the storefront (#355)', () => {
       }),
       env,
     } as never);
-    expect(res.headers.get('access-control-allow-origin')).toBe('https://console.freegamestore.online');
+    expect(res.headers.get('access-control-allow-origin')).toBe(
+      'https://console.freegamestore.online',
+    );
   });
 });

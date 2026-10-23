@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import * as feel from './index.js';
 import * as root from '../index.js';
+import * as feel from './index.js';
 
 const FEEL_EXPORTS = [
   'createBurst',

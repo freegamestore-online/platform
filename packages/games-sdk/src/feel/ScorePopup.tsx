@@ -83,7 +83,11 @@ export function ScorePopup({ points, x, y, onDone }: ScorePopupProps): React.JSX
   return (
     <>
       <style>{SCORE_POP_CSS}</style>
-      <span ref={ref} className="fgs-score-pop" style={{ left: x, top: y, transform: 'translate(-50%, -50%)' }}>
+      <span
+        ref={ref}
+        className="fgs-score-pop"
+        style={{ left: x, top: y, transform: 'translate(-50%, -50%)' }}
+      >
         {`+${points}`}
       </span>
     </>

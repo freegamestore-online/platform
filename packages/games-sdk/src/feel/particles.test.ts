@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { createBurst, GRAVITY, particleAlpha, stepParticles, type BurstOptions } from './particles.js';
+import {
+  type BurstOptions,
+  createBurst,
+  GRAVITY,
+  particleAlpha,
+  stepParticles,
+} from './particles.js';
 
 const OPTIONS: BurstOptions = { count: 6, speed: [100, 200], size: [4, 8], life: 1 };
 const fixed = (value: number) => () => value;
@@ -53,7 +59,13 @@ describe('createBurst', () => {
 
 describe('stepParticles', () => {
   it('moves particles and pulls them down with gravity', () => {
-    const [p] = createBurst(0, 0, ['red'], { ...OPTIONS, count: 1, speed: [100, 100], angle: 0, spread: 0 }, fixed(0.5));
+    const [p] = createBurst(
+      0,
+      0,
+      ['red'],
+      { ...OPTIONS, count: 1, speed: [100, 100], angle: 0, spread: 0 },
+      fixed(0.5),
+    );
     stepParticles([p!], 0.1);
 
     expect(p!.x).toBeCloseTo(p!.vx * 0.1, 6);

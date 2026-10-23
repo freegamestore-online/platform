@@ -35,16 +35,24 @@ function contrast(a: string, b: string): number {
 
 const root = block(GAME_TOKENS_CSS, ':root');
 const dark = block(GAME_TOKENS_CSS, ':root[data-theme="dark"]');
-const reduced = GAME_TOKENS_CSS.slice(GAME_TOKENS_CSS.indexOf('@media (prefers-reduced-motion: reduce)'));
+const reduced = GAME_TOKENS_CSS.slice(
+  GAME_TOKENS_CSS.indexOf('@media (prefers-reduced-motion: reduce)'),
+);
 
 describe('colour tokens', () => {
-  it.each(Object.entries(LIGHT_COLOURS))('%s is declared on :root with its light value', (name, value) => {
-    expect(root).toContain(`  --${kebab(name)}: ${value};`);
-  });
+  it.each(Object.entries(LIGHT_COLOURS))(
+    '%s is declared on :root with its light value',
+    (name, value) => {
+      expect(root).toContain(`  --${kebab(name)}: ${value};`);
+    },
+  );
 
-  it.each(Object.entries(DARK_COLOUR_OVERRIDES))('%s is overridden under data-theme="dark"', (name, value) => {
-    expect(dark).toContain(`  --${kebab(name)}: ${value};`);
-  });
+  it.each(Object.entries(DARK_COLOUR_OVERRIDES))(
+    '%s is overridden under data-theme="dark"',
+    (name, value) => {
+      expect(dark).toContain(`  --${kebab(name)}: ${value};`);
+    },
+  );
 
   it('keeps accent the same in both themes, so it is not in the dark block', () => {
     expect(dark).not.toContain('--accent:');

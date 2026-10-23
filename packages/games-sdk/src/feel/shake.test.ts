@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { shakeKeyframes } from './shake.js';
 
-const offsetOf = (frame: Keyframe) => Number.parseFloat(String(frame.transform).match(/translate3d\((-?[\d.]+)px/)?.[1] ?? '0');
+const offsetOf = (frame: Keyframe) =>
+  Number.parseFloat(String(frame.transform).match(/translate3d\((-?[\d.]+)px/)?.[1] ?? '0');
 
 describe('shakeKeyframes', () => {
   it('starts and ends at rest', () => {
@@ -23,6 +24,8 @@ describe('shakeKeyframes', () => {
   it('scales with the amplitude', () => {
     const small = shakeKeyframes(2).slice(1, -1).map(offsetOf);
     const large = shakeKeyframes(8).slice(1, -1).map(offsetOf);
-    small.forEach((value, i) => expect(large[i]).toBeCloseTo(value * 4, 9));
+    small.forEach((value, i) => {
+      expect(large[i]).toBeCloseTo(value * 4, 9);
+    });
   });
 });

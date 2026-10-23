@@ -9,7 +9,10 @@ const BURST = { count: 5, speed: [100, 200] as const, size: [4, 6] as const, lif
  * that does not move with fake time, so the stub passes Date.now(), which does.
  */
 function stubFrameClock() {
-  vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 16) as unknown as number);
+  vi.stubGlobal(
+    'requestAnimationFrame',
+    (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 16) as unknown as number,
+  );
   vi.stubGlobal('cancelAnimationFrame', (id: number) => clearTimeout(id));
 }
 
@@ -31,7 +34,9 @@ function fakeCanvas() {
     globalAlpha: 1,
     fillStyle: '',
   };
-  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx as unknown as CanvasRenderingContext2D);
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+    ctx as unknown as CanvasRenderingContext2D,
+  );
   const canvas = document.createElement('canvas');
   return { canvas, ctx };
 }

@@ -45,7 +45,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         JSON.stringify({
           error: 'The game registry is temporarily unavailable. Please retry in a moment.',
         }),
-        { status: 503, headers: { 'Content-Type': 'application/json', ...corsHeaders(context.request) } },
+        {
+          status: 503,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders(context.request) },
+        },
       );
     }
     throw e;
