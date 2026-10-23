@@ -4,7 +4,28 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { verifyDist } from '../scripts/verify-dist.mjs';
-import { verifyLiveSeo, verifyLegacyRedirects } from '../scripts/verify-seo.mjs';
+import { verifyLiveSeo, verifyLegacyRedirects, verifyLiveDeployment } from '../scripts/verify-seo.mjs';
+
+test('deployment verification tolerates brief propagation but fails persistent stale metadata', async () => {
+  const urls = ['/games/2048', '/u/serge-ivo', '/ai/codex'].map((route) => `https://freegamestore.online${route}`);
+  let sweeps = 0;
+  const fetchPage = async (url) => {
+    if (url.endsWith('/sitemap.xml')) {
+      sweeps++;
+      return new Response(`<urlset>${urls.map((entry) => `<url><loc>${entry}</loc></url>`).join('')}</urlset>`);
+    }
+    if (url.endsWith('.html')) return new Response('', { status: 301, headers: { location: url.slice(0, -5) } });
+    const canonical = sweeps === 1 ? `${url}.html` : url;
+    return new Response(`<link rel="canonical" href="${canonical}"><meta property="og:url" content="${url}"><script type="application/ld+json">{"url":"${url}"}</script>`);
+  };
+  await verifyLiveDeployment(urls, { fetchPage, attempts: 2, retryDelay: 0 });
+  assert.equal(sweeps, 2, 'Must check the complete sitemap again after propagation');
+  sweeps = 0;
+  await assert.rejects(verifyLiveDeployment(urls, { fetchPage, attempts: 1, retryDelay: 0 }), /canonical disagreement/);
+  await assert.rejects(verifyLiveDeployment(urls, {
+    fetchPage: async () => new Response('', { status: 503 }), attempts: 2, retryDelay: 0,
+  }), /direct HTTP 200/);
+});
 
 test('live SEO verification checks game, author and guide URLs directly and rejects redirects or canonical disagreement', async () => {
   const urls = ['/games/2048', '/u/serge-ivo', '/ai/codex'].map((route) => `https://freegamestore.online${route}`);

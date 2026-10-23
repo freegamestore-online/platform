@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { setTimeout as delay } from 'node:timers/promises';
 
 export function sitemapUrls(xml) {
   const urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
@@ -62,14 +63,25 @@ export async function verifyLegacyRedirects(urls, fetchPage = fetch) {
   }
 }
 
+export async function verifyLiveDeployment(urls, { fetchPage = fetch, attempts = 6, retryDelay = 10000 } = {}) {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const response = await fetchPage('https://freegamestore.online/sitemap.xml', { redirect: 'manual', signal: AbortSignal.timeout(30000) });
+      assert.equal(response.status, 200, 'Live sitemap must return direct HTTP 200');
+      assert.deepEqual(sitemapUrls(await response.text()).sort(), [...urls].sort(), 'Deployed sitemap differs from generated sitemap');
+      await verifyLiveSeo(urls, fetchPage);
+      await verifyLegacyRedirects(urls, fetchPage);
+      return;
+    } catch (error) {
+      if (attempt === attempts) throw error;
+      console.warn(`Live SEO check ${attempt}/${attempts} failed; allowing deployment propagation before rechecking: ${error.message}`);
+      await delay(retryDelay);
+    }
+  }
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const urls = verifyGeneratedSeo(resolve('dist'));
-  if (process.argv.includes('--live')) {
-    const response = await fetch('https://freegamestore.online/sitemap.xml', { redirect: 'manual', signal: AbortSignal.timeout(30000) });
-    assert.equal(response.status, 200, 'Live sitemap must return direct HTTP 200');
-    assert.deepEqual(sitemapUrls(await response.text()).sort(), [...urls].sort(), 'Deployed sitemap differs from generated sitemap');
-    await verifyLiveSeo(urls);
-    await verifyLegacyRedirects(urls);
-  }
+  if (process.argv.includes('--live')) await verifyLiveDeployment(urls);
   console.log(`Verified SEO agreement for ${urls.length} sitemap URLs${process.argv.includes('--live') ? ' locally and live' : ''}`);
 }
