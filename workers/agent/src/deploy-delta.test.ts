@@ -52,6 +52,17 @@ describe("gameSourceDelta — only the agent's authored files", () => {
 });
 
 describe("substituteAppName", () => {
+  it('uses the slug in canonical/OG URLs and the display name in metadata', () => {
+    const files = new Map([['web/index.html', '<link rel="canonical" href="https://APPNAME.freegamestore.online/"><meta property="og:title" content="APPNAME">']]);
+    substituteAppName(files, 'my-game', 'My Game');
+    expect(files.get('web/index.html')).toContain('https://my-game.freegamestore.online/');
+    expect(files.get('web/index.html')).toContain('content="My Game"');
+  });
+  it('escapes display names in HTML metadata attributes', () => {
+    const files = new Map([['web/index.html', '<meta property="og:title" content="APPNAME">']]);
+    substituteAppName(files, 'safe-game', 'A "game" <&>');
+    expect(files.get('web/index.html')).toBe('<meta property="og:title" content="A &quot;game&quot; &lt;&amp;&gt;">');
+  });
   it("uses the slug in package manifests and the display name elsewhere", () => {
     const files = new Map<string, string>([
       ["package.json", `{"name":"APPNAME"}`],

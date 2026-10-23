@@ -457,7 +457,21 @@ async function substituteTemplatePlaceholders(
     // interpreted as replacement patterns (which would corrupt the file).
     {
       path: 'web/index.html',
-      rewrite: (s) => s.replace(/app=APPNAME/g, `app=${id}`).replace(/APPNAME/g, () => name),
+      rewrite: (s) =>
+        s
+          .replace(/app=APPNAME/g, `app=${id}`)
+          .replace(
+            /https:\/\/APPNAME\.freegamestore\.online/g,
+            `https://${id}.freegamestore.online`,
+          )
+          .replace(/APPNAME/g, () =>
+            name
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#39;'),
+          ),
     },
     { path: 'web/src/App.tsx', rewrite: (s) => s.replace(/APPNAME/g, () => name) },
     // pixi/babylon templates render the title from a local Shell component.

@@ -134,6 +134,17 @@ const GAME_FILES: Record<string, string> = {
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <title>APPNAME — FreeGameStore</title>
+    <!-- Shared host replaces these defaults with approved public-registry metadata. -->
+    <meta name="description" content="Play APPNAME, a free browser game." />
+    <link rel="canonical" href="https://APPNAME.freegamestore.online/" />
+    <meta property="og:title" content="APPNAME — FreeGameStore" />
+    <meta property="og:description" content="Play APPNAME, a free browser game." />
+    <meta property="og:url" content="https://APPNAME.freegamestore.online/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Free Game Store" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="APPNAME — FreeGameStore" />
+    <meta name="twitter:description" content="Play APPNAME, a free browser game." />
     <!-- Platform analytics loader. CF Web Analytics is auto-provisioned at publish;
          GA4 and Plausible are opt-in in the game's Analytics panel in the Studio. -->
     <script src="https://api.freegamestore.online/v1/analytics.js?app=APPNAME" defer></script>

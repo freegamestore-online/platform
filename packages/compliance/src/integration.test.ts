@@ -50,9 +50,9 @@ describe('passing-app fixture', () => {
     expect(fails, JSON.stringify(fails, null, 2)).toEqual([]);
   });
 
-  it('warns only on bundle-size (no dist built)', async () => {
+  it('warns on absent source SEO defaults and bundle-size (no dist built)', async () => {
     const results = await runChecks(PASSING_APP);
-    expect(summarise(results).warn).toEqual(['Bundle size']);
+    expect(summarise(results).warn).toEqual(['SEO metadata', 'Bundle size']);
   });
 });
 
@@ -92,6 +92,7 @@ describe('failing-app fixture', () => {
       'No unsafe 100vh',
       'PWA meta tags',
       'Permissions declared',
+      'SEO metadata',
       'Store link',
       'Tech stack versions',
     ]);

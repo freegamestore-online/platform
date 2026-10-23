@@ -40,6 +40,13 @@ describe("getTemplateFiles", () => {
     expect(gamesFiles["web/index.html"]).toContain("FreeGameStore");
   });
 
+  it('bundled game template includes replaceable SEO metadata without a splash screen', () => {
+    const html = gamesFiles['web/index.html']!;
+    for (const tag of ['name="description"', 'rel="canonical"', 'property="og:title"', 'property="og:description"', 'property="og:url"', 'property="og:type"', 'property="og:site_name"', 'name="twitter:card"', 'name="twitter:title"', 'name="twitter:description"']) expect(html).toContain(tag);
+    expect(html).toContain('https://APPNAME.freegamestore.online/');
+    expect(html).toContain('<div id="root"></div>');
+  });
+
   it("games GameShell links to freegamestore.online", () => {
     expect(gamesFiles["web/src/components/GameShell.tsx"]).toContain("freegamestore.online");
   });

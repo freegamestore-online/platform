@@ -29,6 +29,7 @@ import {
   securityHeaders,
   shouldRevalidate,
 } from "./host";
+import { escapeMetadata, injectMetadata, metadataTags, publicGame } from './seo';
 
 type PlatformDispatch =
   | { type: "service"; binding: keyof Env }
@@ -180,6 +181,40 @@ async function serve(bucket: R2Bucket, route: Route, url: URL, req: Request, _ct
       status: 405,
       headers: { allow: "GET, HEAD", "permissions-policy": permissionsPolicy() },
     });
+  }
+
+  const root = url.pathname === '/' || url.pathname === '/index.html';
+  const crawl = url.pathname === '/robots.txt' || url.pathname === '/sitemap.xml';
+  if (root || crawl) {
+    const game = await publicGame(route);
+    const canonical = `https://${route.slug}.${route.zone}/`;
+    if (crawl) {
+      // A pre-provisioned route is insufficient: the game must have built.
+      const built = game && await bucket.head(`${route.r2_prefix}/index.html`);
+      const headers = securityHeaders({ revalidate: true });
+      headers.set('cache-control', 'no-store');
+      if (url.pathname === '/robots.txt') {
+        headers.set('content-type', 'text/plain; charset=utf-8');
+        const body = built ? `User-agent: *\nAllow: /\nSitemap: ${canonical}sitemap.xml\n` : 'User-agent: *\nDisallow: /\n';
+        return new Response(req.method === 'HEAD' ? null : body, { headers });
+      }
+      if (!built) return notFound(`${route.slug}.${route.zone}`, url.pathname);
+      headers.set('content-type', 'application/xml; charset=utf-8');
+      const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${escapeMetadata(canonical)}</loc></url></urlset>\n`;
+      return new Response(req.method === 'HEAD' ? null : body, { headers });
+    }
+    const tags = game && metadataTags(game, canonical);
+    // Do not transform range/conditional representations using the old R2 ETag.
+    // HEAD uses the same transformed headers but has no response body.
+    if (tags && !req.headers.has('range')) {
+      const object = await bucket.get(r2KeyFor(route, url.pathname));
+      if (!object) return notFound(`${route.slug}.${route.zone}`, url.pathname);
+      const headers = securityHeaders({ revalidate: true });
+      headers.set('content-type', 'text/html; charset=utf-8');
+      headers.set('cache-control', 'no-store');
+      if (req.method === 'HEAD') return new Response(null, { headers });
+      return injectMetadata(new Response(object.body, { headers }), tags);
+    }
   }
 
   // version.json — the deploy stamp, or a fallback synthesized from R2 metadata.

@@ -32,6 +32,7 @@ import { checkPwaMeta } from './checks/pwa-meta.js';
 import { checkPwaOffline } from './checks/pwa-offline.js';
 import { checkReactStrictMode } from './checks/react-strict-mode.js';
 import { checkSdkVersion } from './checks/sdk-version.js';
+import { checkSeoMetadata } from './checks/seo-metadata.js';
 import { checkStoreLink } from './checks/store-link.js';
 import { checkTechVersions } from './checks/tech-versions.js';
 import { checkTypescriptStrict } from './checks/typescript-strict.js';
@@ -120,6 +121,7 @@ export {
   checkPwaOffline,
   checkReactStrictMode,
   checkSdkVersion,
+  checkSeoMetadata,
   checkStoreLink,
   checkTechVersions,
   checkTypescriptStrict,

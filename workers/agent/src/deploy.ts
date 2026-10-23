@@ -237,7 +237,7 @@ export function substituteAppName(files: Map<string, string>, appId: string, app
       // analytics slug to the ID FIRST, then the remaining APPNAMEs to the display
       // name — matching admin. A blanket APPNAME→display-name replace would push
       // `app=<displayName>` and break this game's analytics attribution.
-      files.set(path, content.replace(/app=APPNAME/g, `app=${appId}`).replace(/APPNAME/g, nameFn));
+      files.set(path, content.replace(/app=APPNAME/g, `app=${appId}`).replace(/https:\/\/APPNAME\.freegamestore\.online/g, `https://${appId}.freegamestore.online`).replace(/APPNAME/g, () => appName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')));
     } else {
       files.set(path, content.replace(/APPNAME/g, nameFn));
     }

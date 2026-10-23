@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - workers/host/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - package.json
       - .github/workflows/deploy-host.yml
   workflow_dispatch:
 
@@ -18,9 +21,6 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: workers/host
     steps:
       - uses: actions/checkout@v4
       # No `version:` here on purpose — same fix as e759e8a on packages-ci.yml.
@@ -32,15 +32,14 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: workers/host/pnpm-lock.yaml
-      # --ignore-workspace, same fix as 9c82339 on packages-ci.yml: pnpm walks UP
-      # to the root pnpm-workspace.yaml (which covers packages/* only), resolves
-      # THAT workspace and silently skips workers/host's own node_modules —
-      # exiting 0 while leaving the test runner missing. Pin the install to this unit.
-      - run: pnpm install --frozen-lockfile --ignore-workspace
-      - run: pnpm typecheck
-      - run: pnpm test
+          cache-dependency-path: pnpm-lock.yaml
+      # Host is a root workspace member; use its authoritative lockfile,
+      # including the Workers-runtime SEO regression dependencies.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter host typecheck
+      - run: pnpm --filter host test
       - run: npx wrangler deploy
+        working-directory: workers/host
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

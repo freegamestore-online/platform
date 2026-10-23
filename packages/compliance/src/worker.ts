@@ -42,6 +42,7 @@ export { checkPwaMeta } from './checks/pwa-meta.js';
 export { checkPwaOffline } from './checks/pwa-offline.js';
 export { checkReactStrictMode } from './checks/react-strict-mode.js';
 export { checkSdkVersion } from './checks/sdk-version.js';
+export { checkSeoMetadata } from './checks/seo-metadata.js';
 export { checkStoreLink } from './checks/store-link.js';
 export { checkTechVersions } from './checks/tech-versions.js';
 export { checkTypescriptStrict } from './checks/typescript-strict.js';
