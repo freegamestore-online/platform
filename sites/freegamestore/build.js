@@ -455,7 +455,7 @@ function renderAuthorChip(game) {
   const creator = creatorGithubForGame(game);
   if (creator) {
     const user = escapeHtml(creator);
-    return `<a href="/u/${user}.html" class="author-chip"><img src="https://avatars.githubusercontent.com/${user}?size=40" alt="" class="author-chip-avatar" loading="lazy" width="20" height="20" /><span class="author-chip-name">@${user}</span></a>`;
+    return `<a href="/u/${user}" class="author-chip"><img src="https://avatars.githubusercontent.com/${user}?size=40" alt="" class="author-chip-avatar" loading="lazy" width="20" height="20" /><span class="author-chip-name">@${user}</span></a>`;
   }
   return escapeHtml(game.author || game.developer || 'FreeGameStore');
 }
@@ -565,7 +565,7 @@ const cardHistories = readCache();
 function renderGameCard(game) {
   const icon = iconHtml(game);
   const published = game.firstPublished || cardHistories[game.repo]?.meta?.created_at || '';
-  return `        <div class="app-card compact" data-id="${escapeHtml(game.id)}" data-name="${escapeHtml(game.name)}" data-description="${escapeHtml(game.description || '')}" role="button" tabindex="0" aria-label="View details for ${escapeHtml(game.name)}" data-category="${escapeHtml(game.category)}" data-published="${escapeHtml(published)}" data-about="/games/${escapeHtml(game.id)}.html">
+  return `        <div class="app-card compact" data-id="${escapeHtml(game.id)}" data-name="${escapeHtml(game.name)}" data-description="${escapeHtml(game.description || '')}" role="button" tabindex="0" aria-label="View details for ${escapeHtml(game.name)}" data-category="${escapeHtml(game.category)}" data-published="${escapeHtml(published)}" data-about="/games/${escapeHtml(game.id)}">
           <span hidden class="preview-capabilities">${escapeHtml(previewNote(game.id))}</span>
           <div class="app-icon">${icon}</div>
           <div class="app-body">
@@ -890,7 +890,7 @@ function renderAuthorSpotlight(authorGames) {
   return `<section class="author-spotlight">
       <div>
         <span class="spotlight-label">Latest game</span>
-        <a href="/games/${escapeHtml(latest.id)}.html">${escapeHtml(latest.name)}</a>
+        <a href="/games/${escapeHtml(latest.id)}">${escapeHtml(latest.name)}</a>
       </div>
       <div>
         <span class="spotlight-label">Genre lane</span>
@@ -937,7 +937,7 @@ const devCards = uniqueAuthors.map(username => {
   const badgesHtml = badges.length > 0
     ? `<div class="dev-badges">${badges.map(b => `<span class="dev-badge" title="${escapeHtml(b.title)}">${escapeHtml(b.label)}</span>`).join('')}</div>`
     : '';
-  return `        <a class="dev-card" href="/u/${escapeHtml(username)}.html">
+  return `        <a class="dev-card" href="/u/${escapeHtml(username)}">
           <div class="dev-card-top">
             <img class="dev-avatar" src="https://avatars.githubusercontent.com/${escapeHtml(username)}?size=200" alt="" loading="lazy" />
             <span class="dev-card-count">${authorGames.length}</span>
@@ -1014,33 +1014,33 @@ games.forEach((game, i) => {
 const today = new Date().toISOString().split('T')[0];
 const sitemapEntries = [
   '  <url><loc>https://freegamestore.online/</loc><priority>1.0</priority></url>',
-  '  <url><loc>https://freegamestore.online/about.html</loc><priority>0.8</priority></url>',
-  '  <url><loc>https://freegamestore.online/capabilities.html</loc><priority>0.8</priority></url>',
-  '  <url><loc>https://freegamestore.online/browser-apis.html</loc><priority>0.8</priority></url>',
+  '  <url><loc>https://freegamestore.online/about</loc><priority>0.8</priority></url>',
+  '  <url><loc>https://freegamestore.online/capabilities</loc><priority>0.8</priority></url>',
+  '  <url><loc>https://freegamestore.online/browser-apis</loc><priority>0.8</priority></url>',
   '  <url><loc>https://freegamestore.online/docs/</loc><priority>0.85</priority></url>',
   '  <url><loc>https://freegamestore.online/docs/guidelines/</loc><priority>0.75</priority></url>',
-  '  <url><loc>https://freegamestore.online/contribute.html</loc><priority>0.7</priority></url>',
-  '  <url><loc>https://freegamestore.online/get-started.html</loc><priority>0.9</priority></url>',
-  '  <url><loc>https://freegamestore.online/build-with-ai.html</loc><priority>0.85</priority></url>',
-  '  <url><loc>https://freegamestore.online/ai/claude-code.html</loc><priority>0.7</priority></url>',
-  '  <url><loc>https://freegamestore.online/ai/cursor.html</loc><priority>0.7</priority></url>',
-  '  <url><loc>https://freegamestore.online/ai/github-copilot.html</loc><priority>0.7</priority></url>',
-  '  <url><loc>https://freegamestore.online/ai/aider.html</loc><priority>0.7</priority></url>',
-  '  <url><loc>https://freegamestore.online/ai/codex.html</loc><priority>0.7</priority></url>',
-  '  <url><loc>https://freegamestore.online/ai/windsurf.html</loc><priority>0.7</priority></url>',
-  '  <url><loc>https://freegamestore.online/ai/zed.html</loc><priority>0.7</priority></url>',
-  '  <url><loc>https://freegamestore.online/ai/continue.html</loc><priority>0.7</priority></url>',
-  '  <url><loc>https://freegamestore.online/ai/cline.html</loc><priority>0.7</priority></url>',
-  '  <url><loc>https://freegamestore.online/ai/chatgpt-web.html</loc><priority>0.7</priority></url>',
-  '  <url><loc>https://freegamestore.online/leaderboard.html</loc><priority>0.7</priority></url>',
-  '  <url><loc>https://freegamestore.online/developers.html</loc><priority>0.8</priority></url>',
-  '  <url><loc>https://freegamestore.online/privacy.html</loc><priority>0.5</priority></url>',
-  '  <url><loc>https://freegamestore.online/terms.html</loc><priority>0.5</priority></url>',
+  '  <url><loc>https://freegamestore.online/contribute</loc><priority>0.7</priority></url>',
+  '  <url><loc>https://freegamestore.online/get-started</loc><priority>0.9</priority></url>',
+  '  <url><loc>https://freegamestore.online/build-with-ai</loc><priority>0.85</priority></url>',
+  '  <url><loc>https://freegamestore.online/ai/claude-code</loc><priority>0.7</priority></url>',
+  '  <url><loc>https://freegamestore.online/ai/cursor</loc><priority>0.7</priority></url>',
+  '  <url><loc>https://freegamestore.online/ai/github-copilot</loc><priority>0.7</priority></url>',
+  '  <url><loc>https://freegamestore.online/ai/aider</loc><priority>0.7</priority></url>',
+  '  <url><loc>https://freegamestore.online/ai/codex</loc><priority>0.7</priority></url>',
+  '  <url><loc>https://freegamestore.online/ai/windsurf</loc><priority>0.7</priority></url>',
+  '  <url><loc>https://freegamestore.online/ai/zed</loc><priority>0.7</priority></url>',
+  '  <url><loc>https://freegamestore.online/ai/continue</loc><priority>0.7</priority></url>',
+  '  <url><loc>https://freegamestore.online/ai/cline</loc><priority>0.7</priority></url>',
+  '  <url><loc>https://freegamestore.online/ai/chatgpt-web</loc><priority>0.7</priority></url>',
+  '  <url><loc>https://freegamestore.online/leaderboard</loc><priority>0.7</priority></url>',
+  '  <url><loc>https://freegamestore.online/developers</loc><priority>0.8</priority></url>',
+  '  <url><loc>https://freegamestore.online/privacy</loc><priority>0.5</priority></url>',
+  '  <url><loc>https://freegamestore.online/terms</loc><priority>0.5</priority></url>',
   ...uniqueAuthors.map(username =>
-    `  <url><loc>https://freegamestore.online/u/${username}.html</loc><priority>0.6</priority></url>`
+    `  <url><loc>https://freegamestore.online/u/${username}</loc><priority>0.6</priority></url>`
   ),
   ...games.map(game =>
-    `  <url><loc>https://freegamestore.online/games/${game.id}.html</loc><priority>0.9</priority></url>`
+    `  <url><loc>https://freegamestore.online/games/${game.id}</loc><priority>0.9</priority></url>`
   )
 ];
 
@@ -1155,7 +1155,7 @@ fs.writeFileSync(path.join(DIST, '_headers'), [
 fs.writeFileSync(path.join(DIST, '_redirects'), [
   '/docs.html /docs/ 301',
   '/guidelines.html /docs/guidelines/ 301',
-  '/pricing.html /about.html 301',
+  '/pricing.html /about 301',
   '',
 ].join('\n'));
 

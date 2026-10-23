@@ -67,7 +67,8 @@
     // URL path segments: use encodeURIComponent, not HTML-escape. esc() would
     // let `..` or `/` ride through. Build-time validators already constrain
     // `id`, but defense-in-depth.
-    a.href = `https://${item.domain}/${encodeURIComponent(item.path)}/${encodeURIComponent(item.id)}.html`;
+    const suffix = item.domain === 'freegamestore.online' ? '' : '.html';
+    a.href = `https://${item.domain}/${encodeURIComponent(item.path)}/${encodeURIComponent(item.id)}${suffix}`;
     a.target = '_blank';
     a.rel = 'noopener';
     a.style.textDecoration = 'none';

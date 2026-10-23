@@ -7,7 +7,9 @@ export default defineConfig({
   site: 'https://freegamestore.online',
   base: '/docs',
   outDir: '../dist/docs',
-  trailingSlash: 'ignore',
+  // Pages serves directory index artifacts with a trailing slash. Keep the
+  // docs canonicals aligned with those URLs and the storefront sitemap.
+  trailingSlash: 'always',
   integrations: [
     starlight({
       title: 'FreeGameStore SDK',

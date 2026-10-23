@@ -2,8 +2,8 @@
  * Quality Dashboard runtime.
  *
  * Two views from one page:
- *   /quality.html              — summary list of every app + last known score
- *   /quality.html?app=<id>     — detail: 12 iframes of <id>, one per
+ *   /quality              — summary list of every app + last known score
+ *   /quality?app=<id>     — detail: 12 iframes of <id>, one per
  *                                reference viewport, listening for
  *                                fgs:quality postMessages from each.
  *
@@ -145,7 +145,7 @@ function renderSummary(store) {
     const cls = indexClass(score);
     const meta = c ? `Last checked ${new Date(c.at).toLocaleString()}` : 'Not yet measured';
     return `
-      <a class="q-card" href="/quality.html?app=${encodeURIComponent(a.id)}&store=${a.store}">
+      <a class="q-card" href="/quality?app=${encodeURIComponent(a.id)}&store=${a.store}">
         <div class="q-card-head">
           <span class="name">${escapeHtml(a.name || a.id)}</span>
           <span class="index ${cls}">${score == null ? '—' : score}</span>

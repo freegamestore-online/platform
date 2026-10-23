@@ -2,8 +2,8 @@
  * Creator analytics page for FreeGameStore (#355). Port of FreeAppStore's
  * storefront analytics.js, adapted to FGS games.
  *
- *   /analytics.html               the games you own
- *   /analytics.html?game=<id>     one game: totals, a daily chart, breakdowns,
+ *   /analytics               the games you own
+ *   /analytics?game=<id>     one game: totals, a daily chart, breakdowns,
  *                                 custom events, and the GA4 / Plausible form
  *   (&days=N and &kind=<event> narrow the window and the event kind)
  *
@@ -124,7 +124,7 @@
               el('h2', { class: 'an-game-name' }, g.name || g.id),
               el('div', { class: 'an-meta' }, g.id + '.freegamestore.online'),
             ]),
-            el('a', { class: 'an-link', href: '/analytics.html?game=' + encodeURIComponent(g.id) }, 'View →'),
+            el('a', { class: 'an-link', href: '/analytics?game=' + encodeURIComponent(g.id) }, 'View →'),
           ]);
         }),
       );
@@ -155,7 +155,7 @@
         ? 'Page-view numbers aren’t switched on yet. Your tags below still work.'
         : 'Page-view numbers couldn’t be loaded right now. Try again in a few minutes. Your tags below still work.';
     return [
-      el('p', { class: 'an-back' }, [el('a', { class: 'an-link', href: '/analytics.html' }, '← All games')]),
+      el('p', { class: 'an-back' }, [el('a', { class: 'an-link', href: '/analytics' }, '← All games')]),
       el('div', { class: 'an-card' }, [
         el('h2', { class: 'an-game-name' }, gameId),
         el('p', { class: 'an-meta', role: 'status' }, why),
@@ -168,7 +168,7 @@
     var stats = data.stats;
     if (!stats) return statsMissingNodes(gameId, data);
     return [
-      el('p', { class: 'an-back' }, [el('a', { class: 'an-link', href: '/analytics.html' }, '← All games')]),
+      el('p', { class: 'an-back' }, [el('a', { class: 'an-link', href: '/analytics' }, '← All games')]),
       el('div', { class: 'an-card an-row' }, [
         el('h2', { class: 'an-game-name' }, gameId),
         windowPicker(gameId, days, kind),

@@ -12,6 +12,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFil
 import { tmpdir } from "node:os";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { verifyGeneratedSeo } from '../scripts/verify-seo.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = resolve(dirname(__filename), "..");
@@ -75,6 +76,23 @@ function listFiles(dir, suffix) {
   }
   return out;
 }
+
+test('all sitemap pages agree on clean canonicals, Open Graph and structured page identities', () => {
+  const { tmp, tmpDist } = runBuild();
+  try {
+    const urls = verifyGeneratedSeo(tmpDist, { includeDocs: false });
+    for (const route of ['/games/2048', '/u/serge-ivo', '/ai/codex']) {
+      assert.ok(urls.includes(`https://freegamestore.online${route}`), route);
+    }
+    for (const file of listFiles(tmpDist, '.html')) {
+      if (file.includes(`${join('docs', '')}`)) continue;
+      const html = readFileSync(file, 'utf8');
+      assert.doesNotMatch(html, /(?:href|data-about)="(?:https:\/\/freegamestore\.online)?\/[^"?#]*\.html(?:["?#])/, file);
+    }
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
 
 test("build.js writes index.html containing every game id", () => {
   const { tmp, tmpDist, registry } = runBuild();
@@ -270,7 +288,7 @@ test("creatorGithub generates developer card, profile page, and author chip", ()
     const developersHtml = readFileSync(join(tmpDist, "developers.html"), "utf8");
     assert.ok(developersHtml.includes("Creator arcade"));
     assert.ok(developersHtml.includes("Creator games"));
-    assert.ok(developersHtml.includes('href="/u/octocat.html"'));
+    assert.ok(developersHtml.includes('href="/u/octocat"'));
     assert.ok(developersHtml.includes('src="https://avatars.githubusercontent.com/octocat?size=200"'));
     assert.ok(!developersHtml.includes("https://github.com/octocat.png"));
     assert.ok(developersHtml.includes("View profile"));
@@ -284,7 +302,7 @@ test("creatorGithub generates developer card, profile page, and author chip", ()
 
     const detailHtml = readFileSync(join(tmpDist, "games", "valid-game.html"), "utf8");
     assert.ok(detailHtml.includes('class="author-chip"'));
-    assert.ok(detailHtml.includes('href="/u/octocat.html"'));
+    assert.ok(detailHtml.includes('href="/u/octocat"'));
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -355,7 +373,7 @@ test("legacy docs, guidelines, and pricing pages redirect instead of shipping st
     const redirects = readFileSync(join(tmpDist, "_redirects"), "utf8");
     assert.match(redirects, /^\/docs\.html \/docs\/ 301$/m);
     assert.match(redirects, /^\/guidelines\.html \/docs\/guidelines\/ 301$/m);
-    assert.match(redirects, /^\/pricing\.html \/about\.html 301$/m);
+    assert.match(redirects, /^\/pricing\.html \/about 301$/m);
 
     assert.equal(existsSync(join(tmpDist, "docs.html")), false);
     assert.equal(existsSync(join(tmpDist, "guidelines.html")), false);
@@ -375,7 +393,7 @@ test("legacy FreeGameStore games without creatorGithub appear on platform creato
     assert.equal(ok, true, stderr);
 
     const developersHtml = readFileSync(join(tmpDist, "developers.html"), "utf8");
-    assert.ok(developersHtml.includes('href="/u/serge-ivo.html"'));
+    assert.ok(developersHtml.includes('href="/u/serge-ivo"'));
     assert.ok(developersHtml.includes('<span class="dev-card-count">2</span>'));
 
     const authorHtml = readFileSync(join(tmpDist, "u", "serge-ivo.html"), "utf8");

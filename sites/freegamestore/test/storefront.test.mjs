@@ -70,7 +70,7 @@ function event(target, key) {
 function fire(node, type, e = event(node)) {
   for (const fn of node.handlers[type] || []) fn(e);
 }
-function setup({ desktop = true, query = '' } = {}) {
+function setup({ desktop = true, query = '', crossRegistry = null } = {}) {
   const location = {
     href: `https://freegamestore.online/${query}`,
     get search() {
@@ -94,7 +94,7 @@ function setup({ desktop = true, query = '' } = {}) {
       closest: (s) => (s === '.app-cta' ? cta : null),
     });
     return element({
-      dataset: { id, name, category, published, description, about: `/games/${id}.html` },
+      dataset: { id, name, category, published, description, about: `/games/${id}` },
       textContent: `${name} ${category}`,
       querySelector: (s) => s === '.app-cta' ? cta : s === '.preview-capabilities' && id === 'chess'
         ? { textContent: 'Microphone unavailable in preview. Play in a new tab to use supported features; your browser may ask for permission. Payments are never supported.' } : null,
@@ -145,6 +145,9 @@ function setup({ desktop = true, query = '' } = {}) {
     previewFullscreen: element(),
     previewCapabilities: element({ hidden: true }),
   };
+  if (crossRegistry) elements['cross-store-registry'] = element({ textContent: JSON.stringify(crossRegistry) });
+  elements['cross-store-grid'].children = [];
+  elements['cross-store-grid'].appendChild = (card) => elements['cross-store-grid'].children.push(card);
   const mq = element({ matches: desktop });
   const opened = [];
   const requests = [];
@@ -271,6 +274,13 @@ test('preview capability messaging follows selection and deep links without stal
   fire(ui.elements.previewNewTab, 'click');
   assert.equal(ui.opened[0][0], 'https://arcade.freegamestore.online');
 });
+test('search uses clean game-store links while preserving sibling-store URL conventions', () => {
+  for (const [domain, path, suffix] of [['freegamestore.online', 'games', ''], ['freeappstore.online', 'apps', '.html']]) {
+    const ui = setup({ query: '?q=chess', crossRegistry: { domain, path, items: [{ id: 'chess', name: 'Chess', description: 'Play chess', category: 'strategy' }] } });
+    assert.equal(ui.elements['cross-store-grid'].children[0].href, `https://${domain}/${path}/chess${suffix}`);
+  }
+});
+
 test('mobile selection opens details while the Play link keeps native navigation', () => {
   const ui = setup({ desktop: false });
   const card = ui.cards[0];

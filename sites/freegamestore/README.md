@@ -9,6 +9,15 @@ node build.js     # Generates dist/ from templates + registry.json
 npm test          # Runs build, security, and catalogue interaction tests
 ```
 
+Public storefront links and metadata use extensionless routes (`/games/2048`,
+`/u/serge-ivo`, `/ai/codex`); `.html` files remain deployment artifacts and legacy
+URLs redirect through Pages. SDK docs use directory URLs with trailing slashes.
+After building the storefront and SDK docs, run `node scripts/verify-seo.mjs`
+to check every sitemap destination against its canonical. The deployment workflow
+runs the same check before upload and `node scripts/verify-seo.mjs --live` after
+deployment to check the published sitemap, direct HTTP 200 responses, canonical
+agreement, and representative legacy redirects. These checks use HTTP, not browsers.
+
 ## Structure
 
 - `build.js` — Static site generator (reads `registry.json`, outputs `dist/`)

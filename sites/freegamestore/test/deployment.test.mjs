@@ -4,6 +4,27 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { verifyDist } from '../scripts/verify-dist.mjs';
+import { verifyLiveSeo, verifyLegacyRedirects } from '../scripts/verify-seo.mjs';
+
+test('live SEO verification checks game, author and guide URLs directly and rejects redirects or canonical disagreement', async () => {
+  const urls = ['/games/2048', '/u/serge-ivo', '/ai/codex'].map((route) => `https://freegamestore.online${route}`);
+  const calls = [];
+  const html = (url) => `<link rel="canonical" href="${url}"><meta property="og:url" content="${url}"><script type="application/ld+json">{"url":"${url}"}</script>`;
+  await verifyLiveSeo(urls, async (url, options) => {
+    calls.push(url);
+    assert.equal(options.redirect, 'manual');
+    return new Response(html(url));
+  });
+  assert.deepEqual(calls.sort(), [...urls].sort());
+  await assert.rejects(verifyLiveSeo(urls, async () => new Response('', { status: 301 })), /direct HTTP 200/);
+  await assert.rejects(verifyLiveSeo([urls[0]], async () => new Response(html(`${urls[0]}.html`))), /canonical disagreement/);
+  await verifyLegacyRedirects(urls, async (url, options) => {
+    assert.equal(options.redirect, 'manual');
+    assert.ok(url.endsWith('.html'));
+    return new Response('', { status: 301, headers: { location: url.slice(0, -5) } });
+  });
+  await assert.rejects(verifyLegacyRedirects(urls, async () => new Response('')), /permanent redirect/);
+});
 
 test('deployment rejects absent docs and missing docs assets', () => {
   const dist = mkdtempSync(join(tmpdir(), 'fgs-deploy-'));
@@ -30,7 +51,7 @@ test('deployment rejects absent docs and missing docs assets', () => {
 test('production workflow gates upload on storefront tests and combined SDK docs build', () => {
   const workflow = readFileSync(new URL('../../../.github/workflows/deploy-storefront.yml', import.meta.url), 'utf8');
   const commands = ['npm test', 'npm run build', 'pnpm --dir docs install --frozen-lockfile --ignore-workspace',
-    'npm --prefix docs run build', 'node scripts/verify-dist.mjs', 'npx wrangler pages deploy dist'];
+    'npm --prefix docs run build', 'node scripts/verify-dist.mjs', 'node scripts/verify-seo.mjs', 'npx wrangler pages deploy dist', 'node scripts/verify-seo.mjs --live'];
   let previous = -1;
   for (const command of commands) {
     const position = workflow.indexOf(`run: ${command}`);
