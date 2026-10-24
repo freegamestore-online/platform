@@ -11,8 +11,11 @@ inferred from a game's npm `private` flag.
 
 The registry entry's URL must match the resolved route's HTTPS origin. Without
 both a name and a description the host preserves the original HTML. Otherwise
-HTMLRewriter replaces canonical/title/description and social tags, preserving
-the game body and scripts. Canonical URLs always point to the root, without
+HTMLRewriter replaces canonical/title/description and the corresponding social
+text fields, preserving the game body, scripts, authored preview images, image
+alt text/dimensions and supplementary social metadata. The first nonempty
+authored Twitter card is retained; absent/blank cards get the summary default
+and duplicate card directives are removed. Canonical URLs always point to the root, without
 tracking parameters. Range requests and SPA paths retain existing serving
 behavior. Transformed roots have no R2 ETag and use no-store so validators for
 the original artifact cannot hide a metadata update.

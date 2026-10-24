@@ -45,12 +45,20 @@ export async function auditGame(game, fetcher = fetch) {
       'og:site_name': 'Free Game Store',
     }).map(([key, value]) => `<meta property="${key}" content="${value}">`),
     ...Object.entries({
-      'twitter:card': 'summary',
       'twitter:title': title,
       'twitter:description': description,
     }).map(([key, value]) => `<meta name="${key}" content="${value}">`),
   ])
     if (!html.includes(tag)) problems.push(`missing expected ${tag.split(' content=')[0]}`);
+  // Authored cards can choose their own layout; the host supplies summary
+  // only when absent. Attribute order and quote style are app-controlled.
+  const cards = [...html.matchAll(/<meta\b[^>]*>/gi)].map(([tag]) => {
+    const attrs = {};
+    for (const [, key, double, single, bare] of tag.matchAll(/([^\s=<>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g))
+      attrs[key.toLowerCase()] = double ?? single ?? bare;
+    return attrs;
+  }).filter((attrs) => attrs.name === 'twitter:card');
+  if (cards.length !== 1 || !cards[0].content?.trim()) problems.push('missing or conflicting twitter:card');
   if (!description) problems.push('missing approved description');
   if (
     !robots.includes('User-agent: *\nAllow: /\n') ||

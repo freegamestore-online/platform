@@ -67,6 +67,41 @@ describe('public-game SEO', () => {
       if (slug !== 'legacy') expect(body).toContain('Approved &lt;description&gt; &amp; &quot;text&quot;');
     }
   });
+  it.each([
+    ['<meta name="twitter:card" content="summary_large_image">', 'summary_large_image'],
+    ['<meta content="player" name="twitter:card">', 'player'],
+    ['<meta name="twitter:card" content="  ">', 'summary'],
+    ['', 'summary'],
+    ['<meta name="twitter:card" content=""><meta name="twitter:card" content="summary_large_image"><meta name="twitter:card" content="summary">', 'summary_large_image'],
+  ])('retains authored social media and a single card directive (%s)', async (card, expectedCard) => {
+    const bucket = await mf.getR2Bucket('APPS');
+    const social = '<meta property="og:image" content="https://live.freegamestore.online/preview.png">' +
+      '<meta property="og:image:alt" content="Game preview"><meta property="og:image:width" content="1200">' +
+      '<meta property="og:image:height" content="630"><meta property="og:video" content="https://live.freegamestore.online/preview.mp4">' +
+      '<meta name="twitter:image" content="https://live.freegamestore.online/preview.png">' +
+      '<meta name="twitter:image:alt" content="Game preview"><meta name="twitter:site" content="@game"><meta name="twitter:creator" content="@creator">';
+    await bucket.put('games/live/index.html', html.replace('</head>', `${social}${card}</head>`));
+    try {
+      for (const path of ['/', '/index.html?utm_source=share']) {
+        const response = await hit('live', path);
+        const body = await response.text();
+        expect(response.status).toBe(200);
+        expect(response.headers.get('cache-control')).toBe('no-store');
+        expect(response.headers.get('etag')).toBeNull();
+        expect(body).toContain(social);
+        const cards = [...body.matchAll(/<meta[^>]*name="twitter:card"[^>]*>/g)];
+        expect(cards).toHaveLength(1);
+        expect(cards[0][0]).toContain(`content="${expectedCard}"`);
+        expect(body).toContain('<link rel="canonical" href="https://live.freegamestore.online/">');
+        expect(body).toContain('Approved &lt;description&gt; &amp; &quot;text&quot;');
+        expect(body).not.toContain('content="old"');
+        expect(body).toContain('<div id="root">Play now</div>');
+        expect(body).toContain('const text="<title>keep script</title>";');
+      }
+    } finally {
+      await bucket.put('games/live/index.html', html);
+    }
+  });
   it.each(['pending', 'failed', 'private', 'unpublished', 'typo', 'unlisted'])('does not advertise %s', async (slug) => {
     expect(await (await hit(slug, '/robots.txt')).text()).toBe('User-agent: *\nDisallow: /\n');
     expect((await hit(slug, '/sitemap.xml')).status).toBe(404);

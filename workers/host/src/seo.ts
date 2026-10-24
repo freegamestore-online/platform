@@ -69,14 +69,14 @@ export function metadataTags(game: Game, canonical: string): string | null {
 <meta property="og:url" content="${url}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Free Game Store">
-<meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="${title}">
 <meta name="twitter:description" content="${description}">`;
 }
 
-/** Streaming parser preserves scripts/game DOM and removes conflicting old tags. */
+/** Replace only host-managed copy; retain game-owned images and social metadata. */
 export function injectMetadata(response: Response, tags: string): Response {
   const remove = { element(element: Element) { element.remove(); } };
+  let hasCard = false;
   const headers = new Headers(response.headers);
   // R2 validators describe original bytes, not the registry-dependent transform.
   headers.delete('etag');
@@ -84,7 +84,22 @@ export function injectMetadata(response: Response, tags: string): Response {
   headers.delete('accept-ranges');
   headers.set('cache-control', 'no-store');
   return new HTMLRewriter()
-    .on('head title, head meta[name="description"], head link[rel="canonical"], head meta[property^="og:"], head meta[name^="twitter:"]', remove)
-    .on('head', { element(element: Element) { element.append(tags, { html: true }); } })
+    .on('head title, head meta[name="description"], head link[rel="canonical"], head meta[property="og:title"], head meta[property="og:description"], head meta[property="og:url"], head meta[property="og:type"], head meta[property="og:site_name"], head meta[name="twitter:title"], head meta[name="twitter:description"]', remove)
+    .on('head meta[name="twitter:card"]', {
+      element(element: Element) {
+        // Keep the first nonempty authored card, including large-image/player
+        // cards, without leaving duplicate or empty directives behind.
+        if (hasCard || !element.getAttribute('content')?.trim()) element.remove();
+        else hasCard = true;
+      },
+    })
+    .on('head', {
+      element(element: Element) {
+        element.append(tags, { html: true });
+        element.onEndTag((end) => {
+          if (!hasCard) end.before('<meta name="twitter:card" content="summary">', { html: true });
+        });
+      },
+    })
     .transform(new Response(response.body, { status: response.status, headers }));
 }
