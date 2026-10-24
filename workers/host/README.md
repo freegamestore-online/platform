@@ -35,9 +35,14 @@ The apex (`freegamestore.online`) is served by the storefront's CF Pages project
 ```bash
 pnpm install
 pnpm test         # vitest run
-pnpm lint         # biome check src/
+pnpm lint         # biome lint src/
 pnpm typecheck    # tsc --noEmit
 ```
+
+The host uses its own Biome root because the repository-wide configuration
+excludes `workers/`. Lint checks `src/` with the host rules; formatting is
+separate (`pnpm exec biome format src/`). The automated deployment runs lint
+before typecheck, tests and release.
 
 Deploy is via GitHub Actions (`wrangler deploy`).
 

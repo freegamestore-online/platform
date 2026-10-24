@@ -4,8 +4,8 @@
   "description": "freegamestore-host — serves every published game from R2 via subdomain routing. FGS sibling of freeappstore-host (Path B).",
   "scripts": {
     "test": "vitest run",
-    "lint": "biome check src/",
-    "lint:fix": "biome check --write src/",
+    "lint": "biome lint src/",
+    "lint:fix": "biome lint --write src/",
     "typecheck": "tsc --noEmit"
   },
   "packageManager": "pnpm@10.30.3",

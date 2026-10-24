@@ -36,6 +36,7 @@ jobs:
       # Host is a root workspace member; use its authoritative lockfile,
       # including the Workers-runtime SEO regression dependencies.
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter host lint
       - run: pnpm --filter host typecheck
       - run: pnpm --filter host test
       - run: npx wrangler deploy
