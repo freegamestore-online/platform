@@ -40,6 +40,9 @@ registry audit from the repository root:
 node scripts/check-game-seo.mjs
 ```
 
+The verifier requires one nonempty Twitter card directive, allowing authored
+layouts instead of requiring the host summary default.
+
 Record the complete result, registry count, deployed SHA and remote workflow URL
 on #383. A local test run or pre-rollout audit is not rollout evidence. Never
 deploy production locally or request plaintext credentials to bypass an outage.
