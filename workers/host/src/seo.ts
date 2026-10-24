@@ -103,3 +103,22 @@ export function injectMetadata(response: Response, tags: string): Response {
     })
     .transform(new Response(response.body, { status: response.status, headers }));
 }
+
+
+/** Read real parsed meta elements; comment/script examples are not directives. */
+export async function isNoindexResponse(response: Response): Promise<boolean> {
+  let noindex = false;
+  await new HTMLRewriter()
+    .on("meta", {
+      element(element: Element) {
+        const name = element.getAttribute("name")?.trim().toLowerCase();
+        if (name !== "robots" && name !== "googlebot") return;
+        // Match whole directives, not values such as max-image-preview:none.
+        const directives = (element.getAttribute("content") ?? "").toLowerCase().split(/[,\s]+/);
+        if (directives.includes("noindex") || directives.includes("none")) noindex = true;
+      },
+    })
+    .transform(response)
+    .text();
+  return noindex;
+}

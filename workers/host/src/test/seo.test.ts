@@ -135,3 +135,40 @@ it('uses deployed registry isolation on transformed HTML and worker assets in th
     }
   }
 });
+
+// Google treats name/content as case-insensitive and `none` as noindex,
+// nofollow. A parameter value (max-image-preview:none) is not that directive.
+describe('host: fallback discovery respects app robots directives', () => {
+  it.each([
+    ['ordinary noindex', '<meta name="robots" content="noindex">', false],
+    ['none alias', '<meta name="robots" content="none">', false],
+    ['Googlebot none alias', '<meta name="googlebot" content="none">', false],
+    ['mixed-case name', '<meta content="NOINDEX, follow" name="RoBoTs">', false],
+    ['mixed-case Googlebot', '<META CONTENT="NoNe" NAME="GoogleBot">', false],
+    ['restrictive duplicate wins', '<meta name="robots" content="noindex"><meta name="robots" content="index">', false],
+    ['preview restriction only', '<meta name="robots" content="max-image-preview:none, index">', true],
+    ['image restriction only', '<meta name="robots" content="noimageindex, follow">', true],
+    ['other crawler', '<meta name="otherbot" content="noindex">', true],
+    ['comments and scripts', '<!-- <meta name="robots" content="noindex"> --><script>const sample = \'<meta name="robots" content="none">\';</script>', true],
+  ])('%s', async (_label, meta, indexable) => {
+    const bucket = await mf.getR2Bucket('APPS');
+    try {
+    await bucket.put('games/live/index.html', `<html><head>${meta}</head><body>App</body></html>`);
+    for (const method of ['GET', 'HEAD']) {
+      const sitemap = await hit('live', '/sitemap.xml', { method });
+      const xml = await sitemap.text();
+      expect(sitemap.status).toBe(indexable ? 200 : 404);
+      if (method === 'HEAD') expect(xml).toBe('');
+      else if (indexable) expect(xml).toContain('<loc>https://live.freegamestore.online/</loc>');
+      const robots = await hit('live', '/robots.txt', { method });
+      expect(robots.status).toBe(200);
+      const text = await robots.text();
+      if (method === 'HEAD') expect(text).toBe('');
+      else {
+        expect(text).toContain('Allow: /');
+        expect(text.includes('Sitemap:')).toBe(indexable);
+      }
+    }
+    } finally { await bucket.put('games/live/index.html', html); }
+  });
+});

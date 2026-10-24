@@ -6,6 +6,8 @@ import worker from '../index';
 vi.mock('../seo', async (original) => ({
   ...await original<typeof import('../seo')>(),
   publicGame: vi.fn(),
+  // HTML parsing is exercised by seo.test.ts in workerd; this suite tests headers.
+  isNoindexResponse: vi.fn().mockResolvedValue(false),
 }));
 
 afterEach(() => { vi.resetAllMocks(); __clearRouteCache(); });
