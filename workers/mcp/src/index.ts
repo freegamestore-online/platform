@@ -1,5 +1,6 @@
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import { OAuthProvider } from '@cloudflare/workers-oauth-provider';
+import { MCP_ACCESS_TOKEN_TTL_SECONDS } from './oauth-config.js';
 import { McpServer, type ToolCallback } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { McpAgent } from 'agents/mcp';
 import type { z } from 'zod';
@@ -172,4 +173,6 @@ export default new OAuthProvider({
   authorizeEndpoint: '/authorize',
   tokenEndpoint: '/token',
   clientRegistrationEndpoint: '/register',
+  // Keep MCP access grants aligned with the 30-day FGS session default.
+  accessTokenTTL: MCP_ACCESS_TOKEN_TTL_SECONDS,
 });

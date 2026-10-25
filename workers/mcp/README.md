@@ -18,6 +18,7 @@ Tools: `create_game`, `update_files`, `read_file`, `list_files`, `agent_build`,
 
 Authenticated tools take an FGS session token: `Authorization: Bearer <token>`.
 `mcp-remote` handles the OAuth/token handoff.
+MCP OAuth access grants last 30 days by default; reconnecting issues a new grant.
 
 Cloudflare Worker (`agents` McpAgent, Streamable HTTP). See `CLAUDE.md` for
 architecture, secrets, and the gotchas. MIT.
