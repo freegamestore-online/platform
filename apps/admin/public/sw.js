@@ -1,1 +1,12 @@
-if(!self.define){let e,i={};const s=(s,n)=>(s=new URL(s+".js",n).href,i[s]||new Promise(i=>{if("document"in self){const e=document.createElement("script");e.src=s,e.onload=i,document.head.appendChild(e)}else e=s,importScripts(s),i()}).then(()=>{let e=i[s];if(!e)throw new Error(`Module ${s} didn’t register its module`);return e}));self.define=(n,o)=>{const r=e||("document"in self?document.currentScript.src:"")||location.href;if(i[r])return;let t={};const d=e=>s(e,r),l={module:{uri:r},exports:t,require:d};i[r]=Promise.all(n.map(e=>l[e]||d(e))).then(e=>(o(...e),t))}}define(["./workbox-9c191d2f"],function(e){"use strict";self.skipWaiting(),e.clientsClaim(),e.precacheAndRoute([{url:"index.html",revision:"500f43219d118985cb765bd11a24a436"},{url:"assets/workbox-window.prod.es5-Bd17z0YL.js",revision:null},{url:"assets/index-C7oZgF7g.js",revision:null},{url:"assets/index-4KM1f7A6.css",revision:null},{url:"icon-192.png",revision:"e9ef18c8b40ef51c127adb08cbf43c39"},{url:"icon-512.png",revision:"1a322f05415db9f95cb6d5fa8ec7e86b"},{url:"manifest.webmanifest",revision:"dad9871e76d6d4942b9911a07d60b5de"}],{}),e.cleanupOutdatedCaches(),e.registerRoute(new e.NavigationRoute(e.createHandlerBoundToURL("index.html"),{denylist:[/^\/auth(?:\/|$)/,/^\/api(?:\/|$)/,/^\/v1(?:\/|$)/,/^\/docs(?:\/|$)/]}))});
+// Retire the old Workbox navigation fallback. It intercepted /auth/handoff and
+// prevented the admin worker from exchanging OAuth handoffs. Keep this small
+// worker available until existing installations have updated and unregistered.
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((names) => Promise.all(names.map((name) => caches.delete(name))))
+      .then(() => self.registration.unregister()),
+  );
+});

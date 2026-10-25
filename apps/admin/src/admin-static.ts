@@ -6,6 +6,15 @@ export interface AdminStaticDeps {
 
 /** Serve the console shell only after the same allowlist gate as its APIs. */
 export async function serveAdminStatic(request: Request, deps: AdminStaticDeps): Promise<Response> {
+  const path = new URL(request.url).pathname;
+  if (path === '/sw.js' && deps.assets) {
+    const response = await deps.assets.fetch(request);
+    const headers = new Headers(response.headers);
+    headers.set('Cache-Control', 'no-store');
+    headers.set('Service-Worker-Allowed', '/');
+    return new Response(response.body, { status: response.status, headers });
+  }
+
   const { email, isAdmin } = await deps.authenticate(request);
   if (!isAdmin) {
     return new Response(deps.renderSignIn(email), {
