@@ -1,6 +1,6 @@
 import { type DataService, DOMAIN, ORG } from '../data';
 import { driftReportFrom, recentRuns } from '../drift';
-import { errorStats, listErrors, recordError } from '../errlog';
+import { buildAdminOverviewStats, errorStats, listErrors, recordError } from '../errlog';
 import { cachedFleetSweep, probeLiveGame, reconcile } from '../fleet';
 import { jsonResponse } from '../http';
 import { docsPage } from '../pages';
@@ -188,9 +188,12 @@ export function opsRoutes(_data: DataService): Route[] {
       method: 'GET',
       pattern: '/api/stats',
       auth: 'admin',
-      handler: async ({ request, env }) => {
-        const stats = await errorStats(env.DB);
-        return jsonResponse(stats, 200, request);
+      handler: async ({ request, env, data: dataService_param }) => {
+        const [errors, registry] = await Promise.all([
+          errorStats(env.DB),
+          dataService_param.registryItems(),
+        ]);
+        return jsonResponse(buildAdminOverviewStats(errors, registry), 200, request);
       },
     },
 

@@ -8,6 +8,7 @@ export {
 } from '../../../contracts/error-log/v1/contract';
 
 import type { ErrLogEntry } from '../../../contracts/error-log/v1/contract';
+import type { RegistryGame } from './registryReader';
 
 export interface ListErrorsOpts {
   user?: string;
@@ -66,6 +67,35 @@ export interface ErrorStats {
   total: number;
   last24h: number;
   series: { d: string; c: number }[]; // per-day counts, last 14 days
+}
+
+export interface AdminOverviewStats {
+  games: number;
+  creators: number;
+  errors24h: number;
+  errorsTotal: number;
+  errorSeries: { d: string; c: number }[];
+}
+
+/** Keep the worker response aligned with the admin web's overview contract. */
+export function buildAdminOverviewStats(
+  errors: ErrorStats,
+  registry: RegistryGame[] | null,
+): AdminOverviewStats {
+  const games = registry ?? [];
+  const creators = new Set(
+    games
+      .map((game) => game.creatorGithub)
+      .filter((login): login is string => typeof login === 'string' && login.length > 0)
+      .map((login) => login.toLowerCase()),
+  );
+  return {
+    games: games.length,
+    creators: creators.size,
+    errors24h: errors.last24h,
+    errorsTotal: errors.total,
+    errorSeries: errors.series,
+  };
 }
 
 export async function errorStats(db: D1Database | undefined): Promise<ErrorStats> {
