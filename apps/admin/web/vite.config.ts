@@ -2,6 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { adminNavigationFallbackDenylist } from './src/navigationFallback.ts';
 
 export default defineConfig({
   plugins: [
@@ -9,6 +10,12 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        // These routes are handled by the admin worker. Serving the cached SPA
+        // for an OAuth handoff prevents the worker from exchanging the token
+        // and leaves the user signed out.
+        navigateFallbackDenylist: adminNavigationFallbackDenylist,
+      },
       manifest: {
         name: 'FreeGameStore Admin',
         short_name: 'FGS Admin',
