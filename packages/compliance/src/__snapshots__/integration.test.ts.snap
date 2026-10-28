@@ -141,9 +141,13 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
     ],
   },
   {
-    "detail": "no cookie usage found — player data stays in localStorage",
+    "detail": "1 file(s) use cookies: web/src/network.ts (document.cookie)",
     "name": "No cookies",
-    "status": "pass",
+    "status": "warn",
+    "suggestions": [
+      "First-party cookies are allowed, but localStorage or the platform KV SDK (@freegamestore/games provides app.kv for per-user storage) is simpler and is not sent to the server on every request.",
+      "Do not use cookies to track players across sites. Trackers still fail the platform loader check.",
+    ],
   },
   {
     "detail": "0 inline style(s) across 0 TSX file(s) (thresholds: 15/file, 30 total)",
@@ -156,14 +160,21 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
     "status": "pass",
   },
   {
-    "detail": "no fetch() or XMLHttpRequest calls to external domains in web/src/",
+    "detail": "1 external request(s) to 1 host(s): scores.example.com (in web/src/network.ts)",
     "name": "No external fetch",
-    "status": "pass",
+    "status": "warn",
+    "suggestions": [
+      "Allowed, but visible: this game sends requests off-platform. Make sure the host is your own server or a public API, and send only the player data you need.",
+      "The game should still work offline, or say so clearly when the network is unavailable (see the pwa-offline check).",
+    ],
   },
   {
-    "detail": "no disallowed external script sources in index.html",
+    "detail": "1 external script(s) with SRI from 1 host(s): cdn.example.com",
     "name": "No external scripts",
-    "status": "pass",
+    "status": "warn",
+    "suggestions": [
+      "Allowed because each carries integrity and crossorigin, but it is visible in review. Prefer self-hosting under web/public/ so the game works offline.",
+    ],
   },
   {
     "detail": "0 hex color(s) in TSX files (threshold: 10)",

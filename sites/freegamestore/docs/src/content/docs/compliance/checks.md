@@ -94,8 +94,23 @@ that size on their own.
 **How:** Fails on the Payment Request API, the Payment Handler API (`paymentManager`, `paymentrequest`/`canmakepayment` events), Apple Pay or Google Pay JS, an iframe with `allow="payment"`, `payment*` or `serviceworker` members in your web app manifest, or `payment` in `freegamestore.permissions`. Scans `web/src` and `web/index.html` with comments ignored. Payment-provider SDKs are `no-payment-sdk`'s job.
 **Pass:** Remove the payment code. The word "payment" in text, and a link to your own donation page, are fine.
 
+### `no-external-fetch` (warning)
+**What:** Your code doesn't call hosts outside the platform. The host allows `fetch`, XHR and WebSocket to any https host ([#373](https://github.com/freegamestore-online/platform/issues/373)), so this makes it visible instead of blocking it.
+**How:** Looks for `fetch('https://…')`, `new WebSocket('wss://…')` and XHR `.open(…)` URLs in `web/src`, comments ignored. `freegamestore.online`, `localhost` and `127.0.0.1` are never reported.
+**Pass:** Nothing to do for a warning. The message lists each external host so review can see where data goes. Your own server or a public API is fine; keep the game usable offline (see `pwa-offline`).
+
+### `no-cookies` (warning)
+**What:** Your code doesn't use cookies. A first-party cookie on your game's own origin is equivalent to `localStorage`, so this is a warning, not a failure.
+**How:** Looks for `document.cookie`, `js-cookie`, `cookie-parser` and `Cookies.get/set` in your source, comments ignored.
+**Pass:** Prefer `localStorage` or the SDK's `app.kv`. Cookies used for tracking still fail `no-tracking`.
+
+### `no-external-scripts` (warning with SRI, otherwise fail)
+**What:** `web/index.html` loads no script from outside the platform without Subresource Integrity.
+**How:** Reads every `<script src>` tag. The font CDNs (`fonts.googleapis.com`, `fonts.gstatic.com`) and the platform loader (`https://api.freegamestore.online/v1/analytics.js`) are allowed. Any other `https://` script is a **warning** if the tag has `integrity="sha256-…"`, `sha384-…` or `sha512-…` **and** `crossorigin`. It **fails** with no `integrity`, with `integrity` but no `crossorigin`, over plain `http://`, or as a protocol-relative `//` URL.
+**Pass:** Add both attributes, for example `<script src="https://cdn.example.com/engine.js" integrity="sha384-…" crossorigin="anonymous">`, or self-host the file under `web/public/`.
+
 ### `no-tracking`
-**What:** Your bundle contains no known tracking scripts or endpoints.
+**What:** Your bundle contains no known tracking scripts or endpoints. This stays a hard fail, as does `no-payment-sdk`: both protect players (privacy) and the free-store policy.
 **How:** Greps for `google-analytics.com`, `gtag(`, `plausible`, `sentry-cdn`, `mixpanel`, `segment.com`, `hotjar`, `posthog`, and a few others. Uses word boundaries so legit words like "segment" in 3D code don't false-flag.
 **Pass:** Don't add analytics. Use console logs in dev only.
 

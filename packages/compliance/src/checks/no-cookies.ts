@@ -19,9 +19,10 @@ const COOKIE_PATTERNS: { name: string; pattern: RegExp }[] = [
 const SCAN_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx', '.html']);
 
 /**
- * All player data must stay in localStorage (or the platform KV SDK).
- * Cookies are not allowed — they leak data to servers on every request
- * and conflict with the cookieless analytics mandate.
+ * Reports cookie usage. A first-party cookie on the game's own origin is
+ * equivalent to localStorage (platform#373), so this warns instead of
+ * failing. localStorage or the platform KV SDK is still the better home
+ * for player data. Cross-site tracking stays a hard fail in `no-tracking`.
  *
  * Scans source files for `document.cookie`, js-cookie, cookie-parser,
  * and `Cookies.set`/`Cookies.get` patterns. Comments are stripped
@@ -52,14 +53,14 @@ export async function checkNoCookies(source: FileSource): Promise<CheckResult> {
 
   return {
     name: 'No cookies',
-    status: 'fail',
+    status: 'warn',
     detail: `${hits.length} file(s) use cookies: ${hits
       .slice(0, 3)
       .map((h) => `${h.file} (${h.matches.join(', ')})`)
       .join('; ')}${hits.length > 3 ? '...' : ''}`,
     suggestions: [
-      'Replace cookie usage with localStorage or the platform KV SDK (@freegamestore/games provides app.kv for per-user storage).',
-      'Cookies leak data to servers on every request and conflict with the platform cookieless analytics mandate.',
+      'First-party cookies are allowed, but localStorage or the platform KV SDK (@freegamestore/games provides app.kv for per-user storage) is simpler and is not sent to the server on every request.',
+      'Do not use cookies to track players across sites. Trackers still fail the platform loader check.',
     ],
   };
 }
