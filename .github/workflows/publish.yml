@@ -89,4 +89,4 @@ jobs:
         # exchange works. pnpm publish under 10.30.3 may not perform the exchange,
         # causing E404 on PUT. pnpm pack already rewrites workspace:* to real
         # semver, so npm publish on the tarball works correctly.
-        run: npm publish package.tgz --access public --provenance
+        run: npm publish package.tgz --access public --provenance --loglevel verbose
