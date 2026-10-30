@@ -2503,6 +2503,23 @@
       "firstPublished": "2026-10-16T03:16:08.399Z",
       "status": "live",
       "provisionedSha": "2f11ac3301fce7fbce2cd87d63fe2bfe5bff22f5"
+    },
+    {
+      "id": "penfight",
+      "name": "Penfight",
+      "category": "casual",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Flick your pen and knock theirs off the table. 2 players or vs CPU.",
+      "appUrl": "https://penfight.freegamestore.online",
+      "repo": "freegamestore-online/penfight",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "abid8195",
+      "creatorGithub": "abid8195",
+      "firstPublished": "2026-10-30T17:50:06.089Z",
+      "status": "pending",
+      "provisionedSha": "0fc9b4d05587c23b8ca882f5a295bd31d6248e47"
     }
   ]
 }
