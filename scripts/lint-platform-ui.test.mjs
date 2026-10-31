@@ -138,12 +138,31 @@ test('the committed baseline covers every surface and the repo is at or below it
   assert.equal(result.ok, true);
 });
 
-test('CLI exits 0 at baseline and 1 with --strict while debt remains', () => {
+test('run --strict fails while any inline style or injected CSS remains', (t) => {
+  const root = tree(t, {
+    'packages/games-sdk/src/A.tsx': 'export const A = () => <div style={{ a: 1 }} />;',
+    'apps/console/web/src/B.tsx': 'export const B = () => <div />;',
+    'apps/admin/web/src/C.tsx': 'export const C = () => <div />;',
+  });
+  const baseline = { 'packages/games-sdk/src': { cssInjection: 0, inlineStyles: 1 } };
+  assert.equal(run({ root, baseline }).ok, true, 'at baseline the ratchet passes');
+  const strict = run({ root, baseline, strict: true });
+  assert.equal(strict.ok, false);
+  assert.deepEqual(strict.strictFailures, [
+    { surface: 'packages/games-sdk/src', metric: 'inlineStyles', now: 1 },
+  ]);
+});
+
+test('CLI exits 0 at baseline, and with --strict now that every surface is migrated', () => {
+  // The platform UI epic (#390) is done for games-sdk, console and admin: all three are at 0.
   const script = join(dirname(fileURLToPath(import.meta.url)), 'lint-platform-ui.mjs');
   const normal = spawnSync(process.execPath, [script], { encoding: 'utf8' });
   assert.equal(normal.status, 0, normal.stderr);
   assert.match(normal.stdout, /packages\/games-sdk\/src: runtime CSS injection/);
   const strict = spawnSync(process.execPath, [script, '--strict'], { encoding: 'utf8' });
-  assert.equal(strict.status, 1);
-  assert.match(strict.stderr, /FAIL \(--strict\)/);
+  assert.equal(strict.status, 0, strict.stderr);
+  const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
+  for (const surface of SURFACES) {
+    assert.deepEqual(baseline[surface], { cssInjection: 0, inlineStyles: 0 }, surface);
+  }
 });

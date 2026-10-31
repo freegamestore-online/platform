@@ -23,12 +23,16 @@
     <title>Creator Console — FreeGameStore</title>
     <!-- Apply the saved theme before first paint (DESIGN-SYSTEM.md §3): light is the default, data-theme="dark" the dark tokens. -->
     <script>
-      (function () {
+      (() => {
         try {
-          var p = localStorage.getItem("stores-theme");
-          var dark = p === "dark" || ((!p || p === "system") && matchMedia("(prefers-color-scheme: dark)").matches);
+          const p = localStorage.getItem("stores-theme");
+          const dark =
+            p === "dark" ||
+            ((!p || p === "system") && matchMedia("(prefers-color-scheme: dark)").matches);
           if (dark) document.documentElement.dataset.theme = "dark";
-        } catch (e) {}
+        } catch {
+          // Storage can be blocked: stay on the default (light) theme.
+        }
       })();
     </script>
   </head>
