@@ -1,0 +1,13 @@
+/* Styling fixture (platform#396): trips css-discipline and opaque-surface. */
+:root {
+  --panel: rgba(255, 255, 255, 0.72);
+  --error: #c74f43;
+}
+
+.score-badge {
+  color: #ff0000;
+}
+
+.dark .score-badge {
+  color: white;
+}

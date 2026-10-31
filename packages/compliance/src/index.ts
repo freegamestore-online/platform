@@ -3,6 +3,7 @@ import { checkBrandFonts } from './checks/brand-fonts.js';
 import { checkBrandTokens } from './checks/brand-tokens.js';
 import { checkBundleSize } from './checks/bundle-size.js';
 import { checkClaudeMdSlim } from './checks/claude-md-slim.js';
+import { checkCssDiscipline } from './checks/css-discipline.js';
 import { checkDarkMode } from './checks/dark-mode.js';
 import { checkDeployWorkflow } from './checks/deploy-workflow.js';
 import { checkGameNaming } from './checks/game-naming.js';
@@ -25,6 +26,7 @@ import { checkNoPaymentSdk } from './checks/no-payment-sdk.js';
 import { checkNoPlaceholders } from './checks/no-placeholders.js';
 import { checkNoScroll } from './checks/no-scroll.js';
 import { checkNoTracking } from './checks/no-tracking.js';
+import { checkOpaqueSurface } from './checks/opaque-surface.js';
 import { checkPermissionsDeclared } from './checks/permissions-declared.js';
 import { checkPwaIcons } from './checks/pwa-icons.js';
 import { checkMaskableIcon } from './checks/pwa-maskable-icon.js';
@@ -92,6 +94,7 @@ export {
   checkBrandTokens,
   checkBundleSize,
   checkClaudeMdSlim,
+  checkCssDiscipline,
   checkDarkMode,
   checkDeployWorkflow,
   checkGameNaming,
@@ -115,6 +118,7 @@ export {
   checkNoPlaceholders,
   checkNoScroll,
   checkNoTracking,
+  checkOpaqueSurface,
   checkPermissionsDeclared,
   checkPwaIcons,
   checkPwaMeta,

@@ -16,6 +16,7 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "lint": "biome check .",
+    "lint:ui": "node scripts/lint-platform-ui.mjs",
     "format": "biome format --write ."
   },
   "devDependencies": {

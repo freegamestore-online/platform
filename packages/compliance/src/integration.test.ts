@@ -83,6 +83,7 @@ describe('failing-app fixture', () => {
     expect(summary.warn.sort()).toEqual([
       'Bundle size',
       'CLAUDE.md is slim (no platform boilerplate)',
+      'CSS discipline',
       'Dark mode support',
       'Deploy workflow',
       'Gitignore complete',
@@ -93,6 +94,7 @@ describe('failing-app fixture', () => {
       'No external scripts',
       'No page-level CSP',
       'No unsafe 100vh',
+      'Opaque surfaces',
       'PWA meta tags',
       'Permissions declared',
       'SEO metadata',

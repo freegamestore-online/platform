@@ -41,6 +41,16 @@ Each check has:
 **How:** Greps your CSS / inline styles for `100vh`.
 **Pass:** Use `100svh` instead. `<GameShell>` handles this already.
 
+### `css-discipline` (warning)
+**What:** Your CSS follows the Tailwind-on-tokens model ([ADR-001](https://github.com/freegamestore-online/platform/blob/main/docs/adr/001-tailwind-on-fgs-tokens.md)): `index.css` holds tokens, `@theme` and `@layer` rules only.
+**How:** Reads your source CSS (not `public/`, `dist/` or `*.min.css`) and reports five rules: `banned-alias` (`--surface`, `--border`, `--glass`, `--dock`, `--error`), `unlayered-rule` (a style rule outside `@layer`), `hex-outside-tokens` (a hex colour outside a `:root` token block or `@theme`), `per-screen-dark-override` (a dark-mode rule that isn't a `:root` token block) and `feature-classes` (a class selector such as `.score-badge`). `--bg` is not banned: `brand-tokens` still requires it for games.
+**Pass:** Put colours in `:root` tokens, base rules in `@layer base`, and style components with Tailwind utilities. A warning for now; it becomes a failure after the fleet migration ([#398](https://github.com/freegamestore-online/platform/issues/398)).
+
+### `opaque-surface` (warning)
+**What:** `--paper`, `--panel` and `--popover` are opaque.
+**How:** Warns when any of those tokens has alpha below 1 (`rgba(…, 0.72)`, `#rrggbbaa`, `rgb(… / 50%)`, `transparent`). A `var()` value isn't resolved.
+**Pass:** Use an opaque colour. Menus, modals and result screens sit on these tokens, and a translucent one lets the game show through the text. A translucent scrim behind a dialog is fine.
+
 ## PWA & manifest
 
 ### `manifest`

@@ -50,6 +50,18 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
     ],
   },
   {
+    "detail": "12 issue(s) (unlayered-rule 5, feature-classes 4, banned-alias 1, hex-outside-tokens 1, per-screen-dark-override 1). e.g. unlayered-rule: web/src/extra.css:3 .button; feature-classes: web/src/extra.css:3 .button; unlayered-rule: web/src/index.css:3 body…",
+    "name": "CSS discipline",
+    "status": "warn",
+    "suggestions": [
+      "Wrap base rules in \`@layer base { … }\`. index.css holds only @import, @source, token blocks, @theme and @layer.",
+      "Build a React component styled with Tailwind utilities instead of a \`.feature-class\` in CSS.",
+      "Use the tokens (--paper, --panel, --ink, --muted, --line, --accent) and --danger instead of --error; drop --surface, --border, --glass and --dock.",
+      "Define the colour once as a token in :root and use a token utility (bg-panel, text-ink, …).",
+      "Redefine tokens in a \`:root\` dark block instead of overriding individual selectors; components then follow the scheme for free.",
+    ],
+  },
+  {
     "detail": "no prefers-color-scheme / data-theme / color-scheme signal in web/src/",
     "name": "Dark mode support",
     "status": "warn",
@@ -121,12 +133,13 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
     ],
   },
   {
-    "detail": "2 apparent overrides",
+    "detail": "3 apparent overrides",
     "name": "No brand overrides",
     "status": "fail",
     "suggestions": [
       "web/src/extra.css:4 redefines --accent (template owns this token)",
       "web/src/index.css:5 non-brand font "comic sans ms"",
+      "web/src/surfaces.css:3 redefines --panel (template owns this token)",
       "Use the template tokens (var(--accent), var(--ink), etc.) instead of redefining them.",
       "Brand fonts are Manrope (body) + Fraunces (display). Stick to those + system / monospace.",
     ],
@@ -226,6 +239,15 @@ exports[`failing-app snapshot > matches snapshot for full result shape 1`] = `
       "web/src/index.css:4 100vh — use 100svh or 100dvh",
       "web/src/index.css:9 100vh — use 100svh or 100dvh",
       "Replace with 100svh (preferred) or 100dvh. Add \`// allow-100vh\` on the line if intentional.",
+    ],
+  },
+  {
+    "detail": "1 translucent surface token(s): web/src/surfaces.css:3 --panel: rgba(255, 255, 255, 0.72) (alpha 0.72)",
+    "name": "Opaque surfaces",
+    "status": "warn",
+    "suggestions": [
+      "Use an opaque colour for --paper, --panel and --popover. Menus, modals and result screens use them, and a translucent surface lets the game show through the text.",
+      "A translucent scrim behind a dialog is fine; the dialog surface itself must be opaque.",
     ],
   },
   {

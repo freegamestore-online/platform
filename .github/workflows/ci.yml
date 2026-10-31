@@ -32,3 +32,6 @@ jobs:
       # accidentally unwired from runChecksOn.
       - run: pnpm -r test
       - run: node --test scripts/*.test.mjs
+      # Platform UI styling ratchet (ADR-001, platform#396): fails if runtime CSS
+      # injection or static inline styles rise above scripts/ui-lint-baseline.json.
+      - run: node scripts/lint-platform-ui.mjs
