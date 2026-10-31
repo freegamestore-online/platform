@@ -70,7 +70,8 @@ describe('ScorePopup', () => {
       vi.advanceTimersByTime(SCORE_POP_MS / 2);
     });
     expect(pop.style.opacity).toBe('');
-    expect(pop.style.transform).toBe('translate(-50%, -50%)');
+    expect(pop.style.transform).toBe('');
+    expect(pop.className).toContain('[transform:translate(-50%,-50%)]');
     expect(onDone).not.toHaveBeenCalled();
 
     act(() => {

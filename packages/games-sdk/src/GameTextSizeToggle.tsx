@@ -46,22 +46,7 @@ export function GameTextSizeToggle() {
       onClick={cycle}
       aria-label={`Text: ${size}`}
       title={`Text: ${size}`}
-      style={{
-        width: 28,
-        height: 28,
-        borderRadius: 8,
-        border: '1px solid var(--line, #e2e8f0)',
-        background: 'var(--panel, #ffffff)',
-        color: 'var(--ink, #1e293b)',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        padding: 0,
-        fontFamily: '"Manrope", system-ui, sans-serif',
-        fontSize: '0.7rem',
-        fontWeight: 700,
-      }}
+      className="inline-flex size-7 cursor-pointer items-center justify-center rounded-lg border border-line bg-panel p-0 text-ink text-[0.7rem] font-bold"
     >
       {label}
     </button>

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import * as sdk from './index.js';
-import { START_SCREEN_CSS, StartScreen } from './StartScreen.js';
+import { StartScreen } from './StartScreen.js';
 
 const STEPS = [{ heading: 'Tap a tile', text: 'It joins the tray.' }];
 
@@ -82,7 +82,7 @@ describe('StartScreen', () => {
     const { container } = render(
       <StartScreen title="Demo Game" artwork={null} onPlay={() => {}} />,
     );
-    expect(container.querySelector('.fgs-start-artwork')).toBeNull();
+    expect(container.querySelector('[data-fgs="start-artwork"]')).toBeNull();
   });
 
   it('labels the section with the title', () => {
@@ -103,24 +103,51 @@ describe('StartScreen', () => {
   });
 });
 
-describe('START_SCREEN_CSS', () => {
-  it('reads its durations and easings from the motion tokens, not from literals', () => {
-    expect(START_SCREEN_CSS).toContain('var(--motion-slow');
-    expect(START_SCREEN_CSS).toContain('var(--motion-base');
-    expect(START_SCREEN_CSS).not.toMatch(/(520|380)ms/);
+describe('StartScreen styling', () => {
+  it('exports no CSS string: styling is compiled utilities', () => {
+    expect(Object.keys(sdk).filter((k) => /_CSS$/.test(k) && k !== 'GAME_TOKENS_CSS')).toEqual([]);
   });
 
-  it('falls back to the #209 light values, so it works without GAME_TOKENS_CSS', () => {
-    expect(START_SCREEN_CSS).toContain('var(--paper, #ffffff)');
-    expect(START_SCREEN_CSS).toContain('var(--accent, #2563eb)');
+  it('puts the card on an opaque panel surface', () => {
+    const { container } = render(<StartScreen title="Demo Game" onPlay={() => {}} />);
+    const card = container.querySelector('h1')?.parentElement as HTMLElement;
+    expect(card.className).toContain('bg-panel');
+    expect(card.className).not.toMatch(/bg-panel\//);
+  });
+
+  it('staggers the entrance through --delay classes, not inline styles', () => {
+    const { container } = render(
+      <StartScreen title="Demo Game" artwork={<span>art</span>} onPlay={() => {}} />,
+    );
+    const art = container.querySelector('[data-fgs="start-artwork"]') as HTMLElement;
+    expect(art.className).toContain('[--delay:0ms]');
+    expect(art.getAttribute('style')).toBeNull();
+    const card = container.querySelector('h1')?.parentElement as HTMLElement;
+    expect(card.className).toContain('[--delay:120ms]');
   });
 
   it('stops every animation under prefers-reduced-motion', () => {
-    const reduced = START_SCREEN_CSS.slice(
-      START_SCREEN_CSS.indexOf('@media (prefers-reduced-motion: reduce)'),
+    render(
+      <StartScreen
+        title="Demo Game"
+        artwork={<span>art</span>}
+        onPlay={() => {}}
+        howToPlay={STEPS}
+      />,
     );
-    expect(reduced).toContain('.fgs-start-enter');
-    expect(reduced).toContain('animation: none');
+    fireEvent.click(screen.getByRole('button', { name: 'How to play' }));
+    const animated = [...document.querySelectorAll('[class*="animate-fgs-"]')];
+    expect(animated.length).toBeGreaterThanOrEqual(4);
+    for (const el of animated) {
+      expect(el.className, el.className).toContain('motion-reduce:animate-none');
+    }
+  });
+
+  it('numbers the how-to-play steps with a dynamic --i index only', () => {
+    render(<StartScreen title="Demo Game" onPlay={() => {}} howToPlay={STEPS} />);
+    fireEvent.click(screen.getByRole('button', { name: 'How to play' }));
+    const li = document.querySelector('ol > li') as HTMLElement;
+    expect(li.getAttribute('style')).toBe('--i: 0;');
   });
 });
 

@@ -158,7 +158,7 @@ describe('GameTopbar.module.css', () => {
   });
 
   it('is copied into dist by the build, since tsc does not copy CSS', () => {
-    expect(PKG.scripts.build).toContain('cp src/GameTopbar.module.css dist/');
+    expect(PKG.scripts.build).toContain('cp src/GameTopbar.module.css src/theme.css dist/');
   });
 
   it('the motion tokens it reads are declared by GAME_TOKENS_CSS', () => {

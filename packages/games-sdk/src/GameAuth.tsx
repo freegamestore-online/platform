@@ -2,6 +2,10 @@ import type * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from './useAuth.js';
 
+/** Shared by the sign-in and avatar buttons: bare, 44px minimum touch target. */
+const BARE_BUTTON =
+  'm-0 inline-flex min-h-11 min-w-11 cursor-pointer touch-manipulation items-center justify-center border-0 bg-transparent p-0 [-webkit-tap-highlight-color:transparent]';
+
 /**
  * Sign-in / avatar widget for the GameTopbar `actions` slot.
  *
@@ -30,28 +34,7 @@ export function GameAuth(): React.JSX.Element {
 
   if (user === null) {
     return (
-      <button
-        onClick={signIn}
-        style={{
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          fontFamily: '"Manrope", system-ui, sans-serif',
-          fontSize: '0.7rem',
-          fontWeight: 600,
-          color: 'var(--muted, #6b7280)',
-          padding: 0,
-          margin: 0,
-          // 44px minimum touch target
-          minWidth: '44px',
-          minHeight: '44px',
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          WebkitTapHighlightColor: 'transparent',
-          touchAction: 'manipulation',
-        }}
-      >
+      <button onClick={signIn} className={`${BARE_BUTTON} text-[0.7rem] font-semibold text-muted`}>
         Sign in
       </button>
     );
@@ -64,110 +47,35 @@ export function GameAuth(): React.JSX.Element {
   const initial = (firstName.charAt(0) || '?').toUpperCase();
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        style={{
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '0.35rem',
-          padding: 0,
-          margin: 0,
-          minWidth: '44px',
-          minHeight: '44px',
-          justifyContent: 'center',
-          WebkitTapHighlightColor: 'transparent',
-          touchAction: 'manipulation',
-        }}
-      >
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen((v) => !v)} className={`${BARE_BUTTON} gap-[0.35rem]`}>
         {avatarUrl ? (
           <img
             src={avatarUrl}
             alt=""
             width={24}
             height={24}
-            style={{
-              width: '24px',
-              height: '24px',
-              borderRadius: '50%',
-              objectFit: 'cover',
-              flexShrink: 0,
-            }}
+            className="size-6 shrink-0 rounded-full object-cover"
           />
         ) : (
           <span
             aria-hidden="true"
-            style={{
-              width: '24px',
-              height: '24px',
-              borderRadius: '50%',
-              flexShrink: 0,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'var(--accent, #6b7280)',
-              color: '#fff',
-              fontFamily: '"Manrope", system-ui, sans-serif',
-              fontSize: '0.65rem',
-              fontWeight: 700,
-              lineHeight: 1,
-            }}
+            className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-accent text-[0.65rem] font-bold leading-none text-white"
           >
             {initial}
           </span>
         )}
-        <span
-          style={{
-            fontFamily: '"Manrope", system-ui, sans-serif',
-            fontSize: '0.7rem',
-            fontWeight: 600,
-            color: 'var(--ink, #1a1a1a)',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {firstName}
-        </span>
+        <span className="whitespace-nowrap text-[0.7rem] font-semibold text-ink">{firstName}</span>
       </button>
 
       {open && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '100%',
-            right: 0,
-            marginTop: '0.25rem',
-            background: 'var(--panel, #fff)',
-            border: '1px solid var(--line, #e5e5e5)',
-            borderRadius: '0.5rem',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-            zIndex: 100,
-            minWidth: '7rem',
-          }}
-        >
+        <div className="absolute right-0 top-full z-[100] mt-1 min-w-28 rounded-lg border border-line bg-panel shadow-[0_4px_12px_rgb(0_0_0/0.1)]">
           <button
             onClick={() => {
               setOpen(false);
               signOut();
             }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              width: '100%',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              fontFamily: '"Manrope", system-ui, sans-serif',
-              fontSize: '0.7rem',
-              fontWeight: 600,
-              color: 'var(--ink, #1a1a1a)',
-              padding: '0.5rem 0.75rem',
-              minHeight: '44px',
-              WebkitTapHighlightColor: 'transparent',
-              touchAction: 'manipulation',
-            }}
+            className="flex min-h-11 w-full cursor-pointer touch-manipulation items-center border-0 bg-transparent px-3 py-2 text-[0.7rem] font-semibold text-ink [-webkit-tap-highlight-color:transparent]"
           >
             Sign out
           </button>

@@ -2,7 +2,7 @@
 
 Shared React UI primitives for games on **freegamestore.online**. Brand-consistent layout, scroll-free viewport lock, touch-friendly controls, and synthesized sound effects.
 
-**Version:** 0.18.0
+**Version:** 0.19.0
 
 ## Installation
 
@@ -13,6 +13,50 @@ pnpm add @freegamestore/games
 ```
 
 Peer dependency: React 19+.
+
+## Styling (Tailwind 4 on tokens)
+
+The components are styled with **Tailwind utilities on the platform tokens**
+([ADR-001](https://github.com/freegamestore-online/platform/blob/main/docs/adr/001-tailwind-on-fgs-tokens.md)).
+The package ships class names, not CSS, so **your game compiles them**. In the
+game's `web/src/index.css`, directly after `@import "tailwindcss"`:
+
+```css
+@import "tailwindcss";
+@import "@freegamestore/games/theme.css";
+@source "../node_modules/@freegamestore/games/dist";
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-panel: var(--panel);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-danger: var(--danger);
+  --font-display: "Fraunces", serif;
+}
+```
+
+- `@source` makes Tailwind scan this package's `dist` for the classes the
+  components use. Without it the SDK renders unstyled.
+- `theme.css` adds what the components need beyond the token mapping: the
+  `animate-fgs-*` animations and their keyframes (it replaces the CSS the
+  components used to inject), `accent-ink`, `accent-soft` and the `fgs` radius
+  and text sizes. Durations and easings read the `--motion-*` tokens.
+- The `@theme inline` block is the token mapping every `template-game-*` carries.
+  A game on the templates already has it.
+- Floating UI (`GameModal`, `GameConfirm`, `StartScreen`, `GameResultScreen`)
+  sits on the opaque `bg-panel` surface. Only the scrim behind it is translucent.
+- Nothing is injected at runtime. The `*_CSS` strings (`CONFETTI_CSS`,
+  `SCORE_POP_CSS`, `RESULT_SCREEN_CSS`, `START_SCREEN_CSS`) are removed in 0.19.0;
+  `GAME_TOKENS_CSS` stays as the documented token helper.
+- Inline `style` remains only for values computed at runtime (confetti piece
+  positions, score-popup coordinates, stagger indexes), each marked
+  `// Dynamic: …`. `src/styling.test.ts` fails on anything else.
+- Hooks for tests and overrides are `data-fgs="…"` attributes
+  (`result`, `confetti`, `start`, `start-artwork`, `score-popup`). The old
+  `fgs-*` class names are gone.
 
 ## Quick Start
 
@@ -186,11 +230,12 @@ An animated result screen for a finished level or game. A win shows falling conf
 | `action` | `{ label, onClick }` | The primary button. It is focused when the screen opens |
 | `children` | `ReactNode?` | Extra content between the badge and the action |
 
-The screen covers the viewport and has `role="dialog"`. Motion is CSS only and
-stops under `prefers-reduced-motion`, and the confetti is hidden for players who
-ask for less motion. Its colours and motion read the design tokens from
-[TOKENS.md](./TOKENS.md), with light-theme fallbacks, so it works without
-`GAME_TOKENS_CSS`.
+The screen covers the viewport and has `role="dialog"`. Motion is the
+`animate-fgs-*` utilities from `theme.css` (see [Styling](#styling-tailwind-4-on-tokens)),
+which stop under `prefers-reduced-motion`, and the confetti is hidden for players
+who ask for less motion. Its colours come from the platform tokens and its
+durations from the `--motion-*` tokens in [TOKENS.md](./TOKENS.md), with the
+light-theme fallbacks in `theme.css`.
 
 `Confetti` is exported on its own, for a game that wants the celebration
 somewhere else.

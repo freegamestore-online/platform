@@ -10,25 +10,6 @@ export const SCORE_POP_MS = 700;
 /** How far a pop-up rises before it fades, in px. */
 const RISE_PX = 40;
 
-/**
- * Styles for the pop-up. Its colour is the accent-ink token, so it follows the
- * theme, with a light-theme fallback. The motion itself is set from script.
- */
-export const SCORE_POP_CSS = `
-.fgs-score-pop {
-  position: absolute;
-  z-index: 750;
-  pointer-events: none;
-  white-space: nowrap;
-  font-family: var(--font-display, "Fraunces", Georgia, serif);
-  font-size: var(--text-stat, 1.25rem);
-  font-weight: 800;
-  color: var(--accent-ink, #2563eb);
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.55);
-  will-change: transform, opacity;
-}
-`;
-
 export interface ScorePopupProps {
   /** The points to show, as `+N`. */
   points: number;
@@ -81,15 +62,14 @@ export function ScorePopup({ points, x, y, onDone }: ScorePopupProps): React.JSX
   }, []);
 
   return (
-    <>
-      <style>{SCORE_POP_CSS}</style>
-      <span
-        ref={ref}
-        className="fgs-score-pop"
-        style={{ left: x, top: y, transform: 'translate(-50%, -50%)' }}
-      >
-        {`+${points}`}
-      </span>
-    </>
+    <span
+      ref={ref}
+      data-fgs="score-popup"
+      className="pointer-events-none absolute z-[750] whitespace-nowrap font-display text-fgs-stat font-extrabold text-accent-ink will-change-[transform,opacity] [text-shadow:0_1px_2px_rgb(0_0_0/0.55)] [transform:translate(-50%,-50%)]"
+      // Dynamic: the pop-up is placed at the caller's x and y; the rise and fade are set from script.
+      style={{ left: x, top: y }}
+    >
+      {`+${points}`}
+    </span>
   );
 }

@@ -25,7 +25,7 @@ export {
   stepParticles,
 } from './particles.js';
 export { prefersReducedMotion } from './reducedMotion.js';
-export { SCORE_POP_CSS, SCORE_POP_MS, ScorePopup, type ScorePopupProps } from './ScorePopup.js';
+export { SCORE_POP_MS, ScorePopup, type ScorePopupProps } from './ScorePopup.js';
 export { shakeKeyframes } from './shake.js';
 export { tweenProgress, tweenValue } from './tween.js';
 export { type Haptics, useHaptics } from './useHaptics.js';

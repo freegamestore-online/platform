@@ -34,10 +34,10 @@ describe('GameShell', () => {
       </GameShell>,
     );
     const wrapper = container.firstElementChild as HTMLElement;
-    expect(wrapper.style.overflow).toBe('hidden');
-    expect(wrapper.style.height).toBe('100svh');
-    expect(wrapper.style.position).toBe('fixed');
-    expect(wrapper.style.userSelect).toBe('none');
+    for (const cls of ['overflow-hidden', 'h-svh', 'fixed', 'select-none']) {
+      expect(wrapper.className).toContain(cls);
+    }
+    expect(wrapper.getAttribute('style')).toBeNull();
   });
 
   it('includes the freegamestore.online store link (compliance)', () => {

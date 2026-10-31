@@ -12,48 +12,8 @@ export const CONFETTI_COLOURS: readonly string[] = [
   v('accent', LIGHT_COLOURS.accent),
   v('success', LIGHT_COLOURS.success),
   v('warning', LIGHT_COLOURS.warning),
-  v('error', LIGHT_COLOURS.error),
+  v('danger', LIGHT_COLOURS.error),
 ];
-
-/**
- * Styles for the falling pieces. Each piece's duration and delay are set
- * inline. Under prefers-reduced-motion the layer is hidden, because the
- * falling pieces are decoration only.
- */
-export const CONFETTI_CSS = `
-.fgs-confetti {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-.fgs-confetti-piece {
-  position: absolute;
-  top: -12px;
-  left: var(--x);
-  width: 0.5rem;
-  height: 0.8rem;
-  border-radius: 2px;
-  background: var(--colour);
-  animation: fgs-confetti-fall var(--duration, 1.6s) cubic-bezier(0.3, 0, 0.7, 1) var(--delay, 0ms) both;
-}
-.fgs-confetti-piece:nth-child(3n) {
-  width: 0.6rem;
-  height: 0.6rem;
-  border-radius: 999px;
-}
-@keyframes fgs-confetti-fall {
-  from { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
-  80% { opacity: 1; }
-  to { transform: translate3d(var(--drift, 0px), 620px, 0) rotate(var(--spin, 360deg)); opacity: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .fgs-confetti {
-    display: none;
-  }
-}
-`;
 
 /** True when the player has asked for less motion. False on the server, where there is no window. */
 function prefersReducedMotion(): boolean {
@@ -71,16 +31,25 @@ export interface ConfettiProps {
  * Falling confetti for a win. Each piece's position, drift, spin and timing
  * come from its index, so the render is the same every time. Renders nothing
  * under prefers-reduced-motion.
+ *
+ * The falling motion is the `animate-fgs-confetti` utility from the SDK's
+ * `theme.css`. Only the per-piece values below are inline, because they are
+ * computed from the piece's index.
  */
 export function Confetti({ colours = CONFETTI_COLOURS }: ConfettiProps): React.JSX.Element | null {
   if (prefersReducedMotion()) return null;
   return (
-    <div className="fgs-confetti" aria-hidden="true">
-      <style>{CONFETTI_CSS}</style>
+    <div
+      data-fgs="confetti"
+      className="pointer-events-none absolute inset-0 z-0 overflow-hidden motion-reduce:hidden"
+      aria-hidden="true"
+    >
       {Array.from({ length: PIECES }, (_, i) => (
         <span
           key={i}
-          className="fgs-confetti-piece"
+          data-fgs="confetti-piece"
+          className="absolute -top-3 left-(--x) h-[0.8rem] w-2 animate-fgs-confetti rounded-[2px] bg-(--colour) nth-[3n]:size-[0.6rem] nth-[3n]:rounded-full"
+          // Dynamic: position, drift, spin, timing and colour all come from the piece index.
           style={
             {
               '--x': `${(i * 37) % 100}%`,

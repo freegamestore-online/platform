@@ -10,7 +10,8 @@ export interface GameModalProps {
 /**
  * Fullscreen modal overlay for games. Used for rules, settings, confirmations.
  * Closes on backdrop click or Escape key.
- * Styled with platform design tokens for consistency across all games.
+ * Styled with Tailwind utilities on the platform tokens. The dialog sits on an
+ * opaque surface (`bg-panel`); only the scrim behind it is translucent.
  */
 export function GameModal({ open, onClose, title, children }: GameModalProps) {
   useEffect(() => {
@@ -27,69 +28,25 @@ export function GameModal({ open, onClose, title, children }: GameModalProps) {
   return (
     <div
       onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 900,
-        background: 'rgba(0,0,0,0.6)',
-        backdropFilter: 'blur(4px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-      }}
+      className="fixed inset-0 z-[900] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
-          background: 'var(--panel, #ffffff)',
-          border: '1px solid var(--line, #e2e8f0)',
-          borderRadius: '1rem',
-          maxWidth: 400,
-          width: '100%',
-          maxHeight: '80dvh',
-          overflow: 'auto',
-        }}
+        className="max-h-[80dvh] w-full max-w-[400px] overflow-auto rounded-2xl border border-line bg-panel"
       >
         {title && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.85rem 1rem',
-              borderBottom: '1px solid var(--line, #e2e8f0)',
-            }}
-          >
-            <span
-              style={{
-                fontWeight: 700,
-                fontSize: '1rem',
-                color: 'var(--ink, #1e293b)',
-                fontFamily: '"Manrope", system-ui, sans-serif',
-              }}
-            >
-              {title}
-            </span>
+          <div className="flex items-center justify-between border-b border-line px-4 py-[0.85rem]">
+            <span className="text-base font-bold text-ink">{title}</span>
             <button
               onClick={onClose}
               aria-label="Close"
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '1.25rem',
-                lineHeight: 1,
-                color: 'var(--muted, #64748b)',
-                padding: '0.25rem',
-                fontFamily: 'inherit',
-              }}
+              className="cursor-pointer border-0 bg-transparent p-1 text-xl leading-none text-muted"
             >
               &times;
             </button>
           </div>
         )}
-        <div style={{ padding: '1rem' }}>{children}</div>
+        <div className="p-4">{children}</div>
       </div>
     </div>
   );

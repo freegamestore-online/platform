@@ -16,11 +16,7 @@ export function Leaderboard({
   const scores = tab === 'top' ? topScores : recentScores;
 
   if (loading) {
-    return (
-      <div className="px-4 py-3 text-xs" style={{ color: 'var(--muted)' }}>
-        Loading scores...
-      </div>
-    );
+    return <div className="px-4 py-3 text-xs text-muted">Loading scores...</div>;
   }
 
   return (
@@ -30,40 +26,32 @@ export function Leaderboard({
           <button
             key={t}
             onClick={() => setTab(t)}
-            className="px-3 py-1 text-xs font-semibold rounded-lg"
-            style={{
-              background: tab === t ? 'var(--accent)' : 'transparent',
-              color: tab === t ? '#fff' : 'var(--muted)',
-            }}
+            className={`rounded-lg px-3 py-1 text-xs font-semibold ${
+              tab === t ? 'bg-accent text-white' : 'bg-transparent text-muted'
+            }`}
           >
             {t === 'top' ? 'Top' : 'Recent'}
           </button>
         ))}
       </div>
       {scores.length === 0 ? (
-        <div className="text-xs" style={{ color: 'var(--muted)' }}>
-          No scores yet. Be the first!
-        </div>
+        <div className="text-xs text-muted">No scores yet. Be the first!</div>
       ) : (
         <div className="flex flex-col gap-1">
           {scores.map((entry, i) => (
             <div
               key={`${entry.player_name}-${entry.score}-${i}`}
-              className="flex items-center justify-between text-xs py-1"
-              style={{ borderBottom: '1px solid var(--line)' }}
+              className="flex items-center justify-between border-b border-line py-1 text-xs"
             >
               <div className="flex items-center gap-2">
                 <span
-                  className="w-5 text-right font-semibold"
-                  style={{ color: i < 3 ? 'var(--accent)' : 'var(--muted)' }}
+                  className={`w-5 text-right font-semibold ${i < 3 ? 'text-accent' : 'text-muted'}`}
                 >
                   {i + 1}
                 </span>
-                <span className="truncate max-w-[8rem]">{entry.player_name}</span>
+                <span className="max-w-[8rem] truncate">{entry.player_name}</span>
               </div>
-              <span className="font-bold" style={{ fontFamily: 'Fraunces, serif' }}>
-                {entry.score.toLocaleString()}
-              </span>
+              <span className="font-display font-bold">{entry.score.toLocaleString()}</span>
             </div>
           ))}
         </div>

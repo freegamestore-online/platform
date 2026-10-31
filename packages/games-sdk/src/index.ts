@@ -15,7 +15,6 @@
 
 export {
   CONFETTI_COLOURS,
-  CONFETTI_CSS,
   Confetti,
   type ConfettiProps,
 } from './Confetti.js';
@@ -34,7 +33,6 @@ export {
   GameResultScreen,
   type GameResultScreenProps,
   type GameResultStat,
-  RESULT_SCREEN_CSS,
 } from './GameResultScreen.js';
 export { GameShell, type GameShellProps } from './GameShell.js';
 export { GameTextSizeToggle } from './GameTextSizeToggle.js';
@@ -50,7 +48,6 @@ export {
 // export { Leaderboard, type LeaderboardProps } from './Leaderboard.js';
 export { useSound } from './SoundContext.js';
 export {
-  START_SCREEN_CSS,
   StartScreen,
   type StartScreenProps,
   type StartScreenStep,

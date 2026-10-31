@@ -15,84 +15,38 @@ export interface GameOverScreenProps {
 /**
  * Standard game-over overlay. Shows score, optional high score,
  * play again button, and optional extra content.
- * Renders as a centered overlay on top of the game board.
+ * Renders as a centered overlay on top of the game board. The text sits on a
+ * dark scrim, so it uses white rather than the page tokens.
  */
 export function GameOverScreen({ score, highScore, onPlayAgain, children }: GameOverScreenProps) {
   const isNewHigh = highScore !== undefined && score >= highScore && score > 0;
 
   return (
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        zIndex: 800,
-        background: 'rgba(0,0,0,0.65)',
-        backdropFilter: 'blur(6px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1.5rem',
-      }}
-    >
-      <div
-        style={{
-          textAlign: 'center',
-          maxWidth: 320,
-          width: '100%',
-        }}
-      >
-        <div
-          style={{
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            color: 'rgba(255,255,255,0.6)',
-            marginBottom: '0.5rem',
-            fontFamily: '"Manrope", system-ui, sans-serif',
-          }}
-        >
+    <div className="absolute inset-0 z-[800] flex items-center justify-center bg-black/65 p-6 backdrop-blur-[6px]">
+      <div className="w-full max-w-80 text-center">
+        <div className="mb-2 text-xs font-bold uppercase tracking-widest text-white/60">
           Game Over
         </div>
 
-        <div
-          style={{
-            fontSize: '3rem',
-            fontWeight: 800,
-            color: '#ffffff',
-            lineHeight: 1,
-            marginBottom: '0.25rem',
-            fontFamily: '"Fraunces", serif',
-          }}
-        >
+        <div className="mb-1 font-display text-5xl font-extrabold leading-none text-white">
           {score.toLocaleString()}
         </div>
 
         {highScore !== undefined && (
           <div
-            style={{
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              color: isNewHigh ? 'var(--accent, #10b981)' : 'rgba(255,255,255,0.5)',
-              marginBottom: '1rem',
-              fontFamily: '"Manrope", system-ui, sans-serif',
-            }}
+            className={`mb-4 text-[0.8rem] font-semibold ${isNewHigh ? 'text-accent' : 'text-white/50'}`}
           >
             {isNewHigh ? 'New high score!' : `Best: ${highScore.toLocaleString()}`}
           </div>
         )}
 
-        {!highScore && <div style={{ marginBottom: '1rem' }} />}
+        {!highScore && <div className="mb-4" />}
 
         <GameButton onClick={onPlayAgain} variant="primary" size="lg">
           Play Again
         </GameButton>
 
-        {children && (
-          <div style={{ marginTop: '1rem', color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem' }}>
-            {children}
-          </div>
-        )}
+        {children && <div className="mt-4 text-[0.85rem] text-white/70">{children}</div>}
       </div>
     </div>
   );

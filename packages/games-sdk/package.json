@@ -1,6 +1,6 @@
 {
   "name": "@freegamestore/games",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "description": "Shared React UI primitives for games on FreeGameStore — GameShell, GameTopbar, etc. Brand-consistent, scroll-free.",
   "license": "MIT",
   "type": "module",
@@ -14,7 +14,8 @@
     "./feel": {
       "types": "./dist/feel/index.d.ts",
       "import": "./dist/feel/index.js"
-    }
+    },
+    "./theme.css": "./dist/theme.css"
   },
   "homepage": "https://github.com/freegamestore-online/platform#readme",
   "repository": {
@@ -42,7 +43,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc && cp src/GameTopbar.module.css dist/",
+    "build": "tsc && cp src/GameTopbar.module.css src/theme.css dist/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

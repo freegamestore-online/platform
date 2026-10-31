@@ -49,5 +49,8 @@
       "semicolons": "always",
       "arrowParentheses": "always"
     }
+  },
+  "css": {
+    "parser": { "tailwindDirectives": true }
   }
 }

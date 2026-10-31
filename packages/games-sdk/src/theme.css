@@ -1,0 +1,93 @@
+/*
+ * @freegamestore/games theme: the Tailwind entries the SDK components use
+ * beyond the token mapping every template already carries (paper, panel, ink,
+ * muted, line, accent, success, warning, danger, font-display).
+ *
+ * Import it once from the game's index.css, after `@import "tailwindcss"` and
+ * the SDK `@source`:
+ *
+ *   @import "tailwindcss";
+ *   @source "../node_modules/@freegamestore/games/dist";
+ *   @import "@freegamestore/games/theme.css";
+ *
+ * Or copy this file's contents into index.css. Durations and easings read the
+ * motion tokens (`--motion-*`) with the same fallbacks as tokens.ts.
+ */
+
+@theme inline {
+  --color-accent-ink: var(--accent-ink, var(--accent));
+  --color-accent-soft: var(--accent-soft, transparent);
+}
+
+@theme {
+  --radius-fgs: var(--radius, 1.25rem);
+  --text-fgs-stat: var(--text-stat, 1.25rem);
+  --text-fgs-title: var(--text-title, clamp(2rem, 9vw, 2.6rem));
+  --text-fgs-display: var(--text-display, clamp(2.25rem, 11vw, 3.25rem));
+
+  --animate-fgs-fade: fgs-fade var(--motion-base, 240ms) ease-out both;
+  --animate-fgs-enter: fgs-enter var(--motion-slow, 420ms) cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+  --animate-fgs-enter-title: fgs-enter var(--motion-slow, 420ms) cubic-bezier(0.2, 0.9, 0.3, 1.2)
+    120ms both;
+  --animate-fgs-enter-stat: fgs-enter var(--motion-base, 240ms) ease-out
+    calc(260ms + var(--i, 0) * 70ms) both;
+  --animate-fgs-enter-actions: fgs-enter var(--motion-base, 240ms) ease-out 480ms both;
+  --animate-fgs-enter-badge: fgs-enter var(--motion-base, 240ms) ease-out 560ms both;
+  --animate-fgs-rise: fgs-rise var(--motion-slow, 420ms) cubic-bezier(0.2, 0.8, 0.2, 1)
+    var(--delay, 0ms) both;
+  --animate-fgs-rise-step: fgs-rise var(--motion-base, 240ms) ease-out calc(var(--i, 0) * 60ms) both;
+  --animate-fgs-float: fgs-float 7s ease-in-out infinite;
+  --animate-fgs-confetti: fgs-confetti-fall var(--duration, 1.6s) cubic-bezier(0.3, 0, 0.7, 1)
+    var(--delay, 0ms) both;
+
+  @keyframes fgs-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes fgs-enter {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes fgs-rise {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes fgs-float {
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-4px) rotate(-1deg);
+    }
+  }
+  @keyframes fgs-confetti-fall {
+    from {
+      transform: translate3d(0, 0, 0) rotate(0deg);
+      opacity: 1;
+    }
+    80% {
+      opacity: 1;
+    }
+    to {
+      transform: translate3d(var(--drift, 0px), 620px, 0) rotate(var(--spin, 360deg));
+      opacity: 0;
+    }
+  }
+}

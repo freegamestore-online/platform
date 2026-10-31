@@ -2,7 +2,6 @@ import type * as React from 'react';
 import { useId, useState } from 'react';
 import { GameButton } from './GameButton.js';
 import { GameModal } from './GameModal.js';
-import { LIGHT_COLOURS, MOTION_TOKENS, SHAPE_TOKENS, TYPOGRAPHY_TOKENS } from './tokens.js';
 
 export interface StartScreenStep {
   /** Short name of the step, shown in bold. */
@@ -37,151 +36,26 @@ export interface StartScreenProps {
   howToPlay?: readonly StartScreenStep[];
 }
 
-/** A CSS variable with a fallback taken from the #209 light tokens, so the screen renders without GAME_TOKENS_CSS. */
-const v = (name: string, fallback: string) => `var(--${name}, ${fallback})`;
-
-/**
- * Styles for the start screen and its how-to-play list. The durations and
- * easings come from the motion tokens, and everything stops under
- * prefers-reduced-motion. Class names carry the `fgs-` prefix, so they cannot
- * collide with a game's own styles.
- */
-export const START_SCREEN_CSS = `
-.fgs-start {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(0.75rem, 3svh, 1.5rem);
-  height: 100%;
-  padding: 1rem;
-  overflow: hidden;
-  background:
-    radial-gradient(120% 70% at 50% 0%, ${v('accent-soft', LIGHT_COLOURS.accentSoft)} 0%, transparent 65%),
-    ${v('paper', LIGHT_COLOURS.paper)};
-}
-.fgs-start-artwork { width: min(11rem, 52vw); }
-.fgs-start-artwork-inner { animation: fgs-start-float 7s ease-in-out infinite; }
-.fgs-start-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  width: min(20rem, 100%);
-  padding: 1.5rem 1.25rem 1.25rem;
-  border-radius: ${v('radius', SHAPE_TOKENS.radius)};
-  text-align: center;
-  background: ${v('panel', LIGHT_COLOURS.panel)};
-  border: 1px solid ${v('line', LIGHT_COLOURS.line)};
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.4),
-    0 1px 2px rgb(0 0 0 / 0.06),
-    0 18px 32px -18px rgb(0 0 0 / 0.35);
-}
-.fgs-start-title {
-  margin: 0;
-  font-family: ${v('font-display', TYPOGRAPHY_TOKENS.fontDisplay)};
-  font-weight: 800;
-  font-optical-sizing: auto;
-  font-variation-settings: "opsz" 144;
-  font-size: ${v('text-display', TYPOGRAPHY_TOKENS.textDisplay)};
-  line-height: 0.95;
-  letter-spacing: -0.03em;
-  color: ${v('ink', LIGHT_COLOURS.ink)};
-  text-wrap: balance;
-}
-.fgs-start-tagline {
-  margin: 0 0 0.5rem;
-  max-width: 18rem;
-  font-size: 0.95rem;
-  line-height: 1.4;
-  color: ${v('muted', LIGHT_COLOURS.muted)};
-}
-.fgs-start-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  width: 100%;
-  margin-top: 0.25rem;
-}
-.fgs-start-enter {
-  animation: fgs-start-rise ${v('motion-slow', MOTION_TOKENS.slow)} cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  animation-delay: var(--delay, 0ms);
-}
-@keyframes fgs-start-rise {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: none; }
-}
-@keyframes fgs-start-float {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-4px) rotate(-1deg); }
-}
-.fgs-how-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.fgs-how-steps li {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  animation: fgs-start-rise ${v('motion-base', MOTION_TOKENS.base)} ease-out both;
-  animation-delay: calc(var(--i, 0) * 60ms);
-}
-.fgs-how-num {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 0.5rem;
-  font-family: ${v('font-display', TYPOGRAPHY_TOKENS.fontDisplay)};
-  font-weight: 800;
-  color: #ffffff;
-  background: ${v('accent', LIGHT_COLOURS.accent)};
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.35),
-    0 2px 4px rgb(0 0 0 / 0.2);
-}
-.fgs-how-steps strong {
-  display: block;
-  font-weight: 700;
-  color: ${v('ink', LIGHT_COLOURS.ink)};
-}
-.fgs-how-steps p {
-  margin: 0.15rem 0 0;
-  font-size: 0.9rem;
-  line-height: 1.4;
-  color: ${v('muted', LIGHT_COLOURS.muted)};
-}
-@media (prefers-reduced-motion: reduce) {
-  .fgs-start-enter,
-  .fgs-start-artwork-inner,
-  .fgs-how-steps li {
-    animation: none;
-  }
-}
-`;
-
-/** Entrance delay for one element, so the screen rises in a sequence. */
-const delay = (ms: number) => ({ '--delay': `${ms}ms` }) as React.CSSProperties;
-
 /** The numbered steps of a game's rules. */
 function HowToPlaySteps({ steps }: { steps: readonly StartScreenStep[] }) {
   return (
-    <ol className="fgs-how-steps">
+    <ol className="m-0 flex list-none flex-col gap-[0.85rem] p-0">
       {steps.map((step, i) => (
-        <li key={step.heading} style={{ '--i': i } as React.CSSProperties}>
-          <span className="fgs-how-num" aria-hidden="true">
+        <li
+          key={step.heading}
+          className="flex animate-fgs-rise-step items-start gap-3 motion-reduce:animate-none"
+          // Dynamic: the entrance delay is staggered by the step's index.
+          style={{ '--i': i } as React.CSSProperties}
+        >
+          <span
+            className="grid size-7 flex-none place-items-center rounded-lg bg-accent font-display font-extrabold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_2px_4px_rgb(0_0_0/0.2)]"
+            aria-hidden="true"
+          >
             {i + 1}
           </span>
           <div>
-            <strong>{step.heading}</strong>
-            <p>{step.text}</p>
+            <strong className="block font-bold text-ink">{step.heading}</strong>
+            <p className="m-0 mt-[0.15rem] text-[0.9rem] leading-[1.4] text-muted">{step.text}</p>
           </div>
         </li>
       ))}
@@ -191,10 +65,10 @@ function HowToPlaySteps({ steps }: { steps: readonly StartScreenStep[] }) {
 
 /**
  * A game's start screen: artwork, title, tagline, then Play and How to play.
- * Motion is CSS only, and it stops under prefers-reduced-motion.
+ * Motion is the `animate-fgs-*` utilities from the SDK's `theme.css`, and it
+ * stops under prefers-reduced-motion. The card sits on an opaque `bg-panel`.
  *
- * The screen does not define the brand tokens. It falls back to the #209
- * light values, so a game that loads GAME_TOKENS_CSS gets the full theme.
+ * Colours come from the platform tokens through the game's `@theme` mapping.
  */
 export function StartScreen({
   title,
@@ -215,19 +89,31 @@ export function StartScreen({
   };
 
   return (
-    <section className="fgs-start" aria-labelledby={titleId}>
-      <style>{START_SCREEN_CSS}</style>
+    <section
+      data-fgs="start"
+      className="relative flex h-full flex-col items-center justify-center gap-[clamp(0.75rem,3svh,1.5rem)] overflow-hidden bg-paper bg-[radial-gradient(120%_70%_at_50%_0%,var(--color-accent-soft)_0%,transparent_65%)] p-4"
+      aria-labelledby={titleId}
+    >
       {artwork !== undefined && artwork !== null && (
-        <div className="fgs-start-artwork fgs-start-enter" style={delay(0)} aria-hidden="true">
-          <div className="fgs-start-artwork-inner">{artwork}</div>
+        <div
+          data-fgs="start-artwork"
+          className="w-[min(11rem,52vw)] animate-fgs-rise [--delay:0ms] motion-reduce:animate-none"
+          aria-hidden="true"
+        >
+          <div className="animate-fgs-float motion-reduce:animate-none">{artwork}</div>
         </div>
       )}
-      <div className="fgs-start-card fgs-start-enter" style={delay(120)}>
-        <h1 id={titleId} className="fgs-start-title">
+      <div className="flex w-[min(20rem,100%)] animate-fgs-rise flex-col items-center gap-2 rounded-fgs border border-line bg-panel px-5 pb-5 pt-6 text-center shadow-[inset_0_1px_0_rgb(255_255_255/0.4),0_1px_2px_rgb(0_0_0/0.06),0_18px_32px_-18px_rgb(0_0_0/0.35)] [--delay:120ms] motion-reduce:animate-none">
+        <h1
+          id={titleId}
+          className="m-0 text-balance font-display text-fgs-display font-extrabold leading-[0.95] tracking-[-0.03em] text-ink [font-optical-sizing:auto] [font-variation-settings:'opsz'_144]"
+        >
           {title}
         </h1>
-        {tagline && <p className="fgs-start-tagline">{tagline}</p>}
-        <div className="fgs-start-actions">
+        {tagline && (
+          <p className="m-0 mb-2 max-w-72 text-[0.95rem] leading-[1.4] text-muted">{tagline}</p>
+        )}
+        <div className="mt-1 flex w-full flex-col gap-2">
           <GameButton variant="primary" size="lg" block onClick={onPlay}>
             {playLabel}
           </GameButton>

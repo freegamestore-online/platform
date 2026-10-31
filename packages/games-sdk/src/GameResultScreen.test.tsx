@@ -1,11 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CONFETTI_COLOURS, Confetti } from './Confetti.js';
-import {
-  GameResultScreen,
-  type GameResultScreenProps,
-  RESULT_SCREEN_CSS,
-} from './GameResultScreen.js';
+import { GameResultScreen, type GameResultScreenProps } from './GameResultScreen.js';
 import * as sdk from './index.js';
 
 const BASE: GameResultScreenProps = {
@@ -64,7 +60,7 @@ describe('GameResultScreen', () => {
 
   it('renders no stats list when stats is omitted', () => {
     const { container } = render(<GameResultScreen {...BASE} stats={undefined} />);
-    expect(container.querySelector('.fgs-result-stats')).toBeNull();
+    expect(container.querySelector('dl')).toBeNull();
   });
 
   it('calls action.onClick once when the action is pressed', () => {
@@ -99,35 +95,35 @@ describe('GameResultScreen', () => {
 
   it('shows confetti for a win', () => {
     const { container } = render(<GameResultScreen {...BASE} tone="win" />);
-    const confetti = container.querySelector('.fgs-confetti');
+    const confetti = container.querySelector('[data-fgs="confetti"]');
     expect(confetti).toHaveAttribute('aria-hidden', 'true');
-    expect(confetti?.querySelectorAll('.fgs-confetti-piece').length).toBeGreaterThan(0);
+    expect(confetti?.querySelectorAll('[data-fgs="confetti-piece"]').length).toBeGreaterThan(0);
   });
 
   it('shows no confetti for a loss', () => {
     const { container } = render(<GameResultScreen {...BASE} tone="lose" title="Game over" />);
-    expect(container.querySelector('.fgs-confetti')).toBeNull();
-    expect(container.querySelector('.fgs-result-lose')).not.toBeNull();
+    expect(container.querySelector('[data-fgs="confetti"]')).toBeNull();
+    expect(container.querySelector('[data-tone="lose"]')).not.toBeNull();
   });
 
   it('hides the confetti for a win when the player prefers reduced motion', () => {
     stubReducedMotion(true);
     const { container } = render(<GameResultScreen {...BASE} tone="win" />);
-    expect(container.querySelector('.fgs-confetti')).toBeNull();
+    expect(container.querySelector('[data-fgs="confetti"]')).toBeNull();
     expect(screen.getByRole('dialog', { name: 'Level 4 cleared!' })).toBeInTheDocument();
   });
 
   it('keeps the confetti when reduced motion is not requested', () => {
     stubReducedMotion(false);
     const { container } = render(<GameResultScreen {...BASE} tone="win" />);
-    expect(container.querySelector('.fgs-confetti')).not.toBeNull();
+    expect(container.querySelector('[data-fgs="confetti"]')).not.toBeNull();
   });
 });
 
 describe('Confetti', () => {
   it('renders 30 pieces by default', () => {
     const { container } = render(<Confetti />);
-    expect(container.querySelectorAll('.fgs-confetti-piece')).toHaveLength(30);
+    expect(container.querySelectorAll('[data-fgs="confetti-piece"]')).toHaveLength(30);
   });
 
   it('defaults the colours to theme variables with fallbacks', () => {
@@ -136,29 +132,43 @@ describe('Confetti', () => {
   });
 });
 
-describe('RESULT_SCREEN_CSS', () => {
-  it('reads its durations and easings from the motion tokens, not from literals', () => {
-    // A duration sits straight after the animation name. Stagger delays are offsets, so they may stay literal.
-    const literalDuration = /animation:\s*[\w-]+\s+\d+ms\b/;
-    expect(RESULT_SCREEN_CSS.split('\n').filter((line) => literalDuration.test(line))).toEqual([]);
-    expect(RESULT_SCREEN_CSS).toContain('var(--motion-slow');
-    expect(RESULT_SCREEN_CSS).toContain('var(--motion-base');
+describe('GameResultScreen styling', () => {
+  it('exports no CSS string: styling is compiled utilities', () => {
+    expect(Object.keys(sdk).filter((k) => /_CSS$/.test(k) && k !== 'GAME_TOKENS_CSS')).toEqual([]);
   });
 
-  it('uses the fgs- class prefix throughout', () => {
-    const classes = [...RESULT_SCREEN_CSS.matchAll(/\.([a-z][\w-]*)/g)].map((m) => m[1]);
-    expect(classes.length).toBeGreaterThan(0);
-    for (const name of classes) {
-      expect(name, name).toMatch(/^(fgs-|\d|[a-z]+$)/);
-    }
+  it('puts the card on an opaque panel surface, with only the scrim translucent', () => {
+    const { container } = render(<GameResultScreen {...BASE} tone="lose" />);
+    const overlay = container.querySelector('[data-fgs="result"]') as HTMLElement;
+    const card = overlay.firstElementChild as HTMLElement;
+    expect(card.className).toContain('bg-panel');
+    expect(card.className).not.toMatch(/bg-panel\//);
+    expect(overlay.className).toMatch(/bg-paper\/\d+/);
+  });
+
+  it('colours a win title with the accent and a loss title with the ink', () => {
+    const { rerender } = render(<GameResultScreen {...BASE} tone="win" />);
+    expect(screen.getByRole('heading', { level: 2 }).className).toContain('text-accent-ink');
+    rerender(<GameResultScreen {...BASE} tone="lose" />);
+    expect(screen.getByRole('heading', { level: 2 }).className).toContain('text-ink');
   });
 
   it('stops every animation under prefers-reduced-motion', () => {
-    const reduced = RESULT_SCREEN_CSS.slice(
-      RESULT_SCREEN_CSS.indexOf('@media (prefers-reduced-motion: reduce)'),
-    );
-    expect(reduced).toContain('.fgs-result-overlay');
-    expect(reduced).toContain('animation: none');
+    const { container } = render(<GameResultScreen {...BASE} tone="lose" />);
+    const animated = [...container.querySelectorAll('[class*="animate-fgs-"]')];
+    expect(animated.length).toBeGreaterThan(3);
+    for (const el of animated) {
+      expect(el.className, el.className).toContain('motion-reduce:animate-none');
+    }
+  });
+
+  it('staggers each stat with a dynamic --i index only', () => {
+    const { container } = render(<GameResultScreen {...BASE} tone="lose" />);
+    const stats = [...container.querySelectorAll('dl > div')] as HTMLElement[];
+    expect(stats.map((el) => el.style.getPropertyValue('--i'))).toEqual(['0', '1']);
+    for (const el of stats) {
+      expect(el.getAttribute('style')).toBe(`--i: ${el.style.getPropertyValue('--i')};`);
+    }
   });
 });
 

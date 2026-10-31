@@ -1,7 +1,7 @@
 {
   "packages/games-sdk/src": {
-    "cssInjection": 4,
-    "inlineStyles": 40
+    "cssInjection": 0,
+    "inlineStyles": 0
   },
   "apps/console/web/src": {
     "cssInjection": 1,

@@ -16,33 +16,23 @@ export interface GameButtonProps {
   block?: boolean;
 }
 
-const SIZE: Record<
-  GameButtonSize,
-  { minHeight: string; padding: string; fontSize: string; borderRadius: string }
-> = {
-  sm: {
-    minHeight: '2.75rem',
-    padding: '0.5rem 1rem',
-    fontSize: '0.85rem',
-    borderRadius: '0.625rem',
-  },
-  md: {
-    minHeight: '3rem',
-    padding: '0.625rem 1.25rem',
-    fontSize: '0.9rem',
-    borderRadius: '0.75rem',
-  },
-  lg: {
-    minHeight: '3.5rem',
-    padding: '0.75rem 1.75rem',
-    fontSize: '1rem',
-    borderRadius: '0.875rem',
-  },
+const SIZE: Record<GameButtonSize, string> = {
+  sm: 'min-h-11 px-4 py-2 text-[0.85rem] rounded-[0.625rem]',
+  md: 'min-h-12 px-5 py-[0.625rem] text-[0.9rem] rounded-xl',
+  lg: 'min-h-14 px-7 py-3 text-base rounded-[0.875rem]',
+};
+
+const VARIANT: Record<GameButtonVariant, string> = {
+  primary: 'bg-accent text-white',
+  secondary: 'bg-panel text-ink ring-1 ring-inset ring-line',
+  ghost: 'bg-transparent text-muted',
+  danger: 'bg-danger text-white',
 };
 
 /**
  * Prescribed game button. Touch-friendly (min 44px target), brand-consistent
- * styling. Three variants, three sizes — all opinionated, nothing custom.
+ * styling. Four variants, three sizes — all opinionated, nothing custom.
+ * Utilities on the platform tokens; the press feedback is `active:scale`.
  */
 export function GameButton({
   children,
@@ -52,63 +42,16 @@ export function GameButton({
   disabled = false,
   block = false,
 }: GameButtonProps): React.JSX.Element {
-  const s = SIZE[size];
-
-  const base: React.CSSProperties = {
-    display: block ? 'flex' : 'inline-flex',
-    width: block ? '100%' : undefined,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '0.5rem',
-    minHeight: s.minHeight,
-    padding: s.padding,
-    fontSize: s.fontSize,
-    fontFamily: '"Manrope", system-ui, sans-serif',
-    fontWeight: 700,
-    lineHeight: 1,
-    borderRadius: s.borderRadius,
-    border: 'none',
-    cursor: disabled ? 'default' : 'pointer',
-    opacity: disabled ? 0.4 : 1,
-    transition: 'transform 120ms ease, opacity 120ms ease',
-    WebkitTapHighlightColor: 'transparent',
-    touchAction: 'manipulation',
-  };
-
-  const variantStyles: Record<GameButtonVariant, React.CSSProperties> = {
-    primary: {
-      background: 'var(--accent, #10b981)',
-      color: '#fff',
-    },
-    secondary: {
-      background: 'var(--panel, #f5f3f0)',
-      color: 'var(--ink, #1a1a1a)',
-      boxShadow: 'inset 0 0 0 1px var(--line, #e5e5e5)',
-    },
-    ghost: {
-      background: 'transparent',
-      color: 'var(--muted, #6b7280)',
-    },
-    danger: {
-      background: '#dc2626',
-      color: '#ffffff',
-    },
-  };
+  const layout = block ? 'flex w-full' : 'inline-flex';
+  const state = disabled
+    ? 'cursor-default opacity-40'
+    : 'cursor-pointer enabled:active:scale-[0.96]';
 
   return (
     <button
-      style={{ ...base, ...variantStyles[variant] }}
+      className={`${layout} ${SIZE[size]} ${VARIANT[variant]} ${state} touch-manipulation items-center justify-center gap-2 border-0 font-bold leading-none transition-[transform,opacity] duration-[120ms] [-webkit-tap-highlight-color:transparent]`}
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      onPointerDown={(e) => {
-        if (!disabled) (e.currentTarget as HTMLElement).style.transform = 'scale(0.96)';
-      }}
-      onPointerUp={(e) => {
-        (e.currentTarget as HTMLElement).style.transform = '';
-      }}
-      onPointerLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.transform = '';
-      }}
     >
       {children}
     </button>

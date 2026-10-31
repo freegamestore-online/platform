@@ -28,18 +28,8 @@ export function GameConfirm({
 }: GameConfirmProps) {
   return (
     <GameModal open={open} onClose={onCancel} title={title}>
-      <p
-        style={{
-          fontSize: '0.9rem',
-          color: 'var(--muted, #64748b)',
-          margin: '0 0 1.25rem',
-          lineHeight: 1.5,
-          fontFamily: '"Manrope", system-ui, sans-serif',
-        }}
-      >
-        {message}
-      </p>
-      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+      <p className="m-0 mb-5 text-[0.9rem] leading-normal text-muted">{message}</p>
+      <div className="flex justify-end gap-2">
         <GameButton onClick={onCancel} variant="secondary" size="md">
           {cancelLabel}
         </GameButton>
