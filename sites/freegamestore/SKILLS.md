@@ -161,7 +161,7 @@ No manual deploy commands. Ever.
 
 ## Tech stack (required)
 
-- TypeScript ^7, React ^19, Vite ^8, Tailwind CSS ^4, pnpm
+- TypeScript ^7, React ^19, Vite ^8, Tailwind CSS ^4 (required for all UI, see [Styling](#styling-tailwind-on-tokens--required)), pnpm
 - Node >=22
 - Games SDK: `@freegamestore/games` (required for all games)
 - 2D engines: raw Canvas, Pixi.js 8, Phaser, KAPLAY
@@ -322,6 +322,37 @@ FreeGameStore is a **mobile-first gaming platform**. Test on phone viewports fir
 - Buttons: minimum 44px touch target
 
 Pre-publish check: `fgs screencheck`
+
+---
+
+## Styling (Tailwind on tokens — required)
+
+All DOM UI (HUD, menus, overlays, dialogs, results screens, settings) is **React + Tailwind 4 on the platform tokens**. This is [ADR-001](https://github.com/freegamestore-online/platform/blob/main/docs/adr/001-tailwind-on-fgs-tokens.md). Canvas/WebGL rendering is out of scope.
+
+1. **Components** for UI that repeats.
+2. **Tailwind utilities on token colours** (exposed with `@theme inline`) for everything else.
+3. **`index.css` holds only** `@import "tailwindcss"`, `@source`, the token blocks, `@theme` and `@layer`.
+
+| Instead of | Use |
+|---|---|
+| `style={{ background: '#1a1a1a' }}` | `bg-surface` |
+| `style={{ color: 'var(--ink)' }}` | `text-ink` |
+| `style={{ color: '#666' }}` | `text-muted` |
+| `style={{ border: '1px solid #e5e5e5' }}` | `border border-border` |
+| `style={{ color: '#10b981' }}` | `text-accent` (`bg-accent-soft` for backgrounds) |
+| `style={{ padding: 16, display: 'flex', gap: 8 }}` | `p-4 flex gap-2` |
+| a `.score-badge { … }` class in `index.css` | a `<ScoreBadge>` component with utilities |
+| `document.createElement('style')` / a CSS string in JS | utilities, or a rule in `@layer base` |
+
+Rules:
+
+- **No feature classes.** Don't add `.game-menu`-style classes to `index.css`; build a component.
+- **No static inline styles.** `style` is for runtime values only: sprite or overlay positioning, transforms, animation progress.
+- **No injected CSS.** Never create `<style>` elements or CSS strings from JS.
+- **Floating UI is opaque.** Modals, menus, popovers and result screens use `bg-popover` or `bg-surface`, never a translucent token. A translucent scrim behind the dialog is fine (shared spec: freeappstore-online/platform#327).
+- **Don't invent another convention** (CSS modules, CSS-in-JS, your own utility classes).
+
+Checks for this land as warnings first (`css-discipline`, `opaque-surface`), then become failures once the fleet is migrated. See epic [#390](https://github.com/freegamestore-online/platform/issues/390).
 
 ---
 

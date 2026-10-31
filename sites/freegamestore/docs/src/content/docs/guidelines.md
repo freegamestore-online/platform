@@ -69,6 +69,39 @@ chrome, auth, leaderboard, and settings should use platform tokens.
 Fonts are managed by the platform. Do not replace the shell font stack or ship
 custom UI fonts unless the game canvas itself needs an asset font.
 
+## Styling: Tailwind on tokens
+
+Tailwind 4 is **required** for all DOM UI: HUD, menus, overlays, dialogs,
+results screens and settings. Canvas and WebGL rendering is out of scope. The
+decision is [ADR-001](https://github.com/freegamestore-online/platform/blob/main/docs/adr/001-tailwind-on-fgs-tokens.md)
+([#390](https://github.com/freegamestore-online/platform/issues/390)).
+
+1. **Components** for UI that repeats.
+2. **Tailwind utilities on token colours**, exposed with `@theme inline`.
+3. **`index.css` holds only** `@import`, `@source`, the token blocks, `@theme`
+   and `@layer`.
+
+| Instead of | Use |
+| --- | --- |
+| `style={{ background: '#1a1a1a' }}` | `bg-surface` |
+| `style={{ color: 'var(--ink)' }}` | `text-ink` |
+| `style={{ color: '#666' }}` | `text-muted` |
+| `style={{ border: '1px solid #e5e5e5' }}` | `border border-border` |
+| `style={{ color: '#10b981' }}` | `text-accent` (`bg-accent-soft` for backgrounds) |
+| `style={{ padding: 16, display: 'flex', gap: 8 }}` | `p-4 flex gap-2` |
+| a `.score-badge` class in `index.css` | a `<ScoreBadge>` component |
+
+- **No feature classes** in `index.css`.
+- **No static inline styles.** Inline `style` is for runtime values only:
+  sprite or overlay positioning, transforms, animation progress.
+- **No injected CSS.** Never create `<style>` elements or CSS strings from JS.
+- **Floating UI is opaque.** Modals, menus, popovers and result screens use
+  `bg-popover` or `bg-surface`, never a translucent token. A translucent scrim
+  behind the dialog is fine.
+
+The checks for this start as warnings and become failures once existing games
+are migrated.
+
 ## Tech stack
 
 New games should follow the platform stack unless a specific game engine needs a
@@ -79,7 +112,7 @@ small variation.
 | Language | TypeScript |
 | Framework | React |
 | Bundler | Vite |
-| Styling | Tailwind CSS and platform CSS variables |
+| Styling | Tailwind CSS 4 on platform tokens (required, see [Styling](#styling-tailwind-on-tokens)) |
 | Hosting | Cloudflare R2 (GitHub Actions) |
 | Package manager | pnpm |
 | Runtime | Node 20.19 or newer |

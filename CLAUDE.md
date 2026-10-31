@@ -107,6 +107,11 @@ never committed. See `SECURITY.md`.
 - `MIGRATION.md` tracks the consolidation cutover; `SESSION-HANDOFF.md` carries
   in-flight context between sessions.
 
+## Styling
+
+All UI, including games-sdk/console/admin, is React + Tailwind on tokens
+(`docs/adr/001-tailwind-on-fgs-tokens.md`); no inline styles or injected CSS; don't invent a different convention.
+
 ## Delivery mode
 
 **Straight to `main`. No branches, no pull requests.** Declared 2026-08-16.
