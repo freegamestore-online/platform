@@ -11,6 +11,7 @@ import { listCommand } from './commands/list.js';
 import { loginCommand } from './commands/login.js';
 import { logoutCommand } from './commands/logout.js';
 import { logsCommand } from './commands/logs.js';
+import { migrateCommand } from './commands/migrate.js';
 import { publishCommand } from './commands/publish.js';
 import { screencheckCommand } from './commands/screencheck.js';
 import { whoamiCommand } from './commands/whoami.js';
@@ -38,6 +39,7 @@ program.addCommand(logsCommand);
 program.addCommand(doctorCommand);
 program.addCommand(checkCommand);
 program.addCommand(screencheckCommand);
+program.addCommand(migrateCommand);
 program.addCommand(listCommand);
 program.addCommand(adminCommand);
 

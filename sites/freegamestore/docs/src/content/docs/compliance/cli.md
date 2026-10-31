@@ -92,6 +92,7 @@ npx -y @freegamestore/cli@latest --help
 | `list` | List games you've published. |
 | `logs` | Tail the GitHub Actions deploy logs for one of your games. |
 | `screencheck` | Visual / layout regression check (screenshot diff). |
+| `migrate tailwind-tokens` | Rewrite `text-[var(--muted)]` to `text-muted` and inline retired token aliases. Dry run unless `--write` ([ADR-001](https://github.com/freegamestore-online/platform/blob/main/docs/adr/001-tailwind-on-fgs-tokens.md)). |
 
 ## When to update
 
