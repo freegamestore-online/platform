@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { getKidMode, KID_AGES, KID_VIBES, type KidMode, setKidMode } from '../lib/kidMode';
 
+const CHIP_BASE = 'cursor-pointer rounded-xl px-[0.9rem] py-2 text-[0.85rem] font-semibold';
+const CHIP_ACTIVE = `${CHIP_BASE} border-2 border-accent bg-accent/10 text-ink`;
+const CHIP_IDLE = `${CHIP_BASE} border border-line bg-paper text-muted`;
+
 /** Kid mode chooser — lives in Profile. When on, the agent's replies in the
  *  studio are shown rewritten for a kid (funny, simple), with a tap to reveal
  *  the original technical message. Age band + vibe tune the rewrite. Persisted
@@ -14,27 +18,14 @@ export function KidModeSetting() {
     setKidMode(next); // persisted; the studio reads it on load
   }
 
-  const chip = (active: boolean): React.CSSProperties => ({
-    cursor: 'pointer',
-    borderRadius: '0.75rem',
-    padding: '0.5rem 0.9rem',
-    fontFamily: 'inherit',
-    fontSize: '0.85rem',
-    fontWeight: 600,
-    border: active ? '2px solid var(--accent)' : '1px solid var(--border)',
-    background: active ? 'rgba(16,185,129,0.10)' : 'var(--bg)',
-    color: active ? 'var(--ink)' : 'var(--muted)',
-  });
+  const chip = (active: boolean): string => (active ? CHIP_ACTIVE : CHIP_IDLE);
 
   return (
-    <div
-      className="p-6 rounded-2xl border"
-      style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-    >
+    <div className="p-6 rounded-2xl border border-line bg-panel">
       <div className="flex items-start justify-between gap-4 mb-1">
         <div>
           <h3 className="text-base font-bold mb-1">Kid mode</h3>
-          <p className="text-sm" style={{ color: 'var(--muted)' }}>
+          <p className="text-sm text-muted">
             Show the AI's replies rewritten for a kid — funny and simple. Tap any reply to see the
             original techy version.
           </p>
@@ -45,28 +36,14 @@ export function KidModeSetting() {
           aria-checked={mode.enabled}
           aria-label="Enable kid mode"
           onClick={() => update({ enabled: !mode.enabled })}
-          className="shrink-0"
-          style={{
-            width: 46,
-            height: 28,
-            borderRadius: 999,
-            border: 'none',
-            cursor: 'pointer',
-            padding: 3,
-            background: mode.enabled ? 'var(--accent)' : 'var(--border)',
-            transition: 'background 0.15s',
-          }}
+          className={`h-7 w-[46px] shrink-0 cursor-pointer rounded-full border-0 p-[3px] transition-colors duration-150 ${
+            mode.enabled ? 'bg-accent' : 'bg-line'
+          }`}
         >
           <span
-            style={{
-              display: 'block',
-              width: 22,
-              height: 22,
-              borderRadius: '50%',
-              background: '#fff',
-              transform: mode.enabled ? 'translateX(18px)' : 'translateX(0)',
-              transition: 'transform 0.15s',
-            }}
+            className={`block size-[22px] rounded-full bg-white transition-transform duration-150 ${
+              mode.enabled ? 'translate-x-[18px]' : 'translate-x-0'
+            }`}
           />
         </button>
       </div>
@@ -74,9 +51,7 @@ export function KidModeSetting() {
       {mode.enabled && (
         <div className="mt-5 flex flex-col gap-4">
           <div>
-            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--muted)' }}>
-              AGE
-            </p>
+            <p className="text-xs font-semibold mb-2 text-muted">AGE</p>
             {/* biome-ignore lint/a11y/useSemanticElements: a toggle-button group, not a form; <fieldset>'s min-inline-size: min-content would stop the flex-wrap. */}
             <div role="group" aria-label="Age" className="flex flex-wrap gap-2">
               {KID_AGES.map((a) => (
@@ -84,7 +59,7 @@ export function KidModeSetting() {
                   key={a.value}
                   onClick={() => update({ age: a.value })}
                   aria-pressed={mode.age === a.value}
-                  style={chip(mode.age === a.value)}
+                  className={chip(mode.age === a.value)}
                 >
                   {a.label}
                 </button>
@@ -92,9 +67,7 @@ export function KidModeSetting() {
             </div>
           </div>
           <div>
-            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--muted)' }}>
-              VIBE
-            </p>
+            <p className="text-xs font-semibold mb-2 text-muted">VIBE</p>
             {/* biome-ignore lint/a11y/useSemanticElements: a toggle-button group, not a form; <fieldset>'s min-inline-size: min-content would stop the flex-wrap. */}
             <div role="group" aria-label="Vibe" className="flex flex-wrap gap-2">
               {KID_VIBES.map((v) => (
@@ -102,9 +75,9 @@ export function KidModeSetting() {
                   key={v.value}
                   onClick={() => update({ vibe: v.value })}
                   aria-pressed={mode.vibe === v.value}
-                  style={chip(mode.vibe === v.value)}
+                  className={chip(mode.vibe === v.value)}
                 >
-                  <span aria-hidden style={{ marginRight: 6 }}>
+                  <span aria-hidden className="mr-1.5">
                     {v.emoji}
                   </span>
                   {v.label}

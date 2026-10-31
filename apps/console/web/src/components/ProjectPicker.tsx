@@ -11,16 +11,18 @@ import { Button, IconButton, Input } from './ui';
 // build would read as already-live. Map in-progress to amber so the four states
 // are visually distinct — green = live, amber = building, red = failed, grey =
 // never built / unknown.
-function statusDotColor(project: Project): string {
+// Complete class-name literals (Tailwind scans source text): `dot` paints the
+// status dot, `text` the status label beside it.
+function statusClasses(project: Project): { dot: string; text: string } {
   switch (activityTone(project.activity, project.deployed)) {
     case 'success':
-      return 'var(--success)'; // live / last build succeeded
+      return { dot: 'bg-success', text: 'text-success' }; // live / last build succeeded
     case 'accent':
-      return 'var(--warning)'; // writing / provisioning / pushing / building — in progress
+      return { dot: 'bg-warning', text: 'text-warning' }; // writing / provisioning / pushing / building — in progress
     case 'danger':
-      return 'var(--error)'; // last build failed
+      return { dot: 'bg-danger', text: 'text-danger' }; // last build failed
     default:
-      return 'var(--line-strong)'; // never built / unknown
+      return { dot: 'bg-line-strong', text: 'text-line-strong' }; // never built / unknown
   }
 }
 
@@ -93,13 +95,9 @@ export function ProjectPicker({
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim"
       role="dialog"
       aria-label="Project picker"
-      style={{
-        background: 'var(--overlay-bg)',
-        zIndex: 'var(--z-modal)',
-      }}
       onClick={onClose}
       onKeyDown={(e) => {
         if (e.key === 'Escape') onClose();
@@ -107,21 +105,11 @@ export function ProjectPicker({
     >
       <div
         role="document"
-        className="rounded-2xl shadow-xl w-full max-w-md mx-4"
-        style={{
-          background: 'var(--panel)',
-          border: '1px solid var(--line)',
-          maxHeight: '80vh',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
+        className="rounded-2xl shadow-xl w-full max-w-md mx-4 bg-panel border border-line max-h-[80vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div
-          className="flex items-center justify-between p-4 shrink-0"
-          style={{ borderBottom: '1px solid var(--line)' }}
-        >
+        <div className="flex items-center justify-between p-4 shrink-0 border-b border-line">
           <h2 className="text-lg font-bold">Sessions</h2>
           <IconButton variant="ghost" onClick={onClose} aria-label="Close">
             <X className="w-5 h-5" />
@@ -129,25 +117,15 @@ export function ProjectPicker({
         </div>
 
         {/* Tabs */}
-        <div
-          className="flex shrink-0"
-          style={{ borderBottom: '1px solid var(--line)' }}
-          role="tablist"
-        >
+        <div className="flex shrink-0 border-b border-line" role="tablist">
           <button
             role="tab"
             aria-selected={tab === 'sessions'}
             aria-controls="sessions-panel"
             onClick={() => setTab('sessions')}
-            className="flex-1 py-2 text-sm font-semibold"
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: tab === 'sessions' ? 'var(--ink)' : 'var(--muted)',
-              borderBottom:
-                tab === 'sessions' ? '2px solid var(--accent)' : '2px solid transparent',
-            }}
+            className={`flex-1 py-2 text-sm font-semibold bg-transparent border-0 cursor-pointer border-b-2 ${
+              tab === 'sessions' ? 'text-ink border-accent' : 'text-muted border-transparent'
+            }`}
           >
             Open sessions
           </button>
@@ -156,14 +134,9 @@ export function ProjectPicker({
             aria-selected={tab === 'new'}
             aria-controls="new-panel"
             onClick={() => setTab('new')}
-            className="flex-1 py-2 text-sm font-semibold"
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: tab === 'new' ? 'var(--ink)' : 'var(--muted)',
-              borderBottom: tab === 'new' ? '2px solid var(--accent)' : '2px solid transparent',
-            }}
+            className={`flex-1 py-2 text-sm font-semibold bg-transparent border-0 cursor-pointer border-b-2 ${
+              tab === 'new' ? 'text-ink border-accent' : 'text-muted border-transparent'
+            }`}
           >
             New
           </button>
@@ -182,12 +155,12 @@ export function ProjectPicker({
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-3" style={{ minHeight: 0 }}>
+        <div className="flex-1 overflow-y-auto p-3 min-h-0">
           {tab === 'sessions' ? (
             <div id="sessions-panel" role="tabpanel">
               {loadError && (
-                <div className="text-center py-6 text-sm" style={{ color: 'var(--muted)' }}>
-                  <p style={{ color: '#ef4444' }}>Couldn't load your sessions.</p>
+                <div className="text-center py-6 text-sm text-muted">
+                  <p className="text-danger">Couldn't load your sessions.</p>
                   <p className="mt-1">You may need to sign in again.</p>
                   {onRetry && (
                     <Button variant="primary" size="sm" onClick={onRetry} className="mt-2">
@@ -200,54 +173,29 @@ export function ProjectPicker({
               {filtered.map((p) => (
                 <div
                   key={p.id}
-                  className="w-full flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-lg mb-1"
-                  style={{
-                    background:
-                      p.id === currentId
-                        ? 'color-mix(in srgb, var(--accent) 10%, var(--panel))'
-                        : 'transparent',
-                  }}
+                  className={`w-full flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-lg mb-1 ${
+                    p.id === currentId ? 'bg-accent/10' : 'bg-transparent'
+                  }`}
                 >
                   <button
                     onClick={() => handleSelect(p)}
-                    className="flex-1 flex items-center gap-3 min-w-0 py-1.5 text-left"
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: 'var(--ink)',
-                    }}
+                    className="flex-1 flex items-center gap-3 min-w-0 py-1.5 text-left bg-transparent border-0 cursor-pointer text-ink"
                   >
                     <span
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        background: statusDotColor(p),
-                        flexShrink: 0,
-                      }}
+                      className={`w-2 h-2 rounded-full shrink-0 ${statusClasses(p).dot}`}
                       title={activityLabel(p.activity, p.deployed)}
                       aria-label={`Status: ${activityLabel(p.activity, p.deployed)}`}
                       role="presentation"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold truncate">{p.name}</div>
-                      {p.appId && (
-                        <div className="text-xs truncate" style={{ color: 'var(--muted)' }}>
-                          {p.appId}
-                        </div>
-                      )}
+                      {p.appId && <div className="text-xs truncate text-muted">{p.appId}</div>}
                     </div>
-                    <span
-                      className="text-xs shrink-0 font-medium"
-                      style={{ color: statusDotColor(p) }}
-                    >
+                    <span className={`text-xs shrink-0 font-medium ${statusClasses(p).text}`}>
                       {activityLabel(p.activity, p.deployed)}
                     </span>
                     {p.id === currentId && (
-                      <span className="text-xs shrink-0" style={{ color: 'var(--accent)' }}>
-                        current
-                      </span>
+                      <span className="text-xs shrink-0 text-accent">current</span>
                     )}
                   </button>
                   {/* Fresh chat — only for a live game (needs a repo to re-import). */}
@@ -275,12 +223,12 @@ export function ProjectPicker({
               ))}
 
               {!loadError && filtered.length === 0 && (
-                <div className="text-center py-6 text-sm" style={{ color: 'var(--muted)' }}>
+                <div className="text-center py-6 text-sm text-muted">
                   {projects.length === 0 ? (
                     <>
                       No open sessions. Start one on the <strong>New</strong> tab, or open a game
                       from{' '}
-                      <a href="/" className="hover:underline" style={{ color: 'var(--accent)' }}>
+                      <a href="/" className="hover:underline text-accent">
                         My Games
                       </a>
                       .
@@ -293,10 +241,10 @@ export function ProjectPicker({
             </div>
           ) : (
             <div id="new-panel" role="tabpanel" className="py-4">
-              <p className="text-sm mb-3" style={{ color: 'var(--muted)' }}>
+              <p className="text-sm mb-3 text-muted">
                 Start a new game — you'll pick a name and a template (2D canvas, grid, cards, or
                 3D). To keep editing an existing game, open it from{' '}
-                <a href="/" className="hover:underline" style={{ color: 'var(--accent)' }}>
+                <a href="/" className="hover:underline text-accent">
                   My Games
                 </a>
                 .

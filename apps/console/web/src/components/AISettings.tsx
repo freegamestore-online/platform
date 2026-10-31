@@ -39,15 +39,11 @@ export function AISettings() {
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-bold">AI Providers</h3>
-        <p className="text-xs" style={{ color: 'var(--muted)' }}>
+        <p className="text-xs text-muted">
           Stored encrypted on the platform — never in your browser
         </p>
       </div>
-      {error && (
-        <p className="text-sm" style={{ color: 'var(--error)' }}>
-          {error}
-        </p>
-      )}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       {PROVIDERS.map((p) => (
         <ProviderRow
@@ -98,10 +94,7 @@ function ProviderRow({
   onCancel: () => void;
 }) {
   return (
-    <div
-      className="p-4 rounded-xl border"
-      style={{ background: 'var(--panel)', borderColor: 'var(--line)' }}
-    >
+    <div className="p-4 rounded-xl border border-line bg-panel">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
           <div className="flex items-center gap-2">
@@ -110,25 +103,18 @@ function ProviderRow({
             {hasKey && p.optionalKey && <Badge tone="accent">Your quota</Badge>}
             {hasKey && !p.free && <Badge tone="accent">Connected</Badge>}
           </div>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
-            {p.description}
-          </p>
+          <p className="text-xs mt-0.5 text-muted">{p.description}</p>
           <div className="flex flex-wrap gap-1 mt-2">
             {(MODEL_OPTIONS[p.type] ?? []).slice(0, 4).map((m) => (
               <span
                 key={m.value}
-                className="text-xs px-1.5 py-0.5 rounded"
-                style={{
-                  background: 'var(--paper)',
-                  border: '1px solid var(--line)',
-                  color: 'var(--muted)',
-                }}
+                className="text-xs px-1.5 py-0.5 rounded bg-paper border border-line text-muted"
               >
                 {m.label}
               </span>
             ))}
             {(MODEL_OPTIONS[p.type] ?? []).length > 4 && (
-              <span className="text-xs py-0.5" style={{ color: 'var(--muted)' }}>
+              <span className="text-xs py-0.5 text-muted">
                 +{(MODEL_OPTIONS[p.type] ?? []).length - 4} more
               </span>
             )}
@@ -139,9 +125,7 @@ function ProviderRow({
           <div className="shrink-0">
             {hasKey && !isEditing ? (
               <div className="flex items-center gap-2">
-                <span className="text-xs" style={{ color: 'var(--muted)' }}>
-                  ••• saved
-                </span>
+                <span className="text-xs text-muted">••• saved</span>
                 <Button variant="ghost" size="sm" onClick={onStartEdit} disabled={busy}>
                   Replace
                 </Button>

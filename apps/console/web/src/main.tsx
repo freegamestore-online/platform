@@ -5,10 +5,15 @@ import App from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { reportError } from './lib/errorReporter';
 import { applyTextSize, getTextSize } from './lib/textSize';
+import { applyTheme, getThemePref } from './lib/theme';
 
 // Apply the saved text-size preference before first paint so it survives reloads
 // without a flash of default-size text.
 applyTextSize(getTextSize());
+
+// Re-apply the saved theme (index.html already set it before first paint) so the
+// preference is persisted and the attribute matches after hydration.
+applyTheme(getThemePref());
 
 // Global error handlers — catch errors that escape React's tree (e.g. async
 // callbacks, setTimeout, third-party scripts). Installed once at app init;

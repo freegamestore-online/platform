@@ -2,9 +2,9 @@ import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { ThemeToggle } from './ThemeToggle';
 
 const ICON_SIZE_DESKTOP = 28;
-const ICON_SIZE_MOBILE = 24;
 
 const NAV_LINKS: { to: string; label: string; external: boolean }[] = [
   // "My Games" is the overview (list + slots + play/code/edit); "Studio" is
@@ -15,30 +15,24 @@ const NAV_LINKS: { to: string; label: string; external: boolean }[] = [
   { to: 'https://freegamestore.online/contribute.html', label: 'Dev Docs', external: true },
 ];
 
-const mobileLink: React.CSSProperties = {
-  color: 'var(--muted)',
-  minHeight: 44,
-  display: 'flex',
-  alignItems: 'center',
-};
+const MOBILE_LINK = 'flex min-h-11 items-center text-muted';
+const DESKTOP_LINK = 'text-muted';
 
 function NavLink({
   link,
   className,
-  style,
   onClick,
 }: {
   link: { to: string; label: string; external: boolean };
   className: string;
-  style: React.CSSProperties;
   onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 }) {
   return link.external ? (
-    <a href={link.to} className={className} style={style} onClick={onClick}>
+    <a href={link.to} className={className} onClick={onClick}>
       {link.label}
     </a>
   ) : (
-    <Link to={link.to} className={className} style={style} onClick={onClick}>
+    <Link to={link.to} className={className} onClick={onClick}>
       {link.label}
     </Link>
   );
@@ -49,17 +43,13 @@ export function Nav() {
   const { user, signIn } = useAuth();
 
   return (
-    <header
-      className="border-b sticky top-0 z-30"
-      style={{ borderColor: 'var(--border)', padding: '0.75rem 0', background: 'var(--bg)' }}
-    >
+    <header className="border-b border-line bg-paper py-3 sticky top-0 z-30">
       <div className="max-w-3xl mx-auto px-4 flex items-center justify-between">
         <Link
           to="/"
-          className="text-xl font-extrabold tracking-tight no-underline"
-          style={{ color: 'var(--ink)', fontFamily: 'Fraunces, serif' }}
+          className="font-display text-xl font-extrabold tracking-tight text-ink no-underline"
         >
-          Free<span style={{ color: 'var(--accent)' }}>Game</span>Store
+          Free<span className="text-accent">Game</span>Store
         </Link>
 
         <nav className="hidden sm:flex items-center gap-5">
@@ -67,10 +57,10 @@ export function Nav() {
             <NavLink
               key={link.to}
               link={link}
-              className="text-sm font-semibold no-underline"
-              style={{ color: 'var(--muted)' }}
+              className={`text-sm font-semibold no-underline ${DESKTOP_LINK}`}
             />
           ))}
+          <ThemeToggle compact />
           {user ? (
             <Link to="/profile" aria-label={`Profile for ${user.github}`}>
               <img
@@ -78,27 +68,13 @@ export function Nav() {
                 alt={user.github}
                 width={ICON_SIZE_DESKTOP}
                 height={ICON_SIZE_DESKTOP}
-                className="rounded-full border-2"
-                style={{
-                  width: ICON_SIZE_DESKTOP,
-                  height: ICON_SIZE_DESKTOP,
-                  borderColor: 'var(--border)',
-                  minWidth: ICON_SIZE_DESKTOP,
-                  minHeight: ICON_SIZE_DESKTOP,
-                }}
+                className="size-7 min-h-7 min-w-7 rounded-full border-2 border-line"
               />
             </Link>
           ) : (
             <button
               onClick={signIn}
-              className="text-sm font-semibold no-underline"
-              style={{
-                color: 'var(--accent)',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-              }}
+              className="cursor-pointer border-0 bg-transparent text-sm font-semibold text-accent no-underline"
             >
               Sign in
             </button>
@@ -108,17 +84,9 @@ export function Nav() {
         {/* flex lives in the class, NOT inline — an inline `display` would beat
             `sm:hidden` and leave the hamburger showing next to the desktop nav. */}
         <button
-          className="sm:hidden flex items-center justify-center"
+          className="sm:hidden flex min-h-11 min-w-11 cursor-pointer items-center justify-center border-0 bg-transparent text-ink"
           onClick={() => setMenuOpen(true)}
           aria-label="Menu"
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--ink)',
-            cursor: 'pointer',
-            minWidth: 44,
-            minHeight: 44,
-          }}
         >
           <Menu className="w-6 h-6" />
         </button>
@@ -141,65 +109,41 @@ function MobileDrawer({
   return (
     <>
       <div
-        className="fixed inset-0 z-40"
-        style={{ background: 'rgba(0,0,0,0.5)' }}
+        className="fixed inset-0 z-40 bg-scrim"
         onClick={onClose}
         onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
           if (e.key === 'Escape') onClose();
         }}
         role="presentation"
       />
-      <nav
-        className="fixed top-0 right-0 z-50 flex flex-col gap-1 p-4"
-        style={{
-          width: 220,
-          height: '100dvh',
-          background: 'var(--surface)',
-          borderLeft: '1px solid var(--border)',
-          boxShadow: '-4px 0 20px rgba(0,0,0,0.3)',
-        }}
-      >
-        <button
-          onClick={onClose}
-          className="self-end mb-2 flex items-center justify-center"
-          aria-label="Close menu"
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--muted)',
-            cursor: 'pointer',
-            minWidth: 44,
-            minHeight: 44,
-          }}
-        >
-          <X className="w-5 h-5" />
-        </button>
+      <nav className="fixed top-0 right-0 z-50 flex h-dvh w-[220px] flex-col gap-1 border-l border-line bg-panel p-4 shadow-elevated">
+        <div className="mb-2 flex items-center justify-between">
+          <ThemeToggle />
+          <button
+            onClick={onClose}
+            className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center border-0 bg-transparent text-muted"
+            aria-label="Close menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
         {NAV_LINKS.map((link) => (
           <NavLink
             key={link.to}
             link={link}
-            className="block py-2 text-base font-semibold no-underline"
-            style={mobileLink}
+            className={`py-2 text-base font-semibold no-underline ${MOBILE_LINK}`}
             onClick={onClose}
           />
         ))}
         {user ? (
           <Link
             to="/profile"
-            className="flex items-center gap-2 mt-4 no-underline"
-            style={{ minHeight: 44 }}
+            className="flex min-h-11 items-center gap-2 mt-4 no-underline"
             onClick={onClose}
             aria-label={`Profile for ${user.github}`}
           >
-            <img
-              src={user.avatarUrl}
-              alt={user.github}
-              className="rounded-full"
-              style={{ width: ICON_SIZE_MOBILE, height: ICON_SIZE_MOBILE }}
-            />
-            <span className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>
-              @{user.github}
-            </span>
+            <img src={user.avatarUrl} alt={user.github} className="size-6 rounded-full" />
+            <span className="text-sm font-semibold text-ink">@{user.github}</span>
           </Link>
         ) : (
           <button
@@ -207,17 +151,7 @@ function MobileDrawer({
               onClose();
               signIn();
             }}
-            className="mt-4 text-sm font-semibold"
-            style={{
-              color: 'var(--accent)',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              textAlign: 'left',
-              padding: 0,
-              minHeight: 44,
-            }}
+            className="mt-4 min-h-11 cursor-pointer border-0 bg-transparent p-0 text-left text-sm font-semibold text-accent"
           >
             Sign in with GitHub
           </button>

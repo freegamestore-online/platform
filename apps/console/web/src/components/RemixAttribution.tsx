@@ -30,9 +30,7 @@ export function RemixAttribution({
 }) {
   if (typeof attribution === 'string') {
     return VALID_ID.test(attribution) ? (
-      <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
-        Remixed from {attribution}
-      </p>
+      <p className="text-xs mt-1 text-muted">Remixed from {attribution}</p>
     ) : null;
   }
   if (!isSnapshot(attribution)) return null;
@@ -43,8 +41,7 @@ export function RemixAttribution({
       href={`https://${attribution.id}.freegamestore.online`}
       target="_blank"
       rel="noopener noreferrer"
-      className="hover:underline"
-      style={{ color: 'var(--accent)' }}
+      className="hover:underline text-accent"
     >
       {sourceName}
     </a>
@@ -53,14 +50,13 @@ export function RemixAttribution({
   );
 
   return (
-    <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
+    <p className="text-xs mt-1 text-muted">
       Remixed from {source} by{' '}
       <a
         href={`https://github.com/${attribution.creatorGithub}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="hover:underline"
-        style={{ color: 'var(--accent)' }}
+        className="hover:underline text-accent"
       >
         @{attribution.creatorGithub}
       </a>

@@ -8,5 +8,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // Let styling.test.ts read index.css as raw text (vitest otherwise blanks CSS imports).
+    css: { include: [/index\.css/] },
   },
 });

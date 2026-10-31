@@ -40,8 +40,8 @@ export function StudioToolbar({
   return (
     <>
       {/* Horizontally scrollable on mobile (tighter gap/padding) so every action
-          stays reachable on a narrow phone; scrollbar hidden via .no-scrollbar. */}
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 overflow-x-auto no-scrollbar px-2 sm:px-3 py-2 border-b border-[var(--border)] bg-[var(--surface)]">
+          stays reachable on a narrow phone; scrollbar hidden. */}
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-2 sm:px-3 py-2 border-b border-line bg-panel">
         {/* While the studio is resolving a newly-selected game (openGame is in
             flight), currentProject still points at the PREVIOUS game — showing
             its name here would be stale. Swap in a spinner until the switch
@@ -63,20 +63,14 @@ export function StudioToolbar({
             <>
               <span
                 aria-hidden
-                className="shrink-0 rounded-full motion-safe:animate-spin"
-                style={{
-                  width: 14,
-                  height: 14,
-                  border: '2px solid var(--accent)',
-                  borderTopColor: 'transparent',
-                }}
+                className="shrink-0 rounded-full motion-safe:animate-spin w-3.5 h-3.5 border-2 border-accent border-t-transparent"
               />
               <span className="truncate">Loading…</span>
             </>
           ) : (
             <>
               {currentProject?.deployed && (
-                <span className="w-2 h-2 rounded-full bg-[var(--accent)] shrink-0" />
+                <span className="w-2 h-2 rounded-full bg-accent shrink-0" />
               )}
               <span className="truncate">{currentProject?.name || 'Select game'}</span>
               <ChevronDown className="w-4 h-4 shrink-0 opacity-60" />
@@ -90,12 +84,7 @@ export function StudioToolbar({
             prompt would overwrite. This chip always names the real game id. */}
         {currentProject?.appId && (
           <span
-            className="hidden sm:inline-flex items-center max-w-[220px] truncate shrink text-[0.7rem] font-mono px-1.5 py-0.5 rounded"
-            style={{
-              color: 'var(--muted)',
-              background: 'var(--bg)',
-              border: '1px solid var(--border)',
-            }}
+            className="hidden sm:inline-flex items-center max-w-[220px] truncate shrink text-[0.7rem] font-mono px-1.5 py-0.5 rounded text-muted bg-paper border border-line"
             title={`This chat edits the live game ${currentProject.appId}.freegamestore.online — a different game needs a New Game`}
           >
             {currentProject.appId}
@@ -124,11 +113,7 @@ export function StudioToolbar({
             )}
             <Link
               to={`/game/${currentProject.appId ?? currentProject.id}`}
-              className={buttonClass(
-                'secondary',
-                'sm',
-                'no-underline border-[var(--accent)] text-[var(--accent)]',
-              )}
+              className={buttonClass('secondary', 'sm', 'no-underline border-accent text-accent')}
               title={`Settings for ${currentProject.name}`}
               aria-label={`Settings for ${currentProject.name}`}
             >
@@ -137,12 +122,12 @@ export function StudioToolbar({
           </>
         )}
         {/* Stacked + tiny so the token counts never grow the toolbar height. */}
-        <span className="ml-auto hidden sm:flex flex-col items-end leading-none text-[0.62rem] text-[var(--muted)] tabular-nums">
+        <span className="ml-auto hidden sm:flex flex-col items-end leading-none text-[0.62rem] text-muted tabular-nums">
           <span>
-            In <strong className="text-[var(--ink)]">{agent.tokensIn.toLocaleString()}</strong>
+            In <strong className="text-ink">{agent.tokensIn.toLocaleString()}</strong>
           </span>
           <span className="mt-0.5">
-            Out <strong className="text-[var(--ink)]">{agent.tokensOut.toLocaleString()}</strong>
+            Out <strong className="text-ink">{agent.tokensOut.toLocaleString()}</strong>
           </span>
         </span>
         {/* Debug/export affordance — desktop only; hidden on mobile to keep the
@@ -214,7 +199,7 @@ function CopyLogButton({
       onClick={copy}
       title="Copy conversation as JSON"
       aria-label="Copy conversation as JSON"
-      className={copied ? 'text-[var(--success)] border-[var(--success)]' : 'text-[var(--muted)]'}
+      className={copied ? 'text-success border-success' : 'text-muted'}
     >
       {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
     </Button>

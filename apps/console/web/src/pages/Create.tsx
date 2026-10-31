@@ -306,19 +306,9 @@ export function Create() {
     return (
       <>
         <Nav />
-        <div className="flex items-center justify-center" style={{ minHeight: '60vh' }}>
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              border: '3px solid rgba(16,185,129,0.3)',
-              borderTopColor: '#10b981',
-              borderRadius: '50%',
-              animation: 'spin 0.6s linear infinite',
-            }}
-          />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="w-8 h-8 rounded-full border-[3px] border-accent/30 border-t-accent animate-spin [animation-duration:0.6s]" />
         </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </>
     );
   }
@@ -381,36 +371,19 @@ export function Create() {
     return (
       <>
         <Nav />
-        <main
-          className="flex flex-col items-center justify-center text-center"
-          style={{ minHeight: '60vh', padding: '4rem 1.5rem', maxWidth: 640, margin: '0 auto' }}
-        >
-          <h1
-            className="text-4xl font-extrabold tracking-tight mb-3"
-            style={{ fontFamily: 'Fraunces, serif' }}
-          >
-            Studio
-          </h1>
-          <p className="text-lg mb-8" style={{ color: 'var(--muted)', maxWidth: 480 }}>
+        <main className="flex flex-col items-center justify-center text-center min-h-[60vh] py-16 px-6 max-w-[640px] mx-auto">
+          <h1 className="text-4xl font-extrabold tracking-tight mb-3 font-display">Studio</h1>
+          <p className="text-lg mb-8 text-muted max-w-[480px]">
             Describe the game you want. An AI agent builds it, deploys it, and you get a live game
             on FreeGameStore — in minutes.
           </p>
           <button
             onClick={signIn}
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold"
-            style={{
-              background: 'var(--accent)',
-              color: '#000',
-              border: 'none',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              fontSize: '1rem',
-              minHeight: 44,
-            }}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold bg-accent text-black border-0 cursor-pointer font-[inherit] text-base min-h-11"
           >
             Sign in with GitHub to start
           </button>
-          <p className="text-sm mt-3" style={{ color: 'var(--muted)' }}>
+          <p className="text-sm mt-3 text-muted">
             Free to use. Bring your own API key (OpenRouter, Anthropic, OpenAI, Google, or GitHub
             Models).
           </p>
@@ -424,19 +397,11 @@ export function Create() {
   // auto-create used to hide this and spawn unbound blank sessions.
   if (!agent.currentProjectId) {
     return (
-      <div className="flex flex-col" style={{ height: '100dvh', overflow: 'hidden' }}>
+      <div className="flex flex-col h-dvh overflow-hidden">
         <Nav />
-        <main
-          className="flex flex-col items-center justify-center text-center flex-1"
-          style={{ padding: '2rem 1.5rem' }}
-        >
-          <h1
-            className="text-3xl font-extrabold tracking-tight mb-3"
-            style={{ fontFamily: 'Fraunces, serif' }}
-          >
-            Studio
-          </h1>
-          <p className="text-base mb-6" style={{ color: 'var(--muted)', maxWidth: 420 }}>
+        <main className="flex flex-col items-center justify-center text-center flex-1 py-8 px-6">
+          <h1 className="text-3xl font-extrabold tracking-tight mb-3 font-display">Studio</h1>
+          <p className="text-base mb-6 text-muted max-w-[420px]">
             Start a new game and describe it to the AI, or open one of your games to keep editing
             it.
           </p>
@@ -455,7 +420,7 @@ export function Create() {
   }
 
   return (
-    <div className="flex flex-col" style={{ height: '100dvh', overflow: 'hidden' }}>
+    <div className="flex flex-col h-dvh overflow-hidden">
       {/* Desktop keeps the global nav on top of the studio toolbar. On mobile the
           two collapse into one: the nav is hidden and StudioToolbar carries a
           back-to-My-Games button (like the FAS studio bar). */}
@@ -468,10 +433,7 @@ export function Create() {
       <div className="grid flex-1 min-h-0 grid-cols-1 md:grid-cols-2 grid-rows-[minmax(0,1fr)]">
         {/* Chat — min-h-0 so it can shrink to the row height and its inner
             overflow-y-auto region becomes the only scroll surface. */}
-        <div
-          className="flex flex-col overflow-hidden border-r min-h-0"
-          style={{ borderColor: 'var(--border)' }}
-        >
+        <div className="flex flex-col overflow-hidden border-r border-line min-h-0">
           <StudioToolbar
             agent={agent}
             currentProject={currentProject}
@@ -493,26 +455,13 @@ export function Create() {
             messages={agent.messages}
           />
           {needsKey && (
-            <div
-              className="shrink-0 flex items-center gap-2 px-3 py-2 text-sm"
-              style={{
-                background: 'rgba(217,119,6,0.12)',
-                borderBottom: '1px solid var(--warning, #d97706)',
-                color: 'var(--warning, #d97706)',
-              }}
-            >
-              <span style={{ flex: 1 }}>
+            <div className="shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-warning/12 border-b border-warning text-warning">
+              <span className="flex-1">
                 Add an API key to start building — sends are blocked until then.
               </span>
               <button
                 onClick={() => setSettingsOpen(true)}
-                className="shrink-0 inline-flex items-center rounded-md px-3 h-9 text-sm font-semibold"
-                style={{
-                  background: 'var(--warning, #d97706)',
-                  color: '#000',
-                  border: 'none',
-                  cursor: 'pointer',
-                }}
+                className="shrink-0 inline-flex items-center rounded-md px-3 h-9 text-sm font-semibold bg-warning text-black border-0 cursor-pointer"
               >
                 Add key
               </button>
@@ -532,42 +481,26 @@ export function Create() {
           {agent.error && !deployFailed && (
             <div
               role="alert"
-              className="shrink-0 flex items-start gap-2 px-3 py-2 text-sm"
-              style={{
-                background: 'rgba(239,68,68,0.12)',
-                borderBottom: '1px solid var(--error, #ef4444)',
-                color: 'var(--error, #ef4444)',
-              }}
+              className="shrink-0 flex items-start gap-2 px-3 py-2 text-sm bg-danger/12 border-b border-danger text-danger"
             >
-              <span style={{ flex: 1, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+              <span className="flex-1 whitespace-pre-wrap [word-break:break-word]">
                 {agent.error}
               </span>
               <button
                 onClick={agent.dismissError}
                 aria-label="Dismiss error"
-                className="shrink-0 p-0.5 rounded hover:bg-black/10"
-                style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}
+                className="shrink-0 p-0.5 rounded hover:bg-black/10 bg-transparent border-0 text-inherit cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
           )}
-          <div
-            ref={scrollRef}
-            className="flex-1 overflow-y-auto p-3 flex flex-col gap-2"
-            style={{ minHeight: 0 }}
-          >
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 min-h-0">
             <div className="flex-1" />
             {agent.messages.length > agent.visibleCount && (
               <button
                 onClick={agent.showEarlier}
-                className="self-center inline-flex items-center gap-1.5 text-sm font-semibold rounded-full px-4 py-1.5 mb-1 hover:bg-[var(--bg)]"
-                style={{
-                  background: 'var(--surface)',
-                  color: 'var(--muted)',
-                  border: '1px solid var(--border)',
-                  cursor: 'pointer',
-                }}
+                className="self-center inline-flex items-center gap-1.5 text-sm font-semibold rounded-full px-4 py-1.5 mb-1 hover:bg-paper bg-panel text-muted border border-line cursor-pointer"
               >
                 <ArrowUp className="w-4 h-4" /> Load earlier messages (
                 {agent.messages.length - agent.visibleCount} older)
@@ -594,40 +527,15 @@ export function Create() {
           </div>
           {/* Message Queue Display */}
           {messageQueue.size > 0 && (
-            <div
-              style={{
-                padding: '0.5rem 0.75rem',
-                borderTop: '1px solid var(--border)',
-                background: 'rgba(102, 126, 234, 0.05)',
-                fontSize: '0.85rem',
-              }}
-            >
-              <div style={{ color: 'var(--muted)', marginBottom: '0.5rem' }}>
-                Queued ({messageQueue.size}):
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div className="py-2 px-3 border-t border-line bg-accent/5 text-[0.85rem]">
+              <div className="text-muted mb-2">Queued ({messageQueue.size}):</div>
+              <div className="flex flex-col gap-2">
                 {messageQueue.queue.map((msg, _idx) => (
                   <div
                     key={msg.id}
-                    style={{
-                      display: 'flex',
-                      gap: '0.5rem',
-                      alignItems: 'center',
-                      padding: '0.5rem',
-                      background: 'var(--panel)',
-                      border: '1px solid var(--line)',
-                      borderRadius: '0.5rem',
-                    }}
+                    className="flex gap-2 items-center p-2 bg-panel border border-line rounded-lg"
                   >
-                    <div
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
+                    <div className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
                       {msg.content}
                     </div>
                     <button
@@ -635,14 +543,7 @@ export function Create() {
                         setEditingQueueId(msg.id);
                         setEditingQueueContent(msg.content);
                       }}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        padding: '0.25rem',
-                        color: 'var(--muted)',
-                        flexShrink: 0,
-                      }}
+                      className="bg-transparent border-0 cursor-pointer p-1 text-muted shrink-0"
                       title="Edit queued message"
                       aria-label="Edit queued message"
                     >
@@ -650,14 +551,7 @@ export function Create() {
                     </button>
                     <button
                       onClick={() => messageQueue.remove(msg.id)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        padding: '0.25rem',
-                        color: 'var(--muted)',
-                        flexShrink: 0,
-                      }}
+                      className="bg-transparent border-0 cursor-pointer p-1 text-muted shrink-0"
                       title="Remove from queue"
                       aria-label="Remove from queue"
                     >
@@ -668,14 +562,7 @@ export function Create() {
               </div>
             </div>
           )}
-          <div
-            className="flex gap-2 shrink-0"
-            style={{
-              padding: '0.5rem 0.75rem',
-              borderTop: '1px solid var(--border)',
-              background: 'var(--surface)',
-            }}
-          >
+          <div className="flex gap-2 shrink-0 py-2 px-3 border-t border-line bg-panel">
             {editingQueueId ? (
               <>
                 <textarea
@@ -690,12 +577,7 @@ export function Create() {
                   placeholder="Edit your message..."
                   aria-label="Edit queued message"
                   rows={1}
-                  className="flex-1 resize-none rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] text-sm px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:border-[var(--accent)]"
-                  style={{
-                    minHeight: 44,
-                    maxHeight: 100,
-                    fontFamily: 'Manrope, system-ui, sans-serif',
-                  }}
+                  className="flex-1 resize-none rounded-lg border border-line bg-paper text-ink text-sm px-3 py-2.5 min-h-11 max-h-[100px] font-[Manrope,system-ui,sans-serif] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:border-accent"
                 />
                 <Button
                   variant="primary"
@@ -725,12 +607,7 @@ export function Create() {
                   placeholder="Build me a space invaders game..."
                   aria-label="Describe your game"
                   rows={1}
-                  className="flex-1 resize-none rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] text-sm px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:border-[var(--accent)]"
-                  style={{
-                    minHeight: 44,
-                    maxHeight: 100,
-                    fontFamily: 'Manrope, system-ui, sans-serif',
-                  }}
+                  className="flex-1 resize-none rounded-lg border border-line bg-paper text-ink text-sm px-3 py-2.5 min-h-11 max-h-[100px] font-[Manrope,system-ui,sans-serif] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:border-accent"
                 />
                 <Button
                   variant="primary"
@@ -748,28 +625,19 @@ export function Create() {
         </div>
         {/* Preview */}
         <div className="hidden md:flex flex-col overflow-hidden">
-          <div
-            className="flex items-center gap-2 shrink-0"
-            style={{
-              padding: '0.5rem 0.75rem',
-              borderBottom: '1px solid var(--border)',
-              background: 'var(--surface)',
-              fontSize: '0.85rem',
-            }}
-          >
+          <div className="flex items-center gap-2 shrink-0 py-2 px-3 border-b border-line bg-panel text-[0.85rem]">
             {previewUrl ? (
               <>
                 <a
                   href={previewUrl}
                   target="_blank"
                   rel="noopener"
-                  className="text-xs truncate min-w-0 flex-1"
-                  style={{ color: 'var(--accent)', fontFamily: 'monospace' }}
+                  className="text-xs truncate min-w-0 flex-1 text-accent font-[monospace]"
                 >
                   {previewUrl.replace('https://', '')}
                 </a>
                 {versionUrl && (
-                  <span className="hidden lg:inline-flex items-center shrink-0 text-[0.62rem] text-[var(--muted)] tabular-nums">
+                  <span className="hidden lg:inline-flex items-center shrink-0 text-[0.62rem] text-muted tabular-nums">
                     <GameVersion
                       key={agent.deployState?.phase === 'live' ? 'live' : versionUrl}
                       liveUrl={versionUrl}
@@ -782,36 +650,28 @@ export function Create() {
                   rel="noopener"
                   aria-label="Open in new tab"
                   title="Open in new tab"
-                  className="shrink-0 inline-flex items-center justify-center"
-                  style={{ color: 'var(--accent)', width: 28, height: 28 }}
+                  className="shrink-0 inline-flex items-center justify-center text-accent w-7 h-7"
                 >
                   <ExternalLink className="w-4 h-4" />
                 </a>
               </>
             ) : (
-              <span className="text-xs" style={{ color: 'var(--muted)' }}>
-                Preview
-              </span>
+              <span className="text-xs text-muted">Preview</span>
             )}
           </div>
           <div
-            className="flex-1 flex items-center justify-center"
-            style={{ background: '#000', minHeight: 0, overflow: 'hidden' }}
+            className={`flex-1 flex items-center justify-center min-h-0 overflow-hidden ${showPreview ? 'bg-black' : 'bg-paper'}`}
           >
             {showPreview ? (
               <iframe
                 src={previewUrl}
                 title="Preview"
-                className="w-full h-full border-0"
-                style={{ background: '#000' }}
+                className="w-full h-full border-0 bg-black"
               />
             ) : previewStatusState ? (
               <DeployLog state={previewStatusState} appId={currentProject?.appId} />
             ) : (
-              <div
-                className="text-center p-8 flex flex-col items-center gap-3 max-w-sm"
-                style={{ color: 'var(--muted)' }}
-              >
+              <div className="text-center p-8 flex flex-col items-center gap-3 max-w-sm text-muted">
                 {hasBuilt || firstBuildNeedsDeploy ? (
                   <>
                     <p className="text-sm">

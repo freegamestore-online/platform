@@ -358,20 +358,19 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
             <div key={i} className="flex items-center gap-3 text-sm">
               <StatusDot status={step.status} />
               <span className="font-medium w-28 shrink-0">{step.name}</span>
-              <span style={{ color: 'var(--muted)' }}>{step.detail}</span>
+              <span className="text-muted">{step.detail}</span>
             </div>
           ))}
         </div>
         {result.success && (
-          <div className="pt-2 text-sm space-y-1" style={{ color: 'var(--muted)' }}>
+          <div className="pt-2 text-sm space-y-1 text-muted">
             <p>
               Your game is live at{' '}
               <a
                 href={`https://${gameId}.freegamestore.online`}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ color: 'var(--accent)' }}
-                className="hover:underline"
+                className="hover:underline text-accent"
               >
                 {gameId}.freegamestore.online
               </a>
@@ -382,8 +381,7 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
                 href={`https://github.com/freegamestore-online/${gameId}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ color: 'var(--accent)' }}
-                className="hover:underline"
+                className="hover:underline text-accent"
               >
                 github.com/freegamestore-online/{gameId}
               </a>
@@ -430,38 +428,28 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
             }}
             placeholder="my-awesome-game"
             required
-            style={
-              idError || (checkResult && !checkResult.available)
-                ? { borderColor: 'var(--error)' }
-                : undefined
+            className={
+              idError || (checkResult && !checkResult.available) ? 'border-danger!' : undefined
             }
           />
           {idError ? (
-            <p className="text-sm mt-1" style={{ color: 'var(--error)' }}>
-              {idError}
-            </p>
+            <p className="text-sm mt-1 text-danger">{idError}</p>
           ) : checking ? (
-            <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
-              Checking {gameId}.freegamestore.online…
-            </p>
+            <p className="text-sm mt-1 text-muted">Checking {gameId}.freegamestore.online…</p>
           ) : checkResult ? (
             checkResult.available ? (
-              <p className="text-sm mt-1" style={{ color: 'var(--accent)' }}>
+              <p className="text-sm mt-1 text-accent">
                 ✓ {gameId}.freegamestore.online is available
               </p>
             ) : (
-              <p className="text-sm mt-1" style={{ color: 'var(--error)' }}>
+              <p className="text-sm mt-1 text-danger">
                 ✗ {checkResult.reason || 'That address is taken — edit it'}
               </p>
             )
           ) : gameId ? (
-            <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
-              {gameId}.freegamestore.online
-            </p>
+            <p className="text-sm mt-1 text-muted">{gameId}.freegamestore.online</p>
           ) : (
-            <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
-              Auto-filled from the name — edit if you like
-            </p>
+            <p className="text-sm mt-1 text-muted">Auto-filled from the name — edit if you like</p>
           )}
         </div>
 
@@ -526,11 +514,10 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
             value={buildPrompt}
             onChange={(e) => setBuildPrompt(e.target.value)}
             placeholder="Build the first playable version: controls, levels, scoring, win/lose state, and deploy it."
-            className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--ink)] text-sm px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:border-[var(--accent)]"
+            className="w-full resize-y rounded-lg border border-line bg-paper text-ink text-sm px-3 py-2.5 font-sans min-h-[92px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:border-accent"
             rows={3}
-            style={{ fontFamily: 'Manrope, system-ui, sans-serif', minHeight: 92 }}
           />
-          <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
+          <p className="text-xs mt-1 text-muted">
             This is sent automatically when the studio opens, so the AI starts building without
             waiting.
           </p>
@@ -547,40 +534,36 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
             ))}
           </Select>
           {cloneFrom ? (
-            <p className="text-xs mt-1" style={{ color: 'var(--accent)' }}>
+            <p className="text-xs mt-1 text-accent">
               Remixing <strong>{catalog.find((g) => g.id === cloneFrom)?.name || cloneFrom}</strong>{' '}
               — your game starts from its code (all games are open-source / MIT) and keeps its
               engine. You'll tweak it in the studio.
             </p>
           ) : (
-            <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
+            <p className="text-xs mt-1 text-muted">
               Remix any published game as your starting point, or leave blank to start fresh.
             </p>
           )}
         </div>
 
-        <fieldset disabled={!!cloneFrom} style={cloneFrom ? { opacity: 0.5 } : undefined}>
+        <fieldset disabled={!!cloneFrom} className={cloneFrom ? 'opacity-50' : undefined}>
           <legend className="block text-sm font-medium mb-1">
             Engine{cloneFrom ? ' — inherited from the remixed game' : ''}
           </legend>
-          <p className="text-xs mb-2" style={{ color: 'var(--muted)' }}>
+          <p className="text-xs mb-2 text-muted">
             {cloneFrom
               ? "The game you're remixing keeps its own engine — no need to choose here."
               : 'Build on a game engine (the AI writes real engine code), or start from a simple no-engine template.'}
           </p>
 
-          <p className="text-xs font-medium mb-1" style={{ color: 'var(--muted)' }}>
-            Game engines
-          </p>
+          <p className="text-xs font-medium mb-1 text-muted">Game engines</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {ENGINES.map((t) => (
               <label
                 key={t.value}
-                className="flex flex-col gap-1 p-3 rounded-lg cursor-pointer"
-                style={{
-                  background: template === t.value ? 'var(--accent-soft)' : 'var(--bg)',
-                  border: `1px solid ${template === t.value ? 'var(--accent)' : 'var(--border)'}`,
-                }}
+                className={`flex flex-col gap-1 p-3 rounded-lg cursor-pointer border ${
+                  template === t.value ? 'bg-accent-soft border-accent' : 'bg-paper border-line'
+                }`}
               >
                 <span className="flex items-center gap-2">
                   <input
@@ -592,36 +575,23 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
                     className="accent-emerald-500"
                   />
                   <span className="font-medium text-sm">{t.label}</span>
-                  <span
-                    className="text-[10px] px-1.5 py-0.5 rounded-full ml-auto whitespace-nowrap"
-                    style={{
-                      background: 'var(--surface)',
-                      color: 'var(--muted)',
-                      border: '1px solid var(--border)',
-                    }}
-                  >
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full ml-auto whitespace-nowrap bg-panel text-muted border border-line">
                     {t.tag}
                   </span>
                 </span>
-                <span className="text-xs" style={{ color: 'var(--muted)' }}>
-                  {t.desc}
-                </span>
+                <span className="text-xs text-muted">{t.desc}</span>
               </label>
             ))}
           </div>
 
-          <p className="text-xs font-medium mt-3 mb-1" style={{ color: 'var(--muted)' }}>
-            No-engine starters
-          </p>
+          <p className="text-xs font-medium mt-3 mb-1 text-muted">No-engine starters</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {STARTERS.map((t) => (
               <label
                 key={t.value}
-                className="flex flex-col gap-1 p-3 rounded-lg cursor-pointer"
-                style={{
-                  background: template === t.value ? 'var(--accent-soft)' : 'var(--bg)',
-                  border: `1px solid ${template === t.value ? 'var(--accent)' : 'var(--border)'}`,
-                }}
+                className={`flex flex-col gap-1 p-3 rounded-lg cursor-pointer border ${
+                  template === t.value ? 'bg-accent-soft border-accent' : 'bg-paper border-line'
+                }`}
               >
                 <span className="flex items-center gap-2">
                   <input
@@ -634,19 +604,13 @@ export function CreateGameForm({ onCreated, onClose }: CreateGameFormProps) {
                   />
                   <span className="font-medium text-sm">{t.label}</span>
                 </span>
-                <span className="text-xs" style={{ color: 'var(--muted)' }}>
-                  {t.desc}
-                </span>
+                <span className="text-xs text-muted">{t.desc}</span>
               </label>
             ))}
           </div>
         </fieldset>
 
-        {submitError && (
-          <p className="text-sm font-medium" style={{ color: 'var(--error)' }}>
-            {submitError}
-          </p>
-        )}
+        {submitError && <p className="text-sm font-medium text-danger">{submitError}</p>}
 
         <div className="flex gap-3 pt-2">
           <Button

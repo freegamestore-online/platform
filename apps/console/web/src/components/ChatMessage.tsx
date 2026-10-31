@@ -8,39 +8,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchKidVersion, type KidMode } from '../lib/kidMode';
 import { Markdown } from './Markdown';
+import { cn } from './ui/cn';
 
-const STYLES: Record<string, React.CSSProperties> = {
-  user: {
-    alignSelf: 'flex-end',
-    background: 'var(--accent)',
-    color: '#000',
-    borderBottomRightRadius: '0.15rem',
-  },
-  assistant: {
-    alignSelf: 'flex-start',
-    background: 'var(--surface)',
-    border: '1px solid var(--border)',
-    borderBottomLeftRadius: '0.15rem',
-  },
-  tool: {
-    alignSelf: 'flex-start',
-    fontSize: '0.72rem',
-    fontFamily: 'monospace',
-    background: 'var(--surface)',
-    border: '1px solid var(--border)',
-    color: 'var(--muted)',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '0.35rem',
-  },
-  system: { alignSelf: 'center', fontSize: '0.78rem', color: 'var(--muted)', background: 'none' },
+// Complete class literals per role (Tailwind scans source text). Each role
+// carries its own shape/size so a role override never fights a base utility.
+const DEFAULT_CLASS = 'py-[0.55rem] px-3 rounded-xl text-[0.86rem]';
+const ROLE_CLASS: Record<string, string> = {
+  user: 'self-end bg-accent text-black py-[0.55rem] px-3 rounded-xl rounded-br-[0.15rem] text-[0.86rem]',
+  assistant:
+    'self-start bg-panel border border-line py-[0.55rem] px-3 rounded-xl rounded-bl-[0.15rem] text-[0.86rem]',
+  tool: 'self-start text-[0.72rem] font-[monospace] bg-panel border border-line text-muted py-1 px-2 rounded-[0.35rem]',
+  system: 'self-center text-[0.78rem] text-muted bg-transparent py-[0.55rem] px-3 rounded-xl',
 };
 
 function Hint({ label }: { label: string }) {
-  return (
-    <div className="select-none" style={{ marginTop: 5, fontSize: '0.68rem', opacity: 0.65 }}>
-      {label}
-    </div>
-  );
+  return <div className="select-none mt-[5px] text-[0.68rem] opacity-65">{label}</div>;
 }
 
 export function ChatMessage({
@@ -118,21 +100,16 @@ export function ChatMessage({
             }
           : undefined
       }
-      style={{
-        maxWidth: '88%',
-        padding: '0.55rem 0.75rem',
-        borderRadius: '0.75rem',
-        fontSize: '0.86rem',
-        lineHeight: 1.5,
-        wordBreak: 'break-word',
-        cursor: canToggle ? 'pointer' : undefined,
-        ...(!useMarkdown ? { whiteSpace: 'pre-wrap' } : {}),
-        ...STYLES[role],
-      }}
+      className={cn(
+        'max-w-[88%] leading-normal [word-break:break-word]',
+        ROLE_CLASS[role] ?? DEFAULT_CLASS,
+        canToggle && 'cursor-pointer',
+        !useMarkdown && 'whitespace-pre-wrap',
+      )}
     >
       {showingKid ? (
         <>
-          <div style={{ whiteSpace: 'pre-wrap' }}>{kidText}</div>
+          <div className="whitespace-pre-wrap">{kidText}</div>
           <Hint label="🧸 kid mode — tap for the grown-up version" />
         </>
       ) : useMarkdown ? (

@@ -80,7 +80,7 @@ export function GameAnalytics({ gameId }: { gameId: string }) {
         <h2 className="text-lg font-semibold">Analytics</h2>
         <select
           aria-label="Time window"
-          className="h-9 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2 text-sm"
+          className="h-9 rounded-lg border border-line bg-paper px-2 text-sm"
           value={days}
           onChange={(e) => setDays(Number(e.target.value))}
         >
@@ -91,19 +91,19 @@ export function GameAnalytics({ gameId }: { gameId: string }) {
           ))}
         </select>
       </div>
-      <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
+      <p className="text-sm mb-4 text-muted">
         Cookieless and private. FreeGameStore counts page views and custom events, not individual
         visitors.
       </p>
 
       {error && (
-        <p role="alert" className="text-sm mb-4 text-[#ef4444]">
+        <p role="alert" className="text-sm mb-4 text-danger">
           {error}
         </p>
       )}
 
       {statsMissing && (
-        <p role="status" className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
+        <p role="status" className="text-sm mb-4 text-muted">
           {statsUnavailableMessage(data?.statsUnavailable)}
         </p>
       )}
@@ -115,7 +115,7 @@ export function GameAnalytics({ gameId }: { gameId: string }) {
               <div className="text-2xl font-bold" data-testid="total-views">
                 {stats ? stats.total_views.toLocaleString() : loading ? '…' : '0'}
               </div>
-              <div className="text-xs" style={{ color: 'var(--muted)' }}>
+              <div className="text-xs text-muted">
                 {kind === 'pageview' ? 'Page views' : `“${kind}” events`}
               </div>
             </div>
@@ -123,9 +123,7 @@ export function GameAnalytics({ gameId }: { gameId: string }) {
               <div className="text-2xl font-bold">
                 {stats ? stats.unique_paths.toLocaleString() : loading ? '…' : '0'}
               </div>
-              <div className="text-xs" style={{ color: 'var(--muted)' }}>
-                Distinct pages
-              </div>
+              <div className="text-xs text-muted">Distinct pages</div>
             </div>
           </div>
 
@@ -143,7 +141,7 @@ export function GameAnalytics({ gameId }: { gameId: string }) {
                 y={b.y}
                 width={b.width}
                 height={b.height}
-                fill="var(--accent)"
+                className="fill-accent"
                 opacity="0.85"
               >
                 <title>{`${b.t}: ${b.views}`}</title>
@@ -182,7 +180,7 @@ export function GameAnalytics({ gameId }: { gameId: string }) {
                       type="button"
                       onClick={() => setKind(kind === e.kind ? 'pageview' : e.kind)}
                       aria-pressed={kind === e.kind}
-                      className="rounded-full border border-[var(--border)] px-3 py-1"
+                      className="rounded-full border border-line px-3 py-1"
                     >
                       {e.kind} · {e.count.toLocaleString()}
                     </button>
@@ -235,7 +233,7 @@ export function GameAnalytics({ gameId }: { gameId: string }) {
           {saveMsg && (
             <span
               role={saveMsg.kind === 'err' ? 'alert' : 'status'}
-              className={`text-sm ${saveMsg.kind === 'err' ? 'text-[#ef4444]' : ''}`}
+              className={`text-sm ${saveMsg.kind === 'err' ? 'text-danger' : ''}`}
             >
               {saveMsg.text}
             </span>
@@ -251,7 +249,7 @@ function BreakdownList({ title, rows }: { title: string; rows: Array<[string, nu
     <div>
       <h3 className="font-semibold mb-1">{title}</h3>
       {rows.length === 0 ? (
-        <p style={{ color: 'var(--muted)' }}>No data yet.</p>
+        <p className="text-muted">No data yet.</p>
       ) : (
         <ul className="flex flex-col gap-1">
           {rows.map(([label, views]) => (

@@ -7,16 +7,15 @@ export type ButtonSize = 'sm' | 'md';
 
 const BASE =
   'inline-flex items-center justify-center rounded-lg font-semibold whitespace-nowrap transition-colors cursor-pointer ' +
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--bg)] ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-paper ' +
   'disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none';
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary: 'bg-[var(--accent)] text-black border border-transparent hover:opacity-90',
-  secondary: 'bg-transparent text-[var(--ink)] border border-[var(--border)] hover:bg-[var(--bg)]',
-  ghost:
-    'bg-transparent text-[var(--muted)] border border-transparent hover:bg-[var(--bg)] hover:text-[var(--ink)]',
-  danger: 'bg-[#ef4444] text-white border border-transparent hover:opacity-90',
-  'danger-outline': 'bg-transparent text-[#ef4444] border border-[#ef4444] hover:bg-[#ef4444]/10',
+  primary: 'bg-accent text-black border border-transparent hover:opacity-90',
+  secondary: 'bg-transparent text-ink border border-line hover:bg-paper',
+  ghost: 'bg-transparent text-muted border border-transparent hover:bg-paper hover:text-ink',
+  danger: 'bg-danger text-danger-soft border border-transparent hover:opacity-90',
+  'danger-outline': 'bg-transparent text-danger border border-danger hover:bg-danger/10',
 };
 
 const SIZES: Record<ButtonSize, string> = {

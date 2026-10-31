@@ -4,8 +4,8 @@
     "inlineStyles": 0
   },
   "apps/console/web/src": {
-    "cssInjection": 1,
-    "inlineStyles": 239
+    "cssInjection": 0,
+    "inlineStyles": 0
   },
   "apps/admin/web/src": {
     "cssInjection": 0,

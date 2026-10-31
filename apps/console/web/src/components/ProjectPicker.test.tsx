@@ -1,48 +1,56 @@
-import { describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import type { Project } from '../hooks/useProjects';
+import { ProjectPicker } from './ProjectPicker';
 
-describe('ProjectPicker — CSS variables', () => {
-  it('uses CSS variables for z-index and overlay styling', () => {
-    // Verify CSS variables are defined in index.css
-    // This ensures the modal overlay uses theme-consistent z-index and colors
-    // rather than hardcoded values.
-    //
-    // CSS variables used:
-    // - --z-modal: 50 (z-index for modal container)
-    // - --overlay-bg: rgba(0, 0, 0, 0.5) (overlay background)
-    //
-    // Status dot colors also use CSS variables:
-    // - --success: #22c55e (live / last build succeeded)
-    // - --warning: #fbbf24 (in progress / building)
-    // - --error: #ef4444 (last build failed)
-    // - --line-strong: #3a3a3a (never built / unknown)
+function project(id: string, over: Partial<Project> = {}): Project {
+  return {
+    id,
+    name: id,
+    appId: id,
+    deployed: false,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ...over,
+  } as Project;
+}
 
-    const getCSSVariable = (name: string): string => {
-      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    };
+function renderPicker(projects: Project[]) {
+  return render(
+    <ProjectPicker
+      projects={projects}
+      currentId={null}
+      onSelect={vi.fn()}
+      onCreate={vi.fn()}
+      onDelete={vi.fn()}
+      onFreshChat={vi.fn()}
+      onClose={vi.fn()}
+    />,
+  );
+}
 
-    // These will only be populated if index.css is loaded (which happens in real browser)
-    // In test environment, they may be empty strings, but at least we verify the pattern
-    expect(typeof getCSSVariable('--z-modal')).toBe('string');
-    expect(typeof getCSSVariable('--overlay-bg')).toBe('string');
-    expect(typeof getCSSVariable('--success')).toBe('string');
-    expect(typeof getCSSVariable('--warning')).toBe('string');
-    expect(typeof getCSSVariable('--error')).toBe('string');
+describe('ProjectPicker — design tokens', () => {
+  it('uses a translucent scrim with an opaque panel, no inline styles', () => {
+    const { container } = renderPicker([]);
+    const overlay = screen.getByRole('dialog', { name: 'Project picker' });
+    expect(overlay).toHaveClass('z-50', 'bg-scrim');
+    expect(container.querySelector('[role="document"]')).toHaveClass('bg-panel', 'border-line');
+    expect(container.querySelector('[style]')).toBeNull();
   });
 
-  it('status dot color mapping uses theme variables', () => {
-    // Verify the statusDotColor function uses CSS variables instead of hardcoded hex
-    // This ensures consistency with the theme system and makes it easier to customize colors
-
-    const statusColors: Record<string, string> = {
-      success: 'var(--success)', // live builds
-      accent: 'var(--warning)', // in-progress builds
-      danger: 'var(--error)', // failed builds
-      unknown: 'var(--line-strong)', // never built
-    };
-
-    // Each color should reference a CSS variable, not a hardcoded hex value
-    for (const [_status, color] of Object.entries(statusColors)) {
-      expect(color).toMatch(/^var\(--/);
-    }
+  it('maps session activity to token status classes', () => {
+    const { container } = renderPicker([
+      project('live', { deployed: true }),
+      project('building', { activity: { phase: 'building' } as Project['activity'] }),
+      project('failed', { activity: { phase: 'error' } as Project['activity'] }),
+      project('draft'),
+    ]);
+    const dots = [...container.querySelectorAll('span[role="presentation"]')];
+    expect(dots.map((d) => d.className)).toEqual([
+      expect.stringContaining('bg-success'),
+      expect.stringContaining('bg-warning'),
+      expect.stringContaining('bg-danger'),
+      expect.stringContaining('bg-line-strong'),
+    ]);
   });
 });

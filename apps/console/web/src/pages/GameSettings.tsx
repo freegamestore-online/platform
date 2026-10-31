@@ -9,6 +9,11 @@ import { type DraftSession, useDraftSessions } from '../hooks/useDraftSessions';
 import { decodeIcon, formatDate, formatRelative } from '../lib/format';
 
 // Canonical game categories (synced with @freegamestore/compliance)
+const MSG_TONE = {
+  ok: 'bg-success/10 text-success',
+  err: 'bg-danger/10 text-danger',
+} as const;
+
 const CATEGORIES = [
   'strategy',
   'brain-training',
@@ -137,10 +142,8 @@ export function GameSettings() {
         <Nav />
         <main className="max-w-2xl mx-auto px-4 py-10 text-center">
           <h1 className="text-2xl font-bold mb-2">Game not found</h1>
-          <p className="mb-4" style={{ color: 'var(--muted)' }}>
-            “{id}” isn't one of your games or drafts.
-          </p>
-          <Link to="/" className="font-semibold" style={{ color: 'var(--accent)' }}>
+          <p className="mb-4 text-muted">“{id}” isn't one of your games or drafts.</p>
+          <Link to="/" className="font-semibold text-accent">
             ← Back to My Games
           </Link>
         </main>
@@ -152,23 +155,17 @@ export function GameSettings() {
     <>
       <Nav />
       <main className="max-w-2xl mx-auto px-4 py-8">
-        <Link
-          to="/"
-          className="text-sm font-semibold no-underline"
-          style={{ color: 'var(--muted)' }}
-        >
+        <Link to="/" className="text-sm font-semibold no-underline text-muted">
           ← My Games
         </Link>
 
         <div className="flex items-center gap-3 mt-3 mb-1">
           <span
-            className="flex items-center justify-center rounded-xl shrink-0"
-            style={{
-              width: 48,
-              height: 48,
-              background: iconBg || 'var(--surface)',
-              fontSize: '1.6rem',
-            }}
+            className={`flex size-12 shrink-0 items-center justify-center rounded-xl text-[1.6rem] ${
+              iconBg ? '' : 'bg-panel'
+            }`}
+            // Dynamic: the creator-chosen icon background colour is user data
+            style={iconBg ? { background: iconBg } : undefined}
           >
             {icon || '🎮'}
           </span>
@@ -178,16 +175,12 @@ export function GameSettings() {
           </div>
         </div>
 
-        <div
-          className="flex flex-wrap gap-x-4 gap-y-1 text-sm mt-2 mb-6"
-          style={{ color: 'var(--muted)' }}
-        >
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm mt-2 mb-6 text-muted">
           <a
             href={game.liveUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:underline"
-            style={{ color: 'var(--accent)' }}
+            className="text-accent hover:underline"
           >
             Play
           </a>
@@ -199,11 +192,7 @@ export function GameSettings() {
           >
             Code
           </a>
-          <Link
-            to={`/create/${game.id}`}
-            className="hover:underline"
-            style={{ color: 'var(--accent)' }}
-          >
+          <Link to={`/create/${game.id}`} className="text-accent hover:underline">
             Edit in Studio
           </Link>
           {game.createdAt && <span>Created {formatDate(game.createdAt)}</span>}
@@ -211,16 +200,7 @@ export function GameSettings() {
         </div>
 
         {msg && (
-          <div
-            className="mb-4 px-3 py-2 rounded-lg text-sm"
-            style={{
-              background:
-                msg.kind === 'ok'
-                  ? 'color-mix(in srgb, #22c55e 12%, transparent)'
-                  : 'color-mix(in srgb, #ef4444 12%, transparent)',
-              color: msg.kind === 'ok' ? '#22c55e' : '#ef4444',
-            }}
-          >
+          <div className={`mb-4 px-3 py-2 rounded-lg text-sm ${MSG_TONE[msg.kind]}`}>
             {msg.text}
           </div>
         )}
@@ -258,7 +238,7 @@ export function GameSettings() {
             <Field label="Icon" htmlFor="g-icon">
               <Input
                 id="g-icon"
-                style={{ width: 72, textAlign: 'center', fontSize: '1.3rem' }}
+                className="w-[72px]! text-center text-[1.3rem]"
                 value={icon}
                 onChange={(e) => setIcon(e.target.value)}
                 placeholder="🎮"
@@ -269,13 +249,13 @@ export function GameSettings() {
               <Input
                 id="g-bg"
                 type="color"
-                style={{ width: 72, height: 40, padding: 2 }}
+                className="h-10! w-[72px]! p-0.5!"
                 value={iconBg || '#10b981'}
                 onChange={(e) => setIconBg(e.target.value)}
               />
             </Field>
           </div>
-          <p className="text-xs" style={{ color: 'var(--muted)' }}>
+          <p className="text-xs text-muted">
             Icon + background are the game's artwork in the store. Free-tier games use an emoji icon
             (no image uploads).
           </p>
@@ -289,7 +269,7 @@ export function GameSettings() {
         {/* Conversation — reset the AI chat without touching the game. */}
         <Card className="mt-6">
           <h2 className="text-lg font-semibold mb-1">Conversation</h2>
-          <p className="text-sm mb-3" style={{ color: 'var(--muted)' }}>
+          <p className="text-sm mb-3 text-muted">
             Start a fresh chat for “{game.name}”. This clears the current AI conversation and
             reloads the game's real files into a clean chat — the game, its code, and its live site
             are untouched. Use it if a chat gets stuck or confused.
@@ -307,17 +287,9 @@ export function GameSettings() {
         <GameAnalytics gameId={game.id} />
 
         {/* Danger zone */}
-        <section
-          className="flex flex-col gap-3 p-5 rounded-2xl mt-6"
-          style={{
-            background: 'color-mix(in srgb, #ef4444 5%, var(--surface))',
-            border: '1px solid color-mix(in srgb, #ef4444 30%, var(--border))',
-          }}
-        >
-          <h2 className="text-lg font-semibold" style={{ color: '#ef4444' }}>
-            Delete game
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--muted)' }}>
+        <section className="flex flex-col gap-3 p-5 rounded-2xl mt-6 bg-danger/5 border border-danger/30">
+          <h2 className="text-lg font-semibold text-danger">Delete game</h2>
+          <p className="text-sm text-muted">
             Delists “{game.name}” from the store, stops it serving at {game.id}
             .freegamestore.online, and archives its repo. This frees a slot. It can't be undone from
             here.
@@ -395,19 +367,12 @@ function DraftSettings({
     <>
       <Nav />
       <main className="max-w-2xl mx-auto px-4 py-8">
-        <Link
-          to="/"
-          className="text-sm font-semibold no-underline"
-          style={{ color: 'var(--muted)' }}
-        >
+        <Link to="/" className="text-sm font-semibold no-underline text-muted">
           ← My Games
         </Link>
 
         <div className="flex items-center gap-3 mt-3 mb-1">
-          <span
-            className="flex items-center justify-center rounded-xl shrink-0"
-            style={{ width: 48, height: 48, background: 'var(--surface)', fontSize: '1.6rem' }}
-          >
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-panel text-[1.6rem]">
             🎮
           </span>
           <div className="min-w-0">
@@ -416,29 +381,16 @@ function DraftSettings({
           </div>
         </div>
 
-        <p className="text-sm mt-2 mb-6" style={{ color: 'var(--muted)' }}>
+        <p className="text-sm mt-2 mb-6 text-muted">
           This game hasn't been published yet. Keep building it in Studio and deploy it to make it
           live in the store — artwork, category, and its play URL appear then.{' '}
-          <Link
-            to={`/create/${draft.id}`}
-            className="hover:underline"
-            style={{ color: 'var(--accent)' }}
-          >
+          <Link to={`/create/${draft.id}`} className="text-accent hover:underline">
             Continue in Studio →
           </Link>
         </p>
 
         {msg && (
-          <div
-            className="mb-4 px-3 py-2 rounded-lg text-sm"
-            style={{
-              background:
-                msg.kind === 'ok'
-                  ? 'color-mix(in srgb, #22c55e 12%, transparent)'
-                  : 'color-mix(in srgb, #ef4444 12%, transparent)',
-              color: msg.kind === 'ok' ? '#22c55e' : '#ef4444',
-            }}
-          >
+          <div className={`mb-4 px-3 py-2 rounded-lg text-sm ${MSG_TONE[msg.kind]}`}>
             {msg.text}
           </div>
         )}
@@ -460,17 +412,9 @@ function DraftSettings({
           </div>
         </Card>
 
-        <section
-          className="flex flex-col gap-3 p-5 rounded-2xl mt-6"
-          style={{
-            background: 'color-mix(in srgb, #ef4444 5%, var(--surface))',
-            border: '1px solid color-mix(in srgb, #ef4444 30%, var(--border))',
-          }}
-        >
-          <h2 className="text-lg font-semibold" style={{ color: '#ef4444' }}>
-            Discard draft
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--muted)' }}>
+        <section className="flex flex-col gap-3 p-5 rounded-2xl mt-6 bg-danger/5 border border-danger/30">
+          <h2 className="text-lg font-semibold text-danger">Discard draft</h2>
+          <p className="text-sm text-muted">
             Removes this in-progress game and its build session. Nothing is published, so nothing
             goes offline — but the work in this draft can't be recovered.
           </p>

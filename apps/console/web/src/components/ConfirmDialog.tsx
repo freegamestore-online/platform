@@ -46,88 +46,33 @@ export function ConfirmDialog({
   return (
     <div
       role="presentation"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim"
       onClick={onCancel}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 50,
-        background: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-      }}
     >
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="dialog-title"
+        className="bg-panel border border-line rounded-dialog max-w-[400px] w-full p-6 shadow-elevated"
         onClick={(e) => e.stopPropagation()}
-        style={{
-          background: 'var(--panel)',
-          border: '1px solid var(--line)',
-          borderRadius: '1rem',
-          maxWidth: 400,
-          width: '100%',
-          padding: '1.5rem',
-          boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
-        }}
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            gap: '1rem',
-            marginBottom: '1rem',
-          }}
-        >
-          <h2
-            id="dialog-title"
-            style={{
-              fontSize: '1.125rem',
-              fontWeight: 700,
-              color: 'var(--ink)',
-              margin: 0,
-            }}
-          >
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <h2 id="dialog-title" className="text-[1.125rem] font-bold text-ink m-0">
             {title}
           </h2>
           <button
             onClick={onCancel}
             aria-label="Close dialog"
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '0.25rem',
-              color: 'var(--muted)',
-              flexShrink: 0,
-            }}
+            className="bg-transparent border-0 cursor-pointer p-1 text-muted shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <p
-          style={{
-            fontSize: '0.95rem',
-            color: 'var(--ink)',
-            margin: '0 0 1.5rem 0',
-            whiteSpace: 'pre-wrap',
-          }}
-        >
-          {message}
-        </p>
+        <p className="text-[0.95rem] text-ink m-0 mb-6 whitespace-pre-wrap">{message}</p>
 
-        <div
-          style={{
-            display: 'flex',
-            gap: '0.75rem',
-            justifyContent: 'flex-end',
-          }}
-        >
+        <div className="flex gap-3 justify-end">
           <Button variant="secondary" onClick={onCancel}>
             {cancelText}
           </Button>

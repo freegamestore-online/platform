@@ -1,13 +1,13 @@
 import { Nav } from './Nav';
 
-const centerStyle = { minHeight: 'calc(100dvh - 60px)' };
+const CENTER = 'min-h-[calc(100dvh-60px)]';
 
 /** Full-page loading spinner with Nav. */
 export function LoadingShell() {
   return (
     <>
       <Nav />
-      <div className="flex items-center justify-center" style={centerStyle}>
+      <div className={`flex items-center justify-center ${CENTER}`}>
         <div className="w-8 h-8 border-3 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
       </div>
     </>
@@ -19,22 +19,12 @@ export function SignInShell({ onSignIn, message }: { onSignIn: () => void; messa
   return (
     <>
       <Nav />
-      <div className="flex items-center justify-center px-4" style={centerStyle}>
+      <div className={`flex items-center justify-center px-4 ${CENTER}`}>
         <div className="text-center max-w-md">
-          <p className="mb-4" style={{ color: 'var(--muted)' }}>
-            {message}
-          </p>
+          <p className="mb-4 text-muted">{message}</p>
           <button
             onClick={onSignIn}
-            className="px-6 font-semibold rounded-xl"
-            style={{
-              minHeight: 44,
-              background: 'var(--accent)',
-              color: '#000',
-              border: 'none',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}
+            className="px-6 min-h-11 font-semibold rounded-xl bg-accent text-black border-0 cursor-pointer [font-family:inherit]"
           >
             Sign in with GitHub
           </button>
@@ -51,23 +41,13 @@ export function ErrorShell({ message, onRetry }: { message: string; onRetry?: ()
   return (
     <>
       <Nav />
-      <div className="flex items-center justify-center px-4" style={centerStyle}>
+      <div className={`flex items-center justify-center px-4 ${CENTER}`}>
         <div className="text-center max-w-md">
-          <p className="text-lg font-semibold mb-4" style={{ color: 'var(--error)' }}>
-            {message}
-          </p>
+          <p className="text-lg font-semibold mb-4 text-danger">{message}</p>
           {onRetry && (
             <button
               onClick={onRetry}
-              className="px-6 font-semibold rounded-xl"
-              style={{
-                minHeight: 44,
-                background: 'var(--accent)',
-                color: '#000',
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-              }}
+              className="px-6 min-h-11 font-semibold rounded-xl bg-accent text-black border-0 cursor-pointer [font-family:inherit]"
             >
               Try again
             </button>

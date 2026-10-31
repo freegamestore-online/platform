@@ -21,6 +21,16 @@
 
     <meta name="description" content="Publish and manage your games on FreeGameStore — free, private, open-source browser games." />
     <title>Creator Console — FreeGameStore</title>
+    <!-- Apply the saved theme before first paint (DESIGN-SYSTEM.md §3): light is the default, data-theme="dark" the dark tokens. -->
+    <script>
+      (function () {
+        try {
+          var p = localStorage.getItem("stores-theme");
+          var dark = p === "dark" || ((!p || p === "system") && matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) document.documentElement.dataset.theme = "dark";
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

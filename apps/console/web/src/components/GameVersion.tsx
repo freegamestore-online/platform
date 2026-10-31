@@ -47,7 +47,7 @@ export function GameVersion({ liveUrl }: { liveUrl?: string }) {
     >
       {v && (
         <>
-          v <code style={{ fontFamily: 'monospace' }}>{v}</code>
+          v <code className="font-[monospace]">{v}</code>
         </>
       )}
       {info.deployedAt && <> · deployed {formatRelative(info.deployedAt)}</>}

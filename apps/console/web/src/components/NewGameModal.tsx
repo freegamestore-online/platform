@@ -9,15 +9,11 @@ export function NewGameModal({ open, onClose }: { open: boolean; onClose: () => 
   const navigate = useNavigate();
   if (!open) return null;
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4"
-      style={{ background: 'rgba(0,0,0,0.55)' }}
-    >
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 bg-scrim">
       <button
         aria-label="Close"
         onClick={onClose}
-        className="fixed inset-0 cursor-default"
-        style={{ background: 'transparent', border: 'none' }}
+        className="fixed inset-0 cursor-default bg-transparent border-0"
       />
       <div className="relative w-full max-w-lg my-6">
         <CreateGameForm

@@ -8,9 +8,9 @@ import type {
 import { cn } from './cn';
 
 const CONTROL =
-  'w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] text-sm text-[var(--ink)] ' +
-  'placeholder:text-[var(--muted)] transition-colors ' +
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:border-[var(--accent)] ' +
+  'w-full rounded-lg border border-line bg-paper text-sm text-ink ' +
+  'placeholder:text-muted transition-colors ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:border-accent ' +
   'disabled:opacity-50 disabled:cursor-not-allowed';
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
@@ -32,10 +32,7 @@ export function Select({ className, children, ...props }: SelectHTMLAttributes<H
 export function Label({ className, children, ...props }: LabelHTMLAttributes<HTMLLabelElement>) {
   return (
     // biome-ignore lint/a11y/noLabelWithoutControl: htmlFor arrives via ...props from each caller (see Field).
-    <label
-      className={cn('block text-sm font-medium text-[var(--muted)] mb-1.5', className)}
-      {...props}
-    >
+    <label className={cn('block text-sm font-medium text-muted mb-1.5', className)} {...props}>
       {children}
     </label>
   );
@@ -57,7 +54,7 @@ export function Field({
     <div>
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
-      {hint && <p className="mt-1.5 text-xs text-[var(--muted)]">{hint}</p>}
+      {hint && <p className="mt-1.5 text-xs text-muted">{hint}</p>}
     </div>
   );
 }

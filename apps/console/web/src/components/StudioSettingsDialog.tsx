@@ -59,15 +59,13 @@ export function StudioSettingsDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.55)' }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim"
       onClick={onClose}
       role="dialog"
       aria-label="AI settings"
     >
       <div
-        className="w-full max-w-md rounded-2xl p-5"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+        className="w-full max-w-md rounded-2xl p-5 bg-panel border border-line"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -75,14 +73,7 @@ export function StudioSettingsDialog({
           <button
             onClick={onClose}
             aria-label="Close"
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: 22,
-              lineHeight: 1,
-              color: 'var(--muted)',
-            }}
+            className="cursor-pointer border-0 bg-transparent text-[22px] leading-none text-muted"
           >
             ×
           </button>
@@ -129,14 +120,10 @@ export function StudioSettingsDialog({
 
         <p className="block text-sm font-semibold mb-1">API key</p>
         {free ? (
-          <p className="text-sm mb-3" style={{ color: 'var(--success)' }}>
-            GitHub Models is free — no API key needed.
-          </p>
+          <p className="text-sm mb-3 text-success">GitHub Models is free — no API key needed.</p>
         ) : hasKey ? (
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-sm" style={{ color: 'var(--success)' }}>
-              ✓ Key saved (encrypted)
-            </span>
+            <span className="text-sm text-success">✓ Key saved (encrypted)</span>
             <Button size="sm" variant="danger-outline" onClick={removeKey} disabled={busy}>
               Remove
             </Button>
@@ -164,11 +151,7 @@ export function StudioSettingsDialog({
             </Button>
           </div>
         )}
-        {msg && (
-          <p className="text-xs mb-2" style={{ color: 'var(--success)' }}>
-            {msg}
-          </p>
-        )}
+        {msg && <p className="text-xs mb-2 text-success">{msg}</p>}
 
         <label htmlFor="studio-ai-temperature" className="block text-sm font-semibold mb-1 mt-3">
           Creativity
@@ -186,10 +169,10 @@ export function StudioSettingsDialog({
           <option value={1}>Wild (1)</option>
         </Select>
 
-        <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>
+        <p className="text-xs mb-4 text-muted">
           Keys are encrypted (AES-256-GCM) on the platform and used only server-side to call the
           provider — they never sit in your browser. Manage all keys in{' '}
-          <Link to="/profile" style={{ color: 'var(--accent)' }} className="hover:underline">
+          <Link to="/profile" className="text-accent hover:underline">
             your Profile
           </Link>
           .

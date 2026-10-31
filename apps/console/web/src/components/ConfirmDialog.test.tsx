@@ -178,7 +178,7 @@ describe('ConfirmDialog', () => {
     );
 
     const confirmButton = screen.getByRole('button', { name: 'Confirm' });
-    expect(confirmButton).toHaveClass('bg-[#ef4444]');
+    expect(confirmButton).toHaveClass('bg-danger');
   });
 
   it('has proper ARIA attributes', () => {

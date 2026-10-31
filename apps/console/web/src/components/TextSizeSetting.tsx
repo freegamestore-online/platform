@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { applyTextSize, getTextSize, TEXT_SIZES, type TextSize } from '../lib/textSize';
 
 const PREVIEW: Record<TextSize, string> = {
-  sm: '0.85rem',
-  default: '1rem',
-  lg: '1.2rem',
-  xl: '1.4rem',
+  sm: 'text-[0.85rem]',
+  default: 'text-[1rem]',
+  lg: 'text-[1.2rem]',
+  xl: 'text-[1.4rem]',
 };
 
 /** Text-size chooser for the console. Lives in Profile → Appearance. Applies
@@ -19,12 +19,9 @@ export function TextSizeSetting() {
   }
 
   return (
-    <div
-      className="p-6 rounded-2xl border"
-      style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-    >
+    <div className="p-6 rounded-2xl border border-line bg-panel">
       <h3 className="text-base font-bold mb-1">Text size</h3>
-      <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
+      <p className="text-sm mb-4 text-muted">
         Make text across the studio larger or smaller. Applies everywhere and is remembered.
       </p>
       {/* biome-ignore lint/a11y/useSemanticElements: a toggle-button group, not a form; <fieldset>'s min-inline-size: min-content would stop the flex-wrap. */}
@@ -36,26 +33,14 @@ export function TextSizeSetting() {
               key={t.value}
               onClick={() => choose(t.value)}
               aria-pressed={active}
-              className="flex flex-col items-center justify-center gap-1 rounded-xl px-4 py-3"
-              style={{
-                minWidth: 76,
-                cursor: 'pointer',
-                border: active ? '2px solid var(--accent)' : '1px solid var(--border)',
-                background: active ? 'rgba(16,185,129,0.10)' : 'var(--bg)',
-                color: 'var(--ink)',
-                fontFamily: 'inherit',
-              }}
+              className={`flex min-w-[76px] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl px-4 py-3 text-ink ${
+                active ? 'border-2 border-accent bg-accent/10' : 'border border-line bg-paper'
+              }`}
             >
-              <span
-                aria-hidden
-                style={{ fontSize: PREVIEW[t.value], fontWeight: 700, lineHeight: 1 }}
-              >
+              <span aria-hidden className={`font-bold leading-none ${PREVIEW[t.value]}`}>
                 A
               </span>
-              <span
-                className="text-xs font-semibold"
-                style={{ color: active ? 'var(--ink)' : 'var(--muted)' }}
-              >
+              <span className={`text-xs font-semibold ${active ? 'text-ink' : 'text-muted'}`}>
                 {t.label}
               </span>
             </button>

@@ -60,15 +60,10 @@ export function Dashboard() {
     return (
       <>
         <Nav />
-        <div
-          className="flex items-center justify-center px-4"
-          style={{ minHeight: 'calc(100dvh - 60px)' }}
-        >
+        <div className="flex min-h-[calc(100dvh-60px)] items-center justify-center px-4">
           <div className="text-center max-w-md">
-            <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--error)' }}>
-              Account Suspended
-            </h1>
-            <p style={{ color: 'var(--muted)' }}>
+            <h1 className="text-2xl font-bold mb-2 text-danger">Account Suspended</h1>
+            <p className="text-muted">
               Your creator account has been suspended. Contact support if you believe this is an
               error.
             </p>
@@ -85,9 +80,7 @@ export function Dashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-8">
           <div>
             <h2 className="text-2xl font-bold">Signed in as @{user.github}</h2>
-            <p style={{ color: 'var(--muted)' }} className="text-sm mt-1">
-              Build, publish, and manage your games
-            </p>
+            <p className="text-sm mt-1 text-muted">Build, publish, and manage your games</p>
           </div>
           <Badge tone="accent" className="shrink-0 text-sm px-3 py-1.5">
             {creator.remaining} of {creator.maxGames} slots
@@ -114,7 +107,7 @@ export function Dashboard() {
               Create Game
             </Button>
             {creator.remaining <= 0 && (
-              <p className="text-sm mt-2" style={{ color: 'var(--muted)' }}>
+              <p className="text-sm mt-2 text-muted">
                 You've used all your slots. Request more by opening an issue on GitHub.
               </p>
             )}
@@ -211,24 +204,18 @@ function StatusBadge({
 
 function LiveGameRow({ game, activity }: { game: GameRepo; activity?: SessionActivity }) {
   return (
-    <div
-      className="flex items-center gap-2 p-3 rounded-xl"
-      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-    >
+    <div className="flex items-center gap-2 p-3 rounded-xl bg-panel border border-line">
       <Link
         to={`/create/${game.id}`}
         aria-label={`Edit ${game.name}`}
-        className="flex items-center gap-3 flex-1 min-w-0 no-underline"
-        style={{ color: 'inherit' }}
+        className="flex items-center gap-3 flex-1 min-w-0 no-underline text-inherit"
       >
         <span
-          className="flex items-center justify-center rounded-xl shrink-0"
-          style={{
-            width: 40,
-            height: 40,
-            background: game.iconBg || 'var(--bg)',
-            fontSize: '1.3rem',
-          }}
+          className={`flex size-10 shrink-0 items-center justify-center rounded-xl text-[1.3rem] ${
+            game.iconBg ? '' : 'bg-paper'
+          }`}
+          // Dynamic: the creator-chosen icon background colour is user data
+          style={game.iconBg ? { background: game.iconBg } : undefined}
         >
           {decodeIcon(game.icon) || '🎮'}
         </span>
@@ -237,10 +224,7 @@ function LiveGameRow({ game, activity }: { game: GameRepo; activity?: SessionAct
             <p className="font-semibold break-words">{game.name}</p>
             <StatusBadge activity={activity} deployed />
           </div>
-          <div
-            className="flex flex-wrap gap-x-3 gap-y-1 text-sm mt-1"
-            style={{ color: 'var(--muted)' }}
-          >
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm mt-1 text-muted">
             {game.createdAt && (
               <span title={`Created ${new Date(game.createdAt).toLocaleString()}`}>
                 Created {formatDate(game.createdAt)}
@@ -291,26 +275,13 @@ function DraftGameRow({
   onDiscard: (id: string) => void;
 }) {
   return (
-    <div
-      className="flex items-center justify-between p-4 rounded-xl gap-3"
-      style={{ background: 'var(--surface)', border: '1px dashed var(--border)' }}
-    >
+    <div className="flex items-center justify-between p-4 rounded-xl gap-3 bg-panel border border-dashed border-line">
       <Link
         to={`/create/${draft.id}`}
         aria-label={`Open ${draft.name}`}
-        className="flex items-center gap-3 flex-1 min-w-0 no-underline"
-        style={{ color: 'inherit' }}
+        className="flex items-center gap-3 flex-1 min-w-0 no-underline text-inherit"
       >
-        <span
-          className="flex items-center justify-center rounded-xl shrink-0"
-          style={{
-            width: 40,
-            height: 40,
-            background: 'var(--bg)',
-            fontSize: '0.9rem',
-            color: 'var(--muted)',
-          }}
-        >
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-paper text-[0.9rem] text-muted">
           Draft
         </span>
         <div className="min-w-0 flex-1">
@@ -319,7 +290,7 @@ function DraftGameRow({
             <StatusBadge activity={draft.activity} />
           </div>
           {draft.createdAt && (
-            <div className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
+            <div className="text-sm mt-1 text-muted">
               <span title={new Date(draft.createdAt).toLocaleString()}>
                 Started {formatDate(draft.createdAt)}
               </span>

@@ -45,16 +45,7 @@ export function Markdown({ text }: { text: string }) {
       elements.push(
         <pre
           key={elements.length}
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: '0.5rem',
-            padding: '0.6rem 0.8rem',
-            fontSize: '0.78rem',
-            fontFamily: 'monospace',
-            overflowX: 'auto',
-            margin: '0.3rem 0',
-          }}
+          className="bg-panel border border-line rounded-lg py-[0.6rem] px-[0.8rem] text-[0.78rem] font-[monospace] overflow-x-auto my-[0.3rem] mx-0"
         >
           <code>{codeLines.join('\n')}</code>
         </pre>,
@@ -65,10 +56,7 @@ export function Markdown({ text }: { text: string }) {
     // Heading
     if (line.startsWith('### ')) {
       elements.push(
-        <div
-          key={elements.length}
-          style={{ fontWeight: 700, fontSize: '0.95rem', margin: '0.5rem 0 0.2rem' }}
-        >
+        <div key={elements.length} className="font-bold text-[0.95rem] mt-2 mb-[0.2rem] mx-0">
           {inline(line.slice(4))}
         </div>,
       );
@@ -79,7 +67,7 @@ export function Markdown({ text }: { text: string }) {
       elements.push(
         <div
           key={elements.length}
-          style={{ fontWeight: 700, fontSize: '1.05rem', margin: '0.6rem 0 0.2rem' }}
+          className="font-bold text-[1.05rem] mt-[0.6rem] mb-[0.2rem] mx-0"
         >
           {inline(line.slice(3))}
         </div>,
@@ -91,7 +79,7 @@ export function Markdown({ text }: { text: string }) {
       elements.push(
         <div
           key={elements.length}
-          style={{ fontWeight: 800, fontSize: '1.15rem', margin: '0.6rem 0 0.2rem' }}
+          className="font-extrabold text-[1.15rem] mt-[0.6rem] mb-[0.2rem] mx-0"
         >
           {inline(line.slice(2))}
         </div>,
@@ -103,10 +91,7 @@ export function Markdown({ text }: { text: string }) {
     // Divider
     if (/^---+$/.test(line.trim())) {
       elements.push(
-        <hr
-          key={elements.length}
-          style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }}
-        />,
+        <hr key={elements.length} className="border-0 border-t border-line my-2 mx-0" />,
       );
       i++;
       continue;
@@ -115,8 +100,8 @@ export function Markdown({ text }: { text: string }) {
     // List item
     if (/^[-*] /.test(line)) {
       elements.push(
-        <div key={elements.length} style={{ display: 'flex', gap: '0.4rem', margin: '0.15rem 0' }}>
-          <span style={{ color: 'var(--muted)', flexShrink: 0 }}>•</span>
+        <div key={elements.length} className="flex gap-[0.4rem] my-[0.15rem] mx-0">
+          <span className="text-muted shrink-0">•</span>
           <span>{inline(line.slice(2))}</span>
         </div>,
       );
@@ -126,14 +111,14 @@ export function Markdown({ text }: { text: string }) {
 
     // Empty line
     if (!line.trim()) {
-      elements.push(<div key={elements.length} style={{ height: '0.3rem' }} />);
+      elements.push(<div key={elements.length} className="h-[0.3rem]" />);
       i++;
       continue;
     }
 
     // Regular paragraph
     elements.push(
-      <div key={elements.length} style={{ margin: '0.1rem 0' }}>
+      <div key={elements.length} className="my-[0.1rem] mx-0">
         {inline(line)}
       </div>,
     );
@@ -156,7 +141,7 @@ const INLINE_RULES: [InlineRule, RegExp][] = [
   ['url', /https?:\/\/[^\s<>]+/],
 ];
 
-const LINK_STYLE = { color: 'var(--accent)', textDecoration: 'underline' } as const;
+const LINK_CLASS = 'text-accent underline';
 
 /** Parse inline markdown: **bold**, *italic*, `code`, [link](url), bare URLs.
  *
@@ -199,14 +184,7 @@ function inline(text: string): React.ReactNode[] {
         parts.push(
           <code
             key={key++}
-            style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: '0.25rem',
-              padding: '0.1rem 0.3rem',
-              fontSize: '0.82em',
-              fontFamily: 'monospace',
-            }}
+            className="bg-panel border border-line rounded py-[0.1rem] px-[0.3rem] text-[0.82em] font-[monospace]"
           >
             {match[1]}
           </code>,
@@ -221,7 +199,7 @@ function inline(text: string): React.ReactNode[] {
         const href = isSafeHref(rawHref) ? rawHref : null;
         parts.push(
           href ? (
-            <a key={key++} href={href} target="_blank" rel="noopener" style={LINK_STYLE}>
+            <a key={key++} href={href} target="_blank" rel="noopener" className={LINK_CLASS}>
               {match[1]}
             </a>
           ) : (
@@ -232,7 +210,7 @@ function inline(text: string): React.ReactNode[] {
       }
       case 'url':
         parts.push(
-          <a key={key++} href={match[0]} target="_blank" rel="noopener" style={LINK_STYLE}>
+          <a key={key++} href={match[0]} target="_blank" rel="noopener" className={LINK_CLASS}>
             {match[0]}
           </a>,
         );

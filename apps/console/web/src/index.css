@@ -1,98 +1,161 @@
 @import "tailwindcss";
 
+/* Token -> Tailwind mapping (DESIGN-SYSTEM.md §6, ADR-001). `inline` keeps the
+   utilities pointing at the CSS variables, so `[data-theme]` switching is live. */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-panel: var(--panel);
+  --color-panel-alt: var(--panel-alt);
+  --color-popover: var(--popover);
+  --color-ink: var(--ink);
+  --color-ink-strong: var(--ink-strong);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-pro: var(--pro);
+  --color-scrim: var(--scrim);
+  --font-sans: "Manrope", system-ui, sans-serif;
+  --font-display: "Fraunces", serif;
+  --radius-control: var(--radius-sm);
+  --radius-card: var(--radius);
+  --radius-dialog: var(--radius-lg);
+  --shadow-surface: var(--shadow);
+  --shadow-elevated: var(--shadow-lg);
+}
+
 /* Fonts loaded via <link> in index.html (Manrope + Fraunces from Google Fonts) */
 
+/* Light is the default. `--paper`, `--panel` and `--popover` are opaque in both
+   themes (alpha = 1); a modal scrim (`--scrim`) may be translucent. */
 :root {
-  /* Dark theme (matches FreeGameStore) */
-  --bg: #0f0f0f;
-  --paper: #0f0f0f;
-  --surface: #1a1a1a;
-  --panel: #1a1a1a;
-  --ink: #f0f0f0;
-  --muted: #999;
-  --accent: #10b981;
-  --accent-hover: #34d399;
-  --accent-soft: #1a2e26;
-  --border: #2a2a2a;
-  --line: #2a2a2a;
-  --line-strong: #3a3a3a;
-  --glass: rgba(15, 15, 15, 0.8);
-  --radius: 1.25rem;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.3);
+  color-scheme: light;
+  --paper: #f8fafc;
+  --panel: #ffffff;
+  --panel-alt: #f1f5f9;
+  --popover: var(--paper);
+  --ink: #1e293b;
+  --ink-strong: #0f172a;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
 
-  /* Pro */
-  --pro: #a78bfa;
+  /* FGS accent */
+  --accent: #10b981;
+  --accent-hover: #059669;
+  --accent-soft: #ecfdf5;
 
   /* Status */
-  --success: #22c55e;
-  --warning: #fbbf24;
-  --error: #ef4444;
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --success: #16a34a;
+  --success-soft: #f0fdf4;
+  --warning: #ca8a04;
+  --warning-soft: #fefce8;
 
-  /* Z-index layers */
-  --z-modal: 50;
+  /* Pro tier */
+  --pro: #7c3aed;
 
-  /* Overlay */
-  --overlay-bg: rgba(0, 0, 0, 0.5);
+  /* Overlay scrim behind dialogs */
+  --scrim: rgba(15, 23, 42, 0.5);
+
+  /* Shape */
+  --radius-sm: 0.5rem;
+  --radius: 0.75rem;
+  --radius-lg: 1rem;
+  --shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px -1px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 10px 25px -8px rgba(15, 23, 42, 0.15), 0 4px 10px -4px rgba(15, 23, 42, 0.08);
 
   /* Fonts */
   font-family: "Manrope", system-ui, sans-serif;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+/* Dark: the console's existing neutral palette (matches FreeGameStore), with the
+   spec's lighter status tones. Applied by `data-theme="dark"` on <html>. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #0f0f0f;
+  --panel: #1a1a1a;
+  --panel-alt: #141414;
+  --ink: #f0f0f0;
+  --ink-strong: #ffffff;
+  --muted: #999999;
+  --line: #2a2a2a;
+  --line-strong: #3a3a3a;
+
+  --accent: #10b981;
+  --accent-hover: #34d399;
+  --accent-soft: #1a2e26;
+
+  --danger: #f87171;
+  --danger-soft: #450a0a;
+  --success: #4ade80;
+  --success-soft: #052e16;
+  --warning: #facc15;
+  --warning-soft: #422006;
+
+  --pro: #a78bfa;
+  --scrim: rgba(0, 0, 0, 0.6);
+
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 25px -8px rgba(0, 0, 0, 0.5), 0 4px 10px -4px rgba(0, 0, 0, 0.4);
 }
 
-/* Text-size preference (Profile → Text size). Scales the root font-size so all
-   rem-based UI text grows/shrinks together. Set via html[data-text] by
-   src/lib/textSize.ts; applied before first paint in main.tsx. */
-html {
-  font-size: 16px;
-}
-html[data-text="sm"] {
-  font-size: 14px;
-}
-html[data-text="lg"] {
-  font-size: 18px;
-}
-html[data-text="xl"] {
-  font-size: 20px;
-}
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
 
-html,
-body {
-  margin: 0;
-  padding: 0;
-  background: var(--bg);
-  color: var(--ink);
-  /* `clip`, not `hidden`: `overflow-x: hidden` forces overflow-y to compute to
-     `auto`, turning these into scroll containers and defeating the sticky Nav.
-     `clip` prevents horizontal scroll without establishing a scrollport. */
-  overflow-x: clip;
-  -webkit-text-size-adjust: 100%;
-  -webkit-tap-highlight-color: transparent;
-}
+  /* Text-size preference (Profile → Text size). Scales the root font-size so all
+     rem-based UI text grows/shrinks together. Set via html[data-text] by
+     src/lib/textSize.ts; applied before first paint in main.tsx. */
+  html {
+    font-size: 16px;
+  }
+  html[data-text="sm"] {
+    font-size: 14px;
+  }
+  html[data-text="lg"] {
+    font-size: 18px;
+  }
+  html[data-text="xl"] {
+    font-size: 20px;
+  }
 
-#root {
-  overflow-x: clip;
-  min-height: 100dvh;
-}
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    /* `clip`, not `hidden`: `overflow-x: hidden` forces overflow-y to compute to
+       `auto`, turning these into scroll containers and defeating the sticky Nav.
+       `clip` prevents horizontal scroll without establishing a scrollport. */
+    overflow-x: clip;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
 
-/* Inputs scale with the text-size preference but never below 16px, so iOS
-   doesn't zoom the viewport on focus. */
-input,
-select,
-textarea {
-  font-size: max(1rem, 16px);
-}
+  #root {
+    overflow-x: clip;
+    min-height: 100dvh;
+  }
 
-/* Horizontal-scroll containers (e.g. the mobile studio toolbar) that should
-   still scroll but without a visible scrollbar. */
-.no-scrollbar {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* legacy Edge/IE */
-}
-.no-scrollbar::-webkit-scrollbar {
-  display: none; /* Chrome/Safari */
+  /* Inputs scale with the text-size preference but never below 16px, so iOS
+     doesn't zoom the viewport on focus. */
+  input,
+  select,
+  textarea {
+    font-size: max(1rem, 16px);
+  }
 }

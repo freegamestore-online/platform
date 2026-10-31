@@ -4,6 +4,7 @@ import { KidModeSetting } from '../components/KidModeSetting';
 import { Nav } from '../components/Nav';
 import { LoadingShell, SignInShell } from '../components/PageShell';
 import { TextSizeSetting } from '../components/TextSizeSetting';
+import { ThemeSetting } from '../components/ThemeSetting';
 import { useAuth } from '../hooks/useAuth';
 import { useUsage } from '../hooks/useUsage';
 import { formatTokens } from '../lib/sessions';
@@ -56,7 +57,10 @@ export function Profile() {
           <AISettings />
         </div>
 
-        {/* Appearance — text size for the whole studio. */}
+        {/* Appearance — theme and text size for the whole studio. */}
+        <div className="mb-8">
+          <ThemeSetting />
+        </div>
         <div className="mb-8">
           <TextSizeSetting />
         </div>
@@ -67,34 +71,23 @@ export function Profile() {
         </div>
 
         {/* Avatar + name card */}
-        <div
-          className="flex items-center gap-4 p-6 rounded-2xl border mb-8"
-          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-        >
+        <div className="flex items-center gap-4 p-6 rounded-2xl border border-line bg-panel mb-8">
           <img
             src={user.avatarUrl}
             alt={user.github}
-            className="rounded-full border-2 shrink-0"
-            style={{ width: 48, height: 48, borderColor: 'var(--border)' }}
+            className="size-12 rounded-full border-2 border-line shrink-0"
           />
           {/* min-w-0 so a long @username wraps inside the card instead of
               overflowing the panel on a narrow phone. */}
           <div className="min-w-0">
             <h2 className="text-xl font-bold mb-0.5 break-words">@{user.github}</h2>
-            <p className="text-sm" style={{ color: 'var(--muted)' }}>
-              GitHub creator account
-            </p>
+            <p className="text-sm text-muted">GitHub creator account</p>
           </div>
         </div>
 
         {/* Account details */}
         <div className="mb-8">
-          <h3
-            className="text-base font-bold mb-3 pb-2 border-b"
-            style={{ borderColor: 'var(--border)' }}
-          >
-            Account Details
-          </h3>
+          <h3 className="text-base font-bold mb-3 pb-2 border-b border-line">Account Details</h3>
           <DetailRow label="Provider" value="GitHub" />
           <DetailRow label="Username" value={`@${user.github}`} />
           {user.name && <DetailRow label="Name" value={user.name} />}
@@ -109,7 +102,7 @@ export function Profile() {
           <DetailRow
             label="Published games"
             value={String(gamesCount)}
-            valueStyle={{ color: gamesCount > 0 ? 'var(--accent)' : 'var(--muted)' }}
+            valueClassName={gamesCount > 0 ? 'text-accent' : 'text-muted'}
           />
           {creator && (
             <DetailRow
@@ -124,16 +117,11 @@ export function Profile() {
             it's free to show. Hidden entirely until there's something to report. */}
         {totals && totals.input + totals.output > 0 && (
           <div className="mb-8">
-            <h3
-              className="text-base font-bold mb-3 pb-2 border-b"
-              style={{ borderColor: 'var(--border)' }}
-            >
-              AI Usage
-            </h3>
+            <h3 className="text-base font-bold mb-3 pb-2 border-b border-line">AI Usage</h3>
             <DetailRow
               label="Tokens used (total)"
               value={formatTokens(totals.input + totals.output)}
-              valueStyle={{ color: 'var(--accent)' }}
+              valueClassName="text-accent"
             />
             <DetailRow
               label="Input / Output"
@@ -141,22 +129,17 @@ export function Profile() {
             />
             {usageGames.length > 0 && (
               <div className="mt-4">
-                <p
-                  className="text-xs font-semibold uppercase tracking-wide mb-2"
-                  style={{ color: 'var(--muted)' }}
-                >
+                <p className="text-xs font-semibold uppercase tracking-wide mb-2 text-muted">
                   By game
                 </p>
                 {usageGames.map((g) => (
                   <div
                     key={g.id}
-                    className="flex justify-between items-center gap-3 py-2 border-b text-sm"
-                    style={{ borderColor: 'var(--border)' }}
+                    className="flex justify-between items-center gap-3 py-2 border-b border-line text-sm"
                   >
                     <span className="truncate min-w-0">{g.name}</span>
                     <span
-                      className="shrink-0 font-mono text-xs tabular-nums"
-                      style={{ color: 'var(--muted)' }}
+                      className="shrink-0 font-mono text-xs tabular-nums text-muted"
                       title={`${(g.input + g.output).toLocaleString()} tokens (${g.input.toLocaleString()} in / ${g.output.toLocaleString()} out)`}
                     >
                       {formatTokens(g.input + g.output)}
@@ -170,48 +153,25 @@ export function Profile() {
 
         {/* Session */}
         <div className="mb-8">
-          <h3
-            className="text-base font-bold mb-3 pb-2 border-b"
-            style={{ borderColor: 'var(--border)' }}
-          >
-            Session
-          </h3>
+          <h3 className="text-base font-bold mb-3 pb-2 border-b border-line">Session</h3>
           <button
             onClick={() => signOut()}
-            className="px-5 py-2 rounded-xl text-sm font-semibold border"
-            style={{
-              minHeight: 44,
-              background: 'transparent',
-              color: 'var(--ink)',
-              borderColor: 'var(--border)',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}
+            className="min-h-11 cursor-pointer px-5 py-2 rounded-xl text-sm font-semibold border border-line bg-transparent text-ink"
           >
             Sign out
           </button>
         </div>
 
         {/* Account deletion — permanent and irreversible. */}
-        <div
-          className="rounded-2xl border p-6"
-          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-        >
+        <div className="rounded-2xl border border-line bg-panel p-6">
           <h3 className="text-base font-bold mb-1">Delete account</h3>
-          <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
+          <p className="text-sm mb-4 text-muted">
             Permanently delete your account and all associated data. This action cannot be undone.
             You will be signed out immediately.
           </p>
 
           {deleteError && (
-            <div
-              className="rounded-lg p-3 mb-4 text-sm"
-              style={{
-                background: 'rgba(239, 68, 68, 0.1)',
-                borderLeft: '3px solid rgb(239, 68, 68)',
-                color: 'rgb(220, 38, 38)',
-              }}
-            >
+            <div className="rounded-lg p-3 mb-4 text-sm bg-danger/10 border-l-[3px] border-danger text-danger">
               {deleteError}
             </div>
           )}
@@ -219,22 +179,14 @@ export function Profile() {
           {!deleteConfirming ? (
             <button
               onClick={() => setDeleteConfirming(true)}
-              className="px-5 py-2 rounded-xl text-sm font-semibold border"
-              style={{
-                minHeight: 44,
-                background: 'rgba(239, 68, 68, 0.1)',
-                color: 'rgb(220, 38, 38)',
-                borderColor: 'rgb(220, 38, 38)',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-              }}
+              className="min-h-11 cursor-pointer px-5 py-2 rounded-xl text-sm font-semibold border border-danger bg-danger/10 text-danger"
             >
               Delete my account
             </button>
           ) : (
             <div>
               <p className="text-sm mb-4 font-semibold">Are you absolutely sure? This will:</p>
-              <ul className="text-sm mb-4 list-disc list-inside" style={{ color: 'var(--muted)' }}>
+              <ul className="text-sm mb-4 list-disc list-inside text-muted">
                 <li>Delete all your AI chat sessions and transcripts</li>
                 <li>Delete your saved API keys</li>
                 <li>Delete your account profile and all personal data</li>
@@ -247,32 +199,20 @@ export function Profile() {
                     setDeleteError(null);
                   }}
                   disabled={deleting}
-                  className="px-5 py-2 rounded-xl text-sm font-semibold border"
-                  style={{
-                    minHeight: 44,
-                    background: 'transparent',
-                    color: 'var(--ink)',
-                    borderColor: 'var(--border)',
-                    cursor: deleting ? 'not-allowed' : 'pointer',
-                    opacity: deleting ? 0.6 : 1,
-                    fontFamily: 'inherit',
-                  }}
+                  className={`min-h-11 px-5 py-2 rounded-xl text-sm font-semibold border border-line bg-transparent text-ink ${
+                    deleting ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                  }`}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDeleteAccount}
                   disabled={deleting}
-                  className="px-5 py-2 rounded-xl text-sm font-semibold border"
-                  style={{
-                    minHeight: 44,
-                    background: deleting ? 'rgba(239, 68, 68, 0.5)' : 'rgb(239, 68, 68)',
-                    color: 'white',
-                    borderColor: 'rgb(220, 38, 38)',
-                    cursor: deleting ? 'not-allowed' : 'pointer',
-                    opacity: deleting ? 0.8 : 1,
-                    fontFamily: 'inherit',
-                  }}
+                  className={`min-h-11 px-5 py-2 rounded-xl text-sm font-semibold border border-danger text-danger-soft ${
+                    deleting
+                      ? 'cursor-not-allowed bg-danger/50 opacity-80'
+                      : 'cursor-pointer bg-danger'
+                  }`}
                 >
                   {deleting ? 'Deleting...' : 'Yes, delete everything'}
                 </button>
@@ -288,13 +228,13 @@ export function Profile() {
 function DetailRow({
   label,
   value,
-  valueStyle,
+  valueClassName,
   mono,
   copyable,
 }: {
   label: string;
   value: string;
-  valueStyle?: React.CSSProperties;
+  valueClassName?: string;
   mono?: boolean;
   copyable?: boolean;
 }) {
@@ -311,34 +251,25 @@ function DetailRow({
   }
 
   return (
-    <div
-      className="flex justify-between items-start gap-3 py-2.5 border-b text-sm"
-      style={{ borderColor: 'var(--border)' }}
-    >
-      <span className="font-medium shrink-0 pt-px" style={{ color: 'var(--muted)' }}>
-        {label}
-      </span>
+    <div className="flex justify-between items-start gap-3 py-2.5 border-b border-line text-sm">
+      <span className="font-medium shrink-0 pt-px text-muted">{label}</span>
       <span className="flex items-start gap-2 min-w-0">
         {/* Long mono IDs (User ID / GitHub ID) wrap and stay inside the panel
             rather than truncating with an ellipsis — the whole value is readable
             on mobile. Plain values still truncate to one tidy line. */}
         <span
-          className={`font-semibold text-right${mono ? ' font-mono text-xs break-all' : ' truncate'}`}
-          style={valueStyle}
+          className={`font-semibold text-right${mono ? ' font-mono text-xs break-all' : ' truncate'}${
+            valueClassName ? ` ${valueClassName}` : ''
+          }`}
         >
           {value}
         </span>
         {copyable && (
           <button
             onClick={handleCopy}
-            className="shrink-0 px-2 py-0.5 rounded-md text-xs font-medium border"
-            style={{
-              background: 'transparent',
-              color: copied ? 'var(--accent)' : 'var(--muted)',
-              borderColor: 'var(--border)',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}
+            className={`shrink-0 cursor-pointer px-2 py-0.5 rounded-md text-xs font-medium border border-line bg-transparent ${
+              copied ? 'text-accent' : 'text-muted'
+            }`}
             title="Copy to clipboard"
           >
             {copied ? 'Copied' : 'Copy'}
