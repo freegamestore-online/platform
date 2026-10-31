@@ -2,18 +2,11 @@ import { useEffect, useState } from 'react';
 import { api, type PlatformStats } from './api.ts';
 
 export function Loading() {
-  return (
-    <p className="text-sm" style={{ color: 'var(--muted)' }}>
-      Loading…
-    </p>
-  );
+  return <p className="text-sm text-muted">Loading…</p>;
 }
 export function ErrorBox({ message }: { message: string }) {
   return (
-    <div
-      className="rounded-xl border px-4 py-3 text-sm"
-      style={{ borderColor: '#fca5a5', background: '#fef2f2', color: '#b91c1c' }}
-    >
+    <div className="rounded-xl border border-danger/40 bg-danger-soft px-4 py-3 text-sm text-danger">
       {message}
     </div>
   );
@@ -49,17 +42,10 @@ export function Overview() {
           tone={stats.errorsTotal > 0 ? 'warn' : undefined}
         />
       </div>
-      <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--muted)' }}>
-        Errors (last 14 days)
-      </h2>
-      <div
-        className="flex items-end gap-1.5 h-36 rounded-xl border p-3"
-        style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-      >
+      <h2 className="text-sm font-semibold mb-3 text-muted">Errors (last 14 days)</h2>
+      <div className="flex items-end gap-1.5 h-36 rounded-xl border border-line bg-panel p-3">
         {stats.errorSeries.length === 0 && (
-          <p className="text-sm self-center mx-auto" style={{ color: 'var(--muted)' }}>
-            No errors logged.
-          </p>
+          <p className="text-sm self-center mx-auto text-muted">No errors logged.</p>
         )}
         {stats.errorSeries.map((p) => (
           <div
@@ -67,20 +53,13 @@ export function Overview() {
             className="flex-1 flex flex-col items-center justify-end gap-1 h-full"
             title={`${p.d}: ${p.c}`}
           >
-            <span className="text-[10px]" style={{ color: 'var(--muted)' }}>
-              {p.c}
-            </span>
+            <span className="text-[10px] text-muted">{p.c}</span>
             <div
-              className="w-3/4 rounded-t"
-              style={{
-                height: `${Math.round((p.c / max) * 90)}%`,
-                minHeight: 2,
-                background: p.c > 0 ? '#f87171' : 'var(--line)',
-              }}
+              className={`w-3/4 rounded-t min-h-[2px] ${p.c > 0 ? 'bg-danger' : 'bg-line'}`}
+              // Dynamic: bar height is computed from the error count
+              style={{ height: `${Math.round((p.c / max) * 90)}%` }}
             />
-            <span className="text-[9px]" style={{ color: 'var(--muted)' }}>
-              {p.d.slice(5)}
-            </span>
+            <span className="text-[9px] text-muted">{p.d.slice(5)}</span>
           </div>
         ))}
       </div>
@@ -99,23 +78,16 @@ function Stat({
 }) {
   const color =
     tone === 'bad'
-      ? '#dc2626'
+      ? 'text-danger'
       : tone === 'warn'
-        ? '#d97706'
+        ? 'text-warning'
         : tone === 'good'
-          ? '#059669'
-          : 'var(--ink)';
+          ? 'text-success'
+          : 'text-ink';
   return (
-    <div
-      className="rounded-xl border p-4"
-      style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-    >
-      <div className="text-2xl font-bold" style={{ color }}>
-        {value}
-      </div>
-      <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
-        {label}
-      </div>
+    <div className="rounded-xl border border-line bg-panel p-4">
+      <div className={`text-2xl font-bold ${color}`}>{value}</div>
+      <div className="text-xs mt-0.5 text-muted">{label}</div>
     </div>
   );
 }

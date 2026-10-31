@@ -36,10 +36,8 @@ export function ProvisionForm() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--ink)' }}>
-        Provision a game
-      </h1>
-      <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
+      <h1 className="text-xl font-bold mb-1 text-ink">Provision a game</h1>
+      <p className="text-sm mb-4 text-muted">
         Admin escape hatch — creators normally self-serve from the console. Idempotent:
         re-provisioning an existing id skips.
       </p>
@@ -50,44 +48,35 @@ export function ProvisionForm() {
             value={values[f.name] ?? ''}
             onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
             placeholder={f.ph + (f.req ? ' *' : '')}
-            className="rounded-lg border px-3 py-2 text-sm"
-            style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            className="rounded-lg border border-line bg-panel text-ink px-3 py-2 text-sm"
           />
         ))}
         <button
           disabled={busy || FIELDS.some((f) => f.req && !values[f.name]?.trim())}
           onClick={submit}
-          className="rounded-xl py-2.5 font-semibold text-white disabled:opacity-50 mt-1"
-          style={{ background: 'var(--accent)' }}
+          className="rounded-xl py-2.5 font-semibold text-white bg-accent disabled:opacity-50 mt-1"
         >
           {busy ? 'Provisioning…' : 'Provision'}
         </button>
       </div>
-      {err && (
-        <p className="text-sm mt-3" style={{ color: '#dc2626' }}>
-          {err}
-        </p>
-      )}
+      {err && <p className="text-sm mt-3 text-danger">{err}</p>}
       {steps && (
-        <div
-          className="mt-4 rounded-xl border p-4 flex flex-col gap-1.5"
-          style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-        >
+        <div className="mt-4 rounded-xl border border-line bg-panel p-4 flex flex-col gap-1.5">
           {steps.map((s) => (
             <div key={s.name} className="text-sm">
               <span
-                className="font-bold mr-2"
-                style={{
-                  color:
-                    s.status === 'ok' ? '#059669' : s.status === 'skip' ? '#d97706' : '#dc2626',
-                }}
+                className={`font-bold mr-2 ${
+                  s.status === 'ok'
+                    ? 'text-success'
+                    : s.status === 'skip'
+                      ? 'text-warning'
+                      : 'text-danger'
+                }`}
               >
                 {s.status.toUpperCase()}
               </span>
-              <span style={{ color: 'var(--ink)' }}>{s.name}</span>
-              <span className="text-xs ml-2" style={{ color: 'var(--muted)' }}>
-                {s.detail}
-              </span>
+              <span className="text-ink">{s.name}</span>
+              <span className="text-xs ml-2 text-muted">{s.detail}</span>
             </div>
           ))}
         </div>

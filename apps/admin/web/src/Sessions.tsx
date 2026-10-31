@@ -59,23 +59,17 @@ export function Sessions({ navigate }: { navigate: (h: string) => void }) {
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--ink)' }}>
-        VibeCode sessions{' '}
-        <span className="text-sm font-normal" style={{ color: 'var(--muted)' }}>
-          ({total})
-        </span>
+      <h1 className="text-xl font-bold mb-1 text-ink">
+        VibeCode sessions <span className="text-sm font-normal text-muted">({total})</span>
       </h1>
-      <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
+      <p className="text-sm mb-4 text-muted">
         Every user's studio chats, newest first. Click a row for the live transcript — and to chat
         into the session on their behalf.
       </p>
-      <div
-        className="rounded-xl border overflow-x-auto"
-        style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-      >
+      <div className="rounded-xl border overflow-x-auto border-line bg-panel">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-xs uppercase" style={{ color: 'var(--muted)' }}>
+            <tr className="text-left text-xs uppercase text-muted">
               <th className="px-4 py-2.5">User</th>
               <th className="px-4 py-2.5">Session</th>
               <th className="px-4 py-2.5">Game</th>
@@ -89,18 +83,13 @@ export function Sessions({ navigate }: { navigate: (h: string) => void }) {
               <tr
                 key={s.id}
                 onClick={() => navigate(`/sessions/${s.id}`)}
-                className="border-t cursor-pointer hover:opacity-80"
-                style={{ borderColor: 'var(--line)' }}
+                className="border-t cursor-pointer hover:opacity-80 border-line"
               >
-                <td className="px-4 py-2.5 font-medium" style={{ color: 'var(--ink)' }}>
-                  {s.user}
-                </td>
+                <td className="px-4 py-2.5 font-medium text-ink">{s.user}</td>
                 <td className="px-4 py-2.5">
-                  <span style={{ color: 'var(--ink)' }}>{s.name}</span>
+                  <span className="text-ink">{s.name}</span>
                   <br />
-                  <span className="text-[10px]" style={{ color: 'var(--muted)' }}>
-                    {s.id}
-                  </span>
+                  <span className="text-[10px] text-muted">{s.id}</span>
                 </td>
                 <td className="px-4 py-2.5">
                   {s.gameId ? (
@@ -109,12 +98,12 @@ export function Sessions({ navigate }: { navigate: (h: string) => void }) {
                       target="_blank"
                       rel="noopener"
                       onClick={(e) => e.stopPropagation()}
-                      style={{ color: 'var(--accent)' }}
+                      className="text-accent"
                     >
                       {s.gameId}
                     </a>
                   ) : (
-                    <span style={{ color: 'var(--muted)' }}>—</span>
+                    <span className="text-muted">—</span>
                   )}
                 </td>
                 {/* The failure reason is shown INLINE, not just as the badge's
@@ -125,30 +114,26 @@ export function Sessions({ navigate }: { navigate: (h: string) => void }) {
                   <ActivityBadge session={s} />
                   {s.activity?.phase === 'error' && s.activity.detail && (
                     <div
-                      className="text-[10px] mt-1 leading-snug line-clamp-2 break-words"
+                      className="text-[10px] mt-1 leading-snug line-clamp-2 break-words text-danger"
                       title={s.activity.detail}
-                      style={{ color: 'var(--error)' }}
                     >
                       {s.activity.detail}
                     </div>
                   )}
                 </td>
-                <td className="px-4 py-2.5 text-xs" style={{ color: 'var(--muted)' }}>
+                <td className="px-4 py-2.5 text-xs text-muted">
                   {s.tokens.input + s.tokens.output > 0
                     ? `${Math.round((s.tokens.input + s.tokens.output) / 1000)}k`
                     : '—'}
                 </td>
-                <td
-                  className="px-4 py-2.5 text-xs whitespace-nowrap"
-                  style={{ color: 'var(--muted)' }}
-                >
+                <td className="px-4 py-2.5 text-xs whitespace-nowrap text-muted">
                   {timeAgo(s.updatedAt || s.createdAt)}
                 </td>
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
-                <td className="px-4 py-3" colSpan={6} style={{ color: 'var(--muted)' }}>
+                <td className="px-4 py-3 text-muted" colSpan={6}>
                   No sessions.
                 </td>
               </tr>
@@ -158,7 +143,7 @@ export function Sessions({ navigate }: { navigate: (h: string) => void }) {
       </div>
 
       <div className="flex items-center justify-between gap-3 mt-3">
-        <span className="text-xs" style={{ color: 'var(--muted)' }}>
+        <span className="text-xs text-muted">
           {total === 0
             ? 'No sessions'
             : `Showing ${first}–${last} of ${total} · page ${pageIndex + 1} of ${pages}`}
@@ -167,16 +152,14 @@ export function Sessions({ navigate }: { navigate: (h: string) => void }) {
           <button
             onClick={goPrev}
             disabled={pageIndex === 0 || loading}
-            className="rounded-lg border px-3 py-1.5 text-sm font-medium disabled:opacity-40"
-            style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}
+            className="rounded-lg border px-3 py-1.5 text-sm font-medium disabled:opacity-40 border-line text-muted"
           >
             Previous
           </button>
           <button
             onClick={goNext}
             disabled={!nextCursor || loading}
-            className="rounded-lg border px-3 py-1.5 text-sm font-medium disabled:opacity-40"
-            style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}
+            className="rounded-lg border px-3 py-1.5 text-sm font-medium disabled:opacity-40 border-line text-muted"
           >
             Next
           </button>

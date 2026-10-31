@@ -72,20 +72,14 @@ export function Grants({ navigate }: { navigate: (h: string) => void }) {
   return (
     <div className="flex flex-col gap-8">
       <section>
-        <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--ink)' }}>
-          AI Grants
-        </h1>
-        <p className="text-sm mb-3" style={{ color: 'var(--muted)' }}>
+        <h1 className="text-xl font-bold mb-1 text-ink">AI Grants</h1>
+        <p className="text-sm mb-3 text-muted">
           Platform-funded builds for select users — a user's own vault key always wins over a grant.{' '}
           {funded.length
             ? `Funded providers: ${funded.join(', ')}.`
             : 'No platform keys are funded yet, so grants cannot resolve.'}
         </p>
-        {msg && (
-          <p className="text-sm mb-2 font-medium" style={{ color: 'var(--accent-deep)' }}>
-            {msg}
-          </p>
-        )}
+        {msg && <p className="text-sm mb-2 font-medium text-accent-deep">{msg}</p>}
         <GrantForm
           users={users}
           funded={funded}
@@ -97,19 +91,13 @@ export function Grants({ navigate }: { navigate: (h: string) => void }) {
       </section>
 
       <section>
-        <h2 className="text-lg font-bold mb-2" style={{ color: 'var(--ink)' }}>
-          Active grants{' '}
-          <span className="text-sm font-normal" style={{ color: 'var(--muted)' }}>
-            ({grants.length})
-          </span>
+        <h2 className="text-lg font-bold mb-2 text-ink">
+          Active grants <span className="text-sm font-normal text-muted">({grants.length})</span>
         </h2>
-        <div
-          className="rounded-xl border overflow-x-auto"
-          style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-        >
+        <div className="rounded-xl border overflow-x-auto border-line bg-panel">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase" style={{ color: 'var(--muted)' }}>
+              <tr className="text-left text-xs uppercase text-muted">
                 <th className="px-4 py-2.5">User</th>
                 <th className="px-4 py-2.5">Provider</th>
                 <th className="px-4 py-2.5">Model</th>
@@ -122,32 +110,28 @@ export function Grants({ navigate }: { navigate: (h: string) => void }) {
             <tbody>
               {grants.length === 0 && (
                 <tr>
-                  <td className="px-4 py-3" colSpan={7} style={{ color: 'var(--muted)' }}>
+                  <td className="px-4 py-3 text-muted" colSpan={7}>
                     No grants.
                   </td>
                 </tr>
               )}
               {grants.map((g) => (
-                <tr key={g.userId} className="border-t" style={{ borderColor: 'var(--line)' }}>
+                <tr key={g.userId} className="border-t border-line">
                   <td className="px-4 py-2.5 text-xs">
                     <button
                       onClick={() => navigate(`/users/${encodeURIComponent(g.userId)}`)}
-                      style={{ color: 'var(--accent)' }}
+                      className="text-accent"
                     >
                       {g.userId}
                     </button>
                   </td>
                   <td className="px-4 py-2.5">{g.provider}</td>
                   <td className="px-4 py-2.5 text-xs">{g.model}</td>
-                  <td className="px-4 py-2.5 text-xs" style={{ color: expiryTone(g.expiresAt) }}>
+                  <td className={`px-4 py-2.5 text-xs ${expiryTone(g.expiresAt)}`}>
                     {expiryLabel(g.expiresAt)}
                   </td>
-                  <td className="px-4 py-2.5 text-xs" style={{ color: 'var(--muted)' }}>
-                    {g.note || '—'}
-                  </td>
-                  <td className="px-4 py-2.5 text-xs" style={{ color: 'var(--muted)' }}>
-                    {g.grantedBy || '—'}
-                  </td>
+                  <td className="px-4 py-2.5 text-xs text-muted">{g.note || '—'}</td>
+                  <td className="px-4 py-2.5 text-xs text-muted">{g.grantedBy || '—'}</td>
                   <td className="px-4 py-2.5">
                     <button
                       onClick={async () => {
@@ -158,8 +142,7 @@ export function Grants({ navigate }: { navigate: (h: string) => void }) {
                         reload();
                         setMsg('Grant revoked.');
                       }}
-                      className="text-xs"
-                      style={{ color: '#dc2626' }}
+                      className="text-xs text-danger"
                     >
                       Revoke
                     </button>
@@ -173,9 +156,9 @@ export function Grants({ navigate }: { navigate: (h: string) => void }) {
 
       <section>
         <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
-          <h2 className="text-lg font-bold" style={{ color: 'var(--ink)' }}>
+          <h2 className="text-lg font-bold text-ink">
             Vault keys{' '}
-            <span className="text-sm font-normal" style={{ color: 'var(--muted)' }}>
+            <span className="text-sm font-normal text-muted">
               ({filtered.length}/{users.length})
             </span>
           </h2>
@@ -183,17 +166,13 @@ export function Grants({ navigate }: { navigate: (h: string) => void }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search users…"
-            className="rounded-lg border px-3 py-1.5 text-sm w-56"
-            style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            className="rounded-lg border px-3 py-1.5 text-sm w-56 border-line bg-panel text-ink"
           />
         </div>
-        <div
-          className="rounded-xl border overflow-x-auto"
-          style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-        >
+        <div className="rounded-xl border overflow-x-auto border-line bg-panel">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase" style={{ color: 'var(--muted)' }}>
+              <tr className="text-left text-xs uppercase text-muted">
                 <th className="px-4 py-2.5">User</th>
                 <th className="px-4 py-2.5">Keys</th>
                 <th className="px-4 py-2.5">Grant</th>
@@ -203,7 +182,7 @@ export function Grants({ navigate }: { navigate: (h: string) => void }) {
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td className="px-4 py-3" colSpan={4} style={{ color: 'var(--muted)' }}>
+                  <td className="px-4 py-3 text-muted" colSpan={4}>
                     No matching users.
                   </td>
                 </tr>
@@ -211,30 +190,24 @@ export function Grants({ navigate }: { navigate: (h: string) => void }) {
               {filtered.map((u) => {
                 const g = grantByUser.get(u.id) ?? null;
                 return (
-                  <tr key={u.id} className="border-t" style={{ borderColor: 'var(--line)' }}>
+                  <tr key={u.id} className="border-t border-line">
                     <td className="px-4 py-2.5">
                       <button
                         onClick={() => navigate(`/users/${encodeURIComponent(u.id)}`)}
-                        className="font-semibold text-left"
-                        style={{ color: 'var(--accent)' }}
+                        className="font-semibold text-left text-accent"
                       >
                         {u.name}
                       </button>
-                      <div className="text-[10px]" style={{ color: 'var(--muted)' }}>
-                        {u.id}
-                      </div>
+                      <div className="text-[10px] text-muted">{u.id}</div>
                     </td>
                     <td className="px-4 py-2.5">
                       {u.keys.length === 0 ? (
-                        <span className="text-xs" style={{ color: 'var(--muted)' }}>
-                          none
-                        </span>
+                        <span className="text-xs text-muted">none</span>
                       ) : (
                         u.keys.map((k) => (
                           <span
                             key={k}
-                            className="inline-flex items-center gap-1 text-xs rounded px-1.5 py-0.5 mr-1 border"
-                            style={{ borderColor: 'var(--accent)', color: 'var(--accent-deep)' }}
+                            className="inline-flex items-center gap-1 text-xs rounded px-1.5 py-0.5 mr-1 border border-accent text-accent-deep"
                           >
                             {k}
                             <button
@@ -255,7 +228,7 @@ export function Grants({ navigate }: { navigate: (h: string) => void }) {
                         ))
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-xs" style={{ color: 'var(--muted)' }}>
+                    <td className="px-4 py-2.5 text-xs text-muted">
                       {g
                         ? `${g.provider}/${g.model}`
                         : u.grant
@@ -265,8 +238,7 @@ export function Grants({ navigate }: { navigate: (h: string) => void }) {
                     <td className="px-4 py-2.5 whitespace-nowrap">
                       <button
                         onClick={() => setKeyModal({ id: u.id, name: u.name })}
-                        className="text-xs font-semibold rounded-lg px-2.5 py-1 text-white"
-                        style={{ background: 'var(--accent)' }}
+                        className="text-xs font-semibold rounded-lg px-2.5 py-1 text-white bg-accent"
                       >
                         Paste API key
                       </button>
@@ -304,10 +276,10 @@ function expiryLabel(expiresAt: string | null): string {
 }
 
 function expiryTone(expiresAt: string | null): string {
-  if (!expiresAt) return '#d97706';
+  if (!expiresAt) return 'text-warning';
   const t = Date.parse(expiresAt);
-  if (!Number.isNaN(t) && t < Date.now()) return '#dc2626';
-  return 'var(--muted)';
+  if (!Number.isNaN(t) && t < Date.now()) return 'text-danger';
+  return 'text-muted';
 }
 
 function GrantForm({
@@ -333,10 +305,7 @@ function GrantForm({
   const models = MODELS[provider] ?? [];
 
   return (
-    <div
-      className="rounded-xl border p-4"
-      style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-    >
+    <div className="rounded-xl border p-4 border-line bg-panel">
       <div className="flex flex-wrap gap-2 items-end">
         <Field label="User">
           {/* A datalist keeps this a free-text field — a grant can be issued to a
@@ -346,8 +315,7 @@ function GrantForm({
             value={login}
             onChange={(e) => setLogin(e.target.value)}
             placeholder="github-login"
-            className="rounded-lg border px-3 py-1.5 text-sm w-48"
-            style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            className="rounded-lg border px-3 py-1.5 text-sm w-48 border-line bg-panel text-ink"
           />
           <datalist id="grant-users">
             {users.map((u) => (
@@ -364,8 +332,7 @@ function GrantForm({
               setProvider(e.target.value);
               setModel('');
             }}
-            className="rounded-lg border px-2 py-1.5 text-sm"
-            style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            className="rounded-lg border px-2 py-1.5 text-sm border-line bg-panel text-ink"
           >
             {PROVIDERS.map((p) => (
               <option key={p} value={p} disabled={!funded.includes(p)}>
@@ -379,8 +346,7 @@ function GrantForm({
           <select
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            className="rounded-lg border px-2 py-1.5 text-sm"
-            style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            className="rounded-lg border px-2 py-1.5 text-sm border-line bg-panel text-ink"
           >
             <option value="">model…</option>
             {models.map(([id, label]) => (
@@ -395,8 +361,7 @@ function GrantForm({
             type="date"
             value={expiresAt}
             onChange={(e) => setExpiresAt(e.target.value)}
-            className="rounded-lg border px-2 py-1.5 text-sm"
-            style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            className="rounded-lg border px-2 py-1.5 text-sm border-line bg-panel text-ink"
           />
         </Field>
         <Field label="Note (optional)">
@@ -404,8 +369,7 @@ function GrantForm({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="why this grant exists"
-            className="rounded-lg border px-3 py-1.5 text-sm w-56"
-            style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            className="rounded-lg border px-3 py-1.5 text-sm w-56 border-line bg-panel text-ink"
           />
         </Field>
         <button
@@ -436,17 +400,12 @@ function GrantForm({
               setBusy(false);
             }
           }}
-          className="rounded-lg px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
-          style={{ background: 'var(--accent)' }}
+          className="rounded-lg px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50 bg-accent"
         >
           Save Grant
         </button>
       </div>
-      {err && (
-        <p className="text-sm mt-2" style={{ color: '#dc2626' }}>
-          {err}
-        </p>
-      )}
+      {err && <p className="text-sm mt-2 text-danger">{err}</p>}
     </div>
   );
 }
@@ -455,9 +414,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return (
     // biome-ignore lint/a11y/noLabelWithoutControl: children is always the form control, so the label wraps it.
     <label className="flex flex-col gap-1">
-      <span className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
-        {label}
-      </span>
+      <span className="text-[11px] uppercase tracking-wide text-muted">{label}</span>
       {children}
     </label>
   );
@@ -480,24 +437,17 @@ export function AddKeyModal({
   const [busy, setBusy] = useState(false);
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.5)' }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div
-        className="rounded-2xl border p-5 w-full max-w-md"
-        style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-      >
-        <h3 className="font-bold mb-3" style={{ color: 'var(--ink)' }}>
-          Add API key for {target.name}
-        </h3>
+      <div className="rounded-2xl border p-5 w-full max-w-md border-line bg-panel">
+        <h3 className="font-bold mb-3 text-ink">Add API key for {target.name}</h3>
         <select
           value={provider}
           onChange={(e) => setProvider(e.target.value)}
-          className="w-full rounded-lg border px-2 py-2 text-sm mb-2"
-          style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+          className="w-full rounded-lg border px-2 py-2 text-sm mb-2 border-line bg-panel text-ink"
         >
           {PROVIDERS.map((p) => (
             <option key={p} value={p}>
@@ -511,14 +461,9 @@ export function AddKeyModal({
           onChange={(e) => setKey(e.target.value)}
           placeholder="sk-…  (stored encrypted, never shown again)"
           autoComplete="off"
-          className="w-full rounded-lg border px-3 py-2 text-sm mb-2"
-          style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+          className="w-full rounded-lg border px-3 py-2 text-sm mb-2 border-line bg-panel text-ink"
         />
-        {err && (
-          <p className="text-sm mb-2" style={{ color: '#dc2626' }}>
-            {err}
-          </p>
-        )}
+        {err && <p className="text-sm mb-2 text-danger">{err}</p>}
         <div className="flex gap-2 mt-2">
           <button
             disabled={busy || !key}
@@ -537,15 +482,13 @@ export function AddKeyModal({
                 setBusy(false);
               }
             }}
-            className="flex-1 rounded-lg py-2 text-sm font-semibold text-white disabled:opacity-50"
-            style={{ background: 'var(--accent)' }}
+            className="flex-1 rounded-lg py-2 text-sm font-semibold text-white disabled:opacity-50 bg-accent"
           >
             Save key
           </button>
           <button
             onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm border"
-            style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}
+            className="rounded-lg px-4 py-2 text-sm border border-line text-muted"
           >
             Cancel
           </button>

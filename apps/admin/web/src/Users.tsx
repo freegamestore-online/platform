@@ -28,28 +28,18 @@ export function UsersPage({ navigate }: { navigate: (h: string) => void }) {
   return (
     <div className="flex flex-col gap-8">
       <section>
-        <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--ink)' }}>
-          Registered users{' '}
-          <span className="text-sm font-normal" style={{ color: 'var(--muted)' }}>
-            ({users.length})
-          </span>
+        <h1 className="text-xl font-bold mb-1 text-ink">
+          Registered users <span className="text-sm font-normal text-muted">({users.length})</span>
         </h1>
-        <p className="text-sm mb-3" style={{ color: 'var(--muted)' }}>
+        <p className="text-sm mb-3 text-muted">
           Click <strong>Add key</strong> to paste a provider API key into a user's encrypted vault —
           their studio picks it up automatically.
         </p>
-        {msg && (
-          <p className="text-sm mb-2 font-medium" style={{ color: 'var(--accent-deep)' }}>
-            {msg}
-          </p>
-        )}
-        <div
-          className="rounded-xl border overflow-x-auto"
-          style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-        >
+        {msg && <p className="text-sm mb-2 font-medium text-accent-deep">{msg}</p>}
+        <div className="rounded-xl border border-line bg-panel overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase" style={{ color: 'var(--muted)' }}>
+              <tr className="text-left text-xs uppercase text-muted">
                 <th className="px-4 py-2.5">User</th>
                 <th className="px-4 py-2.5">ID</th>
                 <th className="px-4 py-2.5">Keys</th>
@@ -59,30 +49,24 @@ export function UsersPage({ navigate }: { navigate: (h: string) => void }) {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-t" style={{ borderColor: 'var(--line)' }}>
-                  <td className="px-4 py-2.5 font-medium" style={{ color: 'var(--ink)' }}>
+                <tr key={u.id} className="border-t border-line">
+                  <td className="px-4 py-2.5 font-medium text-ink">
                     <button
                       onClick={() => navigate(`/users/${encodeURIComponent(u.id)}`)}
-                      className="font-semibold text-left"
-                      style={{ color: 'var(--accent)' }}
+                      className="font-semibold text-left text-accent"
                     >
                       {u.name}
                     </button>
                   </td>
-                  <td className="px-4 py-2.5 text-xs" style={{ color: 'var(--muted)' }}>
-                    {u.id}
-                  </td>
+                  <td className="px-4 py-2.5 text-xs text-muted">{u.id}</td>
                   <td className="px-4 py-2.5">
                     {u.keys.length === 0 ? (
-                      <span className="text-xs" style={{ color: 'var(--muted)' }}>
-                        none
-                      </span>
+                      <span className="text-xs text-muted">none</span>
                     ) : (
                       u.keys.map((k) => (
                         <span
                           key={k}
-                          className="inline-flex items-center gap-1 text-xs rounded px-1.5 py-0.5 mr-1 border"
-                          style={{ borderColor: 'var(--accent)', color: 'var(--accent-deep)' }}
+                          className="inline-flex items-center gap-1 text-xs rounded px-1.5 py-0.5 mr-1 border border-accent text-accent-deep"
                         >
                           {k}
                           <button
@@ -102,21 +86,19 @@ export function UsersPage({ navigate }: { navigate: (h: string) => void }) {
                       ))
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-xs" style={{ color: 'var(--muted)' }}>
+                  <td className="px-4 py-2.5 text-xs text-muted">
                     {u.grant ? `${u.grant.provider}/${u.grant.model}` : '—'}
                   </td>
                   <td className="px-4 py-2.5 whitespace-nowrap">
                     <button
                       onClick={() => navigate(`/users/${encodeURIComponent(u.id)}`)}
-                      className="text-xs font-semibold rounded-lg px-2.5 py-1 mr-2 border"
-                      style={{ borderColor: 'var(--line)', color: 'var(--accent)' }}
+                      className="text-xs font-semibold rounded-lg px-2.5 py-1 mr-2 border border-line text-accent"
                     >
                       Open
                     </button>
                     <button
                       onClick={() => setKeyModal({ id: u.id, name: u.name })}
-                      className="text-xs font-semibold rounded-lg px-2.5 py-1 text-white"
-                      style={{ background: 'var(--accent)' }}
+                      className="text-xs font-semibold rounded-lg px-2.5 py-1 text-white bg-accent"
                     >
                       Add key
                     </button>
@@ -128,29 +110,20 @@ export function UsersPage({ navigate }: { navigate: (h: string) => void }) {
         </div>
       </section>
 
-      <p className="text-sm" style={{ color: 'var(--muted)' }}>
+      <p className="text-sm text-muted">
         Complimentary AI grants moved to the{' '}
-        <button
-          onClick={() => navigate('/grants')}
-          className="font-semibold"
-          style={{ color: 'var(--accent)' }}
-        >
+        <button onClick={() => navigate('/grants')} className="font-semibold text-accent">
           Grants
         </button>{' '}
         page.
       </p>
 
       <section>
-        <h2 className="text-lg font-bold mb-2" style={{ color: 'var(--ink)' }}>
-          Creators
-        </h2>
-        <div
-          className="rounded-xl border overflow-x-auto"
-          style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-        >
+        <h2 className="text-lg font-bold mb-2 text-ink">Creators</h2>
+        <div className="rounded-xl border border-line bg-panel overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase" style={{ color: 'var(--muted)' }}>
+              <tr className="text-left text-xs uppercase text-muted">
                 <th className="px-4 py-2.5">GitHub</th>
                 <th className="px-4 py-2.5">Games</th>
                 <th className="px-4 py-2.5">IDs</th>
@@ -158,12 +131,11 @@ export function UsersPage({ navigate }: { navigate: (h: string) => void }) {
             </thead>
             <tbody>
               {(creators ?? []).map((c) => (
-                <tr key={c.login} className="border-t" style={{ borderColor: 'var(--line)' }}>
+                <tr key={c.login} className="border-t border-line">
                   <td className="px-4 py-2.5">
                     <button
                       onClick={() => navigate(`/users/${encodeURIComponent(c.login)}`)}
-                      className="font-semibold mr-2"
-                      style={{ color: 'var(--accent)' }}
+                      className="font-semibold mr-2 text-accent"
                     >
                       {c.login}
                     </button>
@@ -172,19 +144,14 @@ export function UsersPage({ navigate }: { navigate: (h: string) => void }) {
                         href={`https://github.com/${c.login}`}
                         target="_blank"
                         rel="noopener"
-                        className="text-xs"
-                        style={{ color: 'var(--muted)' }}
+                        className="text-xs text-muted"
                       >
                         GitHub
                       </a>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 font-bold" style={{ color: 'var(--ink)' }}>
-                    {c.games.length}
-                  </td>
-                  <td className="px-4 py-2.5 text-xs" style={{ color: 'var(--muted)' }}>
-                    {c.games.join(', ')}
-                  </td>
+                  <td className="px-4 py-2.5 font-bold text-ink">{c.games.length}</td>
+                  <td className="px-4 py-2.5 text-xs text-muted">{c.games.join(', ')}</td>
                 </tr>
               ))}
             </tbody>

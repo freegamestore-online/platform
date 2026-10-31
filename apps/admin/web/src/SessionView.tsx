@@ -96,21 +96,15 @@ export function SessionView({ id, navigate }: { id: string; navigate: (h: string
   const start = Math.max(0, msgs.length - win);
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100dvh - 8rem)' }}>
+    <div className="flex flex-col h-[calc(100dvh-8rem)]">
       <div className="flex items-center gap-3 mb-3">
-        <button
-          onClick={() => navigate('/sessions')}
-          className="text-sm"
-          style={{ color: 'var(--muted)' }}
-        >
+        <button onClick={() => navigate('/sessions')} className="text-sm text-muted">
           &larr; Sessions
         </button>
-        <h1 className="text-lg font-bold flex-1" style={{ color: 'var(--ink)' }}>
+        <h1 className="text-lg font-bold flex-1 text-ink">
           {history.appName || history.appId || id.slice(0, 12)}
         </h1>
-        <span className="text-xs" style={{ color: '#059669' }}>
-          ● live
-        </span>
+        <span className="text-xs text-success">● live</span>
         <button
           onClick={async () => {
             if (!showErrors && errors === null) {
@@ -128,8 +122,7 @@ export function SessionView({ id, navigate }: { id: string; navigate: (h: string
             }
             setShowErrors((v) => !v);
           }}
-          className="text-xs rounded-lg border px-2.5 py-1"
-          style={{ borderColor: '#fca5a5', color: '#dc2626' }}
+          className="text-xs rounded-lg border border-danger/40 text-danger px-2.5 py-1"
         >
           {showErrors ? 'Transcript' : 'Errors'}
         </button>
@@ -137,27 +130,18 @@ export function SessionView({ id, navigate }: { id: string; navigate: (h: string
 
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto rounded-xl border p-3"
-        style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
+        className="flex-1 overflow-y-auto rounded-xl border border-line bg-panel p-3"
       >
         {showErrors ? (
           (errors ?? []).length === 0 ? (
-            <p className="text-sm" style={{ color: '#059669' }}>
-              No server-side errors for this session.
-            </p>
+            <p className="text-sm text-success">No server-side errors for this session.</p>
           ) : (
             (errors ?? []).map((e, i) => (
-              <div
-                key={i}
-                className="rounded-lg border p-3 mb-2"
-                style={{ borderColor: '#fca5a5', background: '#fef2f2' }}
-              >
-                <div className="text-xs mb-1" style={{ color: 'var(--muted)' }}>
+              <div key={i} className="rounded-lg border border-danger/40 bg-danger-soft p-3 mb-2">
+                <div className="text-xs mb-1 text-muted">
                   <span className="font-semibold">{e.source}</span> · {e.timestamp}
                 </div>
-                <pre className="text-xs whitespace-pre-wrap" style={{ color: '#b91c1c' }}>
-                  {e.message}
-                </pre>
+                <pre className="text-xs whitespace-pre-wrap text-danger">{e.message}</pre>
               </div>
             ))
           )
@@ -166,8 +150,7 @@ export function SessionView({ id, navigate }: { id: string; navigate: (h: string
             {start > 0 && (
               <button
                 onClick={() => setWin((w) => w + PAGE)}
-                className="block mx-auto mb-3 text-xs rounded-full border px-3 py-1"
-                style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}
+                className="block mx-auto mb-3 text-xs rounded-full border border-line text-muted px-3 py-1"
               >
                 ↑ Load earlier ({start} older)
               </button>
@@ -188,22 +171,16 @@ export function SessionView({ id, navigate }: { id: string; navigate: (h: string
             if (e.key === 'Enter') send();
           }}
           placeholder="Send a prompt into this session (runs as the user, with their key)…"
-          className="flex-1 rounded-xl border px-3 py-2.5 text-sm"
-          style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+          className="flex-1 rounded-xl border border-line bg-panel text-ink px-3 py-2.5 text-sm"
         />
         <button
           onClick={send}
-          className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
-          style={{ background: 'var(--accent)' }}
+          className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white bg-accent"
         >
           Send
         </button>
       </div>
-      {chatState && (
-        <p className="text-xs mt-1.5" style={{ color: 'var(--muted)' }}>
-          {chatState}
-        </p>
-      )}
+      {chatState && <p className="text-xs mt-1.5 text-muted">{chatState}</p>}
     </div>
   );
 }
@@ -211,8 +188,7 @@ export function SessionView({ id, navigate }: { id: string; navigate: (h: string
 function Bubble({ m }: { m: TranscriptMessage }) {
   const ts = m.ts ? (
     <span
-      className="float-right text-[10px] ml-2"
-      style={{ color: 'var(--muted)' }}
+      className="float-right text-[10px] ml-2 text-muted"
       title={m.ts ? new Date(m.ts).toISOString() : ''}
     >
       {fmtTs(m.ts)}
@@ -220,12 +196,10 @@ function Bubble({ m }: { m: TranscriptMessage }) {
   ) : null;
   if (m.role === 'user') {
     return (
-      <div className="rounded-xl px-3 py-2 mb-2" style={{ background: 'var(--accent-soft)' }}>
+      <div className="rounded-xl px-3 py-2 mb-2 bg-accent-soft">
         {ts}
-        <span className="text-xs font-bold" style={{ color: 'var(--accent-deep)' }}>
-          User
-        </span>
-        <div className="text-sm whitespace-pre-wrap mt-0.5" style={{ color: 'var(--ink)' }}>
+        <span className="text-xs font-bold text-accent-deep">User</span>
+        <div className="text-sm whitespace-pre-wrap mt-0.5 text-ink">
           {(m.content || '').slice(0, 4000)}
         </div>
       </div>
@@ -237,8 +211,7 @@ function Bubble({ m }: { m: TranscriptMessage }) {
       return (
         <span
           key={i}
-          className="inline-block text-[11px] rounded border px-1.5 py-0.5 mr-1 mt-1"
-          style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}
+          className="inline-block text-[11px] rounded border border-line text-muted px-1.5 py-0.5 mr-1 mt-1"
         >
           {tc.name}
           {arg ? ` ${arg}` : ''}
@@ -246,15 +219,11 @@ function Bubble({ m }: { m: TranscriptMessage }) {
       );
     });
     return (
-      <div className="rounded-xl px-3 py-2 mb-2 border" style={{ borderColor: 'var(--line)' }}>
+      <div className="rounded-xl px-3 py-2 mb-2 border border-line">
         {ts}
-        <span className="text-xs font-bold" style={{ color: '#059669' }}>
-          AI
-        </span>
-        <div className="text-sm whitespace-pre-wrap mt-0.5" style={{ color: 'var(--ink)' }}>
-          {(m.content || '').slice(0, 4000) || (
-            <span style={{ color: 'var(--muted)' }}>(tool call)</span>
-          )}
+        <span className="text-xs font-bold text-success">AI</span>
+        <div className="text-sm whitespace-pre-wrap mt-0.5 text-ink">
+          {(m.content || '').slice(0, 4000) || <span className="text-muted">(tool call)</span>}
         </div>
         {tools.length > 0 && <div>{tools}</div>}
       </div>
@@ -265,20 +234,17 @@ function Bubble({ m }: { m: TranscriptMessage }) {
     if (rs.length === 0) return null;
     return (
       <details className="ml-4 mb-2">
-        <summary className="text-xs cursor-pointer" style={{ color: 'var(--muted)' }}>
+        <summary className="text-xs cursor-pointer text-muted">
           {ts}tool result{rs.length > 1 ? `s (${rs.length})` : ''}
         </summary>
-        <pre
-          className="text-[11px] whitespace-pre-wrap mt-1 rounded-lg border p-2 max-h-56 overflow-auto"
-          style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}
-        >
+        <pre className="text-[11px] whitespace-pre-wrap mt-1 rounded-lg border border-line text-muted p-2 max-h-56 overflow-auto">
           {rs.join('\n───\n')}
         </pre>
       </details>
     );
   }
   return (
-    <div className="text-xs mb-1" style={{ color: 'var(--muted)' }}>
+    <div className="text-xs mb-1 text-muted">
       {m.role}: {(m.content || '').slice(0, 300)}
     </div>
   );

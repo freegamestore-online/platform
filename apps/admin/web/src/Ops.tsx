@@ -33,6 +33,7 @@ interface DriftReport {
 
 const ACTIVE_PHASES = new Set(['writing', 'provisioning', 'pushing', 'building']);
 const STUCK_MS = 20 * 60 * 1000;
+const ROW_CARD = 'rounded-lg border border-line bg-paper px-3 py-2';
 
 export function Ops({ navigate }: { navigate: (h: string) => void }) {
   const [data, setData] = useState<OpsData | null>(null);
@@ -111,16 +112,12 @@ export function Ops({ navigate }: { navigate: (h: string) => void }) {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
-          <h1 className="text-xl font-bold" style={{ color: 'var(--ink)' }}>
-            Operations
-          </h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
+          <h1 className="text-xl font-bold text-ink">Operations</h1>
+          <p className="text-sm mt-1 text-muted">
             Agent work, creator support, and game health in one queue.
           </p>
         </div>
-        <div className="text-xs" style={{ color: 'var(--muted)' }}>
-          Last loaded {new Date().toLocaleTimeString()}
-        </div>
+        <div className="text-xs text-muted">Last loaded {new Date().toLocaleTimeString()}</div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
@@ -167,18 +164,13 @@ export function Ops({ navigate }: { navigate: (h: string) => void }) {
               <button
                 key={u.id}
                 onClick={() => navigate(`/users/${encodeURIComponent(u.id)}`)}
-                className="block w-full text-left rounded-lg border px-3 py-2"
-                style={{ borderColor: 'var(--line)', background: 'var(--paper)' }}
+                className={`block w-full text-left ${ROW_CARD}`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>
-                    {u.name}
-                  </span>
-                  <span className="text-xs" style={{ color: 'var(--warning)' }}>
-                    no key/grant
-                  </span>
+                  <span className="font-semibold text-sm text-ink">{u.name}</span>
+                  <span className="text-xs text-warning">no key/grant</span>
                 </div>
-                <div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
+                <div className="text-xs mt-1 text-muted">
                   Last seen {timeAgo(u.lastSeen || u.createdAt || undefined)}
                 </div>
               </button>
@@ -197,21 +189,19 @@ export function Ops({ navigate }: { navigate: (h: string) => void }) {
                 href={`https://${game.domain}`}
                 target="_blank"
                 rel="noopener"
-                className="block rounded-lg border px-3 py-2"
-                style={{ borderColor: 'var(--line)', background: 'var(--paper)' }}
+                className={`block ${ROW_CARD}`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>
-                    {game.name}
-                  </span>
+                  <span className="font-semibold text-sm text-ink">{game.name}</span>
                   <span
-                    className="text-xs font-bold"
-                    style={{ color: q && q.score >= 80 ? 'var(--warning)' : 'var(--error)' }}
+                    className={`text-xs font-bold ${
+                      q && q.score >= 80 ? 'text-warning' : 'text-danger'
+                    }`}
                   >
                     {q?.score ?? '-'}
                   </span>
                 </div>
-                <div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
+                <div className="text-xs mt-1 text-muted">
                   {q?.loadTimeMs ?? '-'}ms load, {q?.consoleErrors.length ?? 0} console errors
                 </div>
               </a>
@@ -226,20 +216,14 @@ export function Ops({ navigate }: { navigate: (h: string) => void }) {
           <div className="space-y-2">
             {data.drift === null && <Empty text="Drift check unavailable right now." />}
             {data.drift?.drifted.map((d) => (
-              <div
-                key={d.id}
-                className="rounded-lg border px-3 py-2"
-                style={{ borderColor: 'var(--line)', background: 'var(--paper)' }}
-              >
+              <div key={d.id} className={ROW_CARD}>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold" style={{ color: 'var(--error)' }}>
-                    {d.id}
-                  </span>
-                  <span className="text-[11px] whitespace-nowrap" style={{ color: 'var(--muted)' }}>
+                  <span className="text-xs font-semibold text-danger">{d.id}</span>
+                  <span className="text-[11px] whitespace-nowrap text-muted">
                     serving {d.lastSuccessSha ?? '?'} · head {d.headSha ?? '?'}
                   </span>
                 </div>
-                <div className="text-xs mt-1" style={{ color: 'var(--ink)' }}>
+                <div className="text-xs mt-1 text-ink">
                   Commits on main have never been built to R2 — players are on an older build.
                 </div>
               </div>
@@ -250,7 +234,7 @@ export function Ops({ navigate }: { navigate: (h: string) => void }) {
               />
             )}
             {data.drift && data.drift.unknown.length > 0 && (
-              <div className="text-[11px] pt-1" style={{ color: 'var(--muted)' }}>
+              <div className="text-[11px] pt-1 text-muted">
                 {data.drift.unknown.length} game(s) could not be checked:{' '}
                 {data.drift.unknown.join(', ')}
               </div>
@@ -261,22 +245,12 @@ export function Ops({ navigate }: { navigate: (h: string) => void }) {
         <Panel title="Recent Platform Errors">
           <div className="space-y-2">
             {data.errors.slice(0, 8).map((e, i) => (
-              <div
-                key={`${e.ts}-${i}`}
-                className="rounded-lg border px-3 py-2"
-                style={{ borderColor: 'var(--line)', background: 'var(--paper)' }}
-              >
+              <div key={`${e.ts}-${i}`} className={ROW_CARD}>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold" style={{ color: 'var(--error)' }}>
-                    {e.source}
-                  </span>
-                  <span className="text-[11px] whitespace-nowrap" style={{ color: 'var(--muted)' }}>
-                    {timeAgo(e.ts)}
-                  </span>
+                  <span className="text-xs font-semibold text-danger">{e.source}</span>
+                  <span className="text-[11px] whitespace-nowrap text-muted">{timeAgo(e.ts)}</span>
                 </div>
-                <div className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--ink)' }}>
-                  {e.message}
-                </div>
+                <div className="text-xs mt-1 line-clamp-2 text-ink">{e.message}</div>
               </div>
             ))}
             {data.errors.length === 0 && <Empty text="No recent platform errors." />}
@@ -301,7 +275,7 @@ function SessionTable({
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-left text-xs uppercase" style={{ color: 'var(--muted)' }}>
+          <tr className="text-left text-xs uppercase text-muted">
             <th className="py-2 pr-3">State</th>
             <th className="py-2 pr-3">Session</th>
             <th className="py-2 pr-3">Game</th>
@@ -313,24 +287,17 @@ function SessionTable({
             <tr
               key={s.id}
               onClick={() => navigate(`/sessions/${s.id}`)}
-              className="border-t cursor-pointer hover:opacity-80"
-              style={{ borderColor: 'var(--line)' }}
+              className="border-t border-line cursor-pointer hover:opacity-80"
             >
               <td className="py-2 pr-3">
                 <ActivityBadge session={s} />
               </td>
               <td className="py-2 pr-3">
-                <div className="font-semibold" style={{ color: 'var(--ink)' }}>
-                  {s.name}
-                </div>
-                <div className="text-xs" style={{ color: 'var(--muted)' }}>
-                  {s.user}
-                </div>
+                <div className="font-semibold text-ink">{s.name}</div>
+                <div className="text-xs text-muted">{s.user}</div>
               </td>
-              <td className="py-2 pr-3">
-                {s.gameId || <span style={{ color: 'var(--muted)' }}>-</span>}
-              </td>
-              <td className="py-2 pr-3 text-xs whitespace-nowrap" style={{ color: 'var(--muted)' }}>
+              <td className="py-2 pr-3">{s.gameId || <span className="text-muted">-</span>}</td>
+              <td className="py-2 pr-3 text-xs whitespace-nowrap text-muted">
                 {timeAgo(s.activity?.updatedAt || s.updatedAt)}
               </td>
             </tr>
@@ -345,14 +312,14 @@ export function ActivityBadge({ session }: { session: SessionRow }) {
   const phase = session.activity?.phase ?? (session.deployed ? 'live' : 'idle');
   const age = Date.now() - tsMs(session.activity?.updatedAt || session.updatedAt);
   const stuck = ACTIVE_PHASES.has(phase) && age > STUCK_MS;
-  const color =
+  const tone =
     phase === 'error' || stuck
-      ? 'var(--error)'
+      ? 'border-danger text-danger'
       : phase === 'live'
-        ? 'var(--success)'
+        ? 'border-success text-success'
         : ACTIVE_PHASES.has(phase)
-          ? 'var(--warning)'
-          : 'var(--muted)';
+          ? 'border-warning text-warning'
+          : 'border-muted text-muted';
   const label = stuck ? 'stuck' : phase;
   const title = [
     session.activity?.detail,
@@ -362,9 +329,8 @@ export function ActivityBadge({ session }: { session: SessionRow }) {
     .join(' - ');
   return (
     <span
-      className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold"
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${tone}`}
       title={title}
-      style={{ borderColor: color, color }}
     >
       {label}
     </span>
@@ -373,13 +339,8 @@ export function ActivityBadge({ session }: { session: SessionRow }) {
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section
-      className="rounded-xl border p-4"
-      style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-    >
-      <h2 className="text-sm font-bold mb-3" style={{ color: 'var(--ink)' }}>
-        {title}
-      </h2>
+    <section className="rounded-xl border border-line bg-panel p-4">
+      <h2 className="text-sm font-bold mb-3 text-ink">{title}</h2>
       {children}
     </section>
   );
@@ -396,33 +357,22 @@ function Stat({
 }) {
   const color =
     tone === 'bad'
-      ? 'var(--error)'
+      ? 'text-danger'
       : tone === 'warn'
-        ? 'var(--warning)'
+        ? 'text-warning'
         : tone === 'good'
-          ? 'var(--success)'
-          : 'var(--ink)';
+          ? 'text-success'
+          : 'text-ink';
   return (
-    <div
-      className="rounded-xl border p-4"
-      style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-    >
-      <div className="text-2xl font-bold" style={{ color }}>
-        {value}
-      </div>
-      <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
-        {label}
-      </div>
+    <div className="rounded-xl border border-line bg-panel p-4">
+      <div className={`text-2xl font-bold ${color}`}>{value}</div>
+      <div className="text-xs mt-0.5 text-muted">{label}</div>
     </div>
   );
 }
 
 function Empty({ text }: { text: string }) {
-  return (
-    <p className="text-sm" style={{ color: 'var(--muted)' }}>
-      {text}
-    </p>
-  );
+  return <p className="text-sm text-muted">{text}</p>;
 }
 
 function tsMs(ts: string | null | undefined): number {

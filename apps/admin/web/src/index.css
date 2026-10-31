@@ -1,5 +1,27 @@
 @import "tailwindcss";
 
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-deep: var(--paper-deep);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-panel: var(--panel);
+  --color-panel-strong: var(--panel-strong);
+  --color-popover: var(--popover);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-deep: var(--accent-deep);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-scrim: var(--scrim);
+}
+
 @layer base {
   :root {
     color-scheme: light;
@@ -9,14 +31,19 @@
     --muted: #666666;
     --line: rgba(0, 0, 0, 0.08);
     --line-strong: rgba(0, 0, 0, 0.14);
-    --panel: rgba(255, 255, 255, 0.72);
-    --panel-strong: rgba(255, 255, 255, 0.88);
+    --panel: #ffffff;
+    --panel-strong: #ffffff;
     --accent: #10b981;
     --accent-soft: #ecfdf5;
     --accent-deep: #059669;
     --success: #2f8f57;
     --warning: #c6862a;
-    --error: #c74f43;
+    --danger: #c74f43;
+    --danger-soft: #fef2f2;
+    --success-soft: #ecfdf5;
+    --warning-soft: #fffbeb;
+    --popover: var(--paper);
+    --scrim: rgba(0, 0, 0, 0.5);
     --bg-start: #ffffff;
     --bg-mid: #fafafa;
     --bg-end: #f5f5f5;
@@ -32,14 +59,18 @@
     --muted: #888888;
     --line: rgba(255, 255, 255, 0.08);
     --line-strong: rgba(255, 255, 255, 0.14);
-    --panel: rgba(18, 18, 18, 0.8);
-    --panel-strong: rgba(18, 18, 18, 0.92);
+    --panel: #121212;
+    --panel-strong: #161616;
     --accent: #3b82f6;
     --accent-soft: #1e3a8a;
     --accent-deep: #93c5fd;
     --success: #74d49a;
     --warning: #f0bd6e;
-    --error: #ff7a72;
+    --danger: #ff7a72;
+    --danger-soft: #3a1512;
+    --success-soft: #0f2a1a;
+    --warning-soft: #2e2208;
+    --scrim: rgba(0, 0, 0, 0.6);
     --bg-start: #000000;
     --bg-mid: #050505;
     --bg-end: #0a0a0a;

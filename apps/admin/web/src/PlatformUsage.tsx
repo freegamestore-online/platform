@@ -63,7 +63,7 @@ function Bars({
             y={height - h}
             width={Math.max(1, slot - 1)}
             height={h}
-            fill="var(--accent)"
+            className="fill-accent"
             opacity={v > 0 ? 0.85 : 0.15}
           >
             <title>{`${v.toLocaleString()} views`}</title>
@@ -76,21 +76,10 @@ function Bars({
 
 function Card({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div
-      className="rounded-xl border p-4"
-      style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-    >
-      <div className="text-xs uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
-        {label}
-      </div>
-      <div className="text-2xl font-bold mt-1 tabular-nums" style={{ color: 'var(--ink)' }}>
-        {value}
-      </div>
-      {note && (
-        <div className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
-          {note}
-        </div>
-      )}
+    <div className="rounded-xl border border-line bg-panel p-4">
+      <div className="text-xs uppercase tracking-wide text-muted">{label}</div>
+      <div className="text-2xl font-bold mt-1 tabular-nums text-ink">{value}</div>
+      {note && <div className="text-xs mt-1 text-muted">{note}</div>}
     </div>
   );
 }
@@ -138,12 +127,7 @@ export function PlatformUsagePage({ navigate }: { navigate: (h: string) => void 
   const arrow = (key: SortKey) => (key === sortKey ? (sortDesc ? ' ↓' : ' ↑') : '');
   const th = (key: SortKey, text: string, align: 'left' | 'right' = 'right') => (
     <th className={`py-2 px-2 font-medium ${align === 'left' ? 'text-left' : 'text-right'}`}>
-      <button
-        type="button"
-        onClick={() => sortBy(key)}
-        className="font-medium"
-        style={{ color: 'var(--muted)' }}
-      >
+      <button type="button" onClick={() => sortBy(key)} className="font-medium text-muted">
         {text}
         {arrow(key)}
       </button>
@@ -154,13 +138,11 @@ export function PlatformUsagePage({ navigate }: { navigate: (h: string) => void 
     <div>
       <div className="flex items-end justify-between flex-wrap gap-3 mb-4">
         <div>
-          <h1 className="text-xl font-bold" style={{ color: 'var(--ink)' }}>
+          <h1 className="text-xl font-bold text-ink">
             Usage{' '}
-            <span className="text-sm font-normal" style={{ color: 'var(--muted)' }}>
-              across {data.games.length} games
-            </span>
+            <span className="text-sm font-normal text-muted">across {data.games.length} games</span>
           </h1>
-          <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
+          <p className="text-xs mt-1 text-muted">
             Page views from the platform loader. Visitors aren&apos;t recorded (no cookie, no IP
             stored), so &ldquo;distinct pages&rdquo; stands in for them.
           </p>
@@ -169,12 +151,9 @@ export function PlatformUsagePage({ navigate }: { navigate: (h: string) => void 
           <button
             type="button"
             onClick={() => setFlaggedOnly((v) => !v)}
-            className="rounded-lg border px-3 py-1.5 text-sm font-medium"
-            style={
-              flaggedOnly
-                ? { borderColor: '#d97706', background: '#d97706', color: '#fff' }
-                : { borderColor: 'var(--line)', color: 'var(--muted)' }
-            }
+            className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
+              flaggedOnly ? 'border-warning bg-warning text-white' : 'border-line text-muted'
+            }`}
           >
             No views ({data.flaggedCount})
           </button>
@@ -182,8 +161,7 @@ export function PlatformUsagePage({ navigate }: { navigate: (h: string) => void 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search…"
-            className="rounded-lg border px-3 py-1.5 text-sm w-44"
-            style={{ borderColor: 'var(--line)', background: 'var(--panel)', color: 'var(--ink)' }}
+            className="rounded-lg border border-line bg-panel text-ink px-3 py-1.5 text-sm w-44"
           />
         </div>
       </div>
@@ -195,13 +173,8 @@ export function PlatformUsagePage({ navigate }: { navigate: (h: string) => void 
         <Card label="Distinct pages · 30 days" value={fmt(data.totals.distinctPages30)} />
       </div>
 
-      <div
-        className="rounded-xl border p-4 mb-4"
-        style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-      >
-        <div className="text-xs mb-2" style={{ color: 'var(--muted)' }}>
-          All games, last {data.days} days
-        </div>
+      <div className="rounded-xl border border-line bg-panel p-4 mb-4">
+        <div className="text-xs mb-2 text-muted">All games, last {data.days} days</div>
         <div className="h-24">
           <Bars
             values={data.daily.map((d) => d.views)}
@@ -212,36 +185,30 @@ export function PlatformUsagePage({ navigate }: { navigate: (h: string) => void 
         </div>
       </div>
 
-      <div
-        className="rounded-xl border overflow-x-auto"
-        style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-      >
+      <div className="rounded-xl border border-line bg-panel overflow-x-auto">
         <table className="w-full text-sm">
-          <thead style={{ borderBottom: '1px solid var(--line)' }}>
+          <thead className="border-b border-line">
             <tr>
               {th('name', 'Game', 'left')}
               {th('views7', 'Views 7d')}
               {th('views30', 'Views 30d')}
               {th('distinctPages30', 'Distinct pages 30d')}
-              <th className="py-2 px-2 font-medium text-left" style={{ color: 'var(--muted)' }}>
-                Trend 30d
-              </th>
+              <th className="py-2 px-2 font-medium text-left text-muted">Trend 30d</th>
               {th('flagged', 'Status', 'left')}
             </tr>
           </thead>
           <tbody>
             {rows.map((g) => (
-              <tr key={g.id} style={{ borderTop: '1px solid var(--line)' }}>
+              <tr key={g.id} className="border-t border-line">
                 <td className="py-2 px-2">
                   <button
                     type="button"
                     onClick={() => navigate(`/games/${g.id}`)}
-                    className="font-medium text-left"
-                    style={{ color: 'var(--ink)' }}
+                    className="font-medium text-left text-ink"
                   >
                     {g.name}
                   </button>
-                  <div className="text-xs" style={{ color: 'var(--muted)' }}>
+                  <div className="text-xs text-muted">
                     {g.id}
                     {g.creatorGithub ? ` · ${g.creatorGithub}` : ''}
                   </div>
@@ -263,39 +230,34 @@ export function PlatformUsagePage({ navigate }: { navigate: (h: string) => void 
                   {g.flagged ? (
                     <span
                       title="No page views in 30 days. The game is probably missing the platform analytics loader."
-                      className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold"
-                      style={{ borderColor: '#d97706', color: '#d97706' }}
+                      className="inline-flex items-center rounded-full border border-warning text-warning px-1.5 py-0.5 text-[10px] font-semibold"
                     >
                       no views
                     </span>
                   ) : (
-                    <span className="text-xs" style={{ color: 'var(--muted)' }}>
-                      {g.status ?? 'live'}
-                    </span>
+                    <span className="text-xs text-muted">{g.status ?? 'live'}</span>
                   )}
                 </td>
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-6 text-center" style={{ color: 'var(--muted)' }}>
+                <td colSpan={6} className="py-6 text-center text-muted">
                   No games match.
                 </td>
               </tr>
             )}
           </tbody>
-          <tfoot style={{ borderTop: '1px solid var(--line)' }}>
+          <tfoot className="border-t border-line">
             <tr className="font-semibold">
-              <td className="py-2 px-2" style={{ color: 'var(--ink)' }}>
-                Total · {data.games.length} games
-              </td>
+              <td className="py-2 px-2 text-ink">Total · {data.games.length} games</td>
               <td className="py-2 px-2 text-right tabular-nums">{fmt(data.totals.views7)}</td>
               <td className="py-2 px-2 text-right tabular-nums">{fmt(data.totals.views30)}</td>
               <td className="py-2 px-2 text-right tabular-nums">
                 {fmt(data.totals.distinctPages30)}
               </td>
               <td />
-              <td className="py-2 px-2 text-xs font-normal" style={{ color: 'var(--muted)' }}>
+              <td className="py-2 px-2 text-xs font-normal text-muted">
                 {data.flaggedCount} with no views
               </td>
             </tr>

@@ -41,16 +41,14 @@ export function CiReport() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--ink)' }}>
-        CI test report
-      </h1>
-      <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
+      <h1 className="text-xl font-bold mb-1 text-ink">CI test report</h1>
+      <p className="text-sm mb-4 text-muted">
         The most recent report uploaded by CI. Rendered sandboxed — it is generated output, not
         trusted markup.
       </p>
 
       {state.kind === 'unprovisioned' && (
-        <Notice tone="var(--warning, #d97706)" title="Not provisioned yet">
+        <Notice tone="text-warning" title="Not provisioned yet">
           The <code>CI_KV</code> namespace is not bound, so there is nowhere to store a report.
           Create it with <code>wrangler kv namespace create fgs-admin-kv</code>, uncomment the
           binding in <code>apps/admin/wrangler.toml</code>, and set <code>CI_TOKEN</code> so CI can
@@ -59,13 +57,13 @@ export function CiReport() {
       )}
 
       {state.kind === 'empty' && (
-        <Notice tone="var(--muted)" title="No report uploaded yet">
+        <Notice tone="text-muted" title="No report uploaded yet">
           KV is bound but empty — CI has not yet <code>PUT /api/ci/test-report</code>.
         </Notice>
       )}
 
       {state.kind === 'error' && (
-        <Notice tone="var(--error, #dc2626)" title="Could not load the report">
+        <Notice tone="text-danger" title="Could not load the report">
           {state.message}
         </Notice>
       )}
@@ -75,8 +73,7 @@ export function CiReport() {
           title="CI test report"
           sandbox=""
           srcDoc={state.html}
-          className="w-full rounded-xl border"
-          style={{ borderColor: 'var(--line)', background: '#fff', height: '75vh' }}
+          className="w-full rounded-xl border border-line bg-white h-[75vh]"
         />
       )}
     </div>
@@ -93,16 +90,9 @@ function Notice({
   children: React.ReactNode;
 }) {
   return (
-    <div
-      className="rounded-xl border p-4"
-      style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-    >
-      <div className="text-sm font-semibold mb-1" style={{ color: tone }}>
-        {title}
-      </div>
-      <div className="text-sm" style={{ color: 'var(--muted)' }}>
-        {children}
-      </div>
+    <div className="rounded-xl border border-line bg-panel p-4">
+      <div className={`text-sm font-semibold mb-1 ${tone}`}>{title}</div>
+      <div className="text-sm text-muted">{children}</div>
     </div>
   );
 }

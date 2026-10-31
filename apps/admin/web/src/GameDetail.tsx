@@ -49,9 +49,10 @@ interface DeleteResult {
   steps?: { name: string; status: 'ok' | 'skip' | 'fail'; detail: string }[];
 }
 
-const OK = '#059669';
-const WARN = '#d97706';
-const BAD = '#dc2626';
+// Complete class-name literals so Tailwind's source scan sees them.
+const OK = 'text-success';
+const WARN = 'text-warning';
+const BAD = 'text-danger';
 
 export function GameDetail({ id, navigate }: { id: string; navigate: (h: string) => void }) {
   const [detail, setDetail] = useState<GameDetail | null>(null);
@@ -126,35 +127,26 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
 
   return (
     <div>
-      <button
-        onClick={() => navigate('/games')}
-        className="text-sm mb-3"
-        style={{ color: 'var(--accent)' }}
-      >
+      <button onClick={() => navigate('/games')} className="text-sm mb-3 text-accent">
         ← Games
       </button>
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-        <h1 className="text-xl font-bold" style={{ color: 'var(--ink)' }}>
-          {detail.name}{' '}
-          <span className="text-sm font-normal" style={{ color: 'var(--muted)' }}>
-            {detail.id}
-          </span>
+        <h1 className="text-xl font-bold text-ink">
+          {detail.name} <span className="text-sm font-normal text-muted">{detail.id}</span>
         </h1>
         <div className="flex items-center gap-2">
           <button
             onClick={healRoute}
             disabled={healing || !detail.listed}
             title="Re-insert this game's D1 hosting route now instead of waiting for the hourly reconcile. Idempotent."
-            className="rounded-lg border px-3 py-1.5 text-sm font-semibold disabled:opacity-50"
-            style={{ borderColor: 'var(--line)', color: 'var(--accent)' }}
+            className="rounded-lg border border-line px-3 py-1.5 text-sm font-semibold text-accent disabled:opacity-50"
           >
             {healing ? 'Healing…' : 'Re-heal route'}
           </button>
           <button
             onClick={() => setConfirming(true)}
             disabled={deleting || !detail.listed}
-            className="rounded-lg border px-3 py-1.5 text-sm font-semibold disabled:opacity-50"
-            style={{ borderColor: BAD, color: BAD }}
+            className="rounded-lg border border-danger px-3 py-1.5 text-sm font-semibold text-danger disabled:opacity-50"
           >
             {detail.listed ? 'Deprovision' : 'Deprovisioned'}
           </button>
@@ -195,12 +187,11 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
       </div>
 
       {source && (
-        <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
+        <p className="text-sm mb-4 text-muted">
           Remixed from{' '}
           <button
             onClick={() => navigate(`/games/${sourceId(source)}`)}
-            className="underline"
-            style={{ color: 'var(--accent)' }}
+            className="underline text-accent"
           >
             {forkSourceLabel(source)}
           </button>
@@ -214,10 +205,7 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
           template scaffold too (#22). Say so where an operator would otherwise
           read green and stop looking. */}
       {detail.http.ok && detail.status !== 'live' && (
-        <div
-          className="rounded-xl border px-4 py-3 mb-4 text-sm"
-          style={{ borderColor: WARN, color: WARN }}
-        >
+        <div className="rounded-xl border border-warning px-4 py-3 mb-4 text-sm text-warning">
           This game answers HTTP 200 but has never built successfully — the host is serving the
           template scaffold, not the creator's code.
         </div>
@@ -236,19 +224,19 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
             <Card
               label="Requests"
               value={traffic.totals.requests.toLocaleString()}
-              tone="var(--ink)"
+              tone="text-ink"
               note={traffic.host}
             />
             <Card
               label="Page views"
               value={traffic.totals.pageViews.toLocaleString()}
-              tone="var(--ink)"
+              tone="text-ink"
               note={`${traffic.since} → ${traffic.until}`}
             />
             <Card
               label="Unique visitors"
               value={traffic.totals.visitors.toLocaleString()}
-              tone="var(--ink)"
+              tone="text-ink"
               note={`${traffic.days.length} day(s) reported`}
             />
           </div>
@@ -259,41 +247,29 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
         {detail.runs.length === 0 && <Empty text="No deploy.yml runs found." />}
         <div className="space-y-2">
           {detail.runs.map((r, i) => (
-            <div
-              key={`${r.sha}-${i}`}
-              className="rounded-lg border px-3 py-2"
-              style={{ borderColor: 'var(--line)', background: 'var(--paper)' }}
-            >
+            <div key={`${r.sha}-${i}`} className="rounded-lg border border-line bg-paper px-3 py-2">
               <div className="flex items-center justify-between gap-2">
                 <span
-                  className="text-xs font-semibold"
-                  style={{
-                    color:
-                      r.conclusion === 'success'
-                        ? OK
-                        : r.conclusion === 'failure' || r.conclusion === 'timed_out'
-                          ? BAD
-                          : WARN,
-                  }}
+                  className={`text-xs font-semibold ${
+                    r.conclusion === 'success'
+                      ? OK
+                      : r.conclusion === 'failure' || r.conclusion === 'timed_out'
+                        ? BAD
+                        : WARN
+                  }`}
                 >
                   {r.conclusion}
                 </span>
-                <span className="text-[11px] whitespace-nowrap" style={{ color: 'var(--muted)' }}>
+                <span className="text-[11px] whitespace-nowrap text-muted">
                   {r.sha ?? '?'}
                   {r.updatedAt ? ` · ${timeAgo(r.updatedAt)}` : ''}
                 </span>
               </div>
-              <div className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--ink)' }}>
+              <div className="text-xs mt-1 line-clamp-2 text-ink">
                 {r.message || '(no commit message)'}
               </div>
               {r.url && (
-                <a
-                  href={r.url}
-                  target="_blank"
-                  rel="noopener"
-                  className="text-[11px]"
-                  style={{ color: 'var(--accent)' }}
-                >
+                <a href={r.url} target="_blank" rel="noopener" className="text-[11px] text-accent">
                   view run
                 </a>
               )}
@@ -309,18 +285,15 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
             <button
               key={s.id}
               onClick={() => navigate(`/sessions/${s.id}`)}
-              className="w-full text-left rounded-lg border px-3 py-2"
-              style={{ borderColor: 'var(--line)', background: 'var(--paper)' }}
+              className="w-full text-left rounded-lg border border-line bg-paper px-3 py-2"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold" style={{ color: 'var(--ink)' }}>
-                  {s.name}
-                </span>
-                <span className="text-[11px] whitespace-nowrap" style={{ color: 'var(--muted)' }}>
+                <span className="text-xs font-semibold text-ink">{s.name}</span>
+                <span className="text-[11px] whitespace-nowrap text-muted">
                   {s.deployed ? 'deployed' : 'draft'} · {timeAgo(s.updatedAt || s.createdAt)}
                 </span>
               </div>
-              <div className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>
+              <div className="text-[10px] mt-0.5 text-muted">
                 {s.user} · {s.id}
               </div>
             </button>
@@ -330,23 +303,17 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
 
       {result && (
         <Section title="Action result">
-          {result.error && (
-            <div className="text-sm" style={{ color: BAD }}>
-              {result.error}
-            </div>
-          )}
+          {result.error && <div className={`text-sm ${BAD}`}>{result.error}</div>}
           <div className="space-y-1">
             {(result.steps ?? []).map((st, i) => (
               <div key={i} className="text-xs flex items-center gap-2">
                 <span
-                  style={{
-                    color: st.status === 'ok' ? OK : st.status === 'skip' ? 'var(--muted)' : BAD,
-                  }}
+                  className={st.status === 'ok' ? OK : st.status === 'skip' ? 'text-muted' : BAD}
                 >
                   {st.status.toUpperCase()}
                 </span>
-                <span style={{ color: 'var(--ink)' }}>{st.name}</span>
-                <span style={{ color: 'var(--muted)' }}>{st.detail}</span>
+                <span className="text-ink">{st.name}</span>
+                <span className="text-muted">{st.detail}</span>
               </div>
             ))}
           </div>
@@ -354,36 +321,28 @@ export function GameDetail({ id, navigate }: { id: string; navigate: (h: string)
       )}
 
       {confirming && (
-        <div
-          className="fixed inset-0 z-20 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.6)' }}
-        >
+        <div className="fixed inset-0 z-20 flex items-center justify-center p-4 bg-scrim">
           <div
             role="dialog"
             aria-label="Confirm deprovision"
-            className="w-full max-w-md rounded-xl border p-5"
-            style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
+            className="w-full max-w-md rounded-xl border border-line bg-panel p-5"
           >
-            <h2 className="text-base font-bold mb-2" style={{ color: 'var(--ink)' }}>
-              Deprovision {detail.id}?
-            </h2>
-            <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
+            <h2 className="text-base font-bold mb-2 text-ink">Deprovision {detail.id}?</h2>
+            <p className="text-sm mb-4 text-muted">
               Delists it from the store, drops its hosting route, and archives the GitHub repo. The
               repo is archived, never hard-deleted, so the code survives.
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setConfirming(false)}
-                className="rounded-lg border px-3 py-1.5 text-sm"
-                style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}
+                className="rounded-lg border border-line px-3 py-1.5 text-sm text-muted"
               >
                 Cancel
               </button>
               <button
                 onClick={deprovision}
                 disabled={deleting}
-                className="rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-50"
-                style={{ background: BAD, color: '#fff' }}
+                className="rounded-lg bg-danger px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
               >
                 {deleting ? 'Deprovisioning…' : 'Deprovision'}
               </button>
@@ -407,43 +366,23 @@ function Card({
   note?: string;
 }) {
   return (
-    <div
-      className="rounded-xl border p-4"
-      style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-    >
-      <div className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
-        {label}
-      </div>
-      <div className="text-lg font-bold mt-0.5" style={{ color: tone }}>
-        {value}
-      </div>
-      {note && (
-        <div className="text-[11px] mt-0.5 break-words" style={{ color: 'var(--muted)' }}>
-          {note}
-        </div>
-      )}
+    <div className="rounded-xl border border-line bg-panel p-4">
+      <div className="text-[11px] uppercase tracking-wide text-muted">{label}</div>
+      <div className={`text-lg font-bold mt-0.5 ${tone}`}>{value}</div>
+      {note && <div className="text-[11px] mt-0.5 break-words text-muted">{note}</div>}
     </div>
   );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section
-      className="rounded-xl border p-4 mb-4"
-      style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-    >
-      <h2 className="text-sm font-bold mb-3" style={{ color: 'var(--ink)' }}>
-        {title}
-      </h2>
+    <section className="rounded-xl border border-line bg-panel p-4 mb-4">
+      <h2 className="text-sm font-bold mb-3 text-ink">{title}</h2>
       {children}
     </section>
   );
 }
 
 function Empty({ text }: { text: string }) {
-  return (
-    <p className="text-sm" style={{ color: 'var(--muted)' }}>
-      {text}
-    </p>
-  );
+  return <p className="text-sm text-muted">{text}</p>;
 }

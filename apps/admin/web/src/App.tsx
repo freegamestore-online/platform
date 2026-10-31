@@ -77,9 +77,7 @@ export default function App() {
       <Header navigate={navigate} view={view} />
       <main className="flex-1 mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
         {authed === null ? (
-          <p className="text-sm" style={{ color: 'var(--muted)' }}>
-            Loading…
-          </p>
+          <p className="text-sm text-muted">Loading…</p>
         ) : (
           <>
             {view.page === 'overview' && <Overview />}
@@ -105,26 +103,19 @@ export default function App() {
 function SignIn() {
   return (
     <div className="min-h-[100dvh] flex items-center justify-center px-4">
-      <div
-        className="rounded-2xl border p-8 max-w-sm w-full text-center"
-        style={{ borderColor: 'var(--line)', background: 'var(--panel)' }}
-      >
-        <h1 className="text-xl font-bold" style={{ color: 'var(--ink)' }}>
-          Free<span style={{ color: 'var(--accent)' }}>Game</span>Store{' '}
-          <span
-            className="text-xs align-middle border rounded px-1.5 py-0.5 ml-1"
-            style={{ borderColor: 'var(--line)', color: 'var(--muted)' }}
-          >
+      <div className="rounded-2xl border border-line bg-panel p-8 max-w-sm w-full text-center">
+        <h1 className="text-xl font-bold text-ink">
+          Free<span className="text-accent">Game</span>Store{' '}
+          <span className="text-xs align-middle border border-line text-muted rounded px-1.5 py-0.5 ml-1">
             ADMIN
           </span>
         </h1>
-        <p className="text-sm mt-3 mb-6" style={{ color: 'var(--muted)' }}>
+        <p className="text-sm mt-3 mb-6 text-muted">
           Sign in with an allow-listed Google account to continue.
         </p>
         <a
           href={LOGIN_URL}
-          className="inline-block w-full rounded-xl py-2.5 font-semibold text-white"
-          style={{ background: 'var(--accent)' }}
+          className="inline-block w-full rounded-xl py-2.5 font-semibold text-white bg-accent"
         >
           Sign in with Google
         </a>
@@ -135,22 +126,14 @@ function SignIn() {
 
 function Header({ navigate, view }: { navigate: (h: string) => void; view: View }) {
   return (
-    <header
-      className="sticky top-0 z-10 border-b px-4 sm:px-6 lg:px-8"
-      style={{
-        borderColor: 'var(--line)',
-        background: 'var(--panel-strong)',
-        backdropFilter: 'blur(12px)',
-      }}
-    >
+    <header className="sticky top-0 z-10 border-b border-line bg-panel-strong backdrop-blur-md px-4 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl flex items-center justify-between h-14">
         <div className="flex items-center gap-6">
           <button
             onClick={() => navigate('/')}
-            className="text-lg font-bold tracking-tight"
-            style={{ color: 'var(--ink)' }}
+            className="text-lg font-bold tracking-tight text-ink"
           >
-            Free<span style={{ color: 'var(--accent)' }}>Game</span>Store
+            Free<span className="text-accent">Game</span>Store
           </button>
           <nav className="hidden sm:flex items-center gap-1">
             <NavLink
@@ -203,11 +186,7 @@ function Header({ navigate, view }: { navigate: (h: string) => void; view: View 
               active={view.page === 'provision'}
               navigate={navigate}
             />
-            <a
-              href="/docs"
-              className="px-3 py-1.5 rounded-lg text-sm font-medium"
-              style={{ color: 'var(--muted)' }}
-            >
+            <a href="/docs" className="px-3 py-1.5 rounded-lg text-sm font-medium text-muted">
               API
             </a>
           </nav>
@@ -231,12 +210,9 @@ function NavLink({
   return (
     <button
       onClick={() => navigate(hash)}
-      className="px-3 py-1.5 rounded-lg text-sm font-medium"
-      style={
-        active
-          ? { background: 'var(--accent-soft)', color: 'var(--accent-deep)' }
-          : { color: 'var(--muted)' }
-      }
+      className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+        active ? 'bg-accent-soft text-accent-deep' : 'text-muted'
+      }`}
     >
       {label}
     </button>
