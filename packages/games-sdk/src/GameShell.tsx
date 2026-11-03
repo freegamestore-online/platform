@@ -32,25 +32,11 @@ export function GameShell({ topbar, children }: GameShellProps): React.JSX.Eleme
   return (
     <SoundProvider>
       {/* Games are touch-first: no text selection, long-press menu or 300ms tap delay. */}
-      <div className="fixed inset-0 flex h-svh w-screen touch-manipulation select-none flex-col overflow-hidden bg-paper text-ink [-webkit-touch-callout:none]">
+      <div className="fixed inset-0 box-border flex h-svh w-screen touch-manipulation select-none flex-col overflow-hidden bg-paper pb-[env(safe-area-inset-bottom,0px)] text-ink [-webkit-touch-callout:none]">
         {topbar !== undefined && (
           <div className="shrink-0 border-b border-line bg-panel">{topbar}</div>
         )}
         <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">{children}</div>
-        {/* Safe area bar — padding for iPhone home indicator swipe zone.
-          Shows the platform URL so the space isn't wasted. On devices
-          without a home indicator (env() resolves to 0) the bar is
-          invisible. */}
-        <div className="shrink-0 border-t border-line bg-panel pb-[env(safe-area-inset-bottom,0px)] text-center">
-          <a
-            href="https://freegamestore.online"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block py-[0.15rem] text-[0.55rem] font-semibold tracking-[0.03em] text-muted no-underline"
-          >
-            freegamestore.online
-          </a>
-        </div>
       </div>
     </SoundProvider>
   );

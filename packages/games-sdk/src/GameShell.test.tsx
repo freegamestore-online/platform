@@ -40,13 +40,12 @@ describe('GameShell', () => {
     expect(wrapper.getAttribute('style')).toBeNull();
   });
 
-  it('includes the freegamestore.online store link (compliance)', () => {
+  it('does not add a store attribution bar below the game', () => {
     render(
       <GameShell>
         <div>g</div>
       </GameShell>,
     );
-    const link = screen.getByRole('link', { name: /freegamestore\.online/i });
-    expect(link).toHaveAttribute('href', 'https://freegamestore.online');
+    expect(screen.queryByRole('link', { name: /freegamestore\.online/i })).toBeNull();
   });
 });

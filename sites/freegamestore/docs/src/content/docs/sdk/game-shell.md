@@ -1,6 +1,6 @@
 ---
 title: GameShell
-description: The required wrapper. Locks layout, mounts the SoundProvider, draws the storefront footer.
+description: The required wrapper. Locks layout, mounts the SoundProvider, and protects the bottom safe area.
 ---
 
 `<GameShell>` is the one component every FreeGameStore game must use. It:
@@ -10,7 +10,7 @@ description: The required wrapper. Locks layout, mounts the SoundProvider, draws
 - Mounts the `SoundProvider` that [`useSound()`](/docs/sdk/use-sound/) and
   [`useGameSounds()`](/docs/sdk/use-game-sounds/) read. Audio hooks called
   *outside* GameShell silently no-op (see [the gotcha](/docs/how-to/custom-audio/)).
-- Renders an iOS-safe footer with a link back to the storefront.
+- Reserves the bottom safe area for the home indicator without a store attribution bar.
 - Disables text selection, long-press menus, and 300ms tap delay.
 
 ## Signature
@@ -34,8 +34,7 @@ interface GameShellProps {
 │ children — flex: 1, min-height: 0,      │
 │            overflow: hidden             │
 │                                         │
-├─────────────────────────────────────────┤
-│ safe-area + storefront footer link      │
+│ bottom safe-area padding (when needed)  │
 └─────────────────────────────────────────┘
   100svh tall, 100vw wide, fixed inset 0
 ```
@@ -73,8 +72,8 @@ GameShell only cares that it fits in the box.
 - **Render two GameShells.** They're not designed to nest. One per app.
 - **Use `useSound()` above it.** Hooks called by a parent of GameShell get the
   default-muted state that never updates — your audio will never play.
-- **Stack a custom footer.** The storefront link is mandatory brand surface;
-  the compliance check verifies it ships.
+- **Add a platform attribution bar.** The standard frame keeps the available
+  space for the game; safe-area padding does not need a visible footer.
 
 ## Related
 
