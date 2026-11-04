@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-31T07:44:28.566Z",
+  "generatedAt": "2026-11-04T08:18:12.297Z",
   "games": {
     "2048": {
       "declared": {},
@@ -246,6 +246,10 @@
       "detected": []
     },
     "match3": {
+      "declared": {},
+      "detected": []
+    },
+    "math-invaders": {
       "declared": {},
       "detected": []
     },
