@@ -10,7 +10,10 @@ permissions:
 
 jobs:
   audit:
-    runs-on: ubuntu-latest
+    # Pinned to 24.04: Playwright 1.59.1 can't install chromium on the
+    # ubuntu-26.04 image ubuntu-latest now uses (#402). Unpin when Playwright
+    # supports 26.04.
+    runs-on: ubuntu-24.04
     # 131 games at ~2.5 min each, 6 at a time, is about an hour; 90 min left no margin.
     timeout-minutes: 150
     defaults:

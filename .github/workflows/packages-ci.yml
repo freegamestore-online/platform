@@ -34,7 +34,11 @@ jobs:
   # The seven pnpm units. workers/mcp is npm and is handled separately below.
   test-pnpm-packages:
     name: test ${{ matrix.dir }}
-    runs-on: ubuntu-latest
+    # Per-unit runner. Most units run on ubuntu-latest; jobs/auditor pins to
+    # ubuntu-24.04 because its Playwright (1.59.1) can't install chromium on the
+    # ubuntu-26.04 image ubuntu-latest migrated to ("Playwright does not support
+    # chromium on ubuntu26.04-x64"). Unpin once Playwright supports 26.04 (#402).
+    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     strategy:
       # One red unit must not hide the state of the other six.
       fail-fast: false
@@ -85,6 +89,8 @@ jobs:
           - dir: jobs/auditor
             install: pnpm install --frozen-lockfile --ignore-workspace
             cache-path: pnpm-lock.yaml
+            # Playwright 1.59.1 has no chromium build for ubuntu-26.04 (#402).
+            os: ubuntu-24.04
     defaults:
       run:
         working-directory: ${{ matrix.dir }}
