@@ -11,7 +11,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "install-browser": "playwright install chromium",
+    "postinstall": "npx playwright install chromium",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

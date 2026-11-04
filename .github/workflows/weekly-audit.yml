@@ -41,11 +41,6 @@ jobs:
       # THAT workspace and silently skips jobs/auditor's own node_modules —
       # exiting 0 while leaving tsx missing. Pin the install to this unit.
       - run: pnpm install --frozen-lockfile --ignore-workspace
-      # Chromium is installed here (not via a package postinstall) so that
-      # `pnpm install` stays download-free in Packages CI, whose auditor tests
-      # mock the browser (#402). Only this runtime audit launches a real one.
-      - name: Install Chromium for Playwright
-        run: pnpm install-browser
       - name: Run audit
         run: npx tsx audit.ts --all --output audit-results.json
       - name: Upload results
