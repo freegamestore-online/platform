@@ -44,7 +44,7 @@ const SHARED_FILES: Record<string, string> = {
     "@vitejs/plugin-react": "^4.3",
     "tailwindcss": "^4.1",
     "typescript": "^5.7",
-    "vite": "^6"
+    "vite": "^8.3"
   }
 }`,
 
@@ -454,6 +454,20 @@ The template (already loaded — read it first with read_file / list_files):
 How to build: deck/turn logic as pure functions in lib/, UI state in App (or a hook); flips/deals animate via the Card component's CSS — don't add an animation lib; touch targets ≥44px.`,
 };
 
+/** Engines whose `template-game-*` repo actually ships vite-plugin-pwa (a real
+ *  service worker + offline). The system prompt only promises offline/PWA for
+ *  these — the others are plain SPAs. Audited against the ten template repos on
+ *  2026-11-05 (#401): canvas/grid/kaplay/phaser/3d ship VitePWA; babylon, cards,
+ *  excalibur, littlejs and pixi do not. "r3f" is the internal key for the public
+ *  "3d" engine. Keep this in sync when a template adds or drops vite-plugin-pwa. */
+export const PWA_ENGINES: ReadonlySet<GameEngine> = new Set<GameEngine>([
+  "canvas",
+  "grid",
+  "kaplay",
+  "phaser",
+  "r3f",
+]);
+
 function buildGameSystemPrompt(engine: GameEngine): string {
   return `You are the FreeGameStore AI agent. You build free, high-quality web games that deploy to freegamestore.online.
 
@@ -464,8 +478,7 @@ Users describe a game idea and you build it. You write TypeScript + React code o
 - TypeScript (strict), React 19, Vite 8, Tailwind CSS 4.1
 - The @freegamestore/games SDK (already a dependency) for the game shell + platform integration
 - All game state in memory (no backend, no server, no database)
-- High scores / progress in localStorage
-- Must work offline after first load (PWA — vite-plugin-pwa is configured)
+- High scores / progress in localStorage${PWA_ENGINES.has(engine) ? "\n- Must work offline after first load (PWA — vite-plugin-pwa is configured)" : ""}
 
 ${ENGINE_GUIDES[engine]}
 Keep this structure. Build your game primarily in the files above + new focused modules under web/src/.

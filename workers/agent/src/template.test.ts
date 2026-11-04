@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getConfig } from "./config";
-import { detectEngine, ENGINE_TEMPLATE_REPOS, getSystemPrompt, getTemplateFiles } from "./template";
+import type { GameEngine } from "./template";
+import { detectEngine, ENGINE_TEMPLATE_REPOS, getSystemPrompt, getTemplateFiles, PWA_ENGINES } from "./template";
 
 const gamesConfig = getConfig("games");
 
@@ -229,6 +230,38 @@ describe("ENGINE_TEMPLATE_REPOS (session seeding map)", () => {
       expect(repo).toMatch(/^template-game-[a-z0-9]+$/);
     }
   });
+});
+
+// #401: the shared system prompt must only promise offline/PWA for engines
+// whose template-game-* repo actually ships vite-plugin-pwa. A blanket claim
+// misleads the model on the 5 engines that have no service worker.
+describe("getSystemPrompt — PWA/offline claim matches the engine's template", () => {
+  const ALL_ENGINES: GameEngine[] = [
+    "canvas",
+    "kaplay",
+    "phaser",
+    "r3f",
+    "pixi",
+    "babylon",
+    "excalibur",
+    "littlejs",
+    "grid",
+    "cards",
+  ];
+  const OFFLINE_CLAIM = "vite-plugin-pwa is configured";
+
+  // Pins the audited source of truth (2026-11-05): changing which engines ship
+  // a PWA must be a deliberate edit here, caught in review.
+  it("PWA_ENGINES is exactly the engines whose template ships vite-plugin-pwa", () => {
+    expect([...PWA_ENGINES].sort()).toEqual(["canvas", "grid", "kaplay", "phaser", "r3f"]);
+  });
+
+  for (const engine of ALL_ENGINES) {
+    it(`"${engine}" prompt promises offline iff its template has a PWA`, () => {
+      const promisesOffline = getSystemPrompt(gamesConfig, engine).includes(OFFLINE_CLAIM);
+      expect(promisesOffline).toBe(PWA_ENGINES.has(engine));
+    });
+  }
 });
 
 describe("engine guides", () => {
