@@ -2520,6 +2520,24 @@
       "firstPublished": "2026-10-30T17:50:06.089Z",
       "status": "live",
       "provisionedSha": "0fc9b4d05587c23b8ca882f5a295bd31d6248e47"
+    },
+    {
+      "id": "math-invaders",
+      "name": "Math Invaders",
+      "category": "puzzle",
+      "icon": "🎮",
+      "iconBg": "#a45b5b",
+      "description": "Math Invaders",
+      "appUrl": "https://math-invaders.freegamestore.online",
+      "repo": "freegamestore-online/math-invaders",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "PrashanthimPrakash",
+      "creatorGithub": "PrashanthimPrakash",
+      "engine": "kaplay",
+      "firstPublished": "2026-11-04T00:10:28.919Z",
+      "status": "pending",
+      "provisionedSha": "986045da7e69627d989b33f2a866dba7e20c990c"
     }
   ]
 }
