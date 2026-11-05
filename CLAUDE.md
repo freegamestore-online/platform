@@ -104,8 +104,8 @@ never committed. See `SECURITY.md`.
   That ordering is deliberate — it lets a failed first build recover via
   `push_update` instead of stranding the id — so do not "fix" it by registering
   late.
-- `MIGRATION.md` tracks the consolidation cutover; `SESSION-HANDOFF.md` carries
-  in-flight context between sessions.
+- `PLAN-CONSOLIDATE-PLATFORM.md`, `MIGRATION.md` and `SESSION-HANDOFF.md` are
+  historical records of the 2026 consolidation (done); don't resume work from them.
 
 ## Styling
 

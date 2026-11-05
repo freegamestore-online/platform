@@ -1,5 +1,12 @@
 # Session handoff — FGS platform work (2026-06-30)
 
+> **Historical (2026-06-30) — do not resume from this file.** It predates the
+> consolidation (merged 2026-08-10, `919e9f9`): the standalone clones it points at
+> (`~/dev/stores/fgs/{agent,mcp,publisher,leaderboard,...}`) are stale and their
+> repos are archived, so the stashes and steps below no longer apply. The
+> leaderboard is out of service (#424). Current layout: [`CLAUDE.md`](CLAUDE.md);
+> open work: this repo's GitHub issues.
+
 Resume point for the next session. Working dir: `~/dev/stores/fgs/platform`.
 
 ## Where we stopped

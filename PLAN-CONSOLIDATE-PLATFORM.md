@@ -1,5 +1,20 @@
 # Plan: consolidate FGS platform tools into one `platform` monorepo
 
+> **Status: DONE — historical.** Kept as the record of the plan; the text below is
+> unchanged from 2026-06-30 and describes a target that shifted during execution.
+> The services were merged into this repo on 2026-08-10 (`919e9f9`) and every
+> standalone service repo (`admin`, `agent`, `auditor`, `auth`, `console`,
+> `freegamestore`, `host`, `leaderboard`, `mcp`) is now archived on GitHub.
+> Where the result differs from the plan:
+> - `admin` and the console landed in `apps/{admin,console}/` (not `workers/admin`,
+>   `sites/publisher`); the auditor is `jobs/auditor/` (not `packages/auditor`).
+> - The root workspace includes `workers/*` and `apps/admin`, not `packages/*` only.
+> - FGS has its own D1 (`freegamestore`); the FAS `fas` D1 coupling is gone.
+> - The leaderboard was moved and deployed, then taken out of service (#424, 410).
+> - `brand` and `submissions` stayed standalone repos.
+>
+> Current layout, build and deploy rules: [`CLAUDE.md`](CLAUDE.md).
+
 Status: proposed (not started)
 Author: drafted 2026-06-30
 Model: the FAS consolidation (`fas/platform/workers/` + `PLAN-CONSOLIDATE-WORKERS.md`,

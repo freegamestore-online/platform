@@ -1,5 +1,9 @@
 # Private Platform Migration
 
+> **Status: complete — historical.** Every imported service now deploys from this
+> repo through its `.github/workflows/deploy-*.yml`, and all eight standalone repos
+> listed below are archived on GitHub. Current layout: [`CLAUDE.md`](CLAUDE.md).
+
 Status: source imported, root deploy workflows added. Deploy cutover is complete
 only after each workflow has run successfully from this repo and the old
 standalone repo is made private or archived.
