@@ -62,6 +62,21 @@
     });
   }
 
+  // ── Active nav link: mark the one matching the current path (#416). The CSS
+  // styles `header nav a.active`; aria-current adds the semantic cue. ──
+  try {
+    var here = location.pathname.replace(/\/+$/, "") || "/";
+    document.querySelectorAll("header nav a").forEach(function (a) {
+      var href = a.getAttribute("href") || "";
+      if (href.charAt(0) !== "/") return; // skip external / absolute links
+      var target = href.replace(/\/+$/, "") || "/";
+      if (target === here) {
+        a.classList.add("active");
+        a.setAttribute("aria-current", "page");
+      }
+    });
+  } catch (e) {}
+
   // ── Text-size toggle ──
   (function () {
     var sizes = ['', 'lg', 'sm'];
