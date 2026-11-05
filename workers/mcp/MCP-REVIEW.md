@@ -27,7 +27,7 @@ to finish, and what NOT to change.
 
 The server is built, deployed (`mcp.freegamestore.online`, CI), and smoke-tested.
 - ✅ **#1 GITHUB_TOKEN** — set on the worker in CI (`wrangler secret put` from repo
-  secret `GH_ORG_TOKEN` = Doppler `GH_ADMIN_TOKEN`). Proven by `create_game` +
+  secret `GH_ORG_TOKEN` = `GH_ADMIN_TOKEN`). Proven by `create_game` +
   `update_files` succeeding (both push to GitHub incl. `deploy.yml`).
 - ✅ **#2 CF Access comment** — added at the `adminPost(.../api/provision)` call in
   `src/index.ts`.
@@ -47,10 +47,10 @@ The server is built, deployed (`mcp.freegamestore.online`, CI), and smoke-tested
 1. **`GITHUB_TOKEN` secret must be set on the worker.** The write tools
    (`create_game` scaffold push, `update_files`, pushing `deploy.yml`) need an
    org token with **both `contents:write` and `workflow`** scope. Set it from
-   Doppler (project `fgs`, config `prd`):
+   `~/dev/ops` (SOPS; Doppler is retired):
    ```
-   doppler secrets get GH_ADMIN_TOKEN --project fgs --config prd --plain \
-     | npx wrangler secret put GITHUB_TOKEN
+   ~/dev/ops/bin/ops get fgs GH_ADMIN_TOKEN \
+     | npx wrangler secret put GITHUB_TOKEN --name freegamestore-mcp
    ```
    Without `workflow` scope the deploy.yml push is rejected → games 404.
 

@@ -55,8 +55,12 @@ improve games on FreeGameStore — straight from the editor.
 
 ## Secrets (Worker)
 
-- `GITHUB_TOKEN` — org token with **contents:write + workflow** scope (from Doppler
-  `GH_ADMIN_TOKEN`, `--project fgs --config prd`). Required for the write tools.
+- `GITHUB_TOKEN` — org token with **contents:write + workflow** scope; same value as
+  `fgs/GH_ADMIN_TOKEN` in `~/dev/ops` (SOPS, see its `AGENTS.md`). Required for the
+  write tools. Not in the store yet (rotate-on-touch); on rotation `ops put fgs
+  GH_ADMIN_TOKEN`, then `ops get fgs GH_ADMIN_TOKEN | npx wrangler secret put
+  GITHUB_TOKEN --name freegamestore-mcp` (the key name differs, so `ops` cannot
+  place it here itself).
 - CI deploy uses repo secrets `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`.
 
 ## Safety layer (`src/safety.ts`)
