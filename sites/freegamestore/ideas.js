@@ -86,12 +86,18 @@
     }
   });
 
-  // Deep link: if the URL has #idea-… open its build notes.
+  // Honour the server-marked active status button so the highlighted filter
+  // and the visible cards agree on load (#411). apply() runs as a side effect.
+  var initialBtn = statusBtns.filter(function (b) { return b.classList.contains("active"); })[0];
+  if (initialBtn) selectStatus(initialBtn); else apply();
+
+  // Deep link: #idea-<id> opens that card's build notes and scrolls to it.
   if (location.hash && /^#idea-/.test(location.hash)) {
     var target = document.getElementById(location.hash.slice(1));
-    if (target) {
+    if (target && target.classList.contains("ideas-card")) {
       var d = target.querySelector(".ideas-details");
       if (d) d.open = true;
+      target.scrollIntoView();
     }
   }
 })();

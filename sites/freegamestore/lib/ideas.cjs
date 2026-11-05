@@ -280,13 +280,16 @@ function renderIdeasPage(template, data, opts) {
   const ideas = data.ideas;
   const statuses = ideas.map((i) => statusOf(i));
   const count = (...s) => statuses.filter((x) => s.includes(x)).length;
+  // "All" is the default (first, leftmost, active) so the highlighted filter
+  // matches the full list the page shows on load; ideas.js re-applies whatever
+  // button is marked active, so the two can never drift (#411).
   const groups = [
+    ['all', 'All', null],
     ['open', 'Not on FGS yet', ['open']],
     ['partial', 'Variants missing', ['partial']],
     ['buildable', 'All buildable now', ['open', 'covered', 'partial', 'upgrade', 'rooms']],
     ['rooms', 'Needs online rooms', ['rooms']],
     ['blocked', 'Not possible yet', ['blocked']],
-    ['all', 'All', null],
   ].filter(([key, , s]) => key === 'all' || count(...s) > 0);
   const statusButtons = groups.map(([key, label, s], i) =>
     `<button class="filter-btn${i === 0 ? ' active' : ''}" type="button" data-status="${key}" data-statuses="${s ? s.join(' ') : ''}" aria-pressed="${i === 0}">${esc(label)} <span class="ideas-btn-count">${s ? count(...s) : ideas.length}</span></button>`
