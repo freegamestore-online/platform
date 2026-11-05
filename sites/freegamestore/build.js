@@ -437,7 +437,11 @@ const headerHtml = fs.readFileSync(path.join(ROOT, 'partials/header.html'), 'utf
 // flashing white — jarring in dark mode. Set the root background inline, before
 // the stylesheet, so first paint is the right colour. The per-page inline theme
 // script sets data-theme before this runs. Values mirror --paper (light / dark).
-const CRITICAL_STYLE = '<style>html{background:#f8fafc}:root[data-theme="dark"]{background:#0f172a}</style>';
+// The strict CSP (style-src 'self') blocks inline styles, so criticalStyleHash
+// is added to style-src — the same hash mechanism as the bootstrap script (#421).
+const CRITICAL_STYLE_CSS = 'html{background:#f8fafc}:root[data-theme="dark"]{background:#0f172a}';
+const CRITICAL_STYLE = `<style>${CRITICAL_STYLE_CSS}</style>`;
+const criticalStyleHash = 'sha256-' + crypto.createHash('sha256').update(CRITICAL_STYLE_CSS).digest('base64');
 
 function replaceAssetVersions(html) {
   return html
@@ -1147,7 +1151,7 @@ const csp = [
   "default-src 'self'",
   "img-src 'self' https://*.freegamestore.online https://avatars.githubusercontent.com data:",
   `script-src 'self' '${inlineScriptHash}' https://static.cloudflareinsights.com`,
-  "style-src 'self' https://fonts.googleapis.com",
+  `style-src 'self' '${criticalStyleHash}' https://fonts.googleapis.com`,
   "font-src 'self' https://fonts.gstatic.com",
   "connect-src 'self' https://*.freegamestore.online https://cloudflareinsights.com",
   "frame-src https://*.freegamestore.online https://*.progamestore.online",
