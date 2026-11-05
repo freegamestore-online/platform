@@ -73,7 +73,12 @@ jobs:
     permissions:
       contents: read
       deployments: write
-    secrets: inherit
+    # Exactly the secrets game-ci's deploy job reads, never \`inherit\`: that
+    # would hand every freegamestore-online org secret to the callee (#437).
+    secrets:
+      R2_ACCESS_KEY_ID: \${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: \${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_ACCOUNT_ID: \${{ secrets.R2_ACCOUNT_ID }}
 EOF
 }
 
