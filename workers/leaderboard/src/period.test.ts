@@ -24,7 +24,10 @@ const MODULE = 'node:module';
 const { createRequire } = (await import(/* @vite-ignore */ MODULE)) as {
   createRequire(url: string): (id: string) => unknown;
 };
-const requireNode = createRequire(import.meta.url);
+// The worker's tsconfig loads only @cloudflare/workers-types, whose ImportMeta
+// has no `url`; vitest provides it at runtime.
+const here = (import.meta as ImportMeta & { url: string }).url;
+const requireNode = createRequire(here);
 const optional = <T>(id: string): T | null => {
   try {
     return requireNode(id) as T;
@@ -37,7 +40,7 @@ const fs = optional<{ readFileSync(path: URL, encoding: 'utf8'): string }>('node
 
 // Pass the file URL itself: `URL.pathname` is `/C:/…` on Windows, which
 // readFileSync resolved to `C:\C:\…` and failed every test here.
-const read = (relative: string) => fs!.readFileSync(new URL(relative, import.meta.url), 'utf8');
+const read = (relative: string) => fs!.readFileSync(new URL(relative, here), 'utf8');
 
 // The scores table as it shipped before periods (schema.sql before #161).
 const LEGACY_SCORES_SQL = `
