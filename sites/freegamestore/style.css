@@ -2701,3 +2701,53 @@ footer .container {
 /* Catalogue cards and controls stay operable by keyboard. */
 .app-card.compact:focus-visible, .filter-btn:focus-visible, .preview-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .catalog-create { margin-top: 2rem; }
+
+/* ── Game ideas page (/ideas) ── */
+.ideas-hero { padding: 2.5rem 0 1rem; }
+.ideas-hero h1 { font-family: var(--font-display); font-size: 2.25rem; margin: 0 0 0.5rem; color: var(--ink-strong); }
+.ideas-lede { font-size: 1.1rem; color: var(--ink); max-width: 46rem; margin: 0 0 0.75rem; }
+.ideas-meta { color: var(--muted); font-size: 0.95rem; margin: 0; }
+.ideas-meta strong { color: var(--ink-strong); }
+.ideas-controls { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.5rem 0 1.25rem; }
+.ideas-search { width: 100%; max-width: 24rem; padding: 0.6rem 0.9rem; border: 1px solid var(--line-strong); border-radius: 100px; background: var(--panel); color: var(--ink); font: inherit; }
+.ideas-search:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ideas-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.ideas-btn-count { opacity: 0.6; font-variant-numeric: tabular-nums; }
+.ideas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); gap: 1rem; padding-bottom: 3rem; }
+.ideas-empty { grid-column: 1 / -1; color: var(--muted); text-align: center; padding: 2rem 0; }
+.ideas-card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow); padding: 1rem 1.1rem 1.1rem; display: flex; flex-direction: column; gap: 0.6rem; scroll-margin-top: 5rem; }
+.ideas-card:target { outline: 2px solid var(--accent); }
+.ideas-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+.ideas-card-head h3 { font-family: var(--font-display); font-size: 1.15rem; margin: 0; line-height: 1.2; }
+.ideas-card-head h3 a { color: var(--ink-strong); text-decoration: none; }
+.ideas-cat { display: inline-block; font-size: 0.75rem; color: var(--muted); text-transform: capitalize; margin-top: 0.15rem; }
+.ideas-demand { display: inline-flex; gap: 3px; flex-shrink: 0; margin-top: 0.3rem; }
+.ideas-demand span { width: 7px; height: 7px; border-radius: 50%; background: var(--line-strong); }
+.ideas-demand span.on { background: var(--accent); }
+.ideas-badges { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.ideas-badge { font-size: 0.72rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 100px; border: 1px solid var(--line); color: var(--muted); background: var(--panel-alt); white-space: nowrap; }
+.ideas-badge-open { color: var(--accent-hover); background: var(--accent-soft); border-color: transparent; }
+.ideas-badge-partial, .ideas-badge-upgrade { color: var(--ink-strong); }
+.ideas-badge-rooms { color: var(--pro); background: var(--pro-soft); border-color: transparent; }
+.ideas-badge-blocked { color: var(--muted); }
+.ideas-diff-easy { color: var(--accent-hover); }
+.ideas-diff-medium { color: #b45309; }
+.ideas-diff-hard { color: #b91c1c; }
+.ideas-pitch { margin: 0; color: var(--ink); font-size: 0.95rem; }
+.ideas-edge { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.ideas-leaders { list-style: none; margin: 0.2rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+.ideas-leaders li { font-size: 0.82rem; color: var(--muted); }
+.ideas-store { font-weight: 600; font-size: 0.68rem; padding: 0.05rem 0.35rem; border-radius: 4px; background: var(--panel-alt); color: var(--muted); }
+.ideas-leader-name a { color: var(--ink); }
+.ideas-onfgs { margin: 0; font-size: 0.85rem; color: var(--muted); }
+.ideas-details { font-size: 0.88rem; color: var(--ink); }
+.ideas-details summary { cursor: pointer; color: var(--accent-hover); font-weight: 600; font-size: 0.85rem; }
+.ideas-details p { margin: 0.5rem 0 0; }
+.ideas-actions { margin-top: auto; display: flex; align-items: center; gap: 0.5rem; padding-top: 0.3rem; }
+.ideas-copy { font: inherit; font-size: 0.82rem; font-weight: 600; padding: 0.35rem 0.8rem; border-radius: 100px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--ink); cursor: pointer; }
+.ideas-copy:hover { border-color: var(--accent); color: var(--accent-hover); }
+.ideas-copy.copied { color: var(--accent-hover); border-color: var(--accent); }
+.ideas-cta { text-align: center; padding: 2rem 0 4rem; }
+.ideas-cta h2 { font-family: var(--font-display); color: var(--ink-strong); }
+.ideas-cta p { color: var(--muted); max-width: 36rem; margin: 0.5rem auto 1rem; }
+@media (max-width: 480px) { .ideas-grid { grid-template-columns: 1fr; } .ideas-hero h1 { font-size: 1.8rem; } }

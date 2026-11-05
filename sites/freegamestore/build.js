@@ -422,7 +422,7 @@ const cardStylesVersion = crypto.createHash('sha256')
 // against the new SRI hash → the browser blocks it (this bricked theme.js →
 // dead nav site-wide). Appending ?v=<hash> makes each version a fresh cache
 // key, so the served bytes always match the integrity hash. No purge needed.
-const JS_ASSETS = ['theme.js', 'search.js', 'storefront.js', 'detail-page.js', 'quality.js', 'get-started.js', 'leaderboard.js', 'analytics.js'];
+const JS_ASSETS = ['theme.js', 'search.js', 'storefront.js', 'detail-page.js', 'quality.js', 'get-started.js', 'leaderboard.js', 'analytics.js', 'ideas.js'];
 const jsVersions = Object.fromEntries(
   JS_ASSETS.map((f) => [f, crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, f))).digest('hex').slice(0, 12)]),
 );
@@ -800,6 +800,25 @@ for (const [k, v] of Object.entries(sriHashes)) {
 const qualityHtmlWithAssets = replaceAssetVersions(qualityHtml);
 fs.writeFileSync(path.join(DIST, 'quality.html'), qualityHtmlWithAssets);
 console.log(`  /quality dashboard generated for ${qualityRegistry.games.length} games + ${qualityRegistry.apps.length} apps`);
+
+// --- Generate the game ideas page at /ideas ---
+// Curated game archetypes (data/game-ideas.json, from docs/app-research/*.md).
+// Buildability is computed by lib/ideas.cjs from each idea's `requires`.
+const { validateIdeas: validateGameIdeas, renderIdeasPage } = require('./lib/ideas.cjs');
+const ideasTemplate = fs.readFileSync(path.join(ROOT, 'templates', 'ideas.html'), 'utf8');
+const ideasData = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'game-ideas.json'), 'utf8'));
+const ideasErrors = validateGameIdeas(ideasData);
+if (ideasErrors.length) {
+  throw new Error(`game-ideas.json is invalid:\n${ideasErrors.join('\n')}`);
+}
+const gameIds = new Set(games.map((g) => g.id));
+const ideasHtml = renderIdeasPage(ideasTemplate, ideasData, {
+  escapeHtml,
+  // Link a referenced catalog id to its detail page, only if it exists.
+  appHref: (id) => (gameIds.has(id) ? `/games/${id}` : `/?q=${encodeURIComponent(id)}`),
+});
+fs.writeFileSync(path.join(DIST, 'ideas.html'), replaceAssetVersions(ideasHtml));
+console.log(`  /ideas page generated for ${ideasData.ideas.length} game ideas`);
 
 // --- Generate per-author profile pages at /u/<username>.html ---
 // This mirrors FAS: creatorGithub is the stable identity. Legacy first-party

@@ -188,6 +188,125 @@ function blockerPhrase(ids) {
   return labels.length > 1 ? `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}` : labels[0];
 }
 
+// ── Rendering (child #406) ──
+// Single store, read-only list: no claim flow, no cross-store links.
+
+const DIFFICULTY_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+const STORE_LABEL = { play: 'Google Play', apple: 'App Store' };
+const ENGINE_LABEL = {
+  canvas: 'Canvas 2D', grid: 'CSS grid', cards: 'card kit', kaplay: 'KAPLAY', phaser: 'Phaser',
+  '3d': '3D (three.js)', pixi: 'Pixi.js', babylon: 'Babylon.js', excalibur: 'Excalibur',
+  littlejs: 'LittleJS', 'any-2d': '2D', dom: 'DOM',
+};
+
+function leaderLine(l, esc) {
+  const stats = [];
+  if (l.installs) stats.push(`${esc(l.installs)} installs`);
+  if (l.chartRank) stats.push(`#${l.chartRank}${l.chart ? ` ${esc(l.chart)}` : ''}`);
+  if (l.rating != null) stats.push(`${l.rating.toFixed(1)}★`);
+  if (l.reviews) stats.push(`${esc(l.reviews)} reviews`);
+  if (l.price) stats.push(esc(l.price));
+  const name = l.url
+    ? `<a href="${esc(l.url)}" rel="noopener nofollow" target="_blank">${esc(l.name)}</a>`
+    : esc(l.name);
+  return `<li><span class="ideas-store ideas-store-${l.store}">${STORE_LABEL[l.store]}</span> <span class="ideas-leader-name">${name}</span>${stats.length ? ` <span class="ideas-leader-stats">${stats.join(' · ')}</span>` : ''}</li>`;
+}
+
+function buildPrompt(idea) {
+  const leaders = idea.leaders.map((l) => `${l.name} (${STORE_LABEL[l.store]})`).join(', ');
+  const prims = (idea.primitives || []).map((p) => PRIMITIVE_LABELS[p] || p).join(', ');
+  return [
+    `Build a free web game for FreeGameStore: ${idea.name}.`,
+    idea.pitch ? `Why people want it: ${idea.pitch}` : '',
+    leaders ? `Market leaders to match or beat: ${leaders}.` : '',
+    idea.fgsEdge ? `Our edge: ${idea.fgsEdge}` : '',
+    `Engine: ${ENGINE_LABEL[idea.engine] || idea.engine}, ${idea.bundleTier} KB gzip budget.`,
+    prims ? `FGS features to use: ${prims}.` : '',
+    idea.caveats ? `Watch out for: ${idea.caveats}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+function renderCard(idea, esc, appHref) {
+  const status = statusOf(idea);
+  const v = verdictFor(idea);
+  const canBuild = buildable(v);
+  const dots = Array.from({ length: 5 }, (_, i) => `<span class="${i < idea.demand ? 'on' : ''}"></span>`).join('');
+
+  const badges = [];
+  if (status === 'open') badges.push('<span class="ideas-badge ideas-badge-open">Not on FGS yet</span>');
+  if (status === 'partial') badges.push('<span class="ideas-badge ideas-badge-partial">A variant is missing</span>');
+  if (status === 'upgrade') badges.push('<span class="ideas-badge ideas-badge-upgrade">Build a better one</span>');
+  if (status === 'rooms') badges.push('<span class="ideas-badge ideas-badge-rooms">Local now · online needs rooms</span>');
+  if (status === 'blocked') badges.push(`<span class="ideas-badge ideas-badge-blocked">Not possible yet: needs ${esc(blockerPhrase(v.missing))}</span>`);
+  badges.push(`<span class="ideas-badge ideas-diff-${idea.difficulty}">${DIFFICULTY_LABEL[idea.difficulty]}</span>`);
+  badges.push(`<span class="ideas-badge ideas-engine">${esc(ENGINE_LABEL[idea.engine] || idea.engine)} · ${idea.bundleTier} KB</span>`);
+
+  const games = (idea.fgsGames || []).map((g) => g.replace(/^partial:/, ''));
+  const onFgs = games.length
+    ? `<p class="ideas-onfgs">On FGS: ${games.map((id) => (appHref ? `<a href="${esc(appHref(id))}">${esc(id)}</a>` : esc(id))).join(', ')}</p>`
+    : '';
+
+  const details = [];
+  if ((idea.primitives || []).length) details.push(`<p><strong>Uses:</strong> ${idea.primitives.map((p) => esc(PRIMITIVE_LABELS[p] || p)).join(', ')}</p>`);
+  if (status === 'rooms') details.push('<p><strong>Multiplayer:</strong> turn-based local hot-seat ships now; online play waits on the FGS rooms primitive.</p>');
+  if (idea.caveats) details.push(`<p><strong>Watch out for:</strong> ${esc(idea.caveats)}</p>`);
+
+  const searchText = [idea.name, idea.category, idea.pitch, ...idea.leaders.map((l) => l.name), ...games]
+    .filter(Boolean).join(' ').toLowerCase();
+
+  return `<article class="ideas-card ideas-status-${status}" id="idea-${idea.id}" data-id="${idea.id}" data-status="${status}" data-category="${esc(idea.category)}" data-demand="${idea.demand}" data-difficulty="${DIFFICULTIES.indexOf(idea.difficulty)}" data-engine="${esc(idea.engine)}" data-search="${esc(searchText)}">
+  <div class="ideas-card-head">
+    <div>
+      <h3><a href="#idea-${idea.id}">${esc(idea.name)}</a></h3>
+      <span class="ideas-cat">${esc(idea.category)}</span>
+    </div>
+    <div class="ideas-demand" title="Demand ${idea.demand} of 5, from installs and chart position" aria-label="Demand ${idea.demand} of 5">${dots}</div>
+  </div>
+  <div class="ideas-badges">${badges.join('')}</div>
+  ${idea.pitch ? `<p class="ideas-pitch">${esc(idea.pitch)}</p>` : ''}
+  ${idea.fgsEdge ? `<p class="ideas-edge"><strong>FGS edge:</strong> ${esc(idea.fgsEdge)}</p>` : ''}
+  ${idea.leaders.length ? `<ul class="ideas-leaders" aria-label="Market leaders">${idea.leaders.map((l) => leaderLine(l, esc)).join('')}</ul>` : ''}
+  ${onFgs}
+  ${details.length ? `<details class="ideas-details"><summary>Build notes</summary>${details.join('')}</details>` : ''}
+  ${canBuild ? `<div class="ideas-actions"><button type="button" class="ideas-copy" data-prompt="${esc(buildPrompt(idea))}">Copy build prompt</button></div>` : ''}
+</article>`;
+}
+
+// template: the ideas.html with {{IDEAS_*}} placeholders.
+// opts: { escapeHtml, appHref? }  (appHref(id) → a storefront link for a catalog game)
+function renderIdeasPage(template, data, opts) {
+  const esc = opts.escapeHtml;
+  const appHref = opts.appHref || null;
+  const ideas = data.ideas;
+  const statuses = ideas.map((i) => statusOf(i));
+  const count = (...s) => statuses.filter((x) => s.includes(x)).length;
+  const groups = [
+    ['open', 'Not on FGS yet', ['open']],
+    ['partial', 'Variants missing', ['partial']],
+    ['buildable', 'All buildable now', ['open', 'covered', 'partial', 'upgrade', 'rooms']],
+    ['rooms', 'Needs online rooms', ['rooms']],
+    ['blocked', 'Not possible yet', ['blocked']],
+    ['all', 'All', null],
+  ].filter(([key, , s]) => key === 'all' || count(...s) > 0);
+  const statusButtons = groups.map(([key, label, s], i) =>
+    `<button class="filter-btn${i === 0 ? ' active' : ''}" type="button" data-status="${key}" data-statuses="${s ? s.join(' ') : ''}" aria-pressed="${i === 0}">${esc(label)} <span class="ideas-btn-count">${s ? count(...s) : ideas.length}</span></button>`
+  ).join('\n          ');
+  const usedCategories = CATEGORIES.filter((c) => ideas.some((i) => i.category === c));
+  const categoryButtons = usedCategories
+    .map((c) => `<button class="filter-btn" type="button" data-category="${esc(c)}" aria-pressed="false">${esc(c)}</button>`)
+    .join('\n          ');
+  const values = {
+    IDEAS_CARDS: ideas.map((i) => renderCard(i, esc, appHref)).join('\n'),
+    IDEAS_STATUS_BUTTONS: statusButtons,
+    IDEAS_CATEGORY_BUTTONS: categoryButtons,
+    IDEAS_COUNT: String(ideas.length),
+    IDEAS_OPEN_COUNT: String(count('open')),
+    IDEAS_READY_COUNT: String(count('open', 'covered', 'partial', 'upgrade', 'rooms')),
+    IDEAS_RESEARCH_DATE: esc(data.researchDate || 'the research date'),
+  };
+  return template.replace(/{{(IDEAS_[A-Z_]+)}}/g, (m, k) => (k in values ? values[k] : m));
+}
+
 module.exports = {
   CATEGORIES,
   DIFFICULTIES,
@@ -203,9 +322,12 @@ module.exports = {
   STORES,
   SOURCES,
   STORE_URL_RE,
+  DIFFICULTY_LABEL,
+  ENGINE_LABEL,
   validateIdeas,
   verdictFor,
   buildable,
   statusOf,
   blockerPhrase,
+  renderIdeasPage,
 };

@@ -5,11 +5,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
+const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const {
-  validateIdeas, verdictFor, buildable, statusOf, CATEGORIES, PRIMITIVES, BLOCKERS,
+  validateIdeas, verdictFor, buildable, statusOf, renderIdeasPage, CATEGORIES, PRIMITIVES, BLOCKERS,
 } = require("../lib/ideas.cjs");
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
 // A complete, valid idea. Helper lets each test tweak one field.
 const base = {
@@ -120,4 +125,22 @@ test("statusOf reflects catalog coverage and blockers", () => {
   assert.equal(statusOf(idea({ decision: "build-now-rooms-later", requires: ["realtime-rooms"], fgsGames: [] })), "rooms");
   assert.equal(statusOf(idea({ decision: "wont-build", requires: ["payments"] })), "blocked");
   assert.equal(statusOf(idea({ decision: "upgrade-existing", fgsGames: ["partial:solitaire"] })), "upgrade");
+});
+
+test("the shipped data/game-ideas.json is valid", () => {
+  const data = JSON.parse(readFileSync(join(ROOT, "data", "game-ideas.json"), "utf8"));
+  assert.deepEqual(validateIdeas(data), []);
+  assert.ok(data.ideas.length >= 40, `expected ≥40 ideas, got ${data.ideas.length}`);
+});
+
+test("renderIdeasPage fills every placeholder and escapes a hostile idea", () => {
+  const data = {
+    researchDate: "2026-10-15",
+    ideas: [idea({ id: "xss", name: "<script>alert(1)</script>", pitch: 'a " b', caveats: "x" })],
+  };
+  const tmpl = "<a>{{IDEAS_COUNT}}</a>{{IDEAS_STATUS_BUTTONS}}{{IDEAS_CATEGORY_BUTTONS}}<b>{{IDEAS_CARDS}}</b>";
+  const out = renderIdeasPage(tmpl, data, { escapeHtml: esc });
+  assert.ok(!/{{IDEAS_/.test(out), "all placeholders resolved");
+  assert.ok(!out.includes("<script>alert(1)</script>"), "idea name is escaped");
+  assert.ok(out.includes("&lt;script&gt;"), "escaped form present");
 });
