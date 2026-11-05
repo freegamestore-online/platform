@@ -1,6 +1,8 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { GameShell } from './GameShell.js';
+import { GameTopbar } from './GameTopbar.js';
 import { SoundProvider, useSound } from './SoundContext.js';
 import { useGameSounds } from './useGameSounds.js';
 
@@ -68,5 +70,29 @@ describe('useGameSounds — mute respect (compliance-critical)', () => {
     ]) {
       expect(typeof (result.current as Record<string, unknown>)[fn]).toBe('function');
     }
+  });
+});
+
+// #410: the natural way to write a game calls useGameSounds() in App, above
+// <GameShell>. The topbar speaker must still unmute it.
+describe('useGameSounds above <GameShell> (#410)', () => {
+  beforeEach(() => {
+    ctorCalls = 0;
+    (globalThis as unknown as { AudioContext: unknown }).AudioContext = MockAudioContext;
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  it('plays once the topbar sound toggle unmutes', () => {
+    let sounds: ReturnType<typeof useGameSounds> | undefined;
+    function App() {
+      sounds = useGameSounds();
+      return <GameShell topbar={<GameTopbar />}>game</GameShell>;
+    }
+    render(<App />);
+    act(() => sounds?.playMove());
+    expect(ctorCalls).toBe(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Mute' }));
+    act(() => sounds?.playMove());
+    expect(ctorCalls).toBeGreaterThan(0);
   });
 });

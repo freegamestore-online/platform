@@ -5,6 +5,7 @@ import { useSound } from './SoundContext.js';
  * Synthesized game sound effects via Web Audio API.
  * Zero audio files — works offline, no downloads.
  * All sounds respect the SDK mute toggle automatically.
+ * Call it inside `<GameShell>`; outside it still follows the toggle but warns in dev.
  */
 export function useGameSounds() {
   const { muted } = useSound();
