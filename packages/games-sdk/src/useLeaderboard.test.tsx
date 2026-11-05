@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as sdk from './index.js';
 import { useLeaderboard } from './useLeaderboard.js';
 
 const entry = (name: string, score: number) => ({
@@ -65,6 +66,39 @@ describe('useLeaderboard', () => {
       out = await result.current.submitScore(42);
     });
     expect(out.ok).toBe(false);
+  });
+
+  // #409: the worker's corsRead() sends no Access-Control-Allow-Credentials, so
+  // a credentialed read is discarded by the browser and the boards stay empty.
+  it('reads both boards without credentials', async () => {
+    mockFetch(() => ({ game: 'g', scores: [] }));
+    const { result } = renderHook(() => useLeaderboard('snake'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const reads = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(([url]) =>
+      String(url).includes('/api/leaderboard/'),
+    );
+    expect(reads).toHaveLength(2);
+    for (const [, init] of reads) expect(init?.credentials).toBeUndefined();
+  });
+
+  it('still sends the auth cookie to the handoff, and only a bearer to the submit', async () => {
+    mockFetch((url) =>
+      url.includes('/handoff/issue')
+        ? { token: 't' }
+        : url.includes('/api/scores')
+          ? { ok: true }
+          : { game: 'g', scores: [] },
+    );
+    const { result } = renderHook(() => useLeaderboard('snake'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => {
+      await result.current.submitScore(1);
+    });
+    const calls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls;
+    const handoff = calls.find(([url]) => String(url).includes('/handoff/issue'));
+    const submit = calls.find(([url]) => String(url).includes('/api/scores'));
+    expect(handoff?.[1]?.credentials).toBe('include');
+    expect(submit?.[1]?.credentials).toBeUndefined();
   });
 
   it('survives a network failure without throwing (empty scores)', async () => {
@@ -161,5 +195,14 @@ describe('useLeaderboard per-day period (#161)', () => {
         `https://leaderboard.freegamestore.online/v1/api/leaderboard/mosaic?limit=50&period=${DAY2}`,
       ),
     );
+  });
+});
+
+// zap-drills#6: the leaderboard API was hidden from the public exports in 0.18,
+// breaking games that already used it.
+describe('leaderboard public exports', () => {
+  it('exports useLeaderboard and Leaderboard from the package entry', () => {
+    expect(sdk.useLeaderboard).toBe(useLeaderboard);
+    expect(typeof sdk.Leaderboard).toBe('function');
   });
 });

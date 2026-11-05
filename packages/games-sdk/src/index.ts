@@ -42,10 +42,9 @@ export {
   type GameTopbarProps,
   type GameTopbarStat,
 } from './GameTopbar.js';
-// Hidden: leaderboard not currently surfaced to users (issue #31) — remove the
-// comment markers to re-enable. Leaderboard.tsx and useLeaderboard.ts are left
-// intact on purpose, as is the workers/leaderboard API and its data.
-// export { Leaderboard, type LeaderboardProps } from './Leaderboard.js';
+// Re-exported (zap-drills#6): hiding them in 0.18 (issue #31) broke games that
+// already imported them. The store UI still does not surface leaderboards.
+export { Leaderboard, type LeaderboardProps } from './Leaderboard.js';
 export { useSound } from './SoundContext.js';
 export {
   StartScreen,
@@ -68,8 +67,8 @@ export {
 } from './tokens.js';
 export { type User, useAuth } from './useAuth.js';
 export { useGameSounds } from './useGameSounds.js';
-// Hidden: see the note on Leaderboard above (issue #31).
-// export {
-//   type LeaderboardEntry,
-//   useLeaderboard,
-// } from './useLeaderboard.js';
+export {
+  type LeaderboardEntry,
+  type UseLeaderboardOptions,
+  useLeaderboard,
+} from './useLeaderboard.js';

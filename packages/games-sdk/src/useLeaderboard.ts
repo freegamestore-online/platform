@@ -75,19 +75,18 @@ export function useLeaderboard(
     setLoading(true);
     // Fire-and-forget: inner fetches each .catch() to [], so this never
     // rejects; `void` marks the intentional non-await.
+    // The reads are public and deliberately credential-less: the worker's
+    // corsRead() sends no Access-Control-Allow-Credentials, so a credentialed
+    // fetch would have its response discarded by the browser (#409).
     void Promise.all([
-      fetch(`${API_BASE}/api/leaderboard/${gameId}?limit=50${periodQuery}`, {
-        credentials: 'include',
-      })
+      fetch(`${API_BASE}/api/leaderboard/${gameId}?limit=50${periodQuery}`)
         .then(async (r) => {
           if (!r.ok) return [] as LeaderboardEntry[];
           const data = (await r.json()) as LeaderboardResponse;
           return data.scores ?? [];
         })
         .catch(() => [] as LeaderboardEntry[]),
-      fetch(`${API_BASE}/api/leaderboard/${gameId}/recent?limit=50${periodQuery}`, {
-        credentials: 'include',
-      })
+      fetch(`${API_BASE}/api/leaderboard/${gameId}/recent?limit=50${periodQuery}`)
         .then(async (r) => {
           if (!r.ok) return [] as LeaderboardEntry[];
           const data = (await r.json()) as LeaderboardResponse;
