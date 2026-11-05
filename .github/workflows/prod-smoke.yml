@@ -57,6 +57,48 @@ jobs:
           echo "publish.freegamestore.online → $STATUS"
           [ "$STATUS" = "200" ] || exit 1
 
+      # The steps below are the unauthenticated half of the create canary that
+      # used to run from freegamestore-online/public (#430). The authenticated
+      # create → deploy → cleanup half needs a creator token and is not here.
+      - name: Console + catalog
+        run: |
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' https://console.freegamestore.online)
+          echo "console.freegamestore.online → $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+          # Catalog and store registry are the two public listings; both must carry a known game.
+          curl -sf https://console.freegamestore.online/api/catalog | grep -q '"id":"tetris"' \
+            || { echo "console /api/catalog is missing tetris"; exit 1; }
+          curl -sf https://freegamestore.online/registry.json | grep -q '"id": *"tetris"' \
+            || { echo "store registry.json is missing tetris"; exit 1; }
+          echo "console /api/catalog and registry.json list tetris"
+
+      - name: Agent health
+        run: |
+          BODY=$(curl -sf https://agent.freegamestore.online/health)
+          echo "agent/health → $BODY"
+          echo "$BODY" | grep -q '"ok":true' || exit 1
+
+      - name: Auth gates (401 unauthenticated)
+        run: |
+          # Every creator/admin endpoint must refuse an anonymous caller. A 200
+          # here means an auth check fell off; a 5xx means the worker is down.
+          check() {
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X "$1" -H 'Content-Type: application/json' \
+              -H 'Origin: https://console.freegamestore.online' "$2")
+            echo "$1 $2 → $STATUS"
+            [ "$STATUS" = "401" ] || exit 1
+          }
+          check GET    https://console.freegamestore.online/api/me
+          check GET    'https://console.freegamestore.online/api/check-id?id=e2e-create-smoke-test'
+          check POST   https://console.freegamestore.online/api/create
+          check GET    https://admin.freegamestore.online/api/status
+          check GET    https://admin.freegamestore.online/api/errors
+          check DELETE https://admin.freegamestore.online/api/games/e2e-create-smoke-test
+          check GET    https://mcp.freegamestore.online/mcp
+          check GET    https://agent.freegamestore.online/sessions
+          check GET    https://agent.freegamestore.online/v1/keys/status
+          check GET    https://agent.freegamestore.online/session/e2e-create-smoke-test/status
+
   game-headers:
     # Hosted games must be served with the default-open capability headers
     # (#369): sensors, gamepad, mic, camera etc. =(self), CSP open to https:.
