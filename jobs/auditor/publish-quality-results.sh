@@ -7,14 +7,14 @@
 # gh's exec fail with "Argument list too long" once the JSON passed ~128 KiB.
 #
 # Usage: publish-quality-results.sh <audit-results.json>
-# Env:   GH_TOKEN (required by gh), FGS_DATA_REPO / FGS_DATA_PATH (optional overrides)
+# Env:   GH_TOKEN (required by gh), FGS_DATA_REPO / FGS_DATA_PATH / FGS_COMMIT_MESSAGE (optional overrides)
 set -euo pipefail
 
 RESULTS=${1:?usage: publish-quality-results.sh <audit-results.json>}
 REPO=${FGS_DATA_REPO:-freegamestore-online/platform}
 DATA_PATH=${FGS_DATA_PATH:-sites/freegamestore/data/quality-results.json}
 API="repos/$REPO/contents/$DATA_PATH"
-MESSAGE="data: weekly quality audit $(date -u +%F)"
+MESSAGE=${FGS_COMMIT_MESSAGE:-data: weekly quality audit $(date -u +%F)}
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT

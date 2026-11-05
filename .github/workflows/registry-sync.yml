@@ -1,0 +1,48 @@
+name: Weekly registry sync
+
+# Refresh each game's lastUpdated in registry.json from its GitHub repo's last
+# push time, and commit the result straight to main — no PR (#417). The push to
+# sites/freegamestore/registry.json triggers deploy-storefront.yml.
+
+on:
+  schedule:
+    - cron: "0 5 * * 1" # Mondays 05:00 UTC (ahead of the 06:00 weekly audit)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: registry-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Refresh lastUpdated from GitHub
+        env:
+          GH_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
+        run: node sites/freegamestore/scripts/sync-registry.mjs
+
+      # Commit directly to main via the GitHub contents API, reusing the
+      # auditor's hardened publisher (SHA fetch, 404 handling, no argv limit).
+      - name: Publish registry.json to main
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
+          FGS_DATA_PATH: sites/freegamestore/registry.json
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- sites/freegamestore/registry.json; then
+            echo "No registry changes to publish."
+            exit 0
+          fi
+          FGS_COMMIT_MESSAGE="data: weekly registry lastUpdated sync $(date -u +%F)" \
+            bash jobs/auditor/publish-quality-results.sh sites/freegamestore/registry.json
