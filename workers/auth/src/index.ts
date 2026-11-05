@@ -219,7 +219,10 @@ function handoffTarget(redirect: string): string | null {
 
 async function mintHandoff(token: string, target: string, secret: string): Promise<string> {
   const payload = await jwtVerify(token, secret).catch(() => null);
-  if (!payload || !HANDOFF_TARGETS.has(target)) throw new Error('invalid handoff');
+  // A handoff is single-purpose: it can be consumed, never exchanged for another (#425).
+  if (!payload || payload.typ === 'fgs_handoff' || !HANDOFF_TARGETS.has(target)) {
+    throw new Error('invalid handoff');
+  }
   const now = Math.floor(Date.now() / 1000);
   return jwtSign(
     {
@@ -459,9 +462,10 @@ function handleLogout(request: Request): Response {
 }
 
 async function handleDeleteAccount(request: Request, env: Env): Promise<Response> {
+  const authz = request.headers.get('Authorization') ?? '';
   const token =
     request.headers.get('X-FGS-Token') ||
-    (request.headers.get('Authorization') ?? '').slice('Bearer '.length).trim() ||
+    (authz.startsWith('Bearer ') ? authz.slice('Bearer '.length).trim() : '') ||
     getCookie(request, COOKIE_NAME);
 
   if (!token) {
@@ -469,7 +473,8 @@ async function handleDeleteAccount(request: Request, env: Env): Promise<Response
   }
 
   const payload = await jwtVerify(token, env.JWT_SECRET).catch(() => null);
-  if (!payload || typeof payload.sub !== 'string') {
+  // A 5-minute handoff is an exchange token, not a credential (#425, like /me #69).
+  if (!payload || payload.typ === 'fgs_handoff' || typeof payload.sub !== 'string') {
     return json({ error: 'Invalid or expired token' }, 401, request);
   }
 
@@ -702,7 +707,7 @@ export async function handleHandoffIssue(request: Request, env: Env): Promise<Re
   }
   const token = request.headers.get('X-FGS-Token') || '';
   const payload = await jwtVerify(token, env.JWT_SECRET).catch(() => null);
-  if (!payload || typeof payload.sub !== 'string') {
+  if (!payload || payload.typ === 'fgs_handoff' || typeof payload.sub !== 'string') {
     return json({ error: 'not signed in' }, 401, request);
   }
   return json({ token: await mintHandoff(token, target, env.JWT_SECRET) }, 200, request);

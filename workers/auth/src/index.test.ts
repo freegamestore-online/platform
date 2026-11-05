@@ -734,3 +734,49 @@ test('session handoffs carry the email admin needs (#69)', async () => {
   assert.equal(agent?.typ, 'fgs_handoff');
   assert.ok(agent && 'email' in agent);
 });
+
+// --- handoffs are exchange tokens, never credentials (#425) ---
+
+test('a handoff cannot be exchanged for another handoff (#425)', async () => {
+  const handoff = await agentHandoff();
+  for (const target of PRIVILEGED) {
+    const res = await handleHandoffIssue(issueReq(target, { token: handoff }), ME_ENV);
+    assert.equal(res.status, 401, target);
+  }
+});
+
+test('a session can still mint a handoff for another privileged target (#425)', async () => {
+  // The console's /auth/agent-handoff presents its own console session.
+  const res = await handleHandoffIssue(
+    issueReq('https://agent.freegamestore.online', {
+      token: await sessionFor('https://console.freegamestore.online'),
+    }),
+    ME_ENV,
+  );
+  assert.equal(res.status, 200);
+});
+
+function deleteReq(headers: Record<string, string>): Request {
+  return new Request('https://auth.freegamestore.online/account', { method: 'DELETE', headers });
+}
+
+test('DELETE /account rejects a handoff, and an Authorization header without Bearer (#425)', async () => {
+  let deletes = 0;
+  const env = {
+    JWT_SECRET: SECRET,
+    DB: {
+      prepare: () => ({ bind: () => ({ run: async () => { deletes++; return {}; } }) }),
+    },
+  } as unknown as Parameters<typeof handleMe>[1];
+  const handoff = await agentHandoff();
+  assert.equal((await worker.fetch(deleteReq({ 'X-FGS-Token': handoff }), env)).status, 401);
+  assert.equal(
+    (await worker.fetch(deleteReq({ Authorization: `Bearer ${handoff}` }), env)).status,
+    401,
+  );
+  const signIn = await mintToken();
+  assert.equal((await worker.fetch(deleteReq({ Authorization: `Xearer ${signIn}` }), env)).status, 401);
+  assert.equal(deletes, 0);
+  assert.equal((await worker.fetch(deleteReq({ Authorization: `Bearer ${signIn}` }), env)).status, 200);
+  assert.equal(deletes, 1);
+});

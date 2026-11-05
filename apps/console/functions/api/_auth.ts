@@ -88,6 +88,18 @@ export async function verifyJWT(
   }
 }
 
+const CONSOLE_ORIGIN = 'https://console.freegamestore.online';
+
+/**
+ * Only a sign-in token (no typ) or a session minted for the console counts as
+ * a console session. A handoff, or a session for another service, is signed
+ * with the same secret but must not authenticate here (#425).
+ */
+function isConsoleSession(p: Record<string, unknown>): boolean {
+  if (p.typ === undefined) return true;
+  return p.typ === 'fgs_session' && p.aud === CONSOLE_ORIGIN;
+}
+
 /** The signed-in creator's identity, normalized across both session sources. */
 export interface CreatorUser {
   /** GitHub login / username. */
@@ -122,7 +134,7 @@ export async function resolveCreatorUser(
   const tok = getCookie(request, SESSION_COOKIE);
   if (tok && env.JWT_SECRET) {
     const p = await verifyJWT(tok, env.JWT_SECRET);
-    if (p && typeof p.login === 'string') {
+    if (p && isConsoleSession(p) && typeof p.login === 'string') {
       const sub = typeof p.sub === 'string' ? p.sub : null;
       const parsed = sub?.startsWith('github:') ? Number(sub.slice('github:'.length)) : NaN;
       return {
