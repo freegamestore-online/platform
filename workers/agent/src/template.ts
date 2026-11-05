@@ -399,21 +399,22 @@ How to build:
 - three + @react-three/fiber + drei are pre-installed and split into a vendor chunk. Do NOT hand-edit web/package.json to change 3D deps (breaks the frozen lockfile).
 Split large scenes into web/src/components/*.tsx.`,
   pixi: `## Your engine: Pixi.js v8 (WebGL 2D)
-This game renders with Pixi.js v8 — a high-performance WebGL 2D scene graph. The template mounts a Pixi Application into a container div inside a local Shell component (web/src/components/Shell.tsx — NOT the SDK GameShell).
+This game renders with Pixi.js v8 — a high-performance WebGL 2D scene graph. The template mounts a Pixi Application into a container div inside the SDK GameShell (with a GameTopbar) from "@freegamestore/games".
 Structure:
 - web/src/App.tsx — creates \`new Application()\`, \`await app.init({ resizeTo: container })\`, appends app.canvas, builds the stage, drives the game with \`app.ticker.add((t) => ...)\`. Clean up in the effect return (destroy the app; guard against init racing unmount — the template shows the pattern).
 - Draw with Graphics (\`new Graphics().rect(...).fill(color)\`, .circle, .poly), Text, Container. position/rotation/scale/alpha on any display object.
 - Input: \`obj.eventMode = "static"\`; obj.on("pointerdown", ...); or listen on app.stage globally.
 - pixi.js v8 API ONLY (init is async; Graphics chains shape().fill() — NOT beginFill, that's v7). Do not add npm deps (frozen lockfile).`,
   babylon: `## Your engine: Babylon.js v9 (3D)
-This game renders with Babylon.js — a full 3D engine. The template creates an Engine + Scene on a canvas inside a local Shell component (web/src/components/Shell.tsx — NOT the SDK GameShell).
+This game renders with Babylon.js — a full 3D engine. The template creates an Engine + Scene on a canvas inside the SDK GameShell (with a GameTopbar) from "@freegamestore/games".
 Structure:
-- web/src/App.tsx — \`new BABYLON.Engine(canvas, true)\`, \`new BABYLON.Scene(engine)\`, camera (ArcRotateCamera or FreeCamera), HemisphericLight, meshes via \`BABYLON.MeshBuilder.Create*\`, \`engine.runRenderLoop(() => scene.render())\`, engine.resize on window resize, dispose in cleanup.
+- web/src/App.tsx — \`new Engine(canvas, true)\`, \`new Scene(engine)\`, camera (ArcRotateCamera or FreeCamera), HemisphericLight, meshes via \`CreateBox(...)\` / \`CreateGround(...)\` / \`CreateSphere(...)\`, \`engine.runRenderLoop(() => scene.render())\`, engine.resize on window resize, dispose in cleanup.
 - Materials: StandardMaterial with diffuseColor (Color3). Animate in \`scene.onBeforeRenderObservable.add(...)\` or registerBeforeRender.
 - Input: \`scene.onPointerObservable\` / ActionManager on meshes; keyboard via scene.onKeyboardObservable.
-- @babylonjs/core + gui + loaders are pre-installed. Import from "@babylonjs/core" (namespace or named). Do not add npm deps (frozen lockfile).`,
+- IMPORTS: import every class from its OWN module, never from the "@babylonjs/core" barrel and never \`import * as BABYLON\`. The barrel does not tree-shake: it ships the whole engine (~1.6 MB gzipped) and fails the 600 KB bundle-size gate, so the game cannot deploy. Per-module imports keep it ~350 KB. The template shows the pattern: \`import { Engine } from "@babylonjs/core/Engines/engine"\`, \`import { Scene } from "@babylonjs/core/scene"\`, \`import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera"\`, \`import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight"\`, \`import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial"\`, \`import { Color3, Color4 } from "@babylonjs/core/Maths/math.color"\`, \`import { Vector3 } from "@babylonjs/core/Maths/math.vector"\`, \`import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder"\` (likewise sphereBuilder, groundBuilder, cylinderBuilder…). The path is the class's file under node_modules/@babylonjs/core — check it with list_files when unsure.
+- @babylonjs/core + gui + loaders are pre-installed. Do not add npm deps (frozen lockfile).`,
   excalibur: `## Your engine: Excalibur.js (TypeScript-native 2D)
-This game runs on Excalibur — an actor-based 2D engine where game objects are typed OOP classes. The engine owns the loop, physics and input; you subclass Actor instead of writing a render loop. The template mounts the Engine on a canvas inside a local Shell component (web/src/components/Shell.tsx — NOT the SDK GameShell).
+This game runs on Excalibur — an actor-based 2D engine where game objects are typed OOP classes. The engine owns the loop, physics and input; you subclass Actor instead of writing a render loop. The template mounts the Engine on a canvas inside the SDK GameShell (with a GameTopbar) from "@freegamestore/games".
 Structure:
 - web/src/App.tsx — \`new Engine({ canvasElement, displayMode: DisplayMode.FillContainer })\`, add actors/scenes, \`game.start()\`, \`game.dispose()\` in cleanup.
 - Game objects: \`class Player extends Actor { onInitialize(engine) {...} onPreUpdate(engine, delta) {...} }\` — pos/vel/rotation/graphics/collision are built-in typed properties (\`vec(x, y)\`, \`Color.fromHex(...)\`).
@@ -425,9 +426,9 @@ Structure:
 - Import every name you use from "excalibur" and use it (the template builds with noUnusedLocals — an unused import fails the build).
 Prefer small Actor subclasses in web/src/actors/*.ts over one giant file. Excalibur is pre-installed in its own vendor chunk — do not add npm deps (frozen lockfile).`,
   littlejs: `## Your engine: LittleJS (tiny all-in-one 2D)
-This game runs on LittleJS — a tiny arcade engine with the renderer, physics, PARTICLES and procedural ZzFX SOUND all built in. Everything is generated in code: a juicy game with zero asset files. The template boots the engine into a container inside a local Shell component (web/src/components/Shell.tsx — NOT the SDK GameShell).
+This game runs on LittleJS — a tiny arcade engine with the renderer, physics, PARTICLES and procedural ZzFX SOUND all built in. Everything is generated in code: a juicy game with zero asset files. The template boots the engine into a container inside the SDK GameShell (with a GameTopbar) from "@freegamestore/games".
 Structure:
-- web/src/App.tsx — \`engineInit(gameInit, gameUpdate, gameUpdatePost, gameRender, gameRenderPost, [], container)\` — boots ONCE per page (guard with a ref, the template shows it). Keep the container arg so the canvas stays inside the Shell.
+- web/src/App.tsx — \`engineInit(gameInit, gameUpdate, gameUpdatePost, gameRender, gameRenderPost, [], container)\` — boots ONCE per page (guard with a ref, the template shows it). Keep the container arg so the canvas stays inside the GameShell.
 - World space: positions are world units, not pixels — \`setCameraPos(vec2(...))\`, \`setCameraScale(...)\`. Draw in gameRender with \`drawRect(pos, size, color, angle)\`, \`drawText(text, pos, size)\`.
 - Game objects: \`class Thing extends EngineObject { update() {...} render() {...} }\` — velocity, gravityScale and collision built in (\`setCollision()\`, \`collideWithObject\`).
 - Input: \`keyIsDown("ArrowLeft")\`, \`mousePos\` (already world space), \`mouseWasPressed(0)\`. keyIsDown returns a BOOLEAN — for the classic movement idiom wrap each in Number() so the math typechecks: \`const dx = Number(keyIsDown("ArrowRight")) - Number(keyIsDown("ArrowLeft"));\` (bare \`boolean - boolean\` is a TS error under strict mode).
@@ -456,15 +457,20 @@ How to build: deck/turn logic as pure functions in lib/, UI state in App (or a h
 
 /** Engines whose `template-game-*` repo actually ships vite-plugin-pwa (a real
  *  service worker + offline). The system prompt only promises offline/PWA for
- *  these — the others are plain SPAs. Audited against the ten template repos on
- *  2026-11-05 (#401): canvas/grid/kaplay/phaser/3d ship VitePWA; babylon, cards,
- *  excalibur, littlejs and pixi do not. "r3f" is the internal key for the public
- *  "3d" engine. Keep this in sync when a template adds or drops vite-plugin-pwa. */
+ *  these. Audited against the ten template repos on 2026-11-05 (#401, #429):
+ *  since template-game-{babylon,cards,excalibur,littlejs,pixi}#2 every template
+ *  ships VitePWA. "r3f" is the internal key for the public "3d" engine. Keep
+ *  this in sync when a template adds or drops vite-plugin-pwa. */
 export const PWA_ENGINES: ReadonlySet<GameEngine> = new Set<GameEngine>([
+  "babylon",
   "canvas",
+  "cards",
+  "excalibur",
   "grid",
   "kaplay",
+  "littlejs",
   "phaser",
+  "pixi",
   "r3f",
 ]);
 

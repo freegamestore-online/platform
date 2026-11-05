@@ -250,10 +250,10 @@ describe("getSystemPrompt — PWA/offline claim matches the engine's template", 
   ];
   const OFFLINE_CLAIM = "vite-plugin-pwa is configured";
 
-  // Pins the audited source of truth (2026-11-05): changing which engines ship
-  // a PWA must be a deliberate edit here, caught in review.
+  // Pins the audited source of truth (2026-11-05, #429): changing which engines
+  // ship a PWA must be a deliberate edit here, caught in review.
   it("PWA_ENGINES is exactly the engines whose template ships vite-plugin-pwa", () => {
-    expect([...PWA_ENGINES].sort()).toEqual(["canvas", "grid", "kaplay", "phaser", "r3f"]);
+    expect([...PWA_ENGINES].sort()).toEqual([...ALL_ENGINES].sort());
   });
 
   for (const engine of ALL_ENGINES) {
@@ -283,6 +283,26 @@ describe("engine guides", () => {
       const prompt = getSystemPrompt(gamesConfig, engine as never);
       expect(prompt).toContain("## Your engine");
       expect(prompt).toContain(marker);
+    });
+  }
+
+  // #429: the "@babylonjs/core" barrel does not tree-shake (1.6 MB gzipped vs the
+  // 600 KB 3D bundle gate), so the guide must teach per-module imports.
+  it("babylon guide teaches per-module imports, not the barrel or a namespace import", () => {
+    const prompt = getSystemPrompt(gamesConfig, "babylon" as never);
+    expect(prompt).toContain('from "@babylonjs/core/Engines/engine"');
+    expect(prompt).toContain('from "@babylonjs/core/Meshes/Builders/boxBuilder"');
+    expect(prompt).not.toContain('Import from "@babylonjs/core"');
+    expect(prompt).not.toContain("new BABYLON.");
+  });
+
+  // Since template-game-{babylon,pixi,excalibur,littlejs}#2 every template wraps
+  // the game in the SDK GameShell; the local Shell.tsx no longer exists.
+  for (const engine of ["babylon", "pixi", "excalibur", "littlejs"]) {
+    it(`"${engine}" guide describes the SDK GameShell, not a local Shell.tsx`, () => {
+      const prompt = getSystemPrompt(gamesConfig, engine as never);
+      expect(prompt).not.toContain("components/Shell.tsx");
+      expect(prompt).toContain("SDK GameShell");
     });
   }
 
