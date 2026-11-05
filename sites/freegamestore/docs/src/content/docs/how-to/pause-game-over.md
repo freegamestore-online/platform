@@ -85,15 +85,9 @@ Game over is just a state in your game. Render a full-screen overlay
 inside the play area with the final score and the action buttons:
 
 ```tsx
-import { GameButton, useLeaderboard } from '@freegamestore/games';
+import { GameButton } from '@freegamestore/games';
 
 function GameOver({ score, onRestart }: { score: number; onRestart(): void }) {
-  const { submitScore } = useLeaderboard('my-game');
-
-  useEffect(() => {
-    submitScore(score);   // fire-and-forget
-  }, []);
-
   return (
     <div style={{
       position: 'absolute', inset: 0,
@@ -109,11 +103,6 @@ function GameOver({ score, onRestart }: { score: number; onRestart(): void }) {
   );
 }
 ```
-
-`submitScore` resolves before the player taps "Play again" in 99% of cases.
-The hook auto-refreshes its `topScores` and `recentScores` after a
-successful submit, so if you also render `<Leaderboard>` on this screen,
-the new entry shows up automatically.
 
 ## Restart from the topbar
 
@@ -158,5 +147,4 @@ function onFinalGameOver() {
 
 - [`<GameTopbar>`](/docs/sdk/game-topbar/) — the play/pause + restart props.
 - [`<GameButton>`](/docs/sdk/game-button/) — for "Play again".
-- [`useLeaderboard`](/docs/sdk/use-leaderboard/) — submit + refresh on game-over.
 - [`useGameSounds`](/docs/sdk/use-game-sounds/) — `playGameOver`, `playError`.

@@ -128,3 +128,20 @@ describe('score rate-limit insertion', () => {
     await expect(insertScoreUnlessRateLimited(fake.db, values)).resolves.toBe(false);
   });
 });
+
+describe('out of service (#424)', () => {
+  it('answers every API route with 410 and no data', async () => {
+    const { default: worker } = await import('./index');
+    for (const [method, path] of [
+      ['GET', '/v1/api/leaderboard/tetris'],
+      ['GET', '/api/leaderboard/overall'],
+      ['POST', '/v1/api/scores'],
+    ] as const) {
+      const res = await worker.fetch(
+        new Request(`https://leaderboard.freegamestore.online${path}`, { method }),
+      );
+      expect(res.status).toBe(410);
+      expect(await res.json()).toEqual({ error: 'The leaderboard is out of service' });
+    }
+  });
+});

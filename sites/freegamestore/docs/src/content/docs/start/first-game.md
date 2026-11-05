@@ -74,19 +74,7 @@ The topbar Mute button already controls audibility. You don't need to wire
 mute state — the SDK does that too. Full list of sounds:
 [`useGameSounds`](/docs/sdk/use-game-sounds/).
 
-## 4. Submit scores
-
-```tsx
-import { useLeaderboard } from '@freegamestore/games';
-
-const { submitScore } = useLeaderboard('my-game');
-// after game over:
-await submitScore(finalScore);
-```
-
-Sign-in is handled by [`<GameAuth>`](/docs/sdk/game-auth/) in the topbar.
-
-## 5. Ship it
+## 4. Ship it
 
 ```bash
 git init && git add . && git commit -m "first game"

@@ -52,7 +52,6 @@ const BUNDLE_TIERS = [300, 600];
 
 // What FGS gives a game today. A card lists the ones an idea uses.
 const PRIMITIVE_LABELS = {
-  leaderboard: 'leaderboard',
   localStorage: 'local saves',
   seed: 'daily seed',
   auth: 'sign-in',

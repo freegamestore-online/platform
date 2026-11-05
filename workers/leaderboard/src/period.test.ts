@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import worker, { __clearPublishedGameCache } from './index';
+import { __clearPublishedGameCache, route } from './index';
 
 // Per-day boards (#161), run against real SQL. D1 calls go through node:sqlite,
 // and the schema and migration files are the ones that ship, so the tests catch
@@ -127,7 +127,7 @@ async function submit(db: SqliteDatabase, game: string, score: number, period?: 
   const sub = `github:${userSeq}`;
   const body: Record<string, unknown> = { game, score };
   if (period !== undefined) body.period = period;
-  return worker.fetch(
+  return route(
     new Request(`${LB}/api/scores`, {
       method: 'POST',
       headers: {
@@ -142,7 +142,7 @@ async function submit(db: SqliteDatabase, game: string, score: number, period?: 
 }
 
 async function scoresOf(path: string, db: SqliteDatabase): Promise<number[]> {
-  const res = await worker.fetch(new Request(`${LB}${path}`), env(db));
+  const res = await route(new Request(`${LB}${path}`), env(db));
   expect(res.status).toBe(200);
   const data = (await res.json()) as { scores: Array<{ score: number }> };
   return data.scores.map((s) => s.score);
@@ -198,7 +198,7 @@ describe.runIf(sqliteAvailable)('per-day boards on real SQL (#161)', () => {
       expect(((await res.json()) as { error: string }).error).toBe('Invalid period');
     }
     const badDay = new Request(`${LB}/api/leaderboard/mosaic?period=2026-13-01`);
-    expect((await worker.fetch(badDay, env(db))).status).toBe(400);
+    expect((await route(badDay, env(db))).status).toBe(400);
     expect(db.prepare('SELECT COUNT(*) AS n FROM scores').get()).toEqual({ n: 0 });
   });
 

@@ -28,21 +28,19 @@ That's the only required dep beyond React + the storefront brand fonts
 | [`<GameTopbar>`](/docs/sdk/game-topbar/) | The brand-matched topbar. Mount inside `GameShell`'s `topbar` prop. |
 | [`<GameButton>`](/docs/sdk/game-button/) | The brand-matched button. Use for in-game UI to match the topbar style. |
 | [`<GameAuth>`](/docs/sdk/game-auth/) | Sign-in / sign-out button. Drop into the topbar's `actions` prop. |
-| [`<Leaderboard>`](/docs/sdk/leaderboard/) | Pre-built top/recent scores list. |
 
 ### Hooks
 
 | Hook | Returns |
 |---|---|
 | [`useAuth()`](/docs/sdk/use-auth/) | `{ user, signIn, signOut, loading }` |
-| [`useLeaderboard(gameId)`](/docs/sdk/use-leaderboard/) | `{ topScores, recentScores, submitScore, loading, refresh }` |
 | [`useSound()`](/docs/sdk/use-sound/) | `{ muted, toggle }` — the platform mute state |
 | [`useGameSounds()`](/docs/sdk/use-game-sounds/) | 8 synthesized SFX functions, mute-aware |
 
 ### Types
 
-`LeaderboardEntry`, `User`, `GameShellProps`, `GameTopbarProps`, `GameTopbarStat`,
-`GameButtonProps`, `GameButtonVariant`, `GameButtonSize`, `LeaderboardProps`.
+`User`, `GameShellProps`, `GameTopbarProps`, `GameTopbarStat`,
+`GameButtonProps`, `GameButtonVariant`, `GameButtonSize`.
 
 ## The one rule
 

@@ -54,5 +54,4 @@ widget; `useAuth()` is the data hook.
   everywhere. The compliance check fails any game that ships its own
   sign-in form.
 - **No silent sign-in.** Showing the user's avatar without their explicit
-  click is fine. Submitting scores under a signed-in user happens via
-  [`useLeaderboard`](/docs/sdk/use-leaderboard/), which uses the cookie.
+  click is fine.

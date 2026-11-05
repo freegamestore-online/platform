@@ -39,9 +39,7 @@ export default defineConfig({
             { label: 'GameTopbar', slug: 'sdk/game-topbar' },
             { label: 'GameButton', slug: 'sdk/game-button' },
             { label: 'GameAuth', slug: 'sdk/game-auth' },
-            { label: 'Leaderboard', slug: 'sdk/leaderboard' },
             { label: 'useAuth', slug: 'sdk/use-auth' },
-            { label: 'useLeaderboard', slug: 'sdk/use-leaderboard' },
             { label: 'useSound', slug: 'sdk/use-sound' },
             { label: 'useGameSounds', slug: 'sdk/use-game-sounds' },
           ],
@@ -50,7 +48,6 @@ export default defineConfig({
           label: 'How-to',
           items: [
             { label: 'Add sound to a game', slug: 'how-to/audio' },
-            { label: 'Add a leaderboard', slug: 'how-to/leaderboard' },
             { label: 'Custom audio that respects mute', slug: 'how-to/custom-audio' },
             { label: 'Pause + game-over flow', slug: 'how-to/pause-game-over' },
           ],

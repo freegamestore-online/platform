@@ -532,50 +532,60 @@ async function getUserGameScore(
   );
 }
 
+// The leaderboard is out of service for now (#424): every request gets 410 and
+// the D1 data is left as it is. route() is the full API, still exported and
+// tested so it can't rot; re-enabling is pointing fetch back at it.
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-    // Versioned alias: /v1/* maps to the same handlers as the unversioned
-    // paths. Old game bundles call the unversioned routes; new ones use /v1.
-    // Both must keep working — see platform/docs/API-CONTRACT.md (additive-only).
-    const path = url.pathname.startsWith('/v1/') ? url.pathname.slice(3) : url.pathname;
-
-    // CORS preflight. The score-submission preflight uses the strict first-party
-    // allowlist so a game subdomain's preflight fails and the browser never
-    // sends the credentialed POST; all other (read) preflights use broad CORS.
+  async fetch(request: Request): Promise<Response> {
     if (request.method === 'OPTIONS') {
-      const headers = path === '/api/scores' ? corsSubmit(request) : corsRead(request);
-      return new Response(null, { status: 204, headers });
+      return new Response(null, { status: 204, headers: corsRead(request) });
     }
-
-    // POST /api/scores
-    if (request.method === 'POST' && path === '/api/scores') {
-      return submitScore(request, env);
-    }
-
-    // GET /api/leaderboard/overall
-    if (request.method === 'GET' && path === '/api/leaderboard/overall') {
-      return getOverallLeaderboard(url, request, env);
-    }
-
-    // GET /api/leaderboard/:game/user/:userId
-    const userMatch = path.match(/^\/api\/leaderboard\/([\w-]+)\/user\/([\w-]+)$/);
-    if (request.method === 'GET' && userMatch?.[1] && userMatch[2]) {
-      return getUserGameScore(userMatch[1], userMatch[2], request, env);
-    }
-
-    // GET /api/leaderboard/:game/recent
-    const recentMatch = path.match(/^\/api\/leaderboard\/([\w-]+)\/recent$/);
-    if (request.method === 'GET' && recentMatch?.[1]) {
-      return getRecent(recentMatch[1], url, request, env);
-    }
-
-    // GET /api/leaderboard/:game
-    const lbMatch = path.match(/^\/api\/leaderboard\/([\w-]+)$/);
-    if (request.method === 'GET' && lbMatch?.[1]) {
-      return getLeaderboard(lbMatch[1], url, request, env);
-    }
-
-    return json({ error: 'Not found' }, 404, request);
+    return json({ error: 'The leaderboard is out of service' }, 410, request);
   },
 };
+
+export async function route(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  // Versioned alias: /v1/* maps to the same handlers as the unversioned
+  // paths. Old game bundles call the unversioned routes; new ones use /v1.
+  // Both must keep working — see platform/docs/API-CONTRACT.md (additive-only).
+  const path = url.pathname.startsWith('/v1/') ? url.pathname.slice(3) : url.pathname;
+
+  // CORS preflight. The score-submission preflight uses the strict first-party
+  // allowlist so a game subdomain's preflight fails and the browser never
+  // sends the credentialed POST; all other (read) preflights use broad CORS.
+  if (request.method === 'OPTIONS') {
+    const headers = path === '/api/scores' ? corsSubmit(request) : corsRead(request);
+    return new Response(null, { status: 204, headers });
+  }
+
+  // POST /api/scores
+  if (request.method === 'POST' && path === '/api/scores') {
+    return submitScore(request, env);
+  }
+
+  // GET /api/leaderboard/overall
+  if (request.method === 'GET' && path === '/api/leaderboard/overall') {
+    return getOverallLeaderboard(url, request, env);
+  }
+
+  // GET /api/leaderboard/:game/user/:userId
+  const userMatch = path.match(/^\/api\/leaderboard\/([\w-]+)\/user\/([\w-]+)$/);
+  if (request.method === 'GET' && userMatch?.[1] && userMatch[2]) {
+    return getUserGameScore(userMatch[1], userMatch[2], request, env);
+  }
+
+  // GET /api/leaderboard/:game/recent
+  const recentMatch = path.match(/^\/api\/leaderboard\/([\w-]+)\/recent$/);
+  if (request.method === 'GET' && recentMatch?.[1]) {
+    return getRecent(recentMatch[1], url, request, env);
+  }
+
+  // GET /api/leaderboard/:game
+  const lbMatch = path.match(/^\/api\/leaderboard\/([\w-]+)$/);
+  if (request.method === 'GET' && lbMatch?.[1]) {
+    return getLeaderboard(lbMatch[1], url, request, env);
+  }
+
+  return json({ error: 'Not found' }, 404, request);
+}

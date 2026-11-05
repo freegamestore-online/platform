@@ -41,6 +41,11 @@ unversioned paths:
 Both forms must keep working. The unversioned paths are the contract with games
 already in the wild; do not remove them.
 
+The leaderboard is out of service for now (#424): every route answers `410 Gone`
+and auth no longer issues leaderboard handoffs. Game bundles already handle a
+refusal (empty boards, `submitScore` resolves `{ ok: false }`), so this is not
+a breaking change for them. The routes above still exist in code as `route()`.
+
 - auth alias: `auth/src/index.ts` (`path = … startsWith("/v1/") ? slice(3)`)
 - leaderboard alias: `leaderboard/src/index.ts` (same)
 - SDK adoption: `platform/packages/games-sdk/src/useAuth.ts`, `useLeaderboard.ts`

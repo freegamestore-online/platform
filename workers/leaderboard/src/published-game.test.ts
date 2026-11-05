@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import worker, { __clearPublishedGameCache, isPublishedGame } from './index';
+import { __clearPublishedGameCache, route, isPublishedGame } from './index';
 
 // #73: the leaderboard only accepted a hardcoded list of 29 legacy game ids, so
 // every game created since (console, MCP, agent) got 400 "Invalid game" for
@@ -88,10 +88,10 @@ function env(published: string[], opts: { throws?: boolean } = {}) {
 }
 
 const board = (game: string, e: never) =>
-  worker.fetch(new Request(`${LB}/api/leaderboard/${game}`), e);
+  route(new Request(`${LB}/api/leaderboard/${game}`), e);
 
 async function submit(game: string, e: never) {
-  return worker.fetch(
+  return route(
     new Request(`${LB}/api/scores`, {
       method: 'POST',
       headers: {

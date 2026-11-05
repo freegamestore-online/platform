@@ -218,22 +218,6 @@ The **only** allowed topbar. Same font, padding, color tokens across every game.
 
 Min 44px touch target. Three variants (`primary`, `secondary`, `ghost`), three sizes (`sm` 44px, `md` 48px, `lg` 56px).
 
-### useLeaderboard — global leaderboard
-
-```tsx
-import { useLeaderboard, Leaderboard } from '@freegamestore/games';
-
-function MyGame() {
-  const { topScores, recentScores, submitScore, loading } = useLeaderboard('my-game');
-
-  // Submit a score
-  await submitScore(1500);
-
-  // Render the leaderboard UI
-  return <Leaderboard topScores={topScores} recentScores={recentScores} loading={loading} />;
-}
-```
-
 ### GameAuth — sign in with Google
 
 ```tsx
@@ -399,7 +383,7 @@ manifest and payment SDKs. A link to the creator's own donation page is fine.
 ## Privacy rules
 
 - ZERO analytics, tracking, cookies
-- All user data in localStorage or via leaderboard API
+- All user data in localStorage
 - No third-party scripts except Google Fonts CDN
 
 ---
@@ -424,7 +408,7 @@ manifest and payment SDKs. A link to the creator's own donation page is fine.
 
 | Package | What it does |
 |---------|-------------|
-| `@freegamestore/games` | React UI primitives (GameShell, GameTopbar, Leaderboard, auth, sounds) |
+| `@freegamestore/games` | React UI primitives (GameShell, GameTopbar, auth, sounds) |
 | `@freegamestore/cli` | CLI for scaffolding and publishing games |
 | `@freegamestore/compliance` | Compliance checks (used by CLI and CI) |
 

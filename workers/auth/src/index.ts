@@ -22,13 +22,11 @@ const HANDOFF_TARGETS = new Set([
   'https://admin.freegamestore.online',
   'https://mcp.freegamestore.online',
   'https://agent.freegamestore.online',
-  'https://leaderboard.freegamestore.online',
 ]);
-const LEADERBOARD_ORIGIN = 'https://leaderboard.freegamestore.online';
-// Browser origins allowed to request a handoff for each privileged target via
+// Browser origins allowed to request a handoff for each target via
 // /handoff/issue (#68). Server-to-server callers send no Origin. Games
-// (*.freegamestore.online) are untrusted user content and only ever need
-// leaderboard handoffs, which are checked separately against the game id.
+// (*.freegamestore.online) are untrusted user content and get no handoff at
+// all since the leaderboard was taken out of service (#424).
 const HANDOFF_ISSUER_ORIGINS: Record<string, ReadonlySet<string>> = {
   'https://console.freegamestore.online': new Set(['https://console.freegamestore.online']),
   'https://admin.freegamestore.online': new Set(['https://admin.freegamestore.online']),
@@ -219,12 +217,7 @@ function handoffTarget(redirect: string): string | null {
   }
 }
 
-async function mintHandoff(
-  token: string,
-  target: string,
-  secret: string,
-  game?: string,
-): Promise<string> {
+async function mintHandoff(token: string, target: string, secret: string): Promise<string> {
   const payload = await jwtVerify(token, secret).catch(() => null);
   if (!payload || !HANDOFF_TARGETS.has(target)) throw new Error('invalid handoff');
   const now = Math.floor(Date.now() / 1000);
@@ -235,13 +228,10 @@ async function mintHandoff(
       sub: payload.sub,
       name: payload.name,
       avatar: payload.avatar,
-      // Leaderboard handoffs are held by game pages (untrusted content) and only
-      // need identity for the score row; never hand them the player's email
-      // (#69). Session handoffs keep it: admin's allowlist reads it from the
-      // per-site session minted at consume time.
-      ...(target === LEADERBOARD_ORIGIN ? {} : { email: payload.email }),
+      // Admin's allowlist reads the email from the per-site session minted at
+      // consume time.
+      email: payload.email,
       login: payload.login,
-      ...(game ? { game } : {}),
       iat: now,
       exp: now + HANDOFF_MAX_AGE,
     },
@@ -413,7 +403,7 @@ export async function handleMe(request: Request, env: Env): Promise<Response> {
   }
 
   // /me must only accept SESSION credentials, and only for the service asking
-  // (#69). A handoff is a 5-minute exchange token — a game legitimately holds a
+  // (#69). A handoff is a 5-minute exchange token — games used to hold a
   // leaderboard one — so presenting it here as X-FGS-Token used to return the
   // player's identity and email, and admin granted admin rights from that email.
   if (payload.typ === 'fgs_handoff') {
@@ -678,7 +668,6 @@ export async function handleHandoffConsume(request: Request, env: Env): Promise<
       avatar: payload.avatar,
       email: payload.email,
       login: payload.login,
-      ...(typeof payload.game === 'string' ? { game: payload.game } : {}),
       iat: now,
       exp: now + COOKIE_MAX_AGE,
     },
@@ -688,36 +677,15 @@ export async function handleHandoffConsume(request: Request, env: Env): Promise<
 }
 
 /**
- * Issue a five-minute handoff. Browser games may only request a leaderboard
- * credential for their own hostname; privileged surfaces invoke this from
- * their server-side origin after reading their own HttpOnly cookie.
+ * Issue a five-minute handoff. Privileged surfaces invoke this from their
+ * server-side origin after reading their own HttpOnly cookie. Games get none:
+ * the leaderboard, the only handoff they used, is out of service (#424).
  */
 export async function handleHandoffIssue(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const target =
     request.headers.get('X-FGS-Handoff-Target') || url.searchParams.get('target') || '';
-  const game = request.headers.get('X-FGS-Game') || url.searchParams.get('game') || undefined;
   const origin = request.headers.get('Origin');
-
-  if (target === LEADERBOARD_ORIGIN) {
-    // Browser games request their own leaderboard credential with the session
-    // cookie; the Origin must be that game's own hostname.
-    const token = request.headers.get('X-FGS-Token') || getCookie(request, COOKIE_NAME) || '';
-    const payload = await jwtVerify(token, env.JWT_SECRET).catch(() => null);
-    if (!payload || typeof payload.sub !== 'string') {
-      return json({ error: 'not signed in' }, 401, request);
-    }
-    let host = '';
-    try {
-      host = new URL(origin ?? '').hostname;
-    } catch {
-      /* rejected below */
-    }
-    if (!game || host !== `${game}.freegamestore.online` || !ALLOWED_ORIGIN.test(origin ?? '')) {
-      return json({ error: 'invalid game handoff request' }, 403, request);
-    }
-    return json({ token: await mintHandoff(token, target, env.JWT_SECRET, game) }, 200, request);
-  }
 
   // Privileged targets (console, admin, mcp, agent) — #68. These used to accept
   // the session COOKIE from ANY *.freegamestore.online origin, and cors()
@@ -737,7 +705,7 @@ export async function handleHandoffIssue(request: Request, env: Env): Promise<Re
   if (!payload || typeof payload.sub !== 'string') {
     return json({ error: 'not signed in' }, 401, request);
   }
-  return json({ token: await mintHandoff(token, target, env.JWT_SECRET, game) }, 200, request);
+  return json({ token: await mintHandoff(token, target, env.JWT_SECRET) }, 200, request);
 }
 
 // --- Main ---

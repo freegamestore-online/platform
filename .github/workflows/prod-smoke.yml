@@ -26,14 +26,13 @@ jobs:
           echo "auth.freegamestore.online/me → $STATUS (401 expected for unauthenticated)"
           [ "$STATUS" = "401" ] || [ "$STATUS" = "200" ] || exit 1
 
-      - name: Leaderboard API
+      - name: Leaderboard stays out of service
         run: |
-          # Custom domain — the freegamestore-leaderboard.*.workers.dev subdomain
-          # is disabled (worker serves only via the leaderboard.freegamestore.online
-          # route), so the old workers.dev URL 404s. Hit the real route.
+          # Out of service for now (#424): every route answers 410. Fail if it
+          # starts serving scores again without this check being updated.
           STATUS=$(curl -s -o /dev/null -w '%{http_code}' 'https://leaderboard.freegamestore.online/api/leaderboard/tetris?limit=5')
           echo "leaderboard/api/leaderboard/tetris → $STATUS"
-          [ "$STATUS" = "200" ] || exit 1
+          [ "$STATUS" = "410" ] || exit 1
 
       - name: Sample games (spot check 5)
         run: |

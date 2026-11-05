@@ -21,7 +21,7 @@ Every listed game is open-source under MIT, tracking-free, brand-consistent,
 and audited weekly.
 
 The SDK (`@freegamestore/games`) gives you the brand-matched shell, an auth
-hook, a leaderboard, and a synthesized sound system — so your game looks
+hook, and a synthesized sound system — so your game looks
 and behaves like the rest of the catalog without you having to think about
 it.
 

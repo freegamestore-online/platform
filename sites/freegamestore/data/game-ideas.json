@@ -14,7 +14,6 @@
       "engine": "grid",
       "bundleTier": 300,
       "primitives": [
-        "leaderboard",
         "localStorage",
         "seed",
         "sounds"
@@ -63,7 +62,6 @@
       "bundleTier": 300,
       "primitives": [
         "localStorage",
-        "leaderboard",
         "sounds"
       ],
       "requires": [],
@@ -109,7 +107,6 @@
       "primitives": [
         "localStorage",
         "seed",
-        "leaderboard",
         "sounds"
       ],
       "requires": [],
@@ -159,7 +156,6 @@
       "primitives": [
         "localStorage",
         "seed",
-        "leaderboard",
         "sounds"
       ],
       "requires": [],
@@ -208,7 +204,6 @@
       "primitives": [
         "localStorage",
         "seed",
-        "leaderboard",
         "sounds"
       ],
       "requires": [],
@@ -258,7 +253,6 @@
       "primitives": [
         "localStorage",
         "seed",
-        "leaderboard",
         "sounds"
       ],
       "requires": [],
@@ -308,7 +302,6 @@
       "primitives": [
         "seed",
         "localStorage",
-        "leaderboard",
         "sounds"
       ],
       "requires": [],
@@ -354,7 +347,6 @@
       "primitives": [
         "localStorage",
         "seed",
-        "leaderboard",
         "sounds"
       ],
       "requires": [],
@@ -445,7 +437,6 @@
       "engine": "canvas",
       "bundleTier": 300,
       "primitives": [
-        "leaderboard",
         "localStorage",
         "sounds"
       ],
@@ -483,8 +474,7 @@
       "bundleTier": 300,
       "primitives": [
         "localStorage",
-        "seed",
-        "leaderboard"
+        "seed"
       ],
       "requires": [],
       "caveats": "Chess rules are public domain. The Lichess puzzle DB is CC0: a small subset can ship daily puzzles (watch bundle size).",
@@ -528,7 +518,6 @@
       "primitives": [
         "seed",
         "localStorage",
-        "leaderboard",
         "sounds"
       ],
       "requires": [],
@@ -580,8 +569,7 @@
       "bundleTier": 300,
       "primitives": [
         "seed",
-        "localStorage",
-        "leaderboard"
+        "localStorage"
       ],
       "requires": [],
       "caveats": "\"Connections\" is NYT branding. Use your own name/colours. Content must be original: budget ~365 original 16-word puzzles.",
@@ -620,7 +608,6 @@
       "engine": "canvas",
       "bundleTier": 300,
       "primitives": [
-        "leaderboard",
         "sounds"
       ],
       "requires": [],
@@ -665,7 +652,6 @@
       "bundleTier": 300,
       "primitives": [
         "localStorage",
-        "leaderboard",
         "sounds"
       ],
       "requires": [],
@@ -745,8 +731,7 @@
       "bundleTier": 300,
       "primitives": [
         "seed",
-        "localStorage",
-        "leaderboard"
+        "localStorage"
       ],
       "requires": [],
       "caveats": "The question bank must be original or openly licensed (Open Trivia DB is CC BY-SA 4.0: attribution + share-alike apply). Keep it small or lazy-load JSON chunks.",
@@ -817,8 +802,7 @@
       "bundleTier": 300,
       "primitives": [
         "localStorage",
-        "seed",
-        "leaderboard"
+        "seed"
       ],
       "requires": [],
       "caveats": "Images must be CC0/public domain or procedurally generated. Images are the big-asset constraint: use a small curated set plus procedural art.",
@@ -858,8 +842,7 @@
       "bundleTier": 300,
       "primitives": [
         "seed",
-        "localStorage",
-        "leaderboard"
+        "localStorage"
       ],
       "requires": [],
       "caveats": "Generic mechanic.",
@@ -908,8 +891,7 @@
       "bundleTier": 300,
       "primitives": [
         "seed",
-        "localStorage",
-        "leaderboard"
+        "localStorage"
       ],
       "requires": [],
       "caveats": "Numberlink is a public-domain puzzle type. \"Flow Free\" is a trademark.",
@@ -951,7 +933,6 @@
       "engine": "grid",
       "bundleTier": 300,
       "primitives": [
-        "leaderboard",
         "localStorage"
       ],
       "requires": [],
@@ -994,8 +975,7 @@
       "bundleTier": 300,
       "primitives": [
         "seed",
-        "localStorage",
-        "leaderboard"
+        "localStorage"
       ],
       "requires": [],
       "caveats": "Generic (Numberzilla / Take Ten traditional pen-and-paper puzzle).",
@@ -1030,8 +1010,7 @@
       "bundleTier": 300,
       "primitives": [
         "seed",
-        "localStorage",
-        "leaderboard"
+        "localStorage"
       ],
       "requires": [],
       "caveats": "\"Picross\" is a Nintendo trademark. Use \"Nonogram\"/\"Griddlers\".",
@@ -1065,8 +1044,7 @@
       "bundleTier": 300,
       "primitives": [
         "seed",
-        "localStorage",
-        "leaderboard"
+        "localStorage"
       ],
       "requires": [],
       "caveats": "Clues must be original. A 5x5 \"mini\" format needs far less content and fits a daily-seed model.",
@@ -1107,8 +1085,7 @@
       "bundleTier": 300,
       "primitives": [
         "seed",
-        "localStorage",
-        "leaderboard"
+        "localStorage"
       ],
       "requires": [],
       "caveats": "\"Strands\" is NYT branding. Use your own name for the themed snake-path variant.",
@@ -1147,8 +1124,7 @@
       "engine": "cards",
       "bundleTier": 300,
       "primitives": [
-        "localStorage",
-        "leaderboard"
+        "localStorage"
       ],
       "requires": [
         "realtime-rooms"
@@ -1189,7 +1165,6 @@
       "engine": "any-2d",
       "bundleTier": 300,
       "primitives": [
-        "leaderboard",
         "localStorage",
         "sounds"
       ],
@@ -1233,8 +1208,7 @@
       "bundleTier": 300,
       "primitives": [
         "localStorage",
-        "seed",
-        "leaderboard"
+        "seed"
       ],
       "requires": [],
       "caveats": "Generic nuts-and-bolts mechanic.",
@@ -1266,7 +1240,6 @@
       "engine": "canvas",
       "bundleTier": 300,
       "primitives": [
-        "leaderboard",
         "localStorage",
         "sounds"
       ],
@@ -1307,8 +1280,7 @@
       "bundleTier": 300,
       "primitives": [
         "seed",
-        "localStorage",
-        "leaderboard"
+        "localStorage"
       ],
       "requires": [],
       "caveats": "Dominoes are public domain. \"Pips\" is NYT branding.",
@@ -1346,8 +1318,7 @@
       "engine": "any-2d",
       "bundleTier": 300,
       "primitives": [
-        "localStorage",
-        "leaderboard"
+        "localStorage"
       ],
       "requires": [],
       "caveats": "Public domain.",
@@ -1384,8 +1355,7 @@
       "engine": "grid",
       "bundleTier": 300,
       "primitives": [
-        "localStorage",
-        "leaderboard"
+        "localStorage"
       ],
       "requires": [
         "realtime-rooms"
@@ -1460,7 +1430,6 @@
       "engine": "3d",
       "bundleTier": 600,
       "primitives": [
-        "leaderboard",
         "sounds"
       ],
       "requires": [],
@@ -1536,7 +1505,6 @@
       "bundleTier": 300,
       "primitives": [
         "localStorage",
-        "leaderboard",
         "seed"
       ],
       "requires": [],
@@ -1588,8 +1556,7 @@
       "bundleTier": 300,
       "primitives": [
         "seed",
-        "localStorage",
-        "leaderboard"
+        "localStorage"
       ],
       "requires": [],
       "caveats": "\"Spelling Bee\" (NYT) as a product name: use \"Hive\"/\"Honeycomb Words\". Cryptogram quotes must be public domain.",
@@ -1627,8 +1594,7 @@
       "engine": "any-2d",
       "bundleTier": 300,
       "primitives": [
-        "localStorage",
-        "leaderboard"
+        "localStorage"
       ],
       "requires": [],
       "caveats": "\"Connect 4\" is a Hasbro trademark and \"Othello\" is registered: prefer \"Four in a Row\"/\"Reversi\". Hangman and checkers are public domain.",
@@ -1673,8 +1639,7 @@
       "engine": "any-2d",
       "bundleTier": 300,
       "primitives": [
-        "localStorage",
-        "leaderboard"
+        "localStorage"
       ],
       "requires": [],
       "caveats": "Public domain (Mancala, Go, Shogi).",

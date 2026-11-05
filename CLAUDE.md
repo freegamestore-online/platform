@@ -24,7 +24,7 @@ workers/
   agent/      AI game-builder Durable Object — agent.freegamestore.online
   auth/       Google OAuth + JWT — auth.freegamestore.online
   host/       R2 static host — *.freegamestore.online
-  leaderboard/  D1 scores REST API — leaderboard.freegamestore.online
+  leaderboard/  D1 scores REST API — leaderboard.freegamestore.online; out of service, answers 410 (#424)
   mcp/        MCP server — mcp.freegamestore.online
 jobs/
   auditor/    Playwright quality-audit runner

@@ -7,7 +7,7 @@ FreeGameStore.online is a marketplace for free, open-source PWA games. Every
 listed game lives in its own public GitHub repo (you keep ownership), ships
 under the MIT license, has no tracking, and is audited weekly against a
 shared compliance suite. The storefront aggregates them, drives traffic,
-and provides the shared backend (auth, leaderboards, brand assets).
+and provides the shared backend (auth, brand assets).
 
 ## What you ship
 
@@ -37,8 +37,6 @@ my-game/
   for free.
 - **Auth across the catalog.** Sign in once with GitHub → recognized on
   every game. [`useAuth`](/docs/sdk/use-auth/).
-- **A leaderboard backend.** Submit scores, render top/recent. No infra to
-  run. [`useLeaderboard`](/docs/sdk/use-leaderboard/).
 - **Synthesized SFX with mute integration.** Zero audio assets to ship.
   [`useGameSounds`](/docs/sdk/use-game-sounds/).
 - **A compliance gate.** CI fails the build if your game drifts from the
@@ -46,7 +44,7 @@ my-game/
 
 ## What FreeGameStore *doesn't* provide
 
-- A backend you can write to (apart from leaderboards + auth). Stateful
+- A backend you can write to (apart from auth). Stateful
   games keep state in localStorage or run their own backend.
 - Paid features. Free apps/games go on the free side. Paid features ship
   to ProAppStore / ProGameStore (separate brands).

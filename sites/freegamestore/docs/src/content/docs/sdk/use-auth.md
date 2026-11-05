@@ -73,4 +73,3 @@ function DailyChallengeButton() {
 ## Related
 
 - [`<GameAuth>`](/docs/sdk/game-auth/) — the topbar widget that uses this.
-- [`useLeaderboard`](/docs/sdk/use-leaderboard/) — depends on the cookie this hook reads.

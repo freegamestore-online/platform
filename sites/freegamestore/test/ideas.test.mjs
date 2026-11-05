@@ -30,7 +30,7 @@ const base = {
   wave: 1,
   engine: "grid",
   bundleTier: 300,
-  primitives: ["leaderboard", "localStorage", "seed", "sounds"],
+  primitives: ["localStorage", "seed", "sounds"],
   requires: [],
   caveats: "Generic mechanic; use original tile art, not Tile Club/Triple Tile branding.",
   fgsGames: [],

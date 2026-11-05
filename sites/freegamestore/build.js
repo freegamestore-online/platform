@@ -422,7 +422,7 @@ const cardStylesVersion = crypto.createHash('sha256')
 // against the new SRI hash → the browser blocks it (this bricked theme.js →
 // dead nav site-wide). Appending ?v=<hash> makes each version a fresh cache
 // key, so the served bytes always match the integrity hash. No purge needed.
-const JS_ASSETS = ['theme.js', 'search.js', 'storefront.js', 'detail-page.js', 'quality.js', 'get-started.js', 'leaderboard.js', 'analytics.js', 'ideas.js'];
+const JS_ASSETS = ['theme.js', 'search.js', 'storefront.js', 'detail-page.js', 'quality.js', 'get-started.js', 'analytics.js', 'ideas.js'];
 const jsVersions = Object.fromEntries(
   JS_ASSETS.map((f) => [f, crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, f))).digest('hex').slice(0, 12)]),
 );
@@ -1083,7 +1083,6 @@ const sitemapEntries = [
   '  <url><loc>https://freegamestore.online/ai/continue</loc><priority>0.7</priority></url>',
   '  <url><loc>https://freegamestore.online/ai/cline</loc><priority>0.7</priority></url>',
   '  <url><loc>https://freegamestore.online/ai/chatgpt-web</loc><priority>0.7</priority></url>',
-  '  <url><loc>https://freegamestore.online/leaderboard</loc><priority>0.7</priority></url>',
   '  <url><loc>https://freegamestore.online/developers</loc><priority>0.8</priority></url>',
   '  <url><loc>https://freegamestore.online/privacy</loc><priority>0.5</priority></url>',
   '  <url><loc>https://freegamestore.online/terms</loc><priority>0.5</priority></url>',
@@ -1117,7 +1116,6 @@ const filesToCopy = [
   'detail-page.js',
   'quality.js',
   'get-started.js',
-  'leaderboard.js',
   'analytics.js',
   'favicon.svg',
   'apple-touch-icon.png',
@@ -1129,7 +1127,6 @@ const filesToCopy = [
   '404.html',
   'about.html',
   'contribute.html',
-  'leaderboard.html',
   'analytics.html',
   'privacy.html',
   'terms.html',

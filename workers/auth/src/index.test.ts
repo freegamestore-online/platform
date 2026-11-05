@@ -648,26 +648,17 @@ test('a privileged target accepts its own trusted origin (#68)', async () => {
   assert.equal(res.status, 200);
 });
 
-test('games can still mint their own leaderboard handoff with the cookie (#68)', async () => {
-  const session = await mintToken();
-  const ok = await handleHandoffIssue(
+test('games can no longer mint a leaderboard handoff (#424)', async () => {
+  const res = await handleHandoffIssue(
     issueReq('https://leaderboard.freegamestore.online', {
       origin: 'https://chess.freegamestore.online',
-      cookie: session,
+      cookie: await mintToken(),
       game: 'chess',
     }),
     ME_ENV,
   );
-  assert.equal(ok.status, 200);
-  const wrongGame = await handleHandoffIssue(
-    issueReq('https://leaderboard.freegamestore.online', {
-      origin: EVIL,
-      cookie: session,
-      game: 'chess',
-    }),
-    ME_ENV,
-  );
-  assert.equal(wrongGame.status, 403);
+  assert.equal(res.status, 401);
+  assert.equal(((await res.json()) as { token?: string }).token, undefined);
 });
 
 // --- /me token kind + audience (#69) ---
@@ -684,18 +675,9 @@ function meReq(token: string, audience?: string): Request {
   return new Request('https://auth.freegamestore.online/me', { headers });
 }
 
-async function leaderboardHandoff(): Promise<string> {
+async function agentHandoff(): Promise<string> {
   const res = await handleHandoffIssue(
-    new Request(
-      `https://auth.freegamestore.online/handoff/issue?target=${encodeURIComponent(LB)}&game=chess`,
-      {
-        method: 'POST',
-        headers: {
-          Origin: 'https://chess.freegamestore.online',
-          Cookie: `${COOKIE_NAME}=${await mintToken()}`,
-        },
-      },
-    ),
+    issueReq('https://agent.freegamestore.online', { token: await mintToken() }),
     ME_ENV,
   );
   return ((await res.json()) as { token: string }).token;
@@ -717,8 +699,8 @@ async function sessionFor(aud: string): Promise<string> {
   );
 }
 
-test('/me rejects a leaderboard handoff presented as a credential (#69)', async () => {
-  const handoff = await leaderboardHandoff();
+test('/me rejects a handoff presented as a credential (#69)', async () => {
+  const handoff = await agentHandoff();
   assert.equal((await handleMe(meReq(handoff), ME_ENV)).status, 401);
   assert.equal((await handleMe(meReq(handoff, ADMIN_ORIGIN), ME_ENV)).status, 401);
 });
@@ -747,18 +729,8 @@ test('/me answers a malformed token with 401, not a crash (#69)', async () => {
   assert.equal((await handleMe(meReq('not.a.jwt!!'), ME_ENV)).status, 401);
 });
 
-test('leaderboard handoffs carry no email; session handoffs still do (#69)', async () => {
-  const lb = await jwtVerify(await leaderboardHandoff(), SECRET);
-  assert.equal(lb?.typ, 'fgs_handoff');
-  assert.equal('email' in (lb ?? {}), false);
-
-  const res = await handleHandoffIssue(
-    new Request(
-      `https://auth.freegamestore.online/handoff/issue?target=${encodeURIComponent('https://agent.freegamestore.online')}`,
-      { method: 'POST', headers: { 'X-FGS-Token': await mintToken() } },
-    ),
-    ME_ENV,
-  );
-  const agent = await jwtVerify(((await res.json()) as { token: string }).token, SECRET);
+test('session handoffs carry the email admin needs (#69)', async () => {
+  const agent = await jwtVerify(await agentHandoff(), SECRET);
+  assert.equal(agent?.typ, 'fgs_handoff');
   assert.ok(agent && 'email' in agent);
 });
