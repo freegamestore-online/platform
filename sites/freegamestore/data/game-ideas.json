@@ -1,0 +1,1706 @@
+{
+  "researchDate": "2026-10-15",
+  "ideas": [
+    {
+      "id": "block-puzzle",
+      "name": "Block Puzzle",
+      "category": "puzzle",
+      "pitch": "No timer, one-thumb play and an endless 'one more go' loop. Block Blast! was the most-downloaded mobile game of 2025 (356.2M installs).",
+      "fgsEdge": "Ships free, no-ads and offline inside the 300 KB cap with a daily seeded board and a local high score.",
+      "mechanic": "Drop polyominoes onto a 9x9 grid; clear full rows and columns.",
+      "difficulty": "easy",
+      "decision": "build-now",
+      "demand": 5,
+      "engine": "grid",
+      "bundleTier": 300,
+      "primitives": [
+        "leaderboard",
+        "localStorage",
+        "seed",
+        "sounds"
+      ],
+      "requires": [],
+      "caveats": "Don't copy the names \"Block Blast\"/\"Woodoku\" or their art. The generic polyomino-placement mechanic is free to use.",
+      "fgsGames": [
+        "blockudoku",
+        "brick-blast"
+      ],
+      "sources": [
+        "play",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Block Blast!",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.block.juggle",
+          "installs": "1B+",
+          "rating": 4.8,
+          "reviews": "5.68M",
+          "chart": "AppMagic #1 2025"
+        },
+        {
+          "name": "Woodoku",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.tripledot.woodoku",
+          "installs": "100M+",
+          "rating": 4.2
+        }
+      ]
+    },
+    {
+      "id": "match-3-swap",
+      "name": "Match-3 Swap",
+      "category": "puzzle",
+      "pitch": "Short levels, a progression map and a strong daily habit loop. Candy Crush and Royal Match are perennial top-grossers.",
+      "fgsEdge": "No ad-gating or paywalled lives: hand-tuned or procedurally generated levels, all free and offline.",
+      "mechanic": "Swap adjacent gems to match three or more across level goals.",
+      "difficulty": "medium",
+      "decision": "build-now",
+      "demand": 5,
+      "engine": "grid",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "leaderboard",
+        "sounds"
+      ],
+      "requires": [],
+      "caveats": "Avoid \"Crush\", \"Saga\" and candy/king trade dress. A level map with 100+ hand-tuned or procedurally generated levels is the differentiator.",
+      "fgsGames": [
+        "match3"
+      ],
+      "sources": [
+        "play",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Candy Crush Saga",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.king.candycrushsaga",
+          "installs": "1B+",
+          "rating": 4.6,
+          "reviews": "38.9M"
+        },
+        {
+          "name": "Royal Match",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.dreamgames.royalmatch",
+          "installs": "100M+",
+          "rating": 4.6
+        }
+      ]
+    },
+    {
+      "id": "triple-tile-match",
+      "name": "Triple Tile Match",
+      "category": "puzzle",
+      "pitch": "Relaxing, visually tidy and easy to read: tap three identical tiles into a tray. Tile-match took ~503M downloads in 2025 (+28% YoY).",
+      "fgsEdge": "No ads between taps; a daily seeded stack and local progress, all offline.",
+      "mechanic": "Tap three identical tiles into a tray to clear the stack.",
+      "difficulty": "easy",
+      "decision": "build-now",
+      "demand": 5,
+      "engine": "grid",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "seed",
+        "leaderboard",
+        "sounds"
+      ],
+      "requires": [],
+      "caveats": "Generic mechanic. Use original icon art (an emoji or SVG set), not any store title's tiles.",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Tile Explorer",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.oakever.tiletrip",
+          "installs": "100M+",
+          "rating": 4.9,
+          "reviews": "2.31M"
+        },
+        {
+          "name": "Tile Club",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.gamovation.tileclub",
+          "installs": "100M+",
+          "rating": 4.8
+        },
+        {
+          "name": "Triple Tile",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.tripledot.triple.tile.match.pair.game.three.master.object",
+          "installs": "50M+"
+        }
+      ]
+    },
+    {
+      "id": "mahjong-solitaire",
+      "name": "Mahjong Solitaire",
+      "category": "board",
+      "pitch": "Calm pair-matching on stacked tile layouts, popular with an older-skewing audience thanks to large, readable tiles. Vita Mahjong ranked #7 worldwide in 2025.",
+      "fgsEdge": "A free, no-tracking build with a senior-friendly large-tile mode and solvable daily layouts.",
+      "mechanic": "Remove matching pairs of free tiles from a stacked layout.",
+      "difficulty": "easy",
+      "decision": "build-now",
+      "demand": 5,
+      "engine": "grid",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "seed",
+        "leaderboard",
+        "sounds"
+      ],
+      "requires": [],
+      "caveats": "Mahjong tile glyphs are public domain. Emphasise a large-tile / senior-friendly mode, a proven niche.",
+      "fgsGames": [
+        "mahjong",
+        "riichi"
+      ],
+      "sources": [
+        "play",
+        "apple",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Vita Mahjong",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.vitastudio.mahjong",
+          "installs": "100M+",
+          "rating": 4.9,
+          "reviews": "6.41M",
+          "chart": "#1 US Board"
+        },
+        {
+          "name": "Mahjong Blast",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.nebula.mahjongtile",
+          "installs": "50M+",
+          "rating": 4.8
+        }
+      ]
+    },
+    {
+      "id": "sort-puzzle",
+      "name": "Sort Puzzle",
+      "category": "puzzle",
+      "pitch": "Instantly readable, low-stress and hard to truly fail: sort colours into tubes or hex stacks. The sort subgenre took ~1B downloads in 2025.",
+      "fgsEdge": "Several sort variants bundled free in one offline game, no ads or timers.",
+      "mechanic": "Pour colours between tubes until each holds one colour.",
+      "difficulty": "easy",
+      "decision": "build-now",
+      "demand": 5,
+      "engine": "grid",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "seed",
+        "leaderboard",
+        "sounds"
+      ],
+      "requires": [],
+      "caveats": "Generic. Ship several sort variants (tubes, hex stacks) as one game.",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "apple",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Water Sort Puzzle",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=water.sort.puzzle.game.color.sorting.free",
+          "installs": "50M+",
+          "rating": 4.8
+        },
+        {
+          "name": "Ball Sort Puzzle",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=ball.sort.puzzle.color.sorting.bubble.games",
+          "installs": "50M+",
+          "rating": 4.9
+        },
+        {
+          "name": "Hexa Sort",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.gamebrain.hexasort",
+          "installs": "10M+"
+        }
+      ]
+    },
+    {
+      "id": "solitaire-family",
+      "name": "Solitaire Family",
+      "category": "cards",
+      "pitch": "Universally known card patience, played daily for decades across Klondike, Spider, FreeCell, TriPeaks and Pyramid.",
+      "fgsEdge": "The whole patience family in one free, offline app with solver-checked daily deals.",
+      "mechanic": "Build suit sequences and foundations from a shuffled deal.",
+      "difficulty": "easy",
+      "decision": "upgrade-existing",
+      "demand": 4,
+      "engine": "cards",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "seed",
+        "leaderboard",
+        "sounds"
+      ],
+      "requires": [],
+      "caveats": "Solitaire rules are public domain. Don't use \"Microsoft\" or others' card-back designs. Make daily deals winnable (solver-checked).",
+      "fgsGames": [
+        "partial:solitaire"
+      ],
+      "sources": [
+        "play",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Solitaire",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.mobilityware.solitaire",
+          "installs": "100M+",
+          "rating": 4.6
+        },
+        {
+          "name": "Spider Solitaire",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.mobilityware.spider",
+          "installs": "50M+"
+        },
+        {
+          "name": "FreeCell",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.mobilityware.freecell",
+          "installs": "10M+"
+        }
+      ]
+    },
+    {
+      "id": "daily-word-guess",
+      "name": "Daily Word Guess",
+      "category": "puzzle",
+      "pitch": "A daily ritual with a shareable result grid and a three-minute session. NYT Wordle logged 4.2B plays in 2025.",
+      "fgsEdge": "Original name and palette to stay clear of NYT's mark; free, offline, with a local streak.",
+      "mechanic": "Guess a hidden 5-letter word in six tries with colour hints.",
+      "difficulty": "easy",
+      "decision": "build-now",
+      "demand": 4,
+      "engine": "dom",
+      "bundleTier": 300,
+      "primitives": [
+        "seed",
+        "localStorage",
+        "leaderboard",
+        "sounds"
+      ],
+      "requires": [],
+      "caveats": "\"Wordle\" is NYT's trademark; in 2024 NYT sent DMCA takedowns to ~1,900 clones citing the name and the grid/tile-colour look and feel. Use an original name and consider a non-green/yellow palette.",
+      "fgsGames": [
+        "wordle",
+        "wordguess"
+      ],
+      "sources": [
+        "play",
+        "apple",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "NYT Games",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.nytimes.crossword",
+          "installs": "10M+",
+          "rating": 4.8,
+          "chart": "#3 US Word (iOS)"
+        },
+        {
+          "name": "Wordle! (Lion Studios)",
+          "store": "play",
+          "installs": "18M"
+        }
+      ]
+    },
+    {
+      "id": "word-connect",
+      "name": "Word Connect",
+      "category": "puzzle",
+      "pitch": "Calm, vocabulary-flattering and endless: swipe letters to fill a crossword. Words of Wonders and Wordscapes each top 100M installs.",
+      "fgsEdge": "A permissively licensed wordlist keeps it free and offline, no ad walls between levels.",
+      "mechanic": "Swipe letters to spell words that fill a crossword grid.",
+      "difficulty": "medium",
+      "decision": "build-now",
+      "demand": 4,
+      "engine": "dom",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "seed",
+        "leaderboard",
+        "sounds"
+      ],
+      "requires": [],
+      "caveats": "Use a permissively licensed wordlist (SCOWL/ENABLE, public-domain lists), not Scrabble dictionaries (Collins/Hasbro). Don't copy \"Wordscapes\" landscape trade dress.",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "apple",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Words of Wonders",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.fugo.wow",
+          "installs": "100M+",
+          "rating": 4.9,
+          "reviews": "6.5M"
+        },
+        {
+          "name": "Wordscapes",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.peoplefun.wordcross",
+          "installs": "100M+",
+          "rating": 4.7
+        },
+        {
+          "name": "Zen Word",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=kidultlovin.word.zen",
+          "installs": "50M+"
+        }
+      ]
+    },
+    {
+      "id": "ludo",
+      "name": "Ludo",
+      "category": "board",
+      "pitch": "A family and social staple across South Asia and MENA. Ludo King passed 1B installs and led India's 2025 download chart.",
+      "fgsEdge": "Local pass-and-play and vs-AI ship free and offline today; online arrives with a rooms primitive.",
+      "mechanic": "Roll dice and race four tokens home around the board.",
+      "difficulty": "easy",
+      "decision": "build-now-rooms-later",
+      "demand": 4,
+      "engine": "any-2d",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "sounds"
+      ],
+      "requires": [
+        "realtime-rooms"
+      ],
+      "caveats": "Ludo/Pachisi are public domain. Avoid \"Ludo King\" branding. Online play is the main draw.",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Ludo King",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.ludo.king",
+          "installs": "1B+",
+          "rating": 4.1,
+          "reviews": "10.3M"
+        },
+        {
+          "name": "Yalla Ludo",
+          "store": "play",
+          "installs": "300M"
+        }
+      ]
+    },
+    {
+      "id": "pool-billiards",
+      "name": "Pool / Billiards",
+      "category": "sports",
+      "pitch": "Physics satisfaction and quick PvP. 8 Ball Pool has over 1B downloads (a Guinness record).",
+      "fgsEdge": "Free, offline cue sports with no Miniclip-style ad gating.",
+      "mechanic": "Aim, set power and pot balls with cue physics.",
+      "difficulty": "medium",
+      "decision": "build-now",
+      "demand": 4,
+      "engine": "canvas",
+      "bundleTier": 300,
+      "primitives": [
+        "leaderboard",
+        "localStorage",
+        "sounds"
+      ],
+      "requires": [],
+      "caveats": "Generic cue-sports mechanic. Avoid the Miniclip UI and branding.",
+      "fgsGames": [
+        "billiards"
+      ],
+      "sources": [
+        "play",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "8 Ball Pool",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.miniclip.eightballpool",
+          "installs": "1B+",
+          "rating": 4.8,
+          "reviews": "31.9M"
+        }
+      ]
+    },
+    {
+      "id": "chess",
+      "name": "Chess",
+      "category": "board",
+      "pitch": "Evergreen. Puzzles and vs-AI play are huge offline; Chess.com reports 250M members.",
+      "fgsEdge": "Free offline vs-AI plus CC0 daily puzzles, no account required.",
+      "mechanic": "Standard chess vs a small AI engine, plus daily puzzles.",
+      "difficulty": "medium",
+      "decision": "build-now",
+      "demand": 4,
+      "engine": "grid",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "seed",
+        "leaderboard"
+      ],
+      "requires": [],
+      "caveats": "Chess rules are public domain. The Lichess puzzle DB is CC0: a small subset can ship daily puzzles (watch bundle size).",
+      "fgsGames": [
+        "chess"
+      ],
+      "sources": [
+        "play",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Chess.com",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.chess",
+          "installs": "100M+",
+          "rating": 4.7,
+          "reviews": "3.43M"
+        },
+        {
+          "name": "Chess - Offline Board Game",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.gamovation.chessclubpilot",
+          "installs": "100M+",
+          "rating": 4.8
+        }
+      ]
+    },
+    {
+      "id": "sudoku",
+      "name": "Sudoku",
+      "category": "puzzle",
+      "pitch": "Pure logic with endless generated content. Sudoku.com tops 100M installs and Meowdoku is currently #1 US Puzzle on both stores.",
+      "fgsEdge": "Adds Killer and star-battle variants to the existing Sudoku, free and offline.",
+      "mechanic": "Fill a 9x9 grid so each row, column and box holds 1-9.",
+      "difficulty": "easy",
+      "decision": "upgrade-existing",
+      "demand": 4,
+      "engine": "grid",
+      "bundleTier": 300,
+      "primitives": [
+        "seed",
+        "localStorage",
+        "leaderboard",
+        "sounds"
+      ],
+      "requires": [],
+      "caveats": "Generic. LinkedIn \"Queens\" is a trademarked name, but the star-battle mechanic is public domain.",
+      "fgsGames": [
+        "partial:sudoku"
+      ],
+      "sources": [
+        "play",
+        "apple",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Sudoku.com",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.easybrain.sudoku.android",
+          "installs": "100M+",
+          "rating": 4.7,
+          "reviews": "2.52M"
+        },
+        {
+          "name": "Meowdoku",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.oakever.meowdoku",
+          "installs": "10M+",
+          "chart": "#1 US Puzzle"
+        },
+        {
+          "name": "Killer Sudoku",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.easybrain.killer.sudoku.free",
+          "installs": "10M+"
+        }
+      ]
+    },
+    {
+      "id": "connections-grouping",
+      "name": "Connections Grouping",
+      "category": "puzzle",
+      "pitch": "A daily, social 'aha' game: find four hidden groups of four. NYT Connections logged 1.6B solves in 2025, its second-biggest game.",
+      "fgsEdge": "Original 16-word puzzles bundled for daily play, free and offline.",
+      "mechanic": "Sort sixteen words into four hidden groups of four.",
+      "difficulty": "medium",
+      "decision": "build-now",
+      "demand": 3,
+      "engine": "dom",
+      "bundleTier": 300,
+      "primitives": [
+        "seed",
+        "localStorage",
+        "leaderboard"
+      ],
+      "requires": [],
+      "caveats": "\"Connections\" is NYT branding. Use your own name/colours. Content must be original: budget ~365 original 16-word puzzles.",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "apple",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Solitaire Associations Journey",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.hitappsgames.wordsolitaire",
+          "installs": "10M+",
+          "chart": "#1 US Word (iOS)"
+        },
+        {
+          "name": "NYT Connections",
+          "store": "apple",
+          "chart": "1.6B solves (2025)"
+        }
+      ]
+    },
+    {
+      "id": "snake-io",
+      "name": "Snake .io",
+      "category": "arcade",
+      "pitch": "Instant, competitive feel in a browser tab. slither.io and Worms Zone each top 500M installs.",
+      "fgsEdge": "A free, no-tracking arena against AI bots, instantly in a browser tab.",
+      "mechanic": "Steer a growing worm, eat orbs and avoid collisions.",
+      "difficulty": "easy",
+      "decision": "build-now",
+      "demand": 3,
+      "engine": "canvas",
+      "bundleTier": 300,
+      "primitives": [
+        "leaderboard",
+        "sounds"
+      ],
+      "requires": [],
+      "caveats": "Don't use the \"slither.io\" name.",
+      "fgsGames": [
+        "snake",
+        "slither",
+        "snake-io"
+      ],
+      "sources": [
+        "play",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "slither.io",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=air.com.hypah.io.slither",
+          "installs": "500M+",
+          "rating": 3.9
+        },
+        {
+          "name": "Worms Zone .io",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.wildspike.wormszone",
+          "installs": "500M+",
+          "rating": 4.3
+        }
+      ]
+    },
+    {
+      "id": "bubble-shooter",
+      "name": "Bubble Shooter",
+      "category": "arcade",
+      "pitch": "Classic aim-and-match casual play. Bubble Shooter - Classic Pop tops 500M installs.",
+      "fgsEdge": "Classic bubble shooter, free and offline with local level saves.",
+      "mechanic": "Aim and shoot bubbles to pop clusters of three or more.",
+      "difficulty": "easy",
+      "decision": "build-now",
+      "demand": 3,
+      "engine": "canvas",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "leaderboard",
+        "sounds"
+      ],
+      "requires": [],
+      "caveats": "Generic. Avoid \"Bubble Witch\"/\"Puzzle Bobble\" art.",
+      "fgsGames": [
+        "bubbleshooter"
+      ],
+      "sources": [
+        "play",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Bubble Shooter - Classic Pop",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=bubbleshooter.orig",
+          "installs": "500M+",
+          "rating": 4.6,
+          "reviews": "2.37M"
+        }
+      ]
+    },
+    {
+      "id": "shedding-cards",
+      "name": "Shedding Card Game",
+      "category": "cards",
+      "pitch": "Family card-game nostalgia. UNO! tops 100M installs; the shedding mechanic is a social staple.",
+      "fgsEdge": "A \"Crazy Eights\"-family build with an original deck, free and offline.",
+      "mechanic": "Shed your hand by matching colour or rank, draw when stuck.",
+      "difficulty": "easy",
+      "decision": "build-now",
+      "demand": 3,
+      "engine": "cards",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "sounds"
+      ],
+      "requires": [],
+      "caveats": "UNO and Phase 10 are Mattel trademarks and the card design is trade dress. Ship as a \"Crazy Eights\"-family game with an original name and deck.",
+      "fgsGames": [
+        "uno"
+      ],
+      "sources": [
+        "play",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "UNO!",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.matteljv.uno",
+          "installs": "100M+",
+          "rating": 4.3
+        },
+        {
+          "name": "Phase 10",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.mattel163.phase10",
+          "installs": "10M+",
+          "rating": 4.7
+        }
+      ]
+    },
+    {
+      "id": "trivia-quiz",
+      "name": "Trivia Quiz",
+      "category": "casual",
+      "pitch": "Social, learn-something quick rounds. Trivia Crack tops 100M installs.",
+      "fgsEdge": "An openly licensed question bank keeps daily quizzes free and offline.",
+      "mechanic": "Answer a daily set of multiple-choice questions against the clock.",
+      "difficulty": "medium",
+      "decision": "build-now",
+      "demand": 3,
+      "engine": "dom",
+      "bundleTier": 300,
+      "primitives": [
+        "seed",
+        "localStorage",
+        "leaderboard"
+      ],
+      "requires": [],
+      "caveats": "The question bank must be original or openly licensed (Open Trivia DB is CC BY-SA 4.0: attribution + share-alike apply). Keep it small or lazy-load JSON chunks.",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Trivia Crack",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.etermax.preguntados.lite",
+          "installs": "100M+",
+          "rating": 4.5,
+          "reviews": "7.85M"
+        }
+      ]
+    },
+    {
+      "id": "brain-test-puzzles",
+      "name": "Brain Test Puzzles",
+      "category": "puzzle",
+      "pitch": "Viral 'gotcha' humour: each level is a lateral-thinking trick. Brain Test tops 100M installs.",
+      "fgsEdge": "Original lateral-thinking levels, free and offline with no ad gates.",
+      "mechanic": "Solve bespoke lateral-thinking \"gotcha\" levels.",
+      "difficulty": "medium",
+      "decision": "build-now",
+      "demand": 3,
+      "engine": "dom",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "sounds"
+      ],
+      "requires": [],
+      "caveats": "The concept is generic, but specific Brain Test puzzles are copyrightable: author original ones.",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Brain Test",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.unicostudio.braintest",
+          "installs": "100M+",
+          "rating": 4.7,
+          "reviews": "10M",
+          "chart": "#2 US Trivia"
+        }
+      ]
+    },
+    {
+      "id": "jigsaw-puzzles",
+      "name": "Jigsaw Puzzles",
+      "category": "puzzle",
+      "pitch": "Relaxing assembly for an older audience. Easybrain's Jigsaw Puzzles tops 100M installs.",
+      "fgsEdge": "CC0 and procedurally generated images keep jigsaws free and offline.",
+      "mechanic": "Drag scattered pieces to reassemble a picture.",
+      "difficulty": "medium",
+      "decision": "build-now",
+      "demand": 3,
+      "engine": "canvas",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "seed",
+        "leaderboard"
+      ],
+      "requires": [],
+      "caveats": "Images must be CC0/public domain or procedurally generated. Images are the big-asset constraint: use a small curated set plus procedural art.",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Jigsaw Puzzles",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.easybrain.jigsaw.puzzles",
+          "installs": "100M+",
+          "rating": 4.8,
+          "reviews": "2.39M"
+        },
+        {
+          "name": "Jigsawscapes",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=jigsaw.puzzle.game.banana",
+          "installs": "50M+"
+        }
+      ]
+    },
+    {
+      "id": "arrow-escape",
+      "name": "Arrow Escape Puzzle",
+      "category": "puzzle",
+      "pitch": "The current 2025-26 hit format: clear pieces in the right order. Arrows and Amaze GO each top 100M installs.",
+      "fgsEdge": "Procedurally generated levels mean endless free, offline play with a daily seed.",
+      "mechanic": "Tap pieces in the order that clears the board.",
+      "difficulty": "easy",
+      "decision": "build-now",
+      "demand": 3,
+      "engine": "grid",
+      "bundleTier": 300,
+      "primitives": [
+        "seed",
+        "localStorage",
+        "leaderboard"
+      ],
+      "requires": [],
+      "caveats": "Generic mechanic.",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "apple",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Arrows - Puzzle Escape",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.ecffri.arrows",
+          "installs": "100M+",
+          "rating": 4.7
+        },
+        {
+          "name": "Amaze GO!",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.oakever.arrows",
+          "installs": "100M+",
+          "rating": 4.9
+        },
+        {
+          "name": "Arrow Puzzle",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.easybrain.arrow.puzzle.game",
+          "installs": "50M+",
+          "rating": 4.8
+        }
+      ]
+    },
+    {
+      "id": "flow-numberlink",
+      "name": "Flow / Numberlink",
+      "category": "puzzle",
+      "pitch": "Simple rules and satisfying fills: connect matching dots without crossing paths. Flow Free tops 100M installs.",
+      "fgsEdge": "Procedural Numberlink boards, free and offline with a daily seed.",
+      "mechanic": "Connect matching dots with non-crossing paths that fill the grid.",
+      "difficulty": "easy",
+      "decision": "build-now",
+      "demand": 3,
+      "engine": "grid",
+      "bundleTier": 300,
+      "primitives": [
+        "seed",
+        "localStorage",
+        "leaderboard"
+      ],
+      "requires": [],
+      "caveats": "Numberlink is a public-domain puzzle type. \"Flow Free\" is a trademark.",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "apple",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Flow Free",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.bigduckgames.flow",
+          "installs": "100M+",
+          "rating": 4.7,
+          "reviews": "1.54M"
+        },
+        {
+          "name": "Dot Link",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.playvalve.connect.dots",
+          "installs": "10M+",
+          "rating": 4.8,
+          "chart": "#11 US Board (iOS)"
+        }
+      ]
+    },
+    {
+      "id": "merge-number-2248",
+      "name": "Merge Numbers (2248)",
+      "category": "puzzle",
+      "pitch": "Instantly learnable yet deep number-merging. 2248 Numbers tops 50M installs.",
+      "fgsEdge": "Builds on MIT-licensed 2048 to add 2248 and drop-merge variants, free and offline.",
+      "mechanic": "Slide and merge numbered tiles up a chain.",
+      "difficulty": "easy",
+      "decision": "upgrade-existing",
+      "demand": 3,
+      "engine": "grid",
+      "bundleTier": 300,
+      "primitives": [
+        "leaderboard",
+        "localStorage"
+      ],
+      "requires": [],
+      "caveats": "2048 is MIT-licensed open source. Fine to build on.",
+      "fgsGames": [
+        "partial:2048"
+      ],
+      "sources": [
+        "play",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "2248 Numbers",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.inspiredsquare.jupiter",
+          "installs": "50M+",
+          "rating": 4.9
+        },
+        {
+          "name": "2048",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.tpcstld.twozerogame",
+          "installs": "10M+",
+          "rating": 4.5
+        }
+      ]
+    },
+    {
+      "id": "number-match",
+      "name": "Number Match",
+      "category": "puzzle",
+      "pitch": "A retro pen-and-paper puzzle for an older audience: clear pairs that sum to ten or match. Number Match tops 50M installs.",
+      "fgsEdge": "A free, offline daily Number Match with local stats.",
+      "mechanic": "Clear pairs that match or sum to ten.",
+      "difficulty": "easy",
+      "decision": "build-now",
+      "demand": 3,
+      "engine": "grid",
+      "bundleTier": 300,
+      "primitives": [
+        "seed",
+        "localStorage",
+        "leaderboard"
+      ],
+      "requires": [],
+      "caveats": "Generic (Numberzilla / Take Ten traditional pen-and-paper puzzle).",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "apple",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Number Match",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.easybrain.number.puzzle.game",
+          "installs": "50M+",
+          "rating": 4.8,
+          "chart": "#15 US Board (iOS)"
+        }
+      ]
+    },
+    {
+      "id": "nonogram",
+      "name": "Nonogram",
+      "category": "puzzle",
+      "pitch": "Logic plus a pixel-art reveal. Nonogram.com tops 50M installs with 904K reviews.",
+      "fgsEdge": "Procedurally generated nonograms, free and offline with a daily seed.",
+      "mechanic": "Fill grid cells from row/column clues to reveal pixel art.",
+      "difficulty": "easy",
+      "decision": "build-now",
+      "demand": 3,
+      "engine": "grid",
+      "bundleTier": 300,
+      "primitives": [
+        "seed",
+        "localStorage",
+        "leaderboard"
+      ],
+      "requires": [],
+      "caveats": "\"Picross\" is a Nintendo trademark. Use \"Nonogram\"/\"Griddlers\".",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Nonogram.com",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.easybrain.nonogram",
+          "installs": "50M+",
+          "rating": 4.6,
+          "reviews": "904K"
+        }
+      ]
+    },
+    {
+      "id": "crossword",
+      "name": "Crossword",
+      "category": "puzzle",
+      "pitch": "A daily habit. CodyCross tops 100M installs and the NYT Mini logged 1.4B solves in 2025.",
+      "fgsEdge": "A 5x5 daily mini fits a seeded model, free and offline.",
+      "mechanic": "Solve a daily 5x5 crossword from original clues.",
+      "difficulty": "medium",
+      "decision": "build-now",
+      "demand": 3,
+      "engine": "dom",
+      "bundleTier": 300,
+      "primitives": [
+        "seed",
+        "localStorage",
+        "leaderboard"
+      ],
+      "requires": [],
+      "caveats": "Clues must be original. A 5x5 \"mini\" format needs far less content and fits a daily-seed model.",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "CodyCross",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.fanatee.cody",
+          "installs": "100M+",
+          "rating": 4.7
+        },
+        {
+          "name": "Crossword Master",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.easybrain.crossword.puzzles",
+          "installs": "10M+",
+          "rating": 4.8
+        }
+      ]
+    },
+    {
+      "id": "word-search-strands",
+      "name": "Word Search / Strands",
+      "category": "puzzle",
+      "pitch": "Low-stress, daily word hunting. NYT Strands logged 1.5B solves; Word Search Explorer is #1 US Word on Play.",
+      "fgsEdge": "Adds a themed snake-path mode to the existing Word Search, free and offline.",
+      "mechanic": "Find themed words along snaking paths in a letter grid.",
+      "difficulty": "easy",
+      "decision": "upgrade-existing",
+      "demand": 2,
+      "engine": "dom",
+      "bundleTier": 300,
+      "primitives": [
+        "seed",
+        "localStorage",
+        "leaderboard"
+      ],
+      "requires": [],
+      "caveats": "\"Strands\" is NYT branding. Use your own name for the themed snake-path variant.",
+      "fgsGames": [
+        "partial:wordsearch"
+      ],
+      "sources": [
+        "play",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Word Search Explorer",
+          "store": "play",
+          "installs": "110M",
+          "chart": "#1 US Word (Play)"
+        },
+        {
+          "name": "NYT Strands",
+          "store": "apple",
+          "chart": "1.5B solves (2025)"
+        }
+      ]
+    },
+    {
+      "id": "trick-taking-cards",
+      "name": "Trick-Taking Cards",
+      "category": "cards",
+      "pitch": "A huge US social card audience across Spades, Hearts and Euchre. Multiple Spades titles sit in the US Card top 30.",
+      "fgsEdge": "Free offline Spades and Hearts vs-AI; online tables await a rooms primitive.",
+      "mechanic": "Bid and take tricks vs AI partners and opponents.",
+      "difficulty": "medium",
+      "decision": "build-now-rooms-later",
+      "demand": 2,
+      "engine": "cards",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "leaderboard"
+      ],
+      "requires": [
+        "realtime-rooms"
+      ],
+      "caveats": "Public-domain rules (Spades, Hearts, Euchre).",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Spades Plus",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=net.peakgames.mobile.spades.android",
+          "installs": "10M+",
+          "rating": 4.8
+        },
+        {
+          "name": "Spades",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.mobilityware.Spades",
+          "installs": "10M+"
+        }
+      ]
+    },
+    {
+      "id": "dice-yatzy",
+      "name": "Dice (Yatzy / Farkle)",
+      "category": "casual",
+      "pitch": "Quick luck-plus-choice dice play. Yahtzee With Buddies and Yatzy each top 10M installs.",
+      "fgsEdge": "A free, offline Yatzy/Farkle with local high scores.",
+      "mechanic": "Roll five dice and bank scoring combinations.",
+      "difficulty": "easy",
+      "decision": "build-now",
+      "demand": 2,
+      "engine": "any-2d",
+      "bundleTier": 300,
+      "primitives": [
+        "leaderboard",
+        "localStorage",
+        "sounds"
+      ],
+      "requires": [],
+      "caveats": "\"Yahtzee\" is a Hasbro trademark. Use \"Yatzy\" / \"Five Dice\".",
+      "fgsGames": [
+        "partial:dice"
+      ],
+      "sources": [
+        "play",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Yahtzee With Buddies",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.scopely.yux",
+          "installs": "10M+"
+        },
+        {
+          "name": "Yatzy",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.playvalve.yatzy",
+          "installs": "10M+",
+          "rating": 4.8
+        }
+      ]
+    },
+    {
+      "id": "screw-puzzle",
+      "name": "Screw Puzzle",
+      "category": "puzzle",
+      "pitch": "A hybrid-casual hit format: unscrew bolts to free pieces. The screw subgenre took ~399M downloads in 2025.",
+      "fgsEdge": "2D physics-lite screw puzzles, free and offline with a daily seed.",
+      "mechanic": "Unscrew coloured bolts to free and sort pieces.",
+      "difficulty": "medium",
+      "decision": "build-now",
+      "demand": 3,
+      "engine": "canvas",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "seed",
+        "leaderboard"
+      ],
+      "requires": [],
+      "caveats": "Generic nuts-and-bolts mechanic.",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Screw Puzzle: Wood Nut & Bolt",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.fc.nut.screw.bolt.washer.fastener.puzzle",
+          "installs": "10M+"
+        }
+      ]
+    },
+    {
+      "id": "piano-tiles",
+      "name": "Piano Tiles",
+      "category": "arcade",
+      "pitch": "Music plus reflex tapping. Magic Tiles 3 and Tiles Hop each top 500M installs.",
+      "fgsEdge": "Public-domain tunes synthesised in WebAudio keep the bundle tiny and free.",
+      "mechanic": "Tap falling tiles in time with a public-domain tune.",
+      "difficulty": "medium",
+      "decision": "build-now",
+      "demand": 3,
+      "engine": "canvas",
+      "bundleTier": 300,
+      "primitives": [
+        "leaderboard",
+        "localStorage",
+        "sounds"
+      ],
+      "requires": [],
+      "caveats": "Songs are the IP risk. Use only public-domain compositions synthesised in WebAudio (no recordings); keeps the bundle tiny.",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "apple",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Magic Tiles 3",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.youmusic.magictiles",
+          "installs": "500M+",
+          "rating": 4.6
+        },
+        {
+          "name": "Tiles Hop",
+          "store": "play",
+          "installs": "500M+"
+        }
+      ]
+    },
+    {
+      "id": "dominoes-pips",
+      "name": "Dominoes / Pips",
+      "category": "board",
+      "pitch": "Pips shows strong demand for a daily domino-placement logic puzzle (612M solves in 2025).",
+      "fgsEdge": "A daily seeded domino-logic puzzle plus classic dominoes, free and offline.",
+      "mechanic": "Place dominoes to match pips in a daily logic puzzle.",
+      "difficulty": "easy",
+      "decision": "build-now",
+      "demand": 3,
+      "engine": "any-2d",
+      "bundleTier": 300,
+      "primitives": [
+        "seed",
+        "localStorage",
+        "leaderboard"
+      ],
+      "requires": [],
+      "caveats": "Dominoes are public domain. \"Pips\" is NYT branding.",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Domino!",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.flyclops.domino.android",
+          "installs": "5M+",
+          "rating": 4.7
+        },
+        {
+          "name": "NYT Pips",
+          "store": "apple",
+          "chart": "612M solves (2025)"
+        }
+      ]
+    },
+    {
+      "id": "backgammon",
+      "name": "Backgammon",
+      "category": "board",
+      "pitch": "A classic with a loyal MENA and European audience. Backgammon (AI Factory) tops 10M installs.",
+      "fgsEdge": "Free offline backgammon vs-AI with local win tracking.",
+      "mechanic": "Bear off checkers by dice rolls vs AI.",
+      "difficulty": "medium",
+      "decision": "build-now",
+      "demand": 2,
+      "engine": "any-2d",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "leaderboard"
+      ],
+      "requires": [],
+      "caveats": "Public domain.",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Backgammon",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=uk.co.aifactory.backgammonfree",
+          "installs": "10M+",
+          "rating": 4.3
+        },
+        {
+          "name": "Backgammon Live",
+          "store": "play",
+          "installs": "5M+"
+        }
+      ]
+    },
+    {
+      "id": "sea-battle",
+      "name": "Sea Battle",
+      "category": "board",
+      "pitch": "Simple two-player deduction. Sea Battle 2 tops 50M installs with 1.61M reviews.",
+      "fgsEdge": "Local hot-seat ships free today; online with commit-reveal awaits rooms.",
+      "mechanic": "Guess coordinates to sink the opponent's hidden fleet.",
+      "difficulty": "easy",
+      "decision": "build-now-rooms-later",
+      "demand": 2,
+      "engine": "grid",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "leaderboard"
+      ],
+      "requires": [
+        "realtime-rooms"
+      ],
+      "caveats": "\"Battleship\" is a Hasbro trademark. Use \"Sea Battle\"/\"Fleet\".",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Sea Battle 2",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.byril.seabattle2",
+          "installs": "50M+",
+          "rating": 4.4,
+          "reviews": "1.61M"
+        }
+      ]
+    },
+    {
+      "id": "idle-clicker",
+      "name": "Idle Clicker",
+      "category": "casual",
+      "pitch": "Progress while away. Idle Miner Tycoon tops 100M installs.",
+      "fgsEdge": "A free, no-ads idle loop with offline progress from the client clock.",
+      "mechanic": "Tap to earn, buy upgrades, accrue offline progress.",
+      "difficulty": "easy",
+      "decision": "build-now",
+      "demand": 2,
+      "engine": "dom",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage"
+      ],
+      "requires": [],
+      "caveats": "Generic. Offline progress must use the client timestamp (cheatable, fine for a solo build).",
+      "fgsGames": [
+        "cat-clicker"
+      ],
+      "sources": [
+        "play",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Idle Miner Tycoon",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.fluffyfairygames.idleminertycoon",
+          "installs": "100M+",
+          "rating": 4.5,
+          "reviews": "5.86M"
+        },
+        {
+          "name": "Tap Titans 2",
+          "store": "play",
+          "installs": "10M+"
+        }
+      ]
+    },
+    {
+      "id": "stack-helix",
+      "name": "Stack / Helix",
+      "category": "arcade",
+      "pitch": "One-tap, 30-second sessions. Helix Jump tops 100M installs; Stack tops 50M.",
+      "fgsEdge": "Stack ships in the 300 KB tier; Helix uses the 600 KB 3D tier, both free and offline.",
+      "mechanic": "One-tap drops down a rotating helix or a stacking tower.",
+      "difficulty": "medium",
+      "decision": "build-now",
+      "demand": 2,
+      "engine": "3d",
+      "bundleTier": 600,
+      "primitives": [
+        "leaderboard",
+        "sounds"
+      ],
+      "requires": [],
+      "caveats": "Avoid Ketchapp/Voodoo names. Helix needs 3D and the 600 KB tier.",
+      "fgsGames": [
+        "partial:stack-pack"
+      ],
+      "sources": [
+        "play",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Helix Jump",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.h8games.helixjump",
+          "installs": "100M+",
+          "rating": 3.9
+        },
+        {
+          "name": "Stack",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.ketchapp.stack",
+          "installs": "50M+"
+        }
+      ]
+    },
+    {
+      "id": "party-pack",
+      "name": "2-Player Party Pack",
+      "category": "casual",
+      "pitch": "Offline, same-device social play. 2 Player Games: the Challenge tops 100M installs.",
+      "fgsEdge": "Reuses existing FGS minis as one free, offline same-device party pack.",
+      "mechanic": "Two players share one screen across quick minigames.",
+      "difficulty": "easy",
+      "decision": "build-now",
+      "demand": 2,
+      "engine": "any-2d",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "sounds"
+      ],
+      "requires": [],
+      "caveats": "Generic. Reuses existing FGS minigames.",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "2 Player Games: the Challenge",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.JindoBlu.TwoPlayerGamesChallenge",
+          "installs": "100M+",
+          "rating": 4.7
+        }
+      ]
+    },
+    {
+      "id": "brain-training-suite",
+      "name": "Brain-Training Suite",
+      "category": "casual",
+      "pitch": "Self-improvement framing across memory, attention and speed drills. Lumosity claims 100M users.",
+      "fgsEdge": "A free suite of brain minis with local progress and no benefit claims.",
+      "mechanic": "Train across memory, attention and speed minigames.",
+      "difficulty": "medium",
+      "decision": "build-now",
+      "demand": 2,
+      "engine": "any-2d",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "leaderboard",
+        "seed"
+      ],
+      "requires": [],
+      "caveats": "Avoid unsupported cognitive-benefit claims (the FTC fined Lumosity $2M in 2016 over such claims).",
+      "fgsGames": [
+        "partial:memory",
+        "partial:simon",
+        "partial:color-match"
+      ],
+      "sources": [
+        "play",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Lumosity",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.lumoslabs.lumosity",
+          "installs": "10M+",
+          "rating": 4.8
+        },
+        {
+          "name": "Elevate",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.wonder",
+          "installs": "10M+",
+          "rating": 4.6
+        },
+        {
+          "name": "Peak",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.brainbow.peak.app",
+          "installs": "10M+",
+          "rating": 4.4
+        }
+      ]
+    },
+    {
+      "id": "cryptogram-hive",
+      "name": "Cryptogram / Hive Words",
+      "category": "puzzle",
+      "pitch": "An older word-puzzle audience. NYT Spelling Bee logged 667M solves in 2025.",
+      "fgsEdge": "Original hive words and public-domain cryptogram quotes, free and offline.",
+      "mechanic": "Spell words from a honeycomb, or decode a cryptogram.",
+      "difficulty": "easy",
+      "decision": "build-now",
+      "demand": 3,
+      "engine": "dom",
+      "bundleTier": 300,
+      "primitives": [
+        "seed",
+        "localStorage",
+        "leaderboard"
+      ],
+      "requires": [],
+      "caveats": "\"Spelling Bee\" (NYT) as a product name: use \"Hive\"/\"Honeycomb Words\". Cryptogram quotes must be public domain.",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Cryptogram: Word Logic Puzzles",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.crypt.gram.puzz",
+          "installs": "10M+",
+          "rating": 4.6
+        },
+        {
+          "name": "NYT Spelling Bee",
+          "store": "apple",
+          "chart": "667M solves (2025)"
+        }
+      ]
+    },
+    {
+      "id": "checkers-classics",
+      "name": "Checkers & Classics",
+      "category": "board",
+      "pitch": "Classic, easy-AI board and word games: checkers, four-in-a-row, reversi, tic-tac-toe and hangman.",
+      "fgsEdge": "All five classics ship free and offline vs-AI under generic names.",
+      "mechanic": "Classic board and word games vs an easy AI.",
+      "difficulty": "easy",
+      "decision": "build-now",
+      "demand": 2,
+      "engine": "any-2d",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "leaderboard"
+      ],
+      "requires": [],
+      "caveats": "\"Connect 4\" is a Hasbro trademark and \"Othello\" is registered: prefer \"Four in a Row\"/\"Reversi\". Hangman and checkers are public domain.",
+      "fgsGames": [
+        "checkers",
+        "connect4",
+        "reversi",
+        "tictactoe",
+        "hangman"
+      ],
+      "sources": [
+        "play",
+        "niche",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Checkers",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.gamovation.quickcheckers",
+          "installs": "10M+"
+        },
+        {
+          "name": "Hangman Words",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=hang.man.word.guessing.games",
+          "installs": "10M+",
+          "rating": 4.8
+        }
+      ]
+    },
+    {
+      "id": "mancala-go-shogi",
+      "name": "Mancala / Go / Shogi",
+      "category": "board",
+      "pitch": "Niche but loyal regional classics: Mancala, Go and Shogi.",
+      "fgsEdge": "Free offline builds of Mancala, Go and Shogi with local win tracking.",
+      "mechanic": "Sow seeds or place stones vs AI across regional classics.",
+      "difficulty": "medium",
+      "decision": "build-now",
+      "demand": 1,
+      "engine": "any-2d",
+      "bundleTier": 300,
+      "primitives": [
+        "localStorage",
+        "leaderboard"
+      ],
+      "requires": [],
+      "caveats": "Public domain (Mancala, Go, Shogi).",
+      "fgsGames": [],
+      "sources": [
+        "play",
+        "fgs-research"
+      ],
+      "leaders": [
+        {
+          "name": "Mancala",
+          "store": "play",
+          "url": "https://play.google.com/store/apps/details?id=com.appon.mancala",
+          "installs": "5M+"
+        },
+        {
+          "name": "BadukPop (Go)",
+          "store": "play",
+          "installs": "1M+"
+        },
+        {
+          "name": "Shogi",
+          "store": "play",
+          "installs": "1M+"
+        }
+      ]
+    }
+  ]
+}
