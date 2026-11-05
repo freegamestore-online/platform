@@ -87,6 +87,8 @@ add its creator as a push collaborator and set `creatorGithub` in the registry.
 the admin worker's `GH_*` token can do this; `GH_ADMIN_TOKEN` in Doppler
 `fgs/prd` has `admin:org`+`repo`.)
 
+> 2026-11-05: secrets no longer live in Doppler — `GH_ADMIN_TOKEN` is in `~/dev/ops` (SOPS, `serge-ivo/ops`).
+
 ## Files
 - `src/index.ts` — `/api/provision` handler (inject `creatorGithub = login`).
 - `src/publish.ts` — Step 1b (~line 189), already correct once `creatorGithub` is set.
