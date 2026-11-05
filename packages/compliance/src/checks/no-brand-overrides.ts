@@ -138,6 +138,10 @@ const ALLOWED_FONT_TOKENS = new Set([
   'apple color emoji',
   'segoe ui emoji',
   'segoe ui symbol',
+  // Symbol fonts for Unicode blocks system fonts often lack, e.g. the Mahjong
+  // Tiles block (U+1F000) that mahjong bundles as an OFL subset (#415).
+  'noto sans symbols',
+  'noto sans symbols 2',
 ]);
 
 export function scanContent(

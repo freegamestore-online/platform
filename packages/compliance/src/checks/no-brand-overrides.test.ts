@@ -127,6 +127,35 @@ describe('scanContent (unit)', () => {
     expect(issues).toEqual([]);
   });
 
+  // #415: mahjong bundles a Noto Sans Symbols 2 subset for the Mahjong Tiles block.
+  it('accepts the Noto Sans Symbols fonts in @font-face and in a font stack', () => {
+    const css = scanContent(
+      'web/src/index.css',
+      `
+      @font-face {
+        font-family: "Noto Sans Symbols 2";
+        src: url("/fonts/noto-sans-symbols-2-mahjong.woff2") format("woff2");
+        unicode-range: U+1F000-1F02B;
+      }
+      .glyph { font-family: "Noto Sans Symbols", sans-serif; }
+    `,
+    );
+    const tsx = scanContent(
+      'web/src/components/Game.tsx',
+      `const tile = { fontFamily: '"Noto Sans Symbols 2", "Segoe UI Symbol", system-ui, sans-serif' };`,
+    );
+    expect(css).toEqual([]);
+    expect(tsx).toEqual([]);
+  });
+
+  it('still flags an invented family name for the same font file', () => {
+    const issues = scanContent(
+      'web/src/index.css',
+      '@font-face { font-family: "Mahjong Tiles"; src: url("/fonts/x.woff2"); }',
+    );
+    expect(issues).toEqual(['web/src/index.css:1 non-brand font "mahjong tiles"']);
+  });
+
   it('reports line numbers', () => {
     const issues = scanContent('web/src/index.css', `\n\n:root { --paper: red; }\n`);
     expect(issues[0]).toMatch(/:3 /);

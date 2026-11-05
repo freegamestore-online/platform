@@ -8,6 +8,15 @@ versioned independently; releases publish via `.github/workflows/publish.yml`
 ## [Unreleased]
 
 ### Fixed
+- `@freegamestore/games` (next: 0.20.0): credential-less leaderboard reads (#409), leaderboard
+  exports restored (zap-drills#6), page-wide mute state with a dev warning outside
+  `<GameShell>` (#410), `GameTopbar` fits 320px (#414). See
+  `packages/games-sdk/CHANGELOG.md`.
+- `@freegamestore/compliance` (next: 0.11.1): `no-brand-overrides` accepts
+  `Noto Sans Symbols` and `Noto Sans Symbols 2`, next to the other symbol and emoji fonts,
+  so a game can bundle a subset for blocks such as Mahjong Tiles (#415). Games consume it
+  through `@freegamestore/cli`, which pins an exact compliance version, so it needs a CLI
+  release too.
 - `@freegamestore/cli`: dropped `new Function(...)` in `screencheck` (flagged as
   eval-injection) in favor of a string expression passed to `page.evaluate`.
 - `@freegamestore/cli`: renamed the doctor-local `CheckResult`/`CheckStatus` to
