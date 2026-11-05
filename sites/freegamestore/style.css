@@ -2703,12 +2703,12 @@ footer .container {
 .catalog-create { margin-top: 2rem; }
 
 /* ── Game ideas page (/ideas) ── */
-.ideas-hero { padding: 2.5rem 0 1rem; }
+.ideas-hero { padding-block: 2.5rem 1rem; }
 .ideas-hero h1 { font-family: var(--font-display); font-size: 2.25rem; margin: 0 0 0.5rem; color: var(--ink-strong); }
 .ideas-lede { font-size: 1.1rem; color: var(--ink); max-width: 46rem; margin: 0 0 0.75rem; }
 .ideas-meta { color: var(--muted); font-size: 0.95rem; margin: 0; }
 .ideas-meta strong { color: var(--ink-strong); }
-.ideas-controls { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.5rem 0 1.25rem; }
+.ideas-controls { display: flex; flex-direction: column; gap: 0.75rem; padding-block: 0.5rem 1.25rem; }
 .ideas-search { width: 100%; max-width: 24rem; padding: 0.6rem 0.9rem; border: 1px solid var(--line-strong); border-radius: 100px; background: var(--panel); color: var(--ink); font: inherit; }
 .ideas-search:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .ideas-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; }
@@ -2747,7 +2747,7 @@ footer .container {
 .ideas-copy { font: inherit; font-size: 0.82rem; font-weight: 600; padding: 0.35rem 0.8rem; border-radius: 100px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--ink); cursor: pointer; }
 .ideas-copy:hover { border-color: var(--accent); color: var(--accent-hover); }
 .ideas-copy.copied { color: var(--accent-hover); border-color: var(--accent); }
-.ideas-cta { text-align: center; padding: 2rem 0 4rem; }
+.ideas-cta { text-align: center; padding-block: 2rem 4rem; }
 .ideas-cta h2 { font-family: var(--font-display); color: var(--ink-strong); }
 .ideas-cta p { color: var(--muted); max-width: 36rem; margin: 0.5rem auto 1rem; }
 @media (max-width: 480px) { .ideas-grid { grid-template-columns: 1fr; } .ideas-hero h1 { font-size: 1.8rem; } }

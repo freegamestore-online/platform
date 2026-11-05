@@ -429,11 +429,23 @@ const jsVersions = Object.fromEntries(
 
 const footerHtml = fs.readFileSync(path.join(ROOT, 'partials/footer.html'), 'utf8').trim();
 
+// Anti-FOUC: the external style.css is render-blocking, but before it applies
+// the browser paints the default white canvas (body sets --paper, <html> sets
+// nothing), which flashes white — jarring in dark mode. The inline theme script
+// in <head> already sets data-theme synchronously, so set the root background
+// inline too, before the stylesheet, so the first paint is the right colour.
+// Values mirror --paper in style.css (light / [data-theme="dark"]).
+const CRITICAL_STYLE = '<style>html{background:#f8fafc}:root[data-theme="dark"]{background:#0f172a}</style>';
+
 function replaceAssetVersions(html) {
   return html
     .replace(/<footer>[\s\S]*?<\/footer>/g, footerHtml)
     .replaceAll('{{STYLE_VERSION}}', styleVersion)
     .replaceAll('{{CARD_STYLES_VERSION}}', cardStylesVersion)
+    // Inject the anti-FOUC critical style just before the first stylesheet
+    // link. Matches both the bare href (static/ideas pages) and the already
+    // cache-busted href="/style.css?v=…" (templated pages via {{STYLE_VERSION}}).
+    .replace(/<link\b[^>]*href="\/?style\.css(?:\?[^"]*)?"[^>]*>/, (m) => `${CRITICAL_STYLE}\n  ${m}`)
     // Cache-bust local stylesheet links, including copied static pages that
     // still use href="style.css" rather than the template placeholder.
     .replace(/href="\/?style\.css"/g, `href="/style.css?v=${styleVersion}"`)
