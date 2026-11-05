@@ -126,6 +126,30 @@ describe('GameTopbar', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  // #414: on a 320px screen the stats are what gives way, never a control.
+  it('groups the stats in one clippable container, apart from the controls', () => {
+    render(
+      <GameTopbar
+        title="Tetris"
+        stats={[
+          { label: 'Lines', value: 12 },
+          { label: 'Level', value: 3 },
+        ]}
+        actions={<button type="button">Sign in</button>}
+      />,
+    );
+    const stats = screen.getByText('Lines').closest('[class*="stats"]');
+    expect(stats).not.toBeNull();
+    expect(stats).toContainElement(screen.getByText('Level'));
+    expect(stats).not.toContainElement(screen.getByRole('button', { name: 'Sign in' }));
+    expect(stats).not.toContainElement(screen.getByRole('button', { name: 'Mute' }));
+  });
+
+  it('renders no stats container when there are no stats', () => {
+    const { container } = render(<GameTopbar title="Tetris" />);
+    expect(container.querySelector('[class*="stats"]')).toBeNull();
+  });
+
   it('keeps the sound toggle aria-pressed in step with its state', () => {
     render(<GameTopbar />);
     const mute = screen.getByRole('button', { name: 'Mute' });
@@ -149,6 +173,43 @@ describe('GameTopbar.module.css', () => {
     const reduced = CSS.slice(CSS.indexOf('@media (prefers-reduced-motion: reduce)'));
     expect(reduced).toContain('.button');
     expect(reduced).toContain('transition: none');
+  });
+
+  describe('on phones, 480px and below (#414)', () => {
+    const narrow = CSS.slice(
+      CSS.indexOf('@media (max-width: 480px)'),
+      CSS.indexOf('@media (prefers-reduced-motion'),
+    );
+    /** The declarations of `selector` inside the narrow-screen block. */
+    const rule = (selector: string) => {
+      const start = narrow.indexOf(`${selector} {`);
+      return start < 0 ? '' : narrow.slice(start, narrow.indexOf('}', start));
+    };
+
+    it('has a narrow-screen block', () => {
+      expect(narrow).toContain('@media (max-width: 480px)');
+    });
+
+    it('keeps the controls 44px tall while narrowing them', () => {
+      expect(rule('.button')).toContain('min-width: 1.75rem');
+      expect(narrow).not.toContain('min-height');
+    });
+
+    it('hides stat labels visually but keeps them for screen readers', () => {
+      expect(rule('.statLabel')).toContain('clip-path: inset(50%)');
+      expect(narrow).not.toContain('display: none');
+    });
+
+    it('truncates the title instead of letting it collapse to nothing', () => {
+      expect(CSS).toMatch(/\.title \{[^}]*text-overflow: ellipsis;[^}]*min-width: 2\.5rem/);
+    });
+
+    it('lets only the stats shrink: controls, actions and stats items do not', () => {
+      expect(CSS).toMatch(/\.stats \{[^}]*flex-wrap: wrap;[^}]*min-width: 0;[^}]*overflow: hidden/);
+      for (const sel of ['button', 'actions', 'stat']) {
+        expect(CSS).toMatch(new RegExp(`\\.${sel} \\{[^}]*flex-shrink: 0`));
+      }
+    });
   });
 
   it('gives each tone a class, so the colour is not set inline', () => {

@@ -27,8 +27,32 @@
 
 .actions {
   display: flex;
+  flex-shrink: 0;
   gap: 0.4rem;
   align-items: center;
+}
+
+/* The title side takes whatever room the right side leaves, but never less
+   than its buttons plus the title's minimum width, so the right side cannot
+   slide over it. */
+.groupStart {
+  flex: 1 1 auto;
+  min-width: auto;
+}
+
+/* The stats are the only part of the right side that may give way, so a narrow
+   screen never pushes a control (Sign in, sound) off the bar (#414). Each stat
+   is one 2rem row: a stat that does not fit wraps onto the hidden next row
+   whole, instead of being cut through its digits. */
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  justify-content: flex-end;
+  column-gap: 0.75rem;
+  height: 2rem;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .title {
@@ -39,6 +63,13 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* Truncate, never vanish: a few letters stay visible on a 320px screen (#414).
+     inline-size containment drops the text's own width from the layout, so the
+     title fills the room that is left (flex-grow) instead of claiming its full
+     length, and the stats keep priority over the end of a long title. */
+  flex: 1 1 auto;
+  min-width: 2.5rem;
+  contain: inline-size;
 }
 
 /* Icon buttons and the catalog link. Every control in the topbar uses this. */
@@ -46,6 +77,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   min-width: 2.75rem;
   min-height: 2.75rem;
   padding: 0;
@@ -87,8 +119,14 @@
 
 /* Score and stat values */
 .stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex-shrink: 0;
+  height: 2rem;
   text-align: right;
   line-height: 1.05;
+  white-space: nowrap;
 }
 
 .statValue {
@@ -192,6 +230,37 @@
 .aboutLink {
   color: var(--accent, #10b981);
   text-decoration: none;
+}
+
+/* Phones (≤480px): tighter spacing, narrower icon buttons (still 44px tall),
+   and stats show only their value. The label stays for screen readers. */
+@media (max-width: 480px) {
+  .bar {
+    gap: 0.25rem;
+    padding: 0.25rem;
+  }
+
+  .groupEnd {
+    gap: 0;
+  }
+
+  .stats {
+    column-gap: 0.5rem;
+    margin-right: 0.25rem;
+  }
+
+  .button {
+    min-width: 1.75rem;
+  }
+
+  .statLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

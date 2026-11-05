@@ -172,7 +172,7 @@ export function GameTopbar({
   return (
     <>
       <div className={styles.bar}>
-        <div className={styles.group}>
+        <div className={`${styles.group} ${styles.groupStart}`}>
           {/* Catalog — back to store listing. A 2×2 grid, not a house: a house
               icon clashed with the browser's own "home" button on Android Chrome. */}
           <TopbarIconButton
@@ -218,9 +218,13 @@ export function GameTopbar({
         </div>
 
         <div className={`${styles.group} ${styles.groupEnd}`}>
-          {resolvedStats.map((s) => (
-            <Stat key={s.label} stat={s} />
-          ))}
+          {resolvedStats.length > 0 && (
+            <div className={styles.stats}>
+              {resolvedStats.map((s) => (
+                <Stat key={s.label} stat={s} />
+              ))}
+            </div>
+          )}
           {/* Play/Pause + Restart — opt-in for interactive games */}
           {onPlayPause !== undefined && (
             <TopbarIconButton
