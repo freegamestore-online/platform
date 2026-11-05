@@ -128,20 +128,30 @@ export async function getCIResults(appId: string, env: DeployEnv, config: StoreC
 /** Get quality audit results from the store's audit API. */
 export async function getAuditResults(appId: string, config: StoreConfig): Promise<string> {
   try {
-    const res = await fetch(`https://api.${config.domain}/v1/audit?${config.auditParam}=${appId}`, {
+    // Audit rows for BOTH stores live in the FAS backend's multi-store
+    // audit_results table (its scheduled audit scans apps and games). There is
+    // no api.freegamestore.online — that hostname lands on workers/host's
+    // *.freegamestore.online route, which 404s "no game registered" (#431).
+    const res = await fetch(`https://api.freeappstore.online/v1/audit?store=${config.store}&app=${appId}`, {
       headers: { "User-Agent": config.agentName },
     });
     if (!res.ok) return `Audit API returned ${res.status}. The ${config.noun} may not have been audited yet.`;
-    const data = (await res.json()) as any;
+    const data = (await res.json()) as {
+      summary?: { appId: string; pass: number; warn: number; fail: number }[];
+      checks?: { checkName: string; status: string; detail?: string | null }[];
+      total?: number;
+    };
 
-    if (data.summary) {
-      const s = data.summary;
+    const s = data.summary?.find((row) => row.appId === appId);
+    if (s) {
       const lines = [`Audit for ${appId}: ${s.pass} pass, ${s.warn} warn, ${s.fail} fail`];
-      if (data.checks) {
-        for (const c of data.checks) {
-          const icon = c.status === "pass" ? "PASS" : c.status === "warn" ? "WARN" : "FAIL";
-          lines.push(`  ${icon}: ${c.name}${c.detail ? ` — ${c.detail}` : ""}`);
-        }
+      const checks = data.checks ?? [];
+      for (const c of checks) {
+        const icon = c.status === "pass" ? "PASS" : c.status === "warn" ? "WARN" : "FAIL";
+        lines.push(`  ${icon}: ${c.checkName}${c.detail ? ` — ${c.detail}` : ""}`);
+      }
+      if (data.total && data.total > checks.length) {
+        lines.push(`  (showing ${checks.length} of ${data.total} checks)`);
       }
       return lines.join("\n");
     }

@@ -14,7 +14,6 @@ describe("getConfig", () => {
     expect(c.storeName).toBe("FreeAppStore");
     expect(c.agentName).toBe("freeappstore-agent");
     expect(c.accentColor).toBe("#2563eb");
-    expect(c.auditParam).toBe("app");
   });
 
   it("returns games config for 'games'", () => {
@@ -30,7 +29,6 @@ describe("getConfig", () => {
     expect(c.storeName).toBe("FreeGameStore");
     expect(c.agentName).toBe("freegamestore-agent");
     expect(c.accentColor).toBe("#10b981");
-    expect(c.auditParam).toBe("game");
   });
 
   it("falls back to apps for unknown store", () => {

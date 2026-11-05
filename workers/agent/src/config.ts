@@ -18,7 +18,6 @@ export interface StoreConfig {
   agentName: string;
   accentColor: string;
   categories: string;
-  auditParam: string;
   cfProjectName: (id: string) => string;
   /** Path B hosting: register a D1 host route + registry entry via admin and
    *  serve from R2 (per-repo deploy.yml uploads on push), instead of creating a
@@ -45,7 +44,6 @@ const CONFIGS: Record<string, StoreConfig> = {
     agentName: "freeappstore-agent",
     accentColor: "#2563eb",
     categories: "utilities, productivity, learning, lifestyle, finance, health, creative, social",
-    auditParam: "app",
     cfProjectName: (id: string) => `free${id.replace(/-/g, "")}app`,
   },
   games: {
@@ -64,7 +62,6 @@ const CONFIGS: Record<string, StoreConfig> = {
     agentName: "freegamestore-agent",
     accentColor: "#10b981",
     categories: "arcade, puzzle, strategy, racing, sports, cards, board, rpg, action, casual",
-    auditParam: "game",
     cfProjectName: (id: string) => id,
     pathB: true,
     r2Bucket: "fgs-games",
