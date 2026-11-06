@@ -43,6 +43,9 @@ export async function handleAdminCompApi(
   // endpoints stay internal-only.
   const tok = request.headers.get("X-Internal-Token") || "";
   const internalOk = !!env.INTERNAL_TOKEN && timingSafeEqual(tok, env.INTERNAL_TOKEN);
+  // Who is acting, for the audit trail (#449): the admin worker names the human it
+  // authenticated in X-Admin-Actor; an org member is named by their own login.
+  let actor = internalOk ? (request.headers.get("X-Admin-Actor") ?? "").trim().slice(0, 100) : "";
   if (!internalOk) {
     const ORG_ADMIN_PATHS = new Set([
       "/v1/admin/sessions",
@@ -55,6 +58,7 @@ export async function handleAdminCompApi(
     if (!user?.login || !(await isOrgAdmin(getConfig(env.STORE), env.GITHUB_TOKEN, user.login))) {
       return json({ error: "forbidden — org admins only" }, 403);
     }
+    actor = user.login;
   }
   if (!env.DB) return json({ error: "database not configured" }, 500);
 
@@ -203,6 +207,8 @@ export async function handleAdminCompApi(
     const body = (await request.json().catch(() => ({}))) as { message?: string; provider?: string; model?: string };
     const message = String(body.message || "").trim();
     if (!message) return json({ error: "message is required" }, 400);
+    // No anonymous actor: a call that cannot say who is acting is refused.
+    if (!actor) return json({ error: "acting admin is required (X-Admin-Actor)" }, 400);
 
     const ownerRow = await env.DB.prepare("SELECT user_id, user_login FROM agent_sessions WHERE session_id = ? LIMIT 1")
       .bind(sid)
@@ -239,6 +245,20 @@ export async function handleAdminCompApi(
       }
     }
     const model = body.model ? String(body.model) : DEFAULT_MODELS[provider] || DEFAULT_MODELS.github!;
+
+    // This runs a turn as the session's owner, on their key or grant, so every call
+    // is attributable (#449). Workers Logs keeps these at 100% sampling.
+    console.log(
+      JSON.stringify({
+        event: "admin_session_chat",
+        actor,
+        via: internalOk ? "admin-worker" : "org-member",
+        session: sid,
+        owner,
+        provider,
+        messageChars: message.length,
+      }),
+    );
 
     const stub = env.SESSION.get(env.SESSION.idFromName(sid));
     const res = await stub.fetch(
