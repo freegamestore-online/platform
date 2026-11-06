@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { listUserGames, registryToRepo } from './_games';
+import { getRegistryState, listUserGames, registryToRepo } from './_games';
 
 // #44: console list responses expose rich immutable attribution while retaining
 // safe compatibility for legacy #35 strings.
@@ -75,7 +75,8 @@ describe('listUserGames ownership by GitHub id', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) => {
-        if (url.includes('/contents/registry.json')) return Response.json(registry);
+        if (url.includes('/contents/sites/freegamestore/registry.json'))
+          return Response.json(registry);
         if (url.includes('/members/')) return new Response(null, { status: 404 });
         return Response.json({});
       }),
@@ -94,5 +95,27 @@ describe('listUserGames ownership by GitHub id', () => {
     stubGitHub();
     const { owned } = await listUserGames({ GITHUB_TOKEN: 't' }, 'new-name');
     expect(owned.map((g) => g.id).sort()).toEqual(['legacy-game', 'reused-login']);
+  });
+});
+
+// #480: the live registry is the platform monorepo's sites/freegamestore copy;
+// the old `freegamestore` repo is archived and stale.
+describe('getRegistryState location', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('reads the platform registry (Contents API first, raw fallback), never the archived repo', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        urls.push(url);
+        return new Response('down', { status: 500 });
+      }),
+    );
+    await getRegistryState('t');
+    expect(urls).toEqual([
+      'https://api.github.com/repos/freegamestore-online/platform/contents/sites/freegamestore/registry.json',
+      'https://raw.githubusercontent.com/freegamestore-online/platform/main/sites/freegamestore/registry.json',
+    ]);
   });
 });

@@ -19,7 +19,11 @@ export { ownershipFacts };
 
 export const ORG = 'freegamestore-online';
 const DOMAIN = 'freegamestore.online';
-const REGISTRY_URL = `https://raw.githubusercontent.com/${ORG}/freegamestore/main/registry.json`;
+// The live registry lives in the platform monorepo, like admin's
+// registryLocation.ts. The old `freegamestore` repo is archived (#480).
+const REGISTRY_PATH = 'sites/freegamestore/registry.json';
+const REGISTRY_URL = `https://raw.githubusercontent.com/${ORG}/platform/main/${REGISTRY_PATH}`;
+const REGISTRY_CONTENTS_URL = `https://api.github.com/repos/${ORG}/platform/contents/${REGISTRY_PATH}`;
 
 export type RegistryReadResult =
   | { status: 'available'; games: RegistryGame[] }
@@ -155,12 +159,9 @@ export async function getRegistryState(token?: string): Promise<RegistryReadResu
   let contentsMissing = false;
   if (token) {
     try {
-      const res = await fetch(
-        `https://api.github.com/repos/${ORG}/freegamestore/contents/registry.json`,
-        {
-          headers: { ...ghHeaders(token), Accept: 'application/vnd.github.raw+json' },
-        },
-      );
+      const res = await fetch(REGISTRY_CONTENTS_URL, {
+        headers: { ...ghHeaders(token), Accept: 'application/vnd.github.raw+json' },
+      });
       if (res.ok) {
         const reg = (await res.json()) as { games?: RegistryGame[] };
         if (Array.isArray(reg.games)) return { status: 'available', games: reg.games };
