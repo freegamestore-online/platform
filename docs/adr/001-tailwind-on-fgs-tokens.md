@@ -75,3 +75,10 @@ Token names are those in the developer guidelines' visual-system table plus `--p
 ## Status of the rollout
 
 This ADR is the first step (#391). The children #392 to #398 apply it, in the order set in #390.
+
+## Exception: GameTopbar (#512)
+
+`GameTopbar` renders its rules in one hoisted `<style>` (`packages/games-sdk/src/GameTopbar.styles.ts`).
+Utilities would leave it unstyled in games that do not `@source` the SDK's dist, and a CSS module left
+a `.css` import in `dist` that Node and vitest cannot load. Drop the exception once every game
+carries the `@source` line (#392); `styling.test.ts` names the two files it covers.

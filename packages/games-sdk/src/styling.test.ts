@@ -120,9 +120,21 @@ describe('SDK styling discipline (#393)', () => {
     );
   });
 
+  // The one sanctioned exception (#512): the topbar's rules ship as a <style> that
+  // GameTopbar renders, because most games do not `@source` the SDK's dist, so utilities
+  // would leave the bar unstyled. Nothing else may use a CSS string or a style element.
+  const TOPBAR_STYLE_FILES: Record<string, string[]> = {
+    'GameTopbar.styles.ts': ['CSS string'],
+    'GameTopbar.tsx': ['style element'],
+  };
+
   for (const file of files) {
     it(`${file} uses compiled utilities with only documented dynamic styles`, () => {
-      expect(violations(readFileSync(`${here}${file}`, 'utf8'), file)).toEqual([]);
+      const allowed = TOPBAR_STYLE_FILES[file] ?? [];
+      const found = violations(readFileSync(`${here}${file}`, 'utf8'), file).filter(
+        (v) => !allowed.includes(v),
+      );
+      expect(found).toEqual([]);
     });
   }
 

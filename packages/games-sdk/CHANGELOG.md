@@ -1,18 +1,22 @@
 # @freegamestore/games
 
-## 0.20.1
+## 0.20.2
 
-Drop-in for 0.20.0; no code changes are needed.
+Drop-in for 0.20.0; no code changes are needed. **Use this instead of 0.20.1.**
 
 - **Game test suites that render SDK components load again (#512).** `GameTopbar` was styled by
   a CSS module, and the published `dist/GameTopbar.js` kept a bare
   `import './GameTopbar.module.css'`. Vite resolves that in a game build, but Node cannot, so
   vitest failed with `Unknown file extension ".css"` for any test that imported the SDK. This
-  affected every release from 0.18.0 to 0.20.0. `GameTopbar` now uses Tailwind utilities like
-  every other component (ADR-001), so `dist` has no stylesheet imports. It looks the same:
-  same sizes, tokens, fallbacks and 320px behaviour. The utilities come from the game's
-  Tailwind through the existing `@source ".../dist"` line (README, Styling). A new test builds
-  the package and imports it under plain Node.
+  affected every release from 0.18.0 to 0.20.0. The same rules now ship as a string that
+  `GameTopbar` renders in one `<style>` in `<head>`, so `dist` has no stylesheet imports and the
+  bar looks exactly as before, with no change to a game's CSS. A new test builds the package and
+  imports it under plain Node.
+
+## 0.20.1
+
+Do not use: it styled `GameTopbar` with Tailwind utilities, which leaves the bar unstyled in
+games that do not `@source` the SDK's `dist`. Superseded by 0.20.2.
 
 ## 0.20.0
 
