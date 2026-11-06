@@ -4,6 +4,7 @@ import { corsHeaders } from "@freegamestore/contracts";
 import { handleAccountDelete } from "./account";
 import { handleAdminCompApi } from "./admin-comp";
 import { getConfig } from "./config";
+import { rejectCrossSite } from "./csrf";
 import { handleKeysApi } from "./keys";
 import { handleKidify } from "./kidify";
 import { handleSessionsApi, isOrgAdmin, resolveUser } from "./sessions";
@@ -43,6 +44,10 @@ export default {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders(request, config.domain) });
     }
+
+    // Cookie-authenticated writes must come from the Studio, not a same-site game (#462).
+    const crossSite = rejectCrossSite(request, config.domain, corsHeaders(request, config.domain));
+    if (crossSite) return crossSite;
 
     const url = new URL(request.url);
     const path = url.pathname;
