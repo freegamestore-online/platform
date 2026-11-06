@@ -39,7 +39,8 @@ export async function runLogin(): Promise<{ login: string }> {
 
   await writeConfig({
     ...config,
-    github: { accessToken, login, obtainedAt: Date.now() },
+    // The GitHub token is not stored: it was only needed for the exchange above (#455).
+    github: { login, obtainedAt: Date.now() },
     session: { token: sessionToken, obtainedAt: Date.now() },
   });
   process.stdout.write(`\n✓ Signed in as @${login}\n`);

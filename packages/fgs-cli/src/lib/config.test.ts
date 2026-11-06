@@ -94,3 +94,36 @@ describe('API base precedence (#98)', () => {
     expect(onDisk.session).toEqual({ token: 't', obtainedAt: 1 });
   });
 });
+
+// #455: the GitHub token is exchanged once and then has no use, so it is not kept.
+describe('login keeps no GitHub token (#455)', () => {
+  let home: string;
+  const saved = process.env.HOME;
+  beforeEach(async () => {
+    home = await mkdtemp(join(tmpdir(), 'fgs-home-'));
+    process.env.HOME = home;
+  });
+  afterEach(async () => {
+    process.env.HOME = saved;
+    await rm(home, { recursive: true, force: true });
+  });
+
+  it('writeConfig drops an accessToken carried over from an older config file', async () => {
+    vi.resetModules();
+    const { writeConfig, CONFIG_FILE } = await import('./config.js');
+    await mkdir(join(home, '.fgs'), { recursive: true });
+    await writeFile(
+      CONFIG_FILE,
+      JSON.stringify({ github: { accessToken: 'gho_old', login: 'octo', obtainedAt: 1 } }),
+    );
+    // What login does: read the old file, add the session, write it back.
+    const old = JSON.parse(await readFile(CONFIG_FILE, 'utf8'));
+    await writeConfig({ apiBase: 'x', ...old, session: { token: 's', obtainedAt: 2 } });
+    const text = await readFile(CONFIG_FILE, 'utf8');
+    expect(text).not.toContain('gho_old');
+    expect(text).not.toContain('accessToken');
+    const onDisk = JSON.parse(text);
+    expect(onDisk.github).toEqual({ login: 'octo', obtainedAt: 1 });
+    expect(onDisk.session.token).toBe('s');
+  });
+});

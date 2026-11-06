@@ -10,8 +10,9 @@ export const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
 
 export interface FgsConfig {
   apiBase: string;
+  /** Who is signed in. The GitHub token itself is NOT kept: it is exchanged once
+   *  for the FGS session and has no further use (#455). */
   github?: {
-    accessToken: string;
     login: string;
     obtainedAt: number;
   };
@@ -57,7 +58,13 @@ export async function readConfig(): Promise<FgsConfig> {
 export async function writeConfig(config: FgsConfig): Promise<void> {
   await mkdir(CONFIG_DIR, { recursive: true, mode: 0o700 });
   // apiBase is per-invocation (FGS_API_BASE), never persisted (#98).
-  const { apiBase: _apiBase, ...persisted } = config;
+  const { apiBase: _apiBase, github, ...rest } = config;
+  // Rebuilt field by field, so a token left in an old file is dropped on the next
+  // write instead of being carried along (#455).
+  const persisted = {
+    ...rest,
+    ...(github ? { github: { login: github.login, obtainedAt: github.obtainedAt } } : {}),
+  };
   await writeFile(CONFIG_FILE, JSON.stringify(persisted, null, 2), { mode: 0o600 });
   await chmod(CONFIG_FILE, 0o600);
 }
