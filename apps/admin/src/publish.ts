@@ -97,6 +97,35 @@ function displayName(name: string, id: string): string {
 const EDITABLE_FIELDS = ['name', 'description', 'category', 'icon', 'iconBg'] as const;
 type EditableField = (typeof EDITABLE_FIELDS)[number];
 const MAX_NAME = 60;
+
+/** Why a display name can't be used, or null. Applied at provision and on PATCH:
+ *  the name is written into source files (#448), so it is bounded and has no
+ *  control characters (a newline would end the line it is substituted into). */
+export function nameError(name: string): string | null {
+  const v = name.trim();
+  if (v.length > MAX_NAME) return `name must be ${MAX_NAME} characters or less`;
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: rejecting them is the point
+  if (/[\u0000-\u001f\u007f\u2028\u2029]/.test(v)) return "name can't contain control characters";
+  return null;
+}
+
+/** For JSX text and quoted attribute values: entities, including `{`/`}` which
+ *  would otherwise open an expression. */
+export function escapeJsx(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/\{/g, '&#123;')
+    .replace(/\}/g, '&#125;');
+}
+
+/** For the inside of a double- or single-quoted JS string literal. */
+export function escapeJsString(s: string): string {
+  return JSON.stringify(s).slice(1, -1).replace(/'/g, "\\'");
+}
 const MAX_DESCRIPTION = 300;
 const MAX_CATEGORY = 32;
 const MAX_ICON = 24; // an emoji (incl. ZWJ sequences) or an HTML entity like &#128290;
@@ -134,7 +163,10 @@ function validateGameUpdates(
     if (!v) return { error: `${key} can't be empty` };
     switch (key) {
       case 'name':
-        if (v.length > MAX_NAME) return { error: `name must be ${MAX_NAME} characters or less` };
+        {
+          const bad = nameError(v);
+          if (bad) return { error: bad };
+        }
         values.name = displayName(v, gameId);
         break;
       case 'description':
@@ -456,7 +488,7 @@ export async function setGameStatus(
  *  builds a correctly-named game. deploy.yml uses concurrency cancel-in-progress,
  *  so if the generate commit already kicked a run, this commit's run supersedes
  *  it. Non-fatal: a game that keeps "APPNAME" still works, just mis-titled. */
-async function substituteTemplatePlaceholders(
+export async function substituteTemplatePlaceholders(
   env: PublishEnv,
   org: string,
   id: string,
@@ -487,10 +519,16 @@ async function substituteTemplatePlaceholders(
               .replace(/'/g, '&#39;'),
           ),
     },
-    { path: 'web/src/App.tsx', rewrite: (s) => s.replace(/APPNAME/g, () => name) },
+    { path: 'web/src/App.tsx', rewrite: (s) => s.replace(/APPNAME/g, () => escapeJsx(name)) },
     // pixi/babylon templates render the title from a local Shell component.
-    { path: 'web/src/components/Shell.tsx', rewrite: (s) => s.replace(/APPNAME/g, () => name) },
-    { path: 'web/vite.config.ts', rewrite: (s) => s.replace(/APPNAME/g, () => name) },
+    {
+      path: 'web/src/components/Shell.tsx',
+      rewrite: (s) => s.replace(/APPNAME/g, () => escapeJsx(name)),
+    },
+    {
+      path: 'web/vite.config.ts',
+      rewrite: (s) => s.replace(/APPNAME/g, () => escapeJsString(name)),
+    },
     { path: 'CLAUDE.md', rewrite: (s) => s.replace(/APPNAME/g, () => name) },
   ];
   try {
@@ -533,7 +571,7 @@ async function substituteTemplatePlaceholders(
     });
     if (!tree.sha) return { name: 'Naming', status: 'fail', detail: 'tree create failed' };
     const commit = await ghApi(env, `/repos/${repo}/git/commits`, 'POST', {
-      message: `Set game name to "${name}"`,
+      message: `Set game name to "${name}"`.replace(/\s+/g, ' '),
       tree: tree.sha,
       parents: [headSha],
     });
@@ -941,6 +979,10 @@ export async function handlePublish(
   }
   // The CLI sends only `name`; derive a slug if `id` is omitted. Apply
   // sensible defaults for the fields the CLI doesn't collect.
+  const nameProblem = nameError(req.name);
+  if (nameProblem) {
+    return { steps: [{ name: 'Validation', status: 'fail', detail: nameProblem }], success: false };
+  }
   const id = req.id ?? slugify(req.name);
   // `||` not `??` throughout: the VibeCode/CLI caller sends "" (not null) for
   // fields the creator left blank, and an empty string in the registry makes the
