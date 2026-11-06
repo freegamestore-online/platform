@@ -141,6 +141,15 @@ test('jwtVerify rejects a token missing a numeric exp (never non-expiring)', asy
   assert.equal(await jwtVerify(token, SECRET), null);
 });
 
+// #490: jwtSign stamps the FGS issuer; a token minted for another store is refused,
+// while a pre-#490 token with no iss at all is still accepted until it expires.
+test('jwtSign stamps iss=freegamestore and jwtVerify refuses another issuer', async () => {
+  const mine = await jwtSign({ sub: 'github:42', exp: nowSec() + 3600 }, SECRET);
+  assert.equal((await jwtVerify(mine, SECRET))?.iss, 'freegamestore');
+  const foreign = await jwtSign({ sub: 'github:42', iss: 'freeappstore', exp: nowSec() + 3600 }, SECRET);
+  assert.equal(await jwtVerify(foreign, SECRET), null);
+});
+
 // --- handleMe: email PII boundary ---
 // Email is exposed ONLY over the worker-to-worker path (X-FGS-Token), never to a
 // game subdomain calling /me with the browser cookie.
