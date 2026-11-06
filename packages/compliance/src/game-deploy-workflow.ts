@@ -3,7 +3,7 @@
  *  push to main (#488, #438). Pinned by commit: a moved branch must not change
  *  what deploys every game. Bump it deliberately with the fleet tool. */
 export const GAME_CI_WORKFLOW =
-  'freegamestore-online/ci-workflows/.github/workflows/game-deploy.yml@f726c09f22ad6e713f9a39054bebc16b4370775a';
+  'freegamestore-online/ci-workflows/.github/workflows/game-deploy.yml@8d03ac1919f7d3b7dc114baacb19d8b60118cde4';
 
 /**
  * The `.github/workflows/deploy.yml` a game repo gets when `fgs publish` or the
