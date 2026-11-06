@@ -38,7 +38,7 @@ export const onRequestOptions: PagesFunction<Env> = async (ctx) =>
  */
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
-  const crossSite = rejectCrossSite(request);
+  const crossSite = rejectCrossSite(request, { body: true });
   if (crossSite) return crossSite;
   const json = (v: unknown, status = 200) =>
     new Response(JSON.stringify(v), {

@@ -56,7 +56,7 @@ function isProductionCreateCanary(user: string, id: string): boolean {
  * immediately (registry entry). No CF Pages project is created.
  */
 export const onRequestPost: PagesFunction<Env> = async (context) => {
-  const crossSite = rejectCrossSite(context.request);
+  const crossSite = rejectCrossSite(context.request, { body: true });
   if (crossSite) return crossSite;
   // --- instrumentation only (does not change provisioning behavior) ---
   const t0 = Date.now();

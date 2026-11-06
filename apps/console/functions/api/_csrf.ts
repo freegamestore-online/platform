@@ -35,9 +35,13 @@ function reject(error: string, status: number): Response {
 /**
  * Returns a 403/415 for a state-changing request that did not come from a
  * first-party page, or null when the handler may proceed. Call it first, before
- * reading the session cookie.
+ * reading the session cookie. Handlers that read the request body pass
+ * `{ body: true }` to also require `Content-Type: application/json`; the
+ * presence of a body can't be inferred (the Workers runtime hands a body-less
+ * browser POST a non-null `request.body`, and such a POST carries no
+ * Content-Type), so body-less handlers must not opt in.
  */
-export function rejectCrossSite(request: Request): Response | null {
+export function rejectCrossSite(request: Request, opts: { body?: boolean } = {}): Response | null {
   if (SAFE_METHODS.has(request.method)) return null;
   const origin = request.headers.get('Origin');
   const firstParty =
@@ -46,7 +50,7 @@ export function rejectCrossSite(request: Request): Response | null {
       : FIRST_PARTY_ORIGINS.has(origin);
   if (!firstParty) return reject('forbidden origin', 403);
   if (
-    request.body !== null &&
+    opts.body &&
     request.headers.get('Content-Type')?.split(';')[0]?.trim().toLowerCase() !== 'application/json'
   ) {
     return reject('application/json required', 415);

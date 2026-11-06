@@ -5,11 +5,12 @@ import { rejectCrossSite } from './_csrf';
 // site as the console — so SameSite=Lax never withholds the creator's cookie
 // from them. A state-changing request must therefore prove it came from a
 // first-party page: a first-party Origin, or no Origin plus the browser's own
-// Sec-Fetch-Site: same-origin. Bodies must be JSON so a preflight-free
-// text/plain POST never reaches a handler.
+// Sec-Fetch-Site: same-origin. Handlers that read a body opt in to requiring
+// JSON, so a preflight-free text/plain POST never reaches them.
 
 const CONSOLE = 'https://console.freegamestore.online';
 const GAME = 'https://evil-game.freegamestore.online';
+const BODY = { body: true };
 
 function req(method: string, headers: Record<string, string>, body?: string): Request {
   return new Request(`${CONSOLE}/auth/delete`, { method, headers, body });
@@ -28,6 +29,7 @@ describe('rejectCrossSite — allowed', () => {
           { Origin: 'https://freegamestore.online', 'Content-Type': 'application/json' },
           '{}',
         ),
+        BODY,
       ),
     ).toBeNull();
   });
@@ -38,12 +40,26 @@ describe('rejectCrossSite — allowed', () => {
 
   it('accepts a JSON body, with or without a charset parameter', () => {
     expect(
-      rejectCrossSite(req('POST', { Origin: CONSOLE, 'Content-Type': 'application/json' }, '{}')),
+      rejectCrossSite(
+        req('POST', { Origin: CONSOLE, 'Content-Type': 'application/json' }, '{}'),
+        BODY,
+      ),
     ).toBeNull();
     expect(
       rejectCrossSite(
         req('PATCH', { Origin: CONSOLE, 'Content-Type': 'Application/JSON; charset=utf-8' }, '{}'),
+        BODY,
       ),
+    ).toBeNull();
+  });
+
+  it('a body-less handler does not gate on Content-Type (a browser POST with no body sends none)', () => {
+    // The Workers runtime hands such a request a non-null body, so presence
+    // can't be inferred; the Profile delete, logout and agent-handoff POSTs
+    // all look like this.
+    expect(rejectCrossSite(req('POST', { Origin: CONSOLE, 'Content-Length': '0' }))).toBeNull();
+    expect(
+      rejectCrossSite(req('POST', { Origin: CONSOLE, 'Content-Type': 'text/plain' }, 'x')),
     ).toBeNull();
   });
 
@@ -54,7 +70,7 @@ describe('rejectCrossSite — allowed', () => {
   it('never gates safe methods', () => {
     for (const method of ['GET', 'HEAD', 'OPTIONS']) {
       expect(rejectCrossSite(req(method, { Origin: GAME }))).toBeNull();
-      expect(rejectCrossSite(req(method, {}))).toBeNull();
+      expect(rejectCrossSite(req(method, {}), BODY)).toBeNull();
     }
   });
 });
@@ -63,6 +79,7 @@ describe('rejectCrossSite — rejected', () => {
   it('403s a POST from a game subdomain, even with a JSON body', async () => {
     const res = rejectCrossSite(
       req('POST', { Origin: GAME, 'Content-Type': 'application/json' }, '{}'),
+      BODY,
     );
     expect(res?.status).toBe(403);
     expect(((await res!.json()) as { error: string }).error).toBe('forbidden origin');
@@ -102,16 +119,18 @@ describe('rejectCrossSite — rejected', () => {
     expect(rejectCrossSite(req('POST', { Origin: 'null' }))?.status).toBe(403);
   });
 
-  it('415s a first-party request whose body is not JSON (preflight-free text/plain)', async () => {
+  it('415s a body-reading handler when the body is not JSON (preflight-free text/plain)', async () => {
     const res = rejectCrossSite(
       req('POST', { Origin: CONSOLE, 'Content-Type': 'text/plain' }, '{}'),
+      BODY,
     );
     expect(res?.status).toBe(415);
     expect(((await res!.json()) as { error: string }).error).toBe('application/json required');
-    expect(rejectCrossSite(req('POST', { Origin: CONSOLE }, '{"id":"x"}'))?.status).toBe(415);
+    expect(rejectCrossSite(req('POST', { Origin: CONSOLE }, '{"id":"x"}'), BODY)?.status).toBe(415);
     expect(
       rejectCrossSite(
         req('PUT', { Origin: CONSOLE, 'Content-Type': 'application/x-www-form-urlencoded' }, 'a=b'),
+        BODY,
       )?.status,
     ).toBe(415);
   });
