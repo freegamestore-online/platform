@@ -26,6 +26,13 @@ describe('GAME_DEPLOY_WORKFLOW', () => {
     expect(GAME_DEPLOY_WORKFLOW).toContain('  workflow_dispatch:\n');
   });
 
+  it('skips a template repo, which is not a game (#494)', () => {
+    expect(GAME_DEPLOY_WORKFLOW).toContain(
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions template syntax in string literal
+      'if: ${{ !github.event.repository.is_template }}\n    uses:',
+    );
+  });
+
   it('leaves GitHub expressions for Actions to expand', () => {
     // biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions template syntax in string literal
     expect(GAME_DEPLOY_WORKFLOW).toContain('group: ${{ github.workflow }}-${{ github.ref }}');

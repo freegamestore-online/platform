@@ -32,6 +32,9 @@ concurrency:
 
 jobs:
   ci-and-deploy:
+    # A template repo ships this file to the games made from it but is not a
+    # game: it has no route to deploy to and its placeholders fail \`fgs check\`.
+    if: \${{ !github.event.repository.is_template }}
     uses: ${GAME_CI_WORKFLOW}
     # The deploy job uploads with a GitHub OIDC token; no R2 secret (#488).
     permissions:

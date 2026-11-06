@@ -4,8 +4,8 @@
 # One npm entry per lockfile CI actually installs from. The root
 # pnpm-workspace.yaml covers packages/*, workers/* and apps/admin; the rest
 # are independent installs with their own lockfile (see the deploy
-# workflows: apps/console and apps/admin/web, workers/auth
-# --ignore-workspace, jobs/auditor, the storefront and its docs). Dependabot does not discover them recursively.
+# workflows: apps/console and apps/admin/web,
+# jobs/auditor, the storefront and its docs). Dependabot does not discover them recursively.
 #
 # Grouped so a week of dev-tooling bumps is one PR per tree. Production
 # dependencies stay ungrouped: those ship, and get looked at one at a time.
@@ -16,7 +16,6 @@ updates:
       - /
       - /apps/console
       - /apps/admin/web
-      - /workers/auth
       - /jobs/auditor
       - /sites/freegamestore
       - /sites/freegamestore/docs
