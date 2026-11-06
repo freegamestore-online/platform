@@ -4,7 +4,7 @@
 // Vendored from fas/mcp/src/github.ts — adapted for FGS.
 
 import { commitFiles } from '@freegamestore/contracts';
-import { withTimeout } from './http.js';
+import { githubRepoUrl, withTimeout } from './http.js';
 
 const UA = 'freegamestore-mcp';
 // The games registry lives in the platform repo under sites/, not at the root
@@ -134,6 +134,21 @@ export function validateGameId(id: string): boolean {
   );
 }
 
+/** Why `path` must not be sent to the Contents API, or null if it may. A `..`
+ *  segment survives `encodeURIComponent` and the server resolves it, so a path
+ *  could reshape the URL onto another repo (#456 — a bypass of #70's repo-name
+ *  scope). `%` and `\` are refused too so nothing reaches the upstream decoder. */
+export function repoPathError(path: unknown): string | null {
+  if (typeof path !== 'string' || path === '') return 'path is required';
+  if (path.startsWith('/')) return 'path must be relative to the repo root (no leading /)';
+  if (/[%\\]/.test(path)) return 'path must not contain % or \\';
+  for (const seg of path.split('/')) {
+    if (seg === '') return 'path must not contain empty segments';
+    if (seg === '.' || seg === '..') return 'path must not contain . or .. segments';
+  }
+  return null;
+}
+
 export function ownershipFacts(
   game: Pick<RegistryGame, 'creatorGithub'> | undefined,
   login: string,
@@ -154,19 +169,19 @@ export async function fetchTemplateFiles(
   token: string,
   gameId: string,
 ): Promise<Map<string, RepoFile>> {
-  const base = `https://api.github.com/repos/${org}/${templateRepo}`;
-  const ref = await gh(token, `${base}/git/ref/heads/main`);
+  const url = (sub: string) => githubRepoUrl(org, templateRepo, sub);
+  const ref = await gh(token, url('git/ref/heads/main'));
   const headSha = ref?.object?.sha;
   if (!headSha)
     throw new Error(`template ${templateRepo}: no main ref (${ref.message ?? ref.__status})`);
-  const tree = await gh(token, `${base}/git/trees/${headSha}?recursive=1`);
+  const tree = await gh(token, url(`git/trees/${headSha}?recursive=1`));
   if (!Array.isArray(tree?.tree))
     throw new Error(`template tree fetch failed (${tree.message ?? tree.__status})`);
 
   const files = new Map<string, RepoFile>();
   for (const item of tree.tree) {
     if (item.type !== 'blob' || item.path.startsWith('.git/')) continue;
-    const blob = await gh(token, `${base}/git/blobs/${item.sha}`);
+    const blob = await gh(token, url(`git/blobs/${item.sha}`));
     if (typeof blob?.content !== 'string') throw new Error(`blob ${item.path} fetch failed`);
     if (TEXT_RE.test(item.path)) {
       const text = b64ToText(blob.content).replaceAll('APPNAME', gameId);
@@ -290,13 +305,11 @@ async function pushFilesOnce(
  *  Returns [] only for confirmed absence — no repo/main ref (404) or an empty
  *  repo (409). Any other failure throws GitHubError. */
 export async function listRepoFiles(org: string, repo: string, token?: string): Promise<string[]> {
-  // Encoded: a repo name must never be able to reshape the API path (#70).
-  const base = `https://api.github.com/repos/${encodeURIComponent(org)}/${encodeURIComponent(repo)}`;
-  const ref = await gh(token, `${base}/git/ref/heads/main`);
+  const ref = await gh(token, githubRepoUrl(org, repo, 'git/ref/heads/main'));
   if (ref.__status === 404 || ref.__status === 409) return [];
   const headSha = ref?.object?.sha;
   if (!headSha) throw ghFail(`ref lookup for ${org}/${repo}`, ref);
-  const tree = await gh(token, `${base}/git/trees/${headSha}?recursive=1`);
+  const tree = await gh(token, githubRepoUrl(org, repo, `git/trees/${headSha}?recursive=1`));
   if (!Array.isArray(tree?.tree)) throw ghFail(`tree fetch for ${org}/${repo}`, tree);
   return tree.tree
     .filter((i: any) => i.type === 'blob' && !i.path.startsWith('.git/'))
@@ -311,11 +324,13 @@ export async function readRepoFile(
   token: string | undefined,
   path: string,
 ): Promise<string | null> {
-  // Encoded: a repo name must never be able to reshape the API path (#70).
-  const base = `https://api.github.com/repos/${encodeURIComponent(org)}/${encodeURIComponent(repo)}`;
+  // Refused before any request: a `..` segment would resolve onto another repo
+  // (#456). githubRepoUrl then re-asserts the URL stayed inside org/repo.
+  const bad = repoPathError(path);
+  if (bad) throw new GitHubError(`refusing to read "${path}" in ${org}/${repo}: ${bad}`);
   const res = await gh(
     token,
-    `${base}/contents/${path.split('/').map(encodeURIComponent).join('/')}`,
+    githubRepoUrl(org, repo, `contents/${path.split('/').map(encodeURIComponent).join('/')}`),
   );
   if (res.__status === 404) return null;
   if (res.__status) throw ghFail(`read of ${path} in ${org}/${repo}`, res);

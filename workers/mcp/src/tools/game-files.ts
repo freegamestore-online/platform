@@ -5,6 +5,7 @@ import {
   type RepoFile,
   readRegistryGames,
   readRepoFile,
+  repoPathError,
   textToB64,
   validateGameId,
 } from '../github.js';
@@ -184,6 +185,10 @@ export function registerGameFilesTools(ctx: RegistrationContext): void {
       path: z.string().describe('File path relative to repo root'),
     },
     async ({ game_id, path }) => {
+      // Path shape first (no request at all), then the #70 game/registry gate.
+      // A `..` segment would walk the Contents URL into another repo (#456).
+      const badPath = repoPathError(path);
+      if (badPath) return errText(`Invalid path "${path}": ${badPath}.`);
       const refused = await readableGameError(ctx, game_id);
       if (refused) return refused;
       const content = await readRepoFile(ctx.env.GITHUB_ORG, game_id, ctx.env.GITHUB_TOKEN, path);

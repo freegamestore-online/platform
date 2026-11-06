@@ -27,6 +27,22 @@ export async function withTimeout<T>(
   }
 }
 
+const GITHUB_API = 'https://api.github.com';
+
+/** The one way to build a GitHub API URL for `org/repo`. The repo name is
+ *  encoded (#70) and the result is parsed back and asserted to still start with
+ *  `/repos/<org>/<repo>/`: a dot segment survives per-segment encoding and is
+ *  resolved by the server, so `contents/../../platform/contents/x` would land on
+ *  another repo (#456). Throws rather than send a request outside the repo. */
+export function githubRepoUrl(org: string, repo: string, subpath: string): string {
+  const prefix = `/repos/${encodeURIComponent(org)}/${encodeURIComponent(repo)}/`;
+  const url = new URL(prefix + subpath, GITHUB_API);
+  if (url.origin !== GITHUB_API || !url.pathname.startsWith(prefix)) {
+    throw new Error(`refusing a GitHub request outside ${org}/${repo}`);
+  }
+  return url.toString();
+}
+
 // -- #29: no upstream failure may escape as a thrown exception --
 //
 // An exception escaping a tool handler reaches the MCP SDK with nothing to
@@ -65,7 +81,7 @@ export async function readBody(res: Response): Promise<{ text: string } | { erro
 // GitHub Actions API (public repos, no auth needed)
 export async function getDeployStatus(org: string, gameId: string) {
   const r = await safeFetch('the GitHub Actions API', (signal) =>
-    fetch(`https://api.github.com/repos/${org}/${gameId}/actions/runs?per_page=5`, {
+    fetch(githubRepoUrl(org, gameId, 'actions/runs?per_page=5'), {
       headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'freegamestore-mcp' },
       signal,
     }),
