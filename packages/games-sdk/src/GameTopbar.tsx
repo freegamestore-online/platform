@@ -1,8 +1,65 @@
 import type * as React from 'react';
 import type { ReactNode } from 'react';
 import { forwardRef, useEffect, useRef, useState } from 'react';
-import styles from './GameTopbar.module.css';
 import { useSound } from './SoundContext.js';
+
+/**
+ * The topbar's Tailwind utilities, one entry per element. They used to live in a CSS module,
+ * which the published dist imported bare (`import './GameTopbar.module.css'`); Node cannot load
+ * that, so vitest suites in games that render SDK components failed (#512). Utilities are
+ * compiled by the game's Tailwind from `@source ".../dist"` (README), like every other SDK
+ * component (ADR-001). Colours and the motion timing read the design tokens (TOKENS.md), each
+ * with a fallback, so the bar still renders when a game does not load GAME_TOKENS_CSS.
+ * Phones (max-[480px]): tighter spacing, icon buttons 1.75rem wide (still 44px tall), and stats
+ * show only their value; the label stays for screen readers (#414).
+ */
+const BODY_FONT = '[font-family:var(--font-body,"Manrope",system-ui,sans-serif)]';
+const styles = {
+  bar: 'flex h-8 items-center justify-between gap-3 px-3 py-1 max-[480px]:gap-1 max-[480px]:p-1',
+  // The title side takes the room the right side leaves, but never less than its buttons plus
+  // the title's minimum width, so the right side cannot slide over it.
+  groupStart: 'flex flex-[1_1_auto] items-center gap-1',
+  groupEnd: 'flex min-w-0 items-center gap-3 max-[480px]:gap-0',
+  actions: 'flex shrink-0 items-center gap-[0.4rem]',
+  // The stats are the only part of the right side that may give way, so a narrow screen never
+  // pushes a control (Sign in, sound) off the bar. Each stat is one 2rem row: a stat that does
+  // not fit wraps onto the hidden next row whole, instead of being cut through its digits.
+  stats:
+    'flex h-8 min-w-0 flex-wrap content-start justify-end gap-x-3 overflow-hidden max-[480px]:mr-1 max-[480px]:gap-x-2',
+  // Truncate, never vanish. inline-size containment drops the text's own width from the layout,
+  // so the title fills the room that is left instead of claiming its full length.
+  title: `min-w-10 flex-[1_1_auto] overflow-hidden text-ellipsis whitespace-nowrap text-[0.8rem] font-semibold tracking-[-0.01em] [contain:inline-size] ${BODY_FONT}`,
+  // Icon buttons and the catalog link. Every control in the topbar uses this. A tap dips the
+  // control slightly, so it feels anchored on touch screens.
+  button:
+    'flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center border-0 bg-transparent p-0 [-webkit-tap-highlight-color:transparent] [transition:opacity_var(--motion-duration,80ms)_var(--motion-easing,ease-out)] motion-reduce:transition-none active:opacity-[0.55] focus-visible:rounded-[0.4rem] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--accent,#10b981)] max-[480px]:min-w-7',
+  link: 'no-underline',
+  toneMuted: 'text-[color:var(--muted,#999)]',
+  toneInk: 'text-[color:var(--ink,#f0f0f0)]',
+  toneAccent: 'text-[color:var(--accent,#10b981)]',
+  stat: 'flex h-8 shrink-0 flex-col justify-center whitespace-nowrap text-right leading-[1.05]',
+  statValue: `text-[0.85rem] font-extrabold leading-none tabular-nums ${BODY_FONT}`,
+  statInk: 'text-[color:var(--ink)]',
+  statAccent: 'text-[color:var(--accent)]',
+  // 0.65rem keeps the label legible in sunlight and for low vision.
+  statLabel:
+    'text-[0.65rem] font-bold uppercase leading-none tracking-[0.06em] text-[color:var(--muted)] max-[480px]:absolute max-[480px]:size-px max-[480px]:overflow-hidden max-[480px]:whitespace-nowrap max-[480px]:[clip-path:inset(50%)]',
+  // Rules and About overlays: a full-screen panel with a header and a scrolling body.
+  overlay:
+    'fixed inset-0 z-[9999] flex flex-col overflow-hidden bg-[color:var(--paper,#0f0f0f)] text-[color:var(--ink,#f0f0f0)]',
+  overlayHeader:
+    'flex shrink-0 items-center justify-between border-b border-solid border-[color:var(--line,#2a2a2a)] px-3 py-2',
+  overlayTitle: `text-[0.9rem] font-bold ${BODY_FONT}`,
+  overlayBody: `flex-1 overflow-y-auto p-4 text-[0.9rem] leading-[1.6] ${BODY_FONT}`,
+  aboutHeading:
+    'mx-0 mt-0 mb-3 text-[1.5rem] font-bold [font-family:var(--font-display,"Fraunces",Georgia,serif)]',
+  aboutExtra: 'mb-4',
+  aboutGrid:
+    'm-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-[0.35rem] text-[0.85rem] [&_dd]:m-0 [&_dd]:tabular-nums [&_dt]:text-[color:var(--muted,#999)]',
+  code: '[font-family:monospace]',
+  aboutNote: 'mt-5 text-[0.8rem] text-[color:var(--muted,#999)]',
+  aboutLink: 'text-[color:var(--accent,#10b981)] no-underline',
+};
 
 export interface GameTopbarStat {
   /** Short uppercase label, e.g. "Score", "Lives", "Level". */
@@ -78,7 +135,7 @@ export interface GameTopbarProps {
   onRestart?: () => void;
 }
 
-/** The colour of an icon button. Maps to a class in GameTopbar.module.css. */
+/** The colour of an icon button. Maps to a style in `styles` below. */
 type IconTone = 'muted' | 'ink' | 'accent';
 
 interface TopbarIconButtonProps {
@@ -137,9 +194,9 @@ const TopbarIconButton = forwardRef<HTMLButtonElement, Omit<TopbarIconButtonProp
 );
 
 function toneClass(tone: IconTone): string {
-  if (tone === 'ink') return styles.toneInk ?? '';
-  if (tone === 'accent') return styles.toneAccent ?? '';
-  return styles.toneMuted ?? '';
+  if (tone === 'ink') return styles.toneInk;
+  if (tone === 'accent') return styles.toneAccent;
+  return styles.toneMuted;
 }
 
 /**
@@ -172,7 +229,7 @@ export function GameTopbar({
   return (
     <>
       <div className={styles.bar}>
-        <div className={`${styles.group} ${styles.groupStart}`}>
+        <div className={styles.groupStart}>
           {/* Catalog — back to store listing. A 2×2 grid, not a house: a house
               icon clashed with the browser's own "home" button on Android Chrome. */}
           <TopbarIconButton
@@ -217,7 +274,7 @@ export function GameTopbar({
           {title !== undefined && <span className={styles.title}>{title}</span>}
         </div>
 
-        <div className={`${styles.group} ${styles.groupEnd}`}>
+        <div className={styles.groupEnd}>
           {resolvedStats.length > 0 && (
             <div className={styles.stats}>
               {resolvedStats.map((s) => (
@@ -506,7 +563,9 @@ function RulesOverlay({
 function Stat({ stat }: { stat: GameTopbarStat }): React.JSX.Element {
   return (
     <div className={styles.stat}>
-      <div className={`${styles.statValue} ${stat.accent === true ? styles.statAccent : ''}`}>
+      <div
+        className={`${styles.statValue} ${stat.accent === true ? styles.statAccent : styles.statInk}`}
+      >
         {stat.value}
       </div>
       <div className={styles.statLabel}>{stat.label}</div>

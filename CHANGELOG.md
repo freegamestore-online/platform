@@ -8,6 +8,9 @@ versioned independently; releases publish via `.github/workflows/publish.yml`
 ## [Unreleased]
 
 ### Fixed
+- `@freegamestore/games` (next: 0.20.1): `GameTopbar` is styled with Tailwind utilities, so `dist`
+  has no `.module.css` import and game vitest suites that render SDK components load under
+  Node again (#512). See `packages/games-sdk/CHANGELOG.md`.
 - `@freegamestore/cli` (0.2.8): `fgs login` runs the GitHub device flow against FGS's own OAuth app
   (`Ov23lit1nu5OOzKXQO85`) instead of FAS's. The admin exchange now accepts only tokens issued to
   FGS's app (#458), so older CLI builds are refused at `fgs login` until updated — or run with

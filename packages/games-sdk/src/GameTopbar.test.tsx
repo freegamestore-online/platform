@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameTopbar } from './GameTopbar.js';
 import { GAME_TOKENS_CSS } from './tokens.js';
 
-const CSS = readFileSync(resolve(__dirname, 'GameTopbar.module.css'), 'utf8');
 const PKG = JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf8')) as {
   scripts: Record<string, string>;
 };
@@ -48,7 +48,7 @@ describe('GameTopbar', () => {
   it('marks an accent stat with the accent class', () => {
     render(<GameTopbar stats={[{ label: 'Lives', value: 3, accent: true }]} />);
     const value = screen.getByText('3');
-    expect(value.className).toMatch(/statAccent/);
+    expect(value.className).toMatch(/var\(--accent\)/);
   });
 
   it('does not add a style attribute to any topbar control', () => {
@@ -66,7 +66,7 @@ describe('GameTopbar', () => {
     }
   });
 
-  it('injects no <style> element, because the module styles the topbar', () => {
+  it('injects no <style> element, because Tailwind utilities style the topbar', () => {
     const { container } = render(<GameTopbar title="Demo" score={1} />);
     expect(container.querySelector('style')).toBeNull();
   });
@@ -76,7 +76,7 @@ describe('GameTopbar', () => {
     for (const name of ['Browse all games', 'About this game', 'Mute', 'Restart']) {
       expect(
         screen.getByRole(name === 'Browse all games' ? 'link' : 'button', { name }).className,
-      ).toMatch(/button/);
+      ).toMatch(/min-h-11/);
     }
   });
 
@@ -85,12 +85,12 @@ describe('GameTopbar', () => {
     const catalog = screen.getByRole('link', { name: 'Browse all games' });
     expect(catalog).toHaveAttribute('href', 'https://freegamestore.online');
     expect(catalog).toHaveAttribute('target', '_blank');
-    expect(catalog.className).toMatch(/link/);
+    expect(catalog.className).toMatch(/no-underline/);
   });
 
   it('uses the ink tone for the pause control', () => {
     render(<GameTopbar onPlayPause={() => {}} />);
-    expect(screen.getByRole('button', { name: 'Pause' }).className).toMatch(/toneInk/);
+    expect(screen.getByRole('button', { name: 'Pause' }).className).toMatch(/var\(--ink,/);
   });
 
   it('shows the rules button only when rules are given', () => {
@@ -106,7 +106,7 @@ describe('GameTopbar', () => {
 
     const dialog = screen.getByRole('dialog', { name: 'How to Play' });
     expect(dialog).toHaveAttribute('aria-modal', 'true');
-    expect(dialog.className).toMatch(/overlay/);
+    expect(dialog.className).toMatch(/fixed inset-0/);
     expect(screen.getByText('Rules text')).toBeInTheDocument();
 
     fireEvent.keyDown(document, { key: 'Escape' });
@@ -118,9 +118,7 @@ describe('GameTopbar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'About this game' }));
 
     expect(screen.getByRole('dialog', { name: 'About' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: 'Demo Game' }).className).toMatch(
-      /aboutHeading/,
-    );
+    expect(screen.getByRole('heading', { level: 1, name: 'Demo Game' }).className).toMatch(/mb-3/);
 
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -138,7 +136,7 @@ describe('GameTopbar', () => {
         actions={<button type="button">Sign in</button>}
       />,
     );
-    const stats = screen.getByText('Lines').closest('[class*="stats"]');
+    const stats = screen.getByText('Lines').closest('[class*="flex-wrap"]');
     expect(stats).not.toBeNull();
     expect(stats).toContainElement(screen.getByText('Level'));
     expect(stats).not.toContainElement(screen.getByRole('button', { name: 'Sign in' }));
@@ -147,7 +145,7 @@ describe('GameTopbar', () => {
 
   it('renders no stats container when there are no stats', () => {
     const { container } = render(<GameTopbar title="Tetris" />);
-    expect(container.querySelector('[class*="stats"]')).toBeNull();
+    expect(container.querySelector('[class*="flex-wrap"]')).toBeNull();
   });
 
   it('keeps the sound toggle aria-pressed in step with its state', () => {
@@ -157,69 +155,81 @@ describe('GameTopbar', () => {
   });
 });
 
-describe('GameTopbar.module.css', () => {
+describe('GameTopbar styles', () => {
+  /** The class string of the first element matching `selector` in a fresh render. */
+  const classes = (ui: React.ReactElement, selector: string): string => {
+    const { container, unmount } = render(ui);
+    const found = container.querySelector(selector)?.className ?? '';
+    unmount();
+    return found;
+  };
+  const bar = <GameTopbar title="Demo" stats={[{ label: 'Lives', value: 3 }]} />;
+
   it('styles the pseudo-states that inline styles could not express', () => {
-    expect(CSS).toContain('.button:active');
-    expect(CSS).toContain('.button:focus-visible');
-    expect(CSS).toContain('outline: 2px solid var(--accent');
+    const button = classes(bar, '[data-fgs-tb-btn]');
+    expect(button).toContain('active:opacity-[0.55]');
+    expect(button).toContain('focus-visible:outline-2');
+    expect(button).toContain('focus-visible:outline-[color:var(--accent');
   });
 
   it('times its transition with the motion tokens, not a bare literal', () => {
-    expect(CSS).toContain('var(--motion-duration');
-    expect(CSS).toContain('var(--motion-easing');
+    const button = classes(bar, '[data-fgs-tb-btn]');
+    expect(button).toContain('var(--motion-duration');
+    expect(button).toContain('var(--motion-easing');
   });
 
   it('turns the button transition off under prefers-reduced-motion', () => {
-    const reduced = CSS.slice(CSS.indexOf('@media (prefers-reduced-motion: reduce)'));
-    expect(reduced).toContain('.button');
-    expect(reduced).toContain('transition: none');
+    expect(classes(bar, '[data-fgs-tb-btn]')).toContain('motion-reduce:transition-none');
   });
 
   describe('on phones, 480px and below (#414)', () => {
-    const narrow = CSS.slice(
-      CSS.indexOf('@media (max-width: 480px)'),
-      CSS.indexOf('@media (prefers-reduced-motion'),
-    );
-    /** The declarations of `selector` inside the narrow-screen block. */
-    const rule = (selector: string) => {
-      const start = narrow.indexOf(`${selector} {`);
-      return start < 0 ? '' : narrow.slice(start, narrow.indexOf('}', start));
-    };
-
-    it('has a narrow-screen block', () => {
-      expect(narrow).toContain('@media (max-width: 480px)');
-    });
-
     it('keeps the controls 44px tall while narrowing them', () => {
-      expect(rule('.button')).toContain('min-width: 1.75rem');
-      expect(narrow).not.toContain('min-height');
+      const button = classes(bar, '[data-fgs-tb-btn]');
+      expect(button).toContain('min-h-11');
+      expect(button).toContain('max-[480px]:min-w-7');
+      expect(button).not.toContain('max-[480px]:min-h');
     });
 
     it('hides stat labels visually but keeps them for screen readers', () => {
-      expect(rule('.statLabel')).toContain('clip-path: inset(50%)');
-      expect(narrow).not.toContain('display: none');
+      render(bar);
+      const label = screen.getByText('Lives');
+      expect(label.className).toContain('max-[480px]:[clip-path:inset(50%)]');
+      expect(label.className).not.toContain('max-[480px]:hidden');
     });
 
     it('truncates the title instead of letting it collapse to nothing', () => {
-      expect(CSS).toMatch(/\.title \{[^}]*text-overflow: ellipsis;[^}]*min-width: 2\.5rem/);
+      render(bar);
+      const title = screen.getByText('Demo').className;
+      expect(title).toContain('text-ellipsis');
+      expect(title).toContain('min-w-10');
     });
 
-    it('lets only the stats shrink: controls, actions and stats items do not', () => {
-      expect(CSS).toMatch(/\.stats \{[^}]*flex-wrap: wrap;[^}]*min-width: 0;[^}]*overflow: hidden/);
-      for (const sel of ['button', 'actions', 'stat']) {
-        expect(CSS).toMatch(new RegExp(`\\.${sel} \\{[^}]*flex-shrink: 0`));
-      }
+    it('lets only the stats shrink: controls, actions and stat items do not', () => {
+      const { container } = render(bar);
+      const stats = container.querySelector('[class*="flex-wrap"]')?.className ?? '';
+      expect(stats).toContain('min-w-0');
+      expect(stats).toContain('overflow-hidden');
+      expect(container.querySelector('[data-fgs-tb-btn]')?.className).toContain('shrink-0');
+      expect(screen.getByText('Lives').parentElement?.className).toContain('shrink-0');
+      cleanup();
+      const { container: withActions } = render(<GameTopbar actions={<i />} />);
+      expect(withActions.querySelector('i')?.parentElement?.className).toContain('shrink-0');
     });
   });
 
-  it('gives each tone a class, so the colour is not set inline', () => {
-    for (const tone of ['toneMuted', 'toneInk', 'toneAccent']) {
-      expect(CSS).toContain(`.${tone} {`);
-    }
+  it('gives each tone its own colour class, so the colour is not set inline', () => {
+    render(<GameTopbar onPlayPause={() => {}} />);
+    expect(screen.getByRole('button', { name: 'Pause' }).className).toContain('var(--ink,');
+    cleanup();
+    render(<GameTopbar />);
+    expect(screen.getByRole('button', { name: 'Mute' }).className).toMatch(
+      /var\(--(?:muted|accent),/,
+    );
   });
 
-  it('is copied into dist by the build, since tsc does not copy CSS', () => {
-    expect(PKG.scripts.build).toContain('cp src/GameTopbar.module.css src/theme.css dist/');
+  it('is TypeScript, so the build only copies theme.css and dist has no CSS import (#512)', () => {
+    expect(PKG.scripts.build).toContain('cp src/theme.css dist/');
+    expect(PKG.scripts.build).not.toContain('module.css');
   });
 
   it('the motion tokens it reads are declared by GAME_TOKENS_CSS', () => {
