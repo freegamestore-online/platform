@@ -2,6 +2,7 @@ import { routeAdminRequest } from './admin-request-router';
 import { serveAdminStatic } from './admin-static';
 import { authenticateAdmin, handleAdminAuthRoute, resolveCaller } from './caller';
 import { dataService } from './data';
+import { handleDeploy, pruneDeploys } from './deploy';
 import type { Env } from './env';
 import { pruneErrors } from './errlog';
 import { reconcile } from './fleet';
@@ -14,10 +15,15 @@ export default {
     // Hourly: heal provisioning drift, then prune the error log's old rows.
     ctx.waitUntil(reconcile(env, true));
     ctx.waitUntil(pruneErrors(env.DB));
+    ctx.waitUntil(pruneDeploys(env, undefined, 25).catch((e) => console.error('pruneDeploys:', e)));
   },
 
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    // Keyless game deploys (#488): GitHub OIDC + upload-token bearer auth, raw
+    // file bodies, no cookies; answered before the cookie/JSON admin router.
+    const deploy = await handleDeploy(request, env);
+    if (deploy) return deploy;
     const data = dataService(env);
     const transportResponse = await routeAdminRequest(
       request,

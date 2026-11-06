@@ -60,7 +60,10 @@ describe("getTemplateFiles", () => {
     const deployYml = gamesFiles[".github/workflows/deploy.yml"];
     expect(deployYml).toBeTruthy();
     // The shared workflow calls ci-workflows, not an inline pipeline
-    expect(deployYml).toContain("freegamestore-online/ci-workflows/.github/workflows/game-ci.yml");
+    expect(deployYml).toContain("freegamestore-online/ci-workflows/.github/workflows/game-deploy.yml@");
+    // Keyless (#488): the caller passes no secret and grants the OIDC token.
+    expect(deployYml).not.toContain("secrets");
+    expect(deployYml).toContain("id-token: write");
     // Old inline tracker grep step should not be present
     expect(deployYml).not.toContain("No tracking SDKs in source");
   });

@@ -141,6 +141,13 @@ describe("resolveRouteCached (in-isolate route cache)", () => {
 });
 
 describe("r2KeyFor", () => {
+  it("serves the keyless-deploy release once one is live (#488)", () => {
+    const released: Route = { ...kanban, release: "a1b2c3" };
+    expect(r2KeyFor(released, "/")).toBe("games/kanban/.r/a1b2c3/index.html");
+    expect(r2KeyFor(released, "/version.json")).toBe("games/kanban/.r/a1b2c3/version.json");
+    expect(r2KeyFor({ ...kanban, release: null }, "/a.js")).toBe("games/kanban/a.js");
+  });
+
   it("defaults / to index.html", () => {
     expect(r2KeyFor(kanban, "/")).toBe("games/kanban/index.html");
   });

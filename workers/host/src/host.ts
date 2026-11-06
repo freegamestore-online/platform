@@ -17,6 +17,17 @@ export interface Route {
   zone: string;
   r2_prefix: string;
   store: string;
+  /** Live keyless-deploy release (#488): files are served from `<r2_prefix>/.r/<release>/`. */
+  release?: string | null;
+}
+
+/**
+ * The R2 prefix the route's files are served from: the release the admin
+ * worker's keyless deploy switched to atomically (#488), or the game prefix
+ * itself for games still deployed by the legacy aws-sync workflow.
+ */
+export function servedPrefix(route: Pick<Route, "r2_prefix" | "release">): string {
+  return route.release ? `${route.r2_prefix}/.r/${route.release}` : route.r2_prefix;
 }
 
 /**
@@ -37,7 +48,7 @@ export async function resolveRoute(db: D1Database, host: string): Promise<Route 
   if (!slug || !zone) return null;
 
   const row = await db
-    .prepare("SELECT slug, zone, r2_prefix, store FROM routes WHERE slug = ?1 AND zone = ?2 AND hosted_on = 'r2'")
+    .prepare("SELECT slug, zone, r2_prefix, store, release FROM routes WHERE slug = ?1 AND zone = ?2 AND hosted_on = 'r2'")
     .bind(slug, zone)
     .first<Route>();
   return row ?? null;
@@ -91,7 +102,7 @@ export async function resolveRouteCached(db: D1Database, host: string): Promise<
 export function r2KeyFor(route: Route, pathname: string): string {
   let p = pathname;
   if (p === "" || p === "/" || p.endsWith("/")) p += "index.html";
-  return `${route.r2_prefix}/${p.replace(/^\/+/, "")}`;
+  return `${servedPrefix(route)}/${p.replace(/^\/+/, "")}`;
 }
 
 /**

@@ -26,6 +26,7 @@ import {
   permissionsPolicy,
   type Route,
   r2KeyFor,
+  servedPrefix,
   resolveRouteCached,
   securityHeaders,
   shouldRevalidate,
@@ -206,7 +207,7 @@ async function serve(bucket: R2Bucket, route: Route, url: URL, req: Request, _ct
     const canonical = `https://${route.slug}.${route.zone}/`;
     if (crawl) {
       // A pre-provisioned route is insufficient: the game must have built.
-      const built = game && await bucket.get(`${route.r2_prefix}/index.html`);
+      const built = game && await bucket.get(`${servedPrefix(route)}/index.html`);
       const noindex = built && await isNoindexResponse(new Response(built.body));
       const headers = securityHeaders({ revalidate: true });
       headers.set('cache-control', 'no-store');
@@ -250,7 +251,7 @@ async function serve(bucket: R2Bucket, route: Route, url: URL, req: Request, _ct
   let obj = await bucket.get(key, wantsRange ? { range: req.headers } : undefined);
 
   if (!obj && !/\.[a-z0-9]+$/i.test(url.pathname)) {
-    obj = await bucket.get(`${route.r2_prefix}/index.html`);
+    obj = await bucket.get(`${servedPrefix(route)}/index.html`);
     if (obj) return respond(obj, "text/html; charset=utf-8", req, true);
   }
 
@@ -270,7 +271,7 @@ async function serveVersion(bucket: R2Bucket, route: Route, req: Request): Promi
   headers.set("content-type", "application/json; charset=utf-8");
   headers.set("access-control-allow-origin", "*");
 
-  const real = await bucket.get(`${route.r2_prefix}/version.json`);
+  const real = await bucket.get(`${servedPrefix(route)}/version.json`);
   if (real) {
     headers.set("etag", real.httpEtag);
     const ifNoneMatch = req.headers.get("if-none-match");
@@ -280,7 +281,7 @@ async function serveVersion(bucket: R2Bucket, route: Route, req: Request): Promi
     return new Response(req.method === "HEAD" ? null : real.body, { headers });
   }
 
-  const idx = await bucket.get(`${route.r2_prefix}/index.html`);
+  const idx = await bucket.get(`${servedPrefix(route)}/index.html`);
   if (idx) {
     const body = buildSyntheticVersion(route.slug, idx.uploaded, idx.httpEtag);
     return new Response(req.method === "HEAD" ? null : body, { headers });

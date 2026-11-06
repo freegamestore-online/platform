@@ -1,14 +1,19 @@
-/** The reusable pipeline every game's deploy.yml calls (#123): build, `fgs check`
- *  compliance gate, version.json stamp, smoke test, then R2 sync on push to main. */
+/** The reusable pipeline every game's deploy.yml calls: build, `fgs check`
+ *  compliance gate, version.json stamp, smoke test, then the keyless upload on
+ *  push to main (#488, #438). Pinned by commit: a moved branch must not change
+ *  what deploys every game. Bump it deliberately with the fleet tool. */
 export const GAME_CI_WORKFLOW =
-  'freegamestore-online/ci-workflows/.github/workflows/game-ci.yml@main';
+  'freegamestore-online/ci-workflows/.github/workflows/game-deploy.yml@f726c09f22ad6e713f9a39054bebc16b4370775a';
 
 /**
  * The `.github/workflows/deploy.yml` a game repo gets when `fgs publish` or the
- * VibeCode agent has to supply one (#111). The single source for both — they
- * used to carry their own inline copies, which drifted. The pipeline itself
- * lives in ci-workflows, so this is only the thin caller the fleet already uses.
- * Node-free: re-exported from `./worker` for the agent.
+ * VibeCode agent has to supply one (#111), and the one the fleet tool writes
+ * (scripts/fleet-deploy-workflow.mjs). The single source for all three. The
+ * pipeline itself lives in ci-workflows, so this is only the thin caller.
+ *
+ * No secret is passed: the deploy job authenticates with a GitHub OIDC token,
+ * which is why the caller grants `id-token: write` (a called workflow can't
+ * exceed its caller's permissions). Node-free: re-exported from `./worker`.
  */
 export const GAME_DEPLOY_WORKFLOW = `name: CI / Deploy
 
@@ -28,13 +33,8 @@ concurrency:
 jobs:
   ci-and-deploy:
     uses: ${GAME_CI_WORKFLOW}
+    # The deploy job uploads with a GitHub OIDC token; no R2 secret (#488).
     permissions:
       contents: read
-      deployments: write
-    # Exactly the secrets game-ci's deploy job reads, never \`inherit\`: that
-    # would hand every freegamestore-online org secret to the callee (#437).
-    secrets:
-      R2_ACCESS_KEY_ID: \${{ secrets.R2_ACCESS_KEY_ID }}
-      R2_SECRET_ACCESS_KEY: \${{ secrets.R2_SECRET_ACCESS_KEY }}
-      R2_ACCOUNT_ID: \${{ secrets.R2_ACCOUNT_ID }}
+      id-token: write
 `;

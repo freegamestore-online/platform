@@ -262,11 +262,8 @@ SOFTWARE.`,
 // ── Public API ──
 
 /** Path B deploy workflow: on push to main, gate on compliance, build web/dist,
- *  and sync it to R2 at <r2Prefix>/<repo>/ — the prefix the host Worker serves.
- *  Uses --no-frozen-lockfile: the agent authors package.json with no committed
- *  lockfile, and AI edits change deps, so a frozen install would break the whole
- *  fleet's deploys. Org secrets R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY/R2_ACCOUNT_ID
- *  are set once on the org. */
+ *  and upload it keylessly (GitHub OIDC, #488) to <r2Prefix>/<repo>/ — the
+ *  prefix the host Worker serves. No R2 secret reaches the game repo. */
 export function getTemplateFiles(_config: StoreConfig): Record<string, string> {
   const base = { ...SHARED_FILES, ...GAME_FILES };
   // All repos use the shared deploy workflow from @freegamestore/compliance (#111).

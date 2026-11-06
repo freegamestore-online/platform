@@ -10,6 +10,9 @@ export interface Env {
   SESSION_SIGNING_KEY: string;
   /** FGS-owned `freegamestore` D1 — fgs/host reads from this same table. */
   DB: D1Database;
+  /** The fgs-games bucket the host serves. Keyless game deploys (deploy.ts,
+   *  #488) write each game's release here under games/<id>/.r/<release>/. */
+  GAMES?: R2Bucket;
   /** Service binding to the auth worker (verify fgs_token via /me). */
   AUTH: Fetcher;
   /** Service binding to the agent worker — used to proxy complimentary-grant

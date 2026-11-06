@@ -44,6 +44,12 @@ database_id = "a122751e-11a2-466e-b403-4696f3f4a698"
 
 # Direct invocation of the auth worker (verifies fgs_token via /me). Service
 # binding bypasses the public edge — fetching auth's hostname loops back (CF 522).
+# The bucket the host serves. Keyless game deploys (src/deploy.ts, #488) write
+# each game's release under games/<id>/.r/<release>/ through this binding.
+[[r2_buckets]]
+binding = "GAMES"
+bucket_name = "fgs-games"
+
 [[services]]
 binding = "AUTH"
 service = "freegamestore-auth"

@@ -29,10 +29,10 @@ beforeAll(async () => {
     ] }),
   });
   const db = await mf.getD1Database('DB');
-  await db.exec('CREATE TABLE routes (slug TEXT, zone TEXT, r2_prefix TEXT, store TEXT, hosted_on TEXT)');
+  await db.exec('CREATE TABLE routes (slug TEXT, zone TEXT, r2_prefix TEXT, store TEXT, hosted_on TEXT, release TEXT)');
   const bucket = await mf.getR2Bucket('APPS');
   for (const slug of ['live', 'pending', 'failed', 'private', 'unpublished', 'approved', 'published', 'typo', 'legacy', 'empty', 'unbuilt', 'unlisted', 'isolated']) {
-    await db.prepare("INSERT INTO routes VALUES (?1, 'freegamestore.online', ?2, 'games', 'r2')").bind(slug, `games/${slug}`).run();
+    await db.prepare("INSERT INTO routes (slug, zone, r2_prefix, store, hosted_on) VALUES (?1, 'freegamestore.online', ?2, 'games', 'r2')").bind(slug, `games/${slug}`).run();
     if (slug !== 'unbuilt') await bucket.put(`games/${slug}/index.html`, ['pending', 'failed', 'private', 'unpublished', 'typo', 'unlisted'].includes(slug) ? draftHtml : html);
     await bucket.put(`games/${slug}/assets/game.js`, 'gameplay();');
   }
