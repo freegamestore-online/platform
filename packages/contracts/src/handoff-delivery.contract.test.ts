@@ -68,9 +68,8 @@ describe('readHandoff', () => {
     expect(await readHandoff(form({ return_to: 'x' }, AUTH_ORIGIN), AUTH_ORIGIN)).toBeNull();
   });
 
-  it('reads the query only while the legacy GET is allowed', async () => {
-    const get = () => new Request(`${TARGET}/auth/handoff?token=tok&return_to=r`);
-    expect(await readHandoff(get(), AUTH_ORIGIN)).toBeNull();
-    expect(await readHandoff(get(), AUTH_ORIGIN, true)).toEqual({ token: 'tok', returnTo: 'r' });
+  it('never reads a token from a GET query (the old delivery)', async () => {
+    const get = new Request(`${TARGET}/auth/handoff?token=tok&return_to=r`);
+    expect(await readHandoff(get, AUTH_ORIGIN)).toBeNull();
   });
 });

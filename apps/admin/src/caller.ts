@@ -131,9 +131,9 @@ export async function handleAdminAuthRoute(request: Request, env: Env): Promise<
   const url = new URL(request.url);
   // Auth owns the OAuth state cookie; this origin only receives a signed,
   // short-lived handoff and writes its own host-only session cookie.
-  if (url.pathname === '/auth/handoff' && (request.method === 'GET' || request.method === 'POST')) {
-    // Auth's page POSTs the handoff (#450); GET ?token= is the legacy delivery.
-    const received = await readHandoff(request, AUTH_ORIGIN, true);
+  if (url.pathname === '/auth/handoff' && request.method === 'POST') {
+    // Auth's page POSTs the handoff (#450).
+    const received = await readHandoff(request, AUTH_ORIGIN);
     if (!received) return new Response('missing session handoff', { status: 400 });
     const handoff = received.token;
     const exchanged = await env.AUTH.fetch('https://auth.freegamestore.online/handoff/consume', {

@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { onRequestGet, onRequestPost } from './handoff';
+import * as handoff from './handoff';
+
+const { onRequestPost } = handoff;
 
 const AUTH = 'https://auth.freegamestore.online';
 let mockFetch: ReturnType<typeof vi.fn>;
@@ -58,11 +60,7 @@ describe('console /auth/handoff delivery (#450)', () => {
     expect(res.headers.get('location')).toBe('https://console.freegamestore.online');
   });
 
-  it('still accepts the legacy GET ?token= until auth stops sending it', async () => {
-    const res = await run(
-      onRequestGet,
-      new Request('https://console.freegamestore.online/auth/handoff?token=handoff.jwt'),
-    );
-    expect(res.status).toBe(302);
+  it('has no GET handler: a token in the query string is never read', () => {
+    expect('onRequestGet' in handoff).toBe(false);
   });
 });

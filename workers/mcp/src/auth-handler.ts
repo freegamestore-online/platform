@@ -271,9 +271,9 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    if (url.pathname === '/auth/handoff' && (request.method === 'GET' || request.method === 'POST')) {
-      // Auth's page POSTs the handoff (#450); GET ?token= is the legacy delivery.
-      const received = await readHandoff(request, AUTH_ORIGIN, true);
+    if (url.pathname === '/auth/handoff' && request.method === 'POST') {
+      // Auth's page POSTs the handoff (#450).
+      const received = await readHandoff(request, AUTH_ORIGIN);
       if (!received) return new Response('missing session handoff', { status: 400 });
       const handoff = received.token;
       const exchanged = await env.AUTH.fetch('https://auth.freegamestore.online/handoff/consume', {

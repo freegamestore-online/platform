@@ -18,10 +18,9 @@ function safeReturn(raw: string | null): string {
 }
 
 /** Completes auth's signed handoff and writes a console-only session cookie.
- *  Auth's page POSTs it (#450); GET ?token= is the legacy delivery, removed once
- *  auth no longer redirects that way. */
+ *  Auth's page POSTs it (#450); the old GET ?token= is gone. */
 async function complete(request: Request): Promise<Response> {
-  const handoff = await readHandoff(request, AUTH_ORIGIN, true);
+  const handoff = await readHandoff(request, AUTH_ORIGIN);
   if (!handoff) return new Response('missing session handoff', { status: 400 });
   const exchanged = await fetch(`${AUTH}/handoff/consume`, {
     method: 'POST',
@@ -46,5 +45,4 @@ async function complete(request: Request): Promise<Response> {
   return new Response(null, { status: 302, headers });
 }
 
-export const onRequestGet: PagesFunction<Env> = (context) => complete(context.request);
 export const onRequestPost: PagesFunction<Env> = (context) => complete(context.request);

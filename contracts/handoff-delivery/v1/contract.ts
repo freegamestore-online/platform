@@ -74,29 +74,15 @@ export interface Handoff {
 }
 
 /**
- * Reads the handoff from a request to `/auth/handoff`.
- *  - POST (form body): accepted only from `senderOrigin`.
- *  - GET (`?token=`): the old delivery, kept only while auth still redirects that
- *    way; `allowLegacyGet` is removed once it does not.
- * Returns null when there is no token or the sender is wrong.
+ * Reads the handoff from a POST to `/auth/handoff`, accepted only from
+ * `senderOrigin`. A GET, or a token in the query string, is never read: that was
+ * the old delivery. Returns null when there is no token or the sender is wrong.
  */
-export async function readHandoff(
-  request: Request,
-  senderOrigin: string,
-  allowLegacyGet = false,
-): Promise<Handoff | null> {
-  if (request.method === 'POST') {
-    if (request.headers.get('Origin') !== senderOrigin) return null;
-    const form = await request.formData().catch(() => null);
-    const token = form?.get('token');
-    const returnTo = form?.get('return_to');
-    if (typeof token !== 'string' || !token) return null;
-    return { token, returnTo: typeof returnTo === 'string' ? returnTo : null };
-  }
-  if (request.method === 'GET' && allowLegacyGet) {
-    const url = new URL(request.url);
-    const token = url.searchParams.get('token');
-    return token ? { token, returnTo: url.searchParams.get('return_to') } : null;
-  }
-  return null;
+export async function readHandoff(request: Request, senderOrigin: string): Promise<Handoff | null> {
+  if (request.method !== 'POST' || request.headers.get('Origin') !== senderOrigin) return null;
+  const form = await request.formData().catch(() => null);
+  const token = form?.get('token');
+  const returnTo = form?.get('return_to');
+  if (typeof token !== 'string' || !token) return null;
+  return { token, returnTo: typeof returnTo === 'string' ? returnTo : null };
 }
