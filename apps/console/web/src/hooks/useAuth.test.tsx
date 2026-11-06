@@ -103,7 +103,7 @@ describe('useAuthProvider agent handoff failure (#78)', () => {
   });
 
   it('sends the agent handoff in a POST body, never in the URL (#450)', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = String(input);
       if (url === '/auth/me') return meUser();
       if (url === '/auth/agent-handoff')
