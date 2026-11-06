@@ -6,6 +6,7 @@ on:
     paths:
       - workers/agent/**
       - contracts/error-log/**
+      - contracts/registry-ownership/**
       - .github/workflows/deploy-agent.yml
   workflow_dispatch:
 

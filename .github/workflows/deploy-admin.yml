@@ -6,6 +6,8 @@ on:
     paths:
       - apps/admin/**
       - contracts/error-log/**
+      - contracts/game-metadata/**
+      - contracts/registry-ownership/**
       - .github/workflows/deploy-admin.yml
   workflow_dispatch:
 

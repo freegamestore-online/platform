@@ -6,6 +6,7 @@ on:
     paths:
       - apps/console/**
       - contracts/error-log/**
+      - contracts/registry-ownership/**
       - .github/workflows/deploy-console.yml
   workflow_dispatch:
 
