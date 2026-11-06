@@ -19,7 +19,7 @@
     "db:init:local": "wrangler d1 execute leaderboard --file=schema.sql --local"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4",
+    "@cloudflare/workers-types": "^5",
     "tsx": "^4",
     "typescript": "^5.7",
     "wrangler": "^4"
