@@ -14,9 +14,7 @@ export default defineConfig({
     starlight({
       title: 'FreeGameStore SDK',
       description: 'How to build, ship, and maintain a free game on freegamestore.online.',
-      social: {
-        github: 'https://github.com/freegamestore-online',
-      },
+      social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/freegamestore-online' }],
       editLink: {
         baseUrl: 'https://github.com/freegamestore-online/freegamestore/edit/main/docs/',
       },

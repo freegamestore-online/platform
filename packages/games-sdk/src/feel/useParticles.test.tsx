@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useParticles } from './useParticles.js';
 
@@ -49,6 +49,8 @@ describe('useParticles', () => {
   });
 
   afterEach(() => {
+    // Unmount while the fake frame clock is still installed (vitest 4 runs hooks in a stack).
+    cleanup();
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();

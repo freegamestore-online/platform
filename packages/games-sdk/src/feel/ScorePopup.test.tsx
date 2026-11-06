@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SCORE_POP_MS, ScorePopup } from './ScorePopup.js';
@@ -32,6 +32,9 @@ describe('ScorePopup', () => {
   });
 
   afterEach(() => {
+    // Unmount while the fake frame clock is still installed: its cancelAnimationFrame
+    // is what clears the timers the component set (vitest 4 runs hooks in a stack).
+    cleanup();
     vi.useRealTimers();
     vi.unstubAllGlobals();
     Reflect.deleteProperty(window, 'matchMedia');
