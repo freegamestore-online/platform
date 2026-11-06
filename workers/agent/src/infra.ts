@@ -68,17 +68,6 @@ export async function listDeployed(env: DeployEnv, config: StoreConfig): Promise
   return items.map((a: any) => `${a.id} — ${a.name} (${a.category}) ${a.appUrl}`).join("\n");
 }
 
-/** Fetch a URL and return the response. */
-export async function fetchUrl(url: string, method: string, agentName: string): Promise<string> {
-  try {
-    const res = await fetch(url, { method, headers: { "User-Agent": agentName } });
-    const body = await res.text();
-    return `${res.status} ${res.statusText}\n${body.slice(0, 2000)}`;
-  } catch (err) {
-    return `Fetch error: ${err}`;
-  }
-}
-
 /** Get build logs for the latest deployment via GitHub Actions. */
 export async function getBuildLogs(appId: string, env: DeployEnv, config: StoreConfig): Promise<string> {
   const ghApi = makeGhApi(env.GITHUB_TOKEN, config.agentName);

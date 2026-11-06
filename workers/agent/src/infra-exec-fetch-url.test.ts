@@ -107,12 +107,141 @@ describe("executeInfraTool fetch_url", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("fetches a public https URL even when its path contains an address-like string", async () => {
-    const fetch = vi.fn(async () => new Response("hello", { status: 200, statusText: "OK" }));
+  /** A fetch stub: DNS-over-HTTPS answers from `dns`, everything else from `pages`. */
+  function stub(
+    dns: Record<string, { A?: string[]; AAAA?: string[]; fail?: boolean }>,
+    pages: Record<string, () => Response>,
+  ) {
+    const seen: { url: string; method?: string; redirect?: string }[] = [];
+    const fetch = vi.fn(async (input: string, init?: RequestInit) => {
+      const u = new URL(input);
+      if (u.host === "cloudflare-dns.com") {
+        const rec = dns[u.searchParams.get("name") ?? ""] ?? { A: ["93.184.216.34"] };
+        if (rec.fail) return new Response("down", { status: 502 });
+        const type = u.searchParams.get("type") as "A" | "AAAA";
+        const data = rec[type] ?? [];
+        return Response.json({ Status: 0, Answer: data.map((d) => ({ type: type === "A" ? 1 : 28, data: d })) });
+      }
+      seen.push({ url: input, method: init?.method, redirect: init?.redirect });
+      return (pages[input] ?? (() => new Response("not found", { status: 404 })))();
+    });
     vi.stubGlobal("fetch", fetch);
+    return { fetch, seen };
+  }
+  const redirect = (to: string, status = 302) => () => new Response(null, { status, headers: { location: to } });
+  const callWith = (input: Record<string, unknown>) => executeInfraTool({ id: "1", name: "fetch_url", input }, ctx);
+
+  it("fetches a public https URL even when its path contains an address-like string", async () => {
+    const { seen } = stub({}, { "https://example.com/10.5/": () => new Response("hello", { status: 200, statusText: "OK" }) });
     const out = await call("https://example.com/10.5/");
     expect(out).toContain("200");
     expect(out).toContain("hello");
-    expect(fetch).toHaveBeenCalledOnce();
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.redirect).toBe("manual");
+  });
+
+  describe("DNS resolution", () => {
+    it.each([
+      ["a private A record", { A: ["10.0.0.5"] }],
+      ["a loopback A record", { A: ["127.0.0.1"] }],
+      ["the metadata address", { A: ["169.254.169.254"] }],
+      ["a private AAAA record", { AAAA: ["fd00::1"] }],
+      ["a mapped-loopback AAAA record", { AAAA: ["::ffff:7f00:1"] }],
+      ["one private answer among public ones", { A: ["93.184.216.34", "192.168.1.1"] }],
+    ])("refuses a public-looking name with %s, and never fetches it", async (_n, rec) => {
+      const { seen } = stub({ "sneaky.example.com": rec }, { "https://sneaky.example.com/": () => new Response("secret") });
+      const out = await call("https://sneaky.example.com/");
+      expect(out).toMatch(/resolves to a non-public address/);
+      expect(out).not.toContain("secret");
+      expect(seen).toHaveLength(0);
+    });
+
+    it("fails closed when the resolver cannot be reached", async () => {
+      const { seen } = stub({ "example.com": { fail: true } }, {});
+      expect(await call("https://example.com/")).toMatch(/could not verify/);
+      expect(seen).toHaveLength(0);
+    });
+
+    it("does not resolve a literal address (fetchUrlError already judged it)", async () => {
+      const { fetch } = stub({}, { "https://8.8.8.8/": () => new Response("dns") });
+      expect(await call("https://8.8.8.8/")).toContain("dns");
+      expect(fetch.mock.calls.every(([u]) => !String(u).includes("cloudflare-dns.com"))).toBe(true);
+    });
+  });
+
+  describe("redirects", () => {
+    it("follows a redirect to another public URL", async () => {
+      const { seen } = stub({}, {
+        "https://example.com/a": redirect("/b"),
+        "https://example.com/b": () => new Response("landed", { status: 200 }),
+      });
+      expect(await call("https://example.com/a")).toContain("landed");
+      expect(seen.map((r) => r.url)).toEqual(["https://example.com/a", "https://example.com/b"]);
+    });
+
+    it.each([
+      ["the metadata address", "https://169.254.169.254/latest/meta-data/"],
+      ["a loopback literal", "https://[::1]/admin"],
+      ["an internal name", "https://metadata.google.internal/"],
+      ["plain http", "http://example.com/"],
+      ["a name that resolves privately", "https://rebind.example.net/"],
+    ])("refuses a redirect to %s", async (_n, to) => {
+      const { seen } = stub({ "rebind.example.net": { A: ["10.1.1.1"] } }, {
+        "https://example.com/": redirect(to),
+        [to]: () => new Response("secret"),
+      });
+      const out = await call("https://example.com/");
+      expect(out).toMatch(/a redirect led somewhere that can't be fetched/);
+      expect(out).not.toContain("secret");
+      expect(seen.map((r) => r.url)).toEqual(["https://example.com/"]);
+    });
+
+    it("stops after three redirects", async () => {
+      const { seen } = stub({}, {
+        "https://example.com/0": redirect("/1"),
+        "https://example.com/1": redirect("/2"),
+        "https://example.com/2": redirect("/3"),
+        "https://example.com/3": redirect("/4"),
+        "https://example.com/4": () => new Response("too far"),
+      });
+      const out = await call("https://example.com/0");
+      expect(out).toMatch(/too many redirects/);
+      expect(seen).toHaveLength(4);
+    });
+
+    it("allows exactly three hops", async () => {
+      stub({}, {
+        "https://example.com/0": redirect("/1"),
+        "https://example.com/1": redirect("/2"),
+        "https://example.com/2": redirect("/3"),
+        "https://example.com/3": () => new Response("ok", { status: 200 }),
+      });
+      expect(await call("https://example.com/0")).toContain("ok");
+    });
+  });
+
+  describe("method", () => {
+    it.each(["POST", "PUT", "DELETE", "PATCH", "CONNECT"])("refuses %s without making any request", async (method) => {
+      const { fetch } = stub({}, {});
+      expect(await callWith({ url: "https://example.com/", method })).toMatch(/only supports the GET and HEAD/);
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("allows GET and HEAD in any case, defaulting to GET", async () => {
+      const { seen } = stub({}, { "https://example.com/": () => new Response("x") });
+      await callWith({ url: "https://example.com/" });
+      await callWith({ url: "https://example.com/", method: "head" });
+      await callWith({ url: "https://example.com/", method: "GET" });
+      expect(seen.map((r) => r.method)).toEqual(["GET", "HEAD", "GET"]);
+    });
+
+    it("keeps the method across redirects", async () => {
+      const { seen } = stub({}, {
+        "https://example.com/a": redirect("/b", 307),
+        "https://example.com/b": () => new Response("x"),
+      });
+      await callWith({ url: "https://example.com/a", method: "HEAD" });
+      expect(seen.map((r) => r.method)).toEqual(["HEAD", "HEAD"]);
+    });
   });
 });

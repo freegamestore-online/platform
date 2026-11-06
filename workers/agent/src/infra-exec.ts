@@ -4,7 +4,7 @@ import { checkBuildSanity, formatSanityBlock } from "./build-sanity";
 import type { StoreConfig } from "./config";
 import type { DeployEnv, DeployStatus } from "./deploy";
 import { ACTIONS_DEPLOY_CEILING_MS, deployApp, pushCommit, substituteAppName, waitForActionsDeploy } from "./deploy";
-import { checkDeployStatus, fetchUrl, getAuditResults, getBuildLogs, getCIResults, listDeployed } from "./infra";
+import { checkDeployStatus, getAuditResults, getBuildLogs, getCIResults, listDeployed } from "./infra";
 import type { ToolCall } from "./providers/types";
 import { validateGameId } from "./registry";
 
@@ -354,9 +354,88 @@ export function fetchUrlError(raw: unknown): string | null {
   return null;
 }
 
+// -- fetch_url: resolved addresses, redirects, method (#451) --
+//
+// fetchUrlError only sees the spelling of the URL. A public-looking NAME can
+// still resolve to a private address, and a public URL can redirect to one, so:
+//  - every DNS name is resolved (DNS-over-HTTPS: a Worker has no resolver of its
+//    own) and refused if ANY A/AAAA answer is non-public; failing to verify is
+//    a refusal, not a pass;
+//  - redirects are followed by hand, at most MAX_REDIRECTS hops, and each hop
+//    goes through the same checks;
+//  - only GET and HEAD, whatever the model asks for.
+// The fetch itself still resolves again, so a rebinding name can differ between
+// the check and the connect; Workers cannot connect to private ranges at all,
+// which is what bounds that gap.
+
+const MAX_REDIRECTS = 3;
+const DOH_URL = "https://cloudflare-dns.com/dns-query";
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
+interface DohAnswer {
+  type: number;
+  data: string;
+}
+
+async function dohAnswers(host: string, type: "A" | "AAAA"): Promise<DohAnswer[] | null> {
+  try {
+    const res = await fetch(`${DOH_URL}?name=${encodeURIComponent(host)}&type=${type}`, {
+      headers: { accept: "application/dns-json" },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { Status?: number; Answer?: DohAnswer[] };
+    if (body.Status !== 0 && body.Status !== 3) return null; // NOERROR / NXDOMAIN only
+    return body.Answer ?? [];
+  } catch {
+    return null;
+  }
+}
+
+/** Why `host` must not be fetched because of what it resolves to, or null. A
+ *  literal address was already judged by fetchUrlError, so it is not resolved. */
+export async function resolvedAddressError(host: string): Promise<string | null> {
+  if (host.startsWith("[") || parseIpv4(host)) return null;
+  const [a, aaaa] = await Promise.all([dohAnswers(host, "A"), dohAnswers(host, "AAAA")]);
+  if (!a || !aaaa) return "could not verify that the hostname resolves to a public address";
+  for (const answer of [...a, ...aaaa]) {
+    if (answer.type === 1) {
+      const v4 = parseIpv4(answer.data);
+      if (!v4 || isNonPublicIpv4(v4)) return "the hostname resolves to a non-public address";
+    } else if (answer.type === 28) {
+      const v6 = parseIpv6(answer.data);
+      if (!v6 || isNonPublicIpv6(v6)) return "the hostname resolves to a non-public address";
+    }
+  }
+  return null;
+}
+
 async function executeFetchUrl(tc: ToolCall, config: StoreConfig): Promise<string> {
-  const url = tc.input.url;
-  const bad = fetchUrlError(url);
-  if (bad) return `Error: can only fetch public HTTPS URLs (${bad}).`;
-  return fetchUrl(url as string, (tc.input.method as string) || "GET", config.agentName);
+  const method = String(tc.input.method ?? "GET").toUpperCase();
+  if (method !== "GET" && method !== "HEAD") return "Error: fetch_url only supports the GET and HEAD methods.";
+  let next: string = tc.input.url as string;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const bad = fetchUrlError(next) ?? (await resolvedAddressError(new URL(next).hostname.toLowerCase().replace(/\.$/, "")));
+    if (bad) {
+      return hop === 0
+        ? `Error: can only fetch public HTTPS URLs (${bad}).`
+        : `Error: a redirect led somewhere that can't be fetched (${bad}).`;
+    }
+    try {
+      const res = await fetch(next, { method, redirect: "manual", headers: { "User-Agent": config.agentName } });
+      const location = res.headers.get("location");
+      if (REDIRECT_STATUSES.has(res.status) && location) {
+        try {
+          next = new URL(location, next).href;
+        } catch {
+          return "Error: the server sent an invalid redirect.";
+        }
+        continue;
+      }
+      return `${res.status} ${res.statusText}\n${(await res.text()).slice(0, 2000)}`;
+    } catch (err) {
+      return `Fetch error: ${err}`;
+    }
+  }
+  return `Error: too many redirects (more than ${MAX_REDIRECTS}).`;
 }

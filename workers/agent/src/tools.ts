@@ -278,12 +278,12 @@ export function getToolDefinitions(config: StoreConfig): ToolDef[] {
     },
     {
       name: "fetch_url",
-      description: `Fetch a URL and return the response body. Useful for checking if a deployed ${noun} is live, reading remote files, or verifying URLs.`,
+      description: `Fetch a public https URL (up to 3 redirects) and return the response body. Useful for checking if a deployed ${noun} is live, reading remote files, or verifying URLs.`,
       parameters: {
         type: "object",
         properties: {
           url: { type: "string", description: "URL to fetch" },
-          method: { type: "string", description: "HTTP method (default GET)" },
+          method: { type: "string", description: "GET (default) or HEAD; other methods are refused" },
         },
         required: ["url"],
       },
