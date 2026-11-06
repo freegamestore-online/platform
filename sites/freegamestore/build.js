@@ -76,6 +76,9 @@ function validateRegistry(items) {
     if (g.crossOriginIsolated !== undefined && typeof g.crossOriginIsolated !== 'boolean') {
       errors.push('crossOriginIsolated must be a boolean');
     }
+    if (g.strictCsp !== undefined && typeof g.strictCsp !== 'boolean') {
+      errors.push('strictCsp must be a boolean');
+    }
     if (g.repo != null && (typeof g.repo !== 'string' || g.repo.length > 100 || !/^[\w.-]+\/[\w.-]+$/.test(g.repo))) {
       errors.push(`repo must be "owner/name", got ${JSON.stringify(g.repo)}`);
     }

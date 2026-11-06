@@ -8,6 +8,8 @@ interface Game {
   description?: string;
   /** Only literal true enables COOP/COEP; absent and false preserve defaults. */
   crossOriginIsolated?: boolean;
+  /** Only literal true swaps the open CSP for the strict one (csp.ts, #454). */
+  strictCsp?: boolean;
 }
 
 let cached: { games: Game[]; expires: number } | undefined;

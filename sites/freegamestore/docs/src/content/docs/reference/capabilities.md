@@ -131,3 +131,39 @@ and that a real threaded wasm workload runs successfully. Response headers alone
 cannot prove either. Live threaded-demo verification remains tracked in
 [#371](https://github.com/freegamestore-online/platform/issues/371); documentation
 and automated host tests do not constitute human production or device verification.
+
+## Strict Content-Security-Policy (opt-in)
+
+By default the host serves every game with a deliberately open policy: scripts,
+`fetch`/WebSocket and media may come from any `https:` host, and `'unsafe-eval'`
+and inline script are allowed, because engines such as Pixi and Phaser need them.
+A game that wants a tighter one opts in the same way as cross-origin isolation, with
+a boolean on its registry entry:
+
+```json
+{
+  "id": "my-game",
+  "strictCsp": true
+}
+```
+
+The host then enforces, instead of the open policy:
+
+- `script-src 'self' 'wasm-unsafe-eval'` plus `api.freegamestore.online` (the analytics
+  loader) and the analytics vendors the platform can inject (Cloudflare Insights, Google
+  Tag Manager, Plausible). No `'unsafe-inline'`, no `'unsafe-eval'`, no `https:`.
+- `connect-src 'self' data: blob:` plus the platform API, `auth.freegamestore.online` and
+  those analytics vendors. No other host, no `wss:`.
+- `default-src 'self'`; `img-src`, `font-src` and `media-src` limited to `'self'`, `data:`
+  and `blob:`; `frame-src 'none'`; `form-action 'self'`; `object-src 'none'`.
+
+So a strict game must bundle its engine, fonts, images and audio, must not call third-party
+APIs or multiplayer servers, and must not use `eval` / `new Function` or inline `<script>`
+(an owner's custom analytics head snippet that is inline script will not run). Only literal
+`true` opts in. Test it with the browser console open: every blocked load is a CSP
+violation message. Violations are also reported to the platform.
+
+Every game, strict or not, is also served a `Content-Security-Policy-Report-Only` header
+describing where the default is heading (no `'unsafe-eval'`, no `https:` in `script-src` and
+`connect-src`, `form-action 'self'`). It blocks nothing; the host logs the reports so the
+default can be tightened from what games actually load.

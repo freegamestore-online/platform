@@ -17,6 +17,7 @@ import {
   collectEvents,
   corsHeaders,
 } from "./analytics";
+import { applyStrictCsp, cspReportResponse } from "./csp";
 import {
   buildSyntheticVersion,
   contentType,
@@ -96,6 +97,12 @@ export default {
         return new Response("method not allowed", { status: 405, headers: { allow: "POST, OPTIONS" } });
       }
 
+      // CSP violation reports (#454): the report-only candidate policy and the
+      // strict opt-in policy post here from game pages.
+      if (slug === "api" && url.pathname === "/v1/csp-report") {
+        return await cspReportResponse(req);
+      }
+
       // hasOwnProperty, not `in`: `slug in obj` walks the prototype chain, so a
       // game published at constructor./toString./__proto__.freegamestore.online
       // would falsely match and never reach its real R2 route.
@@ -117,9 +124,10 @@ export default {
         } catch {
           response = serviceUnavailable();
         }
-        if (game?.crossOriginIsolated === true) {
+        if (game?.crossOriginIsolated === true || game?.strictCsp === true) {
           const headers = new Headers(response.headers);
-          isolationHeaders(headers, true);
+          isolationHeaders(headers, game.crossOriginIsolated === true);
+          if (game.strictCsp === true) applyStrictCsp(headers);
           return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
         }
         return response;

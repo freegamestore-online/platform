@@ -11,6 +11,8 @@ export interface RegistryGame {
   id: string;
   /** Opt in to COOP same-origin + COEP credentialless for wasm threads. */
   crossOriginIsolated?: boolean;
+  /** Opt in to the host's strict CSP (workers/host/src/csp.ts, #454). */
+  strictCsp?: boolean;
   name?: string;
   creatorGithub?: string;
   firstPublished?: string;

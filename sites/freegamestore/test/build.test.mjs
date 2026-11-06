@@ -933,6 +933,24 @@ test("storefront never lets a game take payments: payment=() and no payment dele
 });
 
 
+test('strictCsp is published as a strict boolean opt-in (#454)', () => {
+  const { ok, stderr, tmp, tmpDist } = runBuildWithRegistry([
+    { ...VALID_GAME, id: 'strict', strictCsp: true },
+    { ...VALID_GAME, id: 'open', strictCsp: false },
+    { ...VALID_GAME, id: 'legacy' },
+    { ...VALID_GAME, id: 'invalid-csp', strictCsp: 'true' },
+  ]);
+  try {
+    assert.equal(ok, true, stderr);
+    assert.match(stderr, /strictCsp must be a boolean/);
+    const registry = JSON.parse(readFileSync(join(tmpDist, 'registry.json'), 'utf8'));
+    assert.equal(registry.games.find((g) => g.id === 'strict').strictCsp, true);
+    assert.ok(!registry.games.some((g) => g.id === 'invalid-csp'));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('isolated listings omit embedded games and publish a strict boolean opt-in', () => {
   const { ok, stderr, tmp, tmpDist } = runBuildWithRegistry([
     { ...VALID_GAME, id: 'threaded', crossOriginIsolated: true },

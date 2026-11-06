@@ -1,3 +1,5 @@
+import { FRAME_ANCESTORS, reportingHeaders } from "./csp";
+
 export interface Env {
   DB: D1Database;
   APPS: R2Bucket;
@@ -238,12 +240,13 @@ export function securityHeaders(opts: { revalidate: boolean; crossOriginIsolated
     "media-src 'self' data: blob: https:",
     "connect-src 'self' https: wss: data: blob:",
     "frame-src 'self' https:",
-    "frame-ancestors 'self' https://freegamestore.online https://console.freegamestore.online https://freegamestore.pages.dev",
+    FRAME_ANCESTORS,
     "base-uri 'self'",
     "object-src 'none'",
     "upgrade-insecure-requests",
   ].join("; ");
   headers.set("content-security-policy", csp);
+  reportingHeaders(headers);
   headers.set("permissions-policy", permissionsPolicy());
   headers.set("x-content-type-options", "nosniff");
   headers.set("referrer-policy", "strict-origin-when-cross-origin");
