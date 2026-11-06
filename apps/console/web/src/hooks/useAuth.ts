@@ -11,7 +11,11 @@ async function establishAgentSession(): Promise<void> {
   if (!issued.ok) throw new Error('agent session handoff failed');
   const { token } = (await issued.json()) as { token?: string };
   if (!token) throw new Error('agent session handoff was empty');
-  const established = await fetch(`${AGENT_URL}/auth/handoff?token=${encodeURIComponent(token)}`, {
+  // In the body, not the URL (#450). A form-encoded body is a simple request, so
+  // no preflight; the agent requires this page's Origin.
+  const established = await fetch(`${AGENT_URL}/auth/handoff`, {
+    method: 'POST',
+    body: new URLSearchParams({ token }),
     credentials: 'include',
   });
   if (!established.ok) throw new Error('agent rejected session handoff');

@@ -1,3 +1,4 @@
+import { handoffFormPage } from '../../../contracts/handoff-delivery/v1/contract';
 import { signHs256Jwt, verifyHs256Jwt } from '../../../contracts/session-jwt/v1/contract';
 
 interface Env {
@@ -248,20 +249,20 @@ async function mintHandoff(token: string, target: string, secret: string): Promi
 
 async function loginRedirect(redirect: string, token: string, secret: string): Promise<Response> {
   const target = handoffTarget(redirect);
-  const location = target
-    ? `${target}/auth/handoff?token=${encodeURIComponent(await mintHandoff(token, target, secret))}&return_to=${encodeURIComponent(redirect)}`
-    : redirect;
-  const headers = new Headers({
-    Location: location,
-    'Cache-Control': 'no-store',
-    'Referrer-Policy': 'no-referrer',
-  });
+  const headers = new Headers();
   headers.append('Set-Cookie', setTokenCookie(token));
   headers.append('Set-Cookie', clearLegacyTokenCookie());
   // The state cookie is single-use in practice because the provider code is
   // single-use, but clear it too so a completed login leaves no replay window.
   headers.append('Set-Cookie', clearStateCookie());
-  return new Response(null, { status: 302, headers });
+  if (!target) {
+    headers.set('Location', redirect);
+    headers.set('Cache-Control', 'no-store');
+    headers.set('Referrer-Policy', 'no-referrer');
+    return new Response(null, { status: 302, headers });
+  }
+  // A privileged site gets its handoff in a form POST, never in a URL (#450).
+  return handoffFormPage(target, await mintHandoff(token, target, secret), redirect, headers);
 }
 
 // --- Route handlers ---

@@ -102,6 +102,27 @@ describe('useAuthProvider agent handoff failure (#78)', () => {
     expect(result.current.agentError).toBeNull();
   });
 
+  it('sends the agent handoff in a POST body, never in the URL (#450)', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/auth/me') return meUser();
+      if (url === '/auth/agent-handoff')
+        return new Response(JSON.stringify({ token: 'secret.handoff' }));
+      return new Response(null, { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useAuthProvider());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const call = fetchMock.mock.calls.find(([u]) =>
+      String(u).includes('agent.freegamestore.online/auth/handoff'),
+    );
+    expect(call).toBeTruthy();
+    expect(String(call![0])).not.toContain('secret.handoff');
+    const init = call![1] as RequestInit;
+    expect(init.method).toBe('POST');
+    expect(String(init.body)).toBe('token=secret.handoff');
+  });
+
   it('clears an identity error once a refetch succeeds', async () => {
     let meFails = true;
     stubFetch(

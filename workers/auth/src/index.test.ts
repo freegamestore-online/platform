@@ -397,6 +397,47 @@ test('handleGitHubCallback 400s before any nonce work when code or state is miss
   assert.equal(noCode.status, 400);
 });
 
+// #450: a sign-in for a privileged site hands over in a form POST, not in a URL.
+test('handleCallback for the console answers a form page, with no token in any URL', async () => {
+  const { state, nonce } = oauthState('https://console.freegamestore.online/profile');
+  const req = new Request(
+    'https://auth.freegamestore.online/callback?code=abc&state=' + encodeURIComponent(state),
+    { headers: { Cookie: `__Host-fgs_oauth_state=${nonce}` } },
+  );
+  const env = {
+    JWT_SECRET: SECRET,
+    GOOGLE_CLIENT_ID: 'cid',
+    GOOGLE_CLIENT_SECRET: 'csecret',
+    DB: fakeDb(),
+  } as unknown as Parameters<typeof handleCallback>[1];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const u = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    if (u.includes('oauth2.googleapis.com/token')) {
+      return new Response(JSON.stringify({ access_token: 'at' }), { status: 200 });
+    }
+    return new Response(
+      JSON.stringify({ sub: '9', name: 'Eve', email: 'eve@example.com', email_verified: true }),
+      { status: 200 },
+    );
+  }) as typeof fetch;
+  try {
+    const res = await handleCallback(req, env);
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('Location'), null);
+    assert.match(res.headers.get('Set-Cookie') ?? '', /__Host-fgs_token=/);
+    assert.equal(res.headers.get('Referrer-Policy'), 'origin');
+    const html = await res.text();
+    assert.match(html, /method="post" action="https:\/\/console\.freegamestore\.online\/auth\/handoff"/);
+    assert.doesNotMatch(html, /\?token=/);
+    const handoff = /name="token" value="([^"]+)"/.exec(html)?.[1];
+    assert.equal((await jwtVerify(handoff ?? '', SECRET))?.typ, 'fgs_handoff');
+    assert.match(html, /name="return_to" value="https:\/\/console\.freegamestore\.online\/profile"/);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
 test('handleCallback carries a null email claim when Google reports email_verified:false', async () => {
   const { state, nonce } = oauthState('https://freegamestore.online');
   const req = new Request(
