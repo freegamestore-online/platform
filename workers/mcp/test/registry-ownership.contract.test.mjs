@@ -22,8 +22,11 @@ registerHooks({
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const contracts = resolve(root, '../../contracts/registry-ownership-remix/v1');
-const { readRegistryGames, ownershipFacts, githubIdFromSub, validateGameId } = await import(
+const { readRegistryGames, ownershipFacts, githubIdFromSub } = await import(
   pathToFileURL(resolve(root, 'src/github.ts')).href
+);
+const { validateGameId } = await import(
+  pathToFileURL(resolve(root, '../../contracts/registry-ownership/v1/contract.ts')).href
 );
 const load = async (name) => JSON.parse(await readFile(resolve(contracts, name), 'utf8'));
 
@@ -52,7 +55,27 @@ async function withFetch(contents, raw, fn) {
 test('registry-ownership contract v1: canonical IDs', async () => {
   const fixture = await load('id-cases.json');
   for (const testCase of fixture.cases)
-    assert.equal(validateGameId(testCase.id), testCase.valid, testCase.id);
+    assert.equal(validateGameId(testCase.id) === null, testCase.valid, testCase.id);
+});
+
+// #487: MCP kept a private RESERVED_GAME_IDS (15 ids) that lacked 11 the
+// contract reserves, so read_file/list_files accepted e.g. `platform`.
+test('MCP validates game ids with the contract and keeps no copy of its reserved list', async () => {
+  const srcDir = resolve(root, 'src');
+  const { readdir } = await import('node:fs/promises');
+  const files = (await readdir(srcDir, { recursive: true })).filter((f) => /\.ts$/.test(f));
+  for (const file of files) {
+    const src = await readFile(resolve(srcDir, file), 'utf8');
+    assert.doesNotMatch(src, /RESERVED_GAME_IDS\s*=/, `${file} declares its own reserved list`);
+    assert.doesNotMatch(src, /function validateGameId/, `${file} declares its own validateGameId`);
+    if (/validateGameId\(/.test(src)) {
+      assert.match(
+        src,
+        /import \{[^}]*validateGameId[^}]*\} from '(\.\.\/)+contracts\/registry-ownership\/v1\/contract\.js'/,
+        `${file} must take validateGameId from the contract`,
+      );
+    }
+  }
 });
 
 test('registry-ownership contract v1: registry result states', async () => {

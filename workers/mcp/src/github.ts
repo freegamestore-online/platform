@@ -102,36 +102,6 @@ export type RegistryReadResult =
   | { status: 'unavailable'; detail: string };
 
 
-const RESERVED_GAME_IDS = new Set([
-  'freegamestore',
-  'submissions',
-  'template-game-canvas',
-  'template-game-3d',
-  'template-game-grid',
-  'template-game-cards',
-  'template-game-kaplay',
-  'template-game-phaser',
-  'template-game-pixi',
-  'template-game-babylon',
-  'template-game-excalibur',
-  'template-game-littlejs',
-  'brand',
-  'ops',
-  'sdk',
-]);
-
-export function validateGameId(id: string): boolean {
-  return (
-    id.length >= 3 &&
-    id.length <= 58 &&
-    /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(id) &&
-    !id.startsWith('free') &&
-    !id.startsWith('pro') &&
-    !id.startsWith('template-game-') &&
-    !RESERVED_GAME_IDS.has(id)
-  );
-}
-
 /** Why `path` must not be sent to the Contents API, or null if it may. A `..`
  *  segment survives `encodeURIComponent` and the server resolves it, so a path
  *  could reshape the URL onto another repo (#456 — a bypass of #70's repo-name

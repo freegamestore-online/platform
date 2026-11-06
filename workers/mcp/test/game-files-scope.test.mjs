@@ -26,6 +26,9 @@ registerHooks({
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { registerGameFilesTools } = await import(pathToFileURL(resolve(root, 'src/tools/game-files.ts')).href);
 const { textToB64 } = await import(pathToFileURL(resolve(root, 'src/github.ts')).href);
+const { RESERVED_GAME_IDS } = await import(
+  pathToFileURL(resolve(root, '../../contracts/registry-ownership/v1/contract.ts')).href
+);
 
 const ORG = 'freegamestore-online';
 const env = { GITHUB_ORG: ORG, STORE_REPO: 'platform', GITHUB_TOKEN: 'org-token' };
@@ -91,15 +94,21 @@ const touched = (calls, repo) =>
 for (const tool of ['list_files', 'read_file']) {
   const call = (handlers, game_id) => handlers[tool]({ game_id, path: 'SESSION-HANDOFF.md' });
 
-  test(`${tool}: refuses the private platform monorepo without reading it`, async () => {
+  // `platform` is reserved by the registry-ownership contract, which MCP now
+  // uses instead of a private list that lacked it (#487).
+  test(`${tool}: refuses the private platform monorepo with no GitHub call at all`, async () => {
     const { result, calls } = await withGitHub('ok', () => call(tools(), 'platform'));
     assert.equal(result.isError, true);
-    assert.match(result.content[0].text, /not a game on FreeGameStore/);
-    // The store registry now lives in platform (#213); only that read may touch it.
-    const platformReads = calls.filter(
-      (u) => u.includes(`/repos/${ORG}/platform/`) && !u.includes('/contents/sites/freegamestore/registry.json'),
-    );
-    assert.deepEqual(platformReads, []);
+    assert.match(result.content[0].text, /not a valid game id/);
+    assert.deepEqual(calls, []);
+  });
+
+  test(`${tool}: refuses every id the contract reserves with no GitHub call`, async () => {
+    for (const id of RESERVED_GAME_IDS) {
+      const { result, calls } = await withGitHub('ok', () => call(tools(), id));
+      assert.equal(result.isError, true, id);
+      assert.deepEqual(calls, [], id);
+    }
   });
 
   test(`${tool}: refuses a reserved id with no GitHub call at all`, async () => {

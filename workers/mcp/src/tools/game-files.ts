@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { validateGameId } from '../../../../contracts/registry-ownership/v1/contract.js';
 import {
   listRepoFiles,
   pushFiles,
@@ -7,7 +8,6 @@ import {
   readRepoFile,
   repoPathError,
   textToB64,
-  validateGameId,
 } from '../github.js';
 import { fgsPost } from '../http.js';
 import { audit, dryRun, requireWritable } from '../safety.js';
@@ -19,7 +19,8 @@ import { errText, type RegistrationContext, txt } from './registration.js';
  *  read is only allowed for a well-formed id that is a game in the store
  *  registry; anything else is refused before any request to that repo (#70). */
 async function readableGameError(ctx: RegistrationContext, game_id: string) {
-  if (!validateGameId(game_id)) return errText(`"${game_id}" is not a valid game id.`);
+  // The registry-ownership contract's rule and reserved list, not a copy (#487).
+  if (validateGameId(game_id) !== null) return errText(`"${game_id}" is not a valid game id.`);
   const registry = await readRegistryGames(
     ctx.env.GITHUB_ORG,
     ctx.env.STORE_REPO,
