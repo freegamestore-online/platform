@@ -521,20 +521,32 @@ function handleLogout(request: Request, env: Env): Response {
   return new Response(null, { status: 302, headers });
 }
 
+/**
+ * Which tokens may delete an account (#485): the user's sign-in token (no typ —
+ * their root credential, which could mint a console session anyway) or a
+ * console session, since the console's /auth/delete is the only caller. A
+ * handoff (#425) or another site's session (agent, mcp, admin) may not.
+ */
+function canDeleteAccount(payload: Record<string, unknown>): boolean {
+  if (payload.typ === undefined) return true;
+  return payload.typ === 'fgs_session' && payload.aud === CONSOLE_ORIGIN;
+}
+
 async function handleDeleteAccount(request: Request, env: Env): Promise<Response> {
+  // Header credentials only, never the cookie (#485): a same-site game page
+  // gets the cookie sent automatically, so the cookie alone must not be enough
+  // to delete the account. The console forwards its session as X-FGS-Token.
   const authz = request.headers.get('Authorization') ?? '';
   const token =
     request.headers.get('X-FGS-Token') ||
-    (authz.startsWith('Bearer ') ? authz.slice('Bearer '.length).trim() : '') ||
-    getCookie(request, COOKIE_NAME);
+    (authz.startsWith('Bearer ') ? authz.slice('Bearer '.length).trim() : '');
 
   if (!token) {
     return json({ error: 'Not signed in' }, 401, request);
   }
 
   const payload = await jwtVerify(token, env.JWT_SECRET).catch(() => null);
-  // A handoff is an exchange token, not a credential (#425, like /me #69).
-  if (!payload || payload.typ === 'fgs_handoff' || typeof payload.sub !== 'string') {
+  if (!payload || typeof payload.sub !== 'string' || !canDeleteAccount(payload)) {
     return json({ error: 'Invalid or expired token' }, 401, request);
   }
 

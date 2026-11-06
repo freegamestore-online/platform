@@ -8,14 +8,19 @@ import { onRequestPost } from './delete';
 let mockFetch: ReturnType<typeof vi.fn>;
 let originalFetch: typeof global.fetch;
 
+// Auth's handoff endpoints answer with a token; the deletes with ok.
+function okResponse(url: string): Response {
+  const body = url.includes('/handoff/')
+    ? { token: 'agent.token.here' }
+    : { ok: true, message: 'OK' };
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
 beforeEach(() => {
-  mockFetch = vi.fn().mockImplementation(
-    () =>
-      new Response(JSON.stringify({ ok: true, message: 'OK' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-  );
+  mockFetch = vi.fn().mockImplementation((url: string) => okResponse(url));
   originalFetch = global.fetch;
   (global as unknown as typeof globalThis).fetch = mockFetch;
 });
@@ -109,7 +114,7 @@ describe('POST /auth/delete', () => {
           }),
         );
       }
-      return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      return Promise.resolve(okResponse(url));
     });
 
     const context = {
@@ -122,8 +127,53 @@ describe('POST /auth/delete', () => {
 
     // biome-ignore lint/suspicious/noExplicitAny: test context
     const res = await onRequestPost(context as any);
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(502);
     const body = (await res.json()) as { ok?: boolean };
     expect(body.ok).toBe(false);
+    // The auth record is kept so the deletion can be retried.
+    expect(mockFetch).not.toHaveBeenCalledWith(
+      'https://auth.freegamestore.online/account',
+      expect.anything(),
+    );
+    expect(res.headers.getSetCookie()).toHaveLength(0);
+  });
+
+  it('sends the agent an agent-audience session, never the console cookie (#483)', async () => {
+    const { res } = await post();
+    expect(res.status).toBe(200);
+    const agentCall = mockFetch.mock.calls.find(
+      ([u]) => u === 'https://agent.freegamestore.online/v1/account',
+    );
+    expect(agentCall?.[1].headers['X-FGS-Token']).toBe('agent.token.here');
+    const authCall = mockFetch.mock.calls.find(
+      ([u]) => u === 'https://auth.freegamestore.online/account',
+    );
+    expect(authCall?.[1].headers['X-FGS-Token']).toBe('valid.token.here');
+  });
+
+  it('deletes nothing when the session cannot be exchanged (#483)', async () => {
+    mockFetch.mockImplementation((url: string) =>
+      url.includes('/handoff/issue')
+        ? new Response(JSON.stringify({ error: 'not signed in' }), { status: 401 })
+        : okResponse(url),
+    );
+    const { res } = await post();
+    expect(res.status).toBe(401);
+    expect(mockFetch.mock.calls.every(([, init]) => init.method !== 'DELETE')).toBe(true);
+  });
+
+  it('reports failure, not success, when only the auth step fails', async () => {
+    mockFetch.mockImplementation((url: string) =>
+      url === 'https://auth.freegamestore.online/account'
+        ? new Response(JSON.stringify({ ok: false, error: 'db down' }), { status: 500 })
+        : okResponse(url),
+    );
+    const { res } = await post();
+    expect(res.status).toBe(502);
+    const body = (await res.json()) as { ok: boolean; agent: { ok: boolean }; error: string };
+    expect(body.ok).toBe(false);
+    expect(body.agent.ok).toBe(true);
+    expect(body.error).toMatch(/not deleted|was not/);
+    expect(res.headers.getSetCookie()).toHaveLength(0);
   });
 });

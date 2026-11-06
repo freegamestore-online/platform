@@ -1091,3 +1091,32 @@ test('localhost:5173 is trusted only when DEV_ORIGIN names it (#486)', async () 
   assert.equal((await worker.fetch(logoutReq({ Origin: 'http://localhost:5173' }), dev)).status, 302);
 });
 
+// --- DELETE /account: header credential + console audience only (#485) ---
+
+test('DELETE /account ignores the cookie and refuses sessions for any site but the console (#485)', async () => {
+  let deletes = 0;
+  const env = {
+    JWT_SECRET: SECRET,
+    DB: {
+      prepare: () => ({ bind: () => ({ run: async () => { deletes++; return {}; } }) }),
+    },
+  } as unknown as Parameters<typeof handleMe>[1];
+  const consoleSession = await sessionFor('https://console.freegamestore.online');
+  // A same-site game's fetch carries only the cookie.
+  const cookieOnly = await worker.fetch(
+    deleteReq({ Cookie: `${COOKIE_NAME}=${consoleSession}`, Origin: 'https://chess.freegamestore.online' }),
+    env,
+  );
+  assert.equal(cookieOnly.status, 401);
+  for (const aud of [
+    'https://mcp.freegamestore.online',
+    'https://agent.freegamestore.online',
+    'https://admin.freegamestore.online',
+  ]) {
+    const res = await worker.fetch(deleteReq({ 'X-FGS-Token': await sessionFor(aud) }), env);
+    assert.equal(res.status, 401, aud);
+  }
+  assert.equal(deletes, 0);
+  assert.equal((await worker.fetch(deleteReq({ 'X-FGS-Token': consoleSession }), env)).status, 200);
+  assert.equal(deletes, 1);
+});
