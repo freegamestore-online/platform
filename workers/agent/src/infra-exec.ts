@@ -248,10 +248,115 @@ async function executePushUpdate(tc: ToolCall, ctx: ExecContext): Promise<string
   );
 }
 
-async function executeFetchUrl(tc: ToolCall, config: StoreConfig): Promise<string> {
-  const url = tc.input.url as string;
-  if (!url.startsWith("https://") || /localhost|127\.|192\.168|10\.|172\.1[6-9]\.|172\.2|172\.3[01]\.|169\.254/i.test(url)) {
-    return "Error: can only fetch public HTTPS URLs.";
+// -- fetch_url SSRF guard (#461) --
+//
+// The old check was a substring regex over the raw URL string, so
+// `https://2130706433/` (decimal 127.0.0.1), `https://0x7f000001/`, `https://[::1]/`
+// and `https://[::ffff:127.0.0.1]/` all passed while `https://example.com/10.5/`
+// was refused. Parse with the WHATWG URL parser — it canonicalises every IPv4
+// spelling (decimal, hex, octal, shortened) to dotted-quad and brackets IPv6 —
+// then classify the canonical host. Workers can't resolve DNS ahead of fetch,
+// so literal IPs are the achievable bar; a few internal name suffixes are
+// refused by name.
+
+const BLOCKED_NAME_SUFFIXES = [".localhost", ".internal", ".local", ".home.arpa"];
+
+function parseIpv4(host: string): number[] | null {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!m) return null;
+  const octets = m.slice(1).map(Number);
+  return octets.every((o) => o <= 255) ? octets : null;
+}
+
+/** Non-public IPv4: loopback, private, link-local, CGNAT, unspecified,
+ *  benchmarking, multicast, reserved/broadcast, IETF protocol assignments. */
+function isNonPublicIpv4([a, b]: number[]): boolean {
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 0) ||
+    (a === 192 && b === 168) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    a >= 224
+  );
+}
+
+/** Expand an IPv6 literal (no brackets) into 8 hextets; null if malformed.
+ *  Accepts a trailing dotted IPv4 (`::ffff:127.0.0.1`). */
+function parseIpv6(raw: string): number[] | null {
+  let s = raw.toLowerCase();
+  const zone = s.indexOf("%");
+  if (zone >= 0) s = s.slice(0, zone);
+  // Trailing dotted IPv4 → two hextets.
+  const v4 = /(?:^|:)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/.exec(s);
+  if (v4) {
+    const o = parseIpv4(v4[1]);
+    if (!o) return null;
+    s = `${s.slice(0, s.length - v4[1].length)}${((o[0] << 8) | o[1]).toString(16)}:${((o[2] << 8) | o[3]).toString(16)}`;
   }
-  return fetchUrl(url, (tc.input.method as string) || "GET", config.agentName);
+  const halves = s.split("::");
+  if (halves.length > 2) return null;
+  const toHextets = (part: string) => (part === "" ? [] : part.split(":"));
+  const head = toHextets(halves[0]);
+  const tail = halves.length === 2 ? toHextets(halves[1]) : [];
+  const missing = 8 - head.length - tail.length;
+  if (halves.length === 2 ? missing < 1 : missing !== 0) return null;
+  const parts = [...head, ...Array<string>(halves.length === 2 ? missing : 0).fill("0"), ...tail];
+  const out: number[] = [];
+  for (const p of parts) {
+    if (!/^[0-9a-f]{1,4}$/.test(p)) return null;
+    out.push(Number.parseInt(p, 16));
+  }
+  return out;
+}
+
+function isNonPublicIpv6(h: number[]): boolean {
+  const embeddedV4 = (i: number) => [h[i] >> 8, h[i] & 0xff, h[i + 1] >> 8, h[i + 1] & 0xff];
+  if (h.every((x) => x === 0)) return true; // ::
+  if (h.slice(0, 7).every((x) => x === 0) && h[7] === 1) return true; // ::1
+  if (h.slice(0, 5).every((x) => x === 0) && h[5] === 0xffff) return isNonPublicIpv4(embeddedV4(6)); // ::ffff:a.b.c.d
+  if (h[0] === 0x64 && h[1] === 0xff9b && h.slice(2, 6).every((x) => x === 0)) return isNonPublicIpv4(embeddedV4(6)); // NAT64
+  if (h[0] === 0x2002) return isNonPublicIpv4(embeddedV4(1)); // 6to4
+  if ((h[0] & 0xfe00) === 0xfc00) return true; // fc00::/7 ULA
+  if ((h[0] & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
+  if ((h[0] & 0xff00) === 0xff00) return true; // ff00::/8 multicast
+  return false;
+}
+
+/** Why fetch_url must not fetch `raw`, or null if it may. Exported for tests. */
+export function fetchUrlError(raw: unknown): string | null {
+  if (typeof raw !== "string" || raw === "") return "url is required";
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return "not a valid URL";
+  }
+  if (url.protocol !== "https:") return "only https:// is allowed";
+  if (url.username || url.password) return "credentials in the URL are not allowed";
+  const host = url.hostname.toLowerCase().replace(/\.$/, "");
+  if (host === "" || host === "localhost" || BLOCKED_NAME_SUFFIXES.some((s) => host.endsWith(s))) {
+    return "internal hostnames are not allowed";
+  }
+  if (host.startsWith("[")) {
+    const v6 = parseIpv6(host.slice(1, -1));
+    if (!v6 || isNonPublicIpv6(v6)) return "non-public IPv6 addresses are not allowed";
+    return null;
+  }
+  const v4 = parseIpv4(host);
+  if (v4 && isNonPublicIpv4(v4)) return "non-public IPv4 addresses are not allowed";
+  // A host that still ends in a number but isn't a dotted quad never gets here:
+  // the URL parser already rejected it (e.g. `https://1.2.3.999/`).
+  return null;
+}
+
+async function executeFetchUrl(tc: ToolCall, config: StoreConfig): Promise<string> {
+  const url = tc.input.url;
+  const bad = fetchUrlError(url);
+  if (bad) return `Error: can only fetch public HTTPS URLs (${bad}).`;
+  return fetchUrl(url as string, (tc.input.method as string) || "GET", config.agentName);
 }
