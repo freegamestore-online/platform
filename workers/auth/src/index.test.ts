@@ -657,7 +657,10 @@ test('POST /logout clears the __Host- session and the legacy cookie as separate 
   const res = await worker.fetch(
     new Request('https://auth.freegamestore.online/logout', {
       method: 'POST',
-      headers: { Referer: 'https://console.freegamestore.online/profile' },
+      headers: {
+        Origin: 'https://console.freegamestore.online',
+        Referer: 'https://console.freegamestore.online/profile',
+      },
     }),
     env,
   );
@@ -1022,3 +1025,69 @@ test('DELETE /account rejects a handoff, and an Authorization header without Bea
   assert.equal((await worker.fetch(deleteReq({ Authorization: `Bearer ${signIn}` }), env)).status, 200);
   assert.equal(deletes, 1);
 });
+
+// --- logout CSRF + dev origin (#486) ---
+
+function logoutReq(headers: Record<string, string>): Request {
+  return new Request('https://auth.freegamestore.online/v1/logout', { method: 'POST', headers });
+}
+
+test('POST /logout refuses a background request from a game, or one with no browser metadata (#486)', async () => {
+  const env = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<typeof worker.fetch>[1];
+  for (const headers of [
+    { Origin: 'https://chess.freegamestore.online', 'Sec-Fetch-Site': 'same-site', 'Sec-Fetch-Mode': 'cors' },
+    // A hidden iframe form post is a navigation, but not a top-level one.
+    {
+      Origin: 'https://chess.freegamestore.online',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Dest': 'iframe',
+      'Sec-Fetch-User': '?1',
+    },
+    // A form a game auto-submits on load: top-level, but no user activation.
+    { Origin: 'https://chess.freegamestore.online', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'document' },
+    { Origin: 'http://localhost:5173' },
+    {},
+  ]) {
+    const res = await worker.fetch(logoutReq(headers), env);
+    assert.equal(res.status, 403, JSON.stringify(headers));
+    assert.equal(res.headers.getSetCookie().length, 0);
+  }
+});
+
+test('POST /logout allows first-party pages, same-origin, and a visible top-level navigation (#486)', async () => {
+  const env = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<typeof worker.fetch>[1];
+  for (const headers of [
+    { Origin: 'https://freegamestore.online' },
+    { Origin: 'https://admin.freegamestore.online' },
+    { 'Sec-Fetch-Site': 'same-origin' },
+    // The games SDK's signOut: a clicked form POST that goes to auth and back.
+    {
+      Origin: 'https://chess.freegamestore.online',
+      Referer: 'https://chess.freegamestore.online/',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-User': '?1',
+    },
+  ]) {
+    const res = await worker.fetch(logoutReq(headers), env);
+    assert.equal(res.status, 302, JSON.stringify(headers));
+    assert.equal(res.headers.getSetCookie().length, 2);
+  }
+});
+
+test('localhost:5173 is trusted only when DEV_ORIGIN names it (#486)', async () => {
+  const prod = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<typeof worker.fetch>[1];
+  const dev = { ...prod, DEV_ORIGIN: 'http://localhost:5173' } as typeof prod;
+  const preflight = () =>
+    new Request('https://auth.freegamestore.online/me', {
+      method: 'OPTIONS',
+      headers: { Origin: 'http://localhost:5173' },
+    });
+  assert.equal((await worker.fetch(preflight(), prod)).headers.get('Access-Control-Allow-Origin'), '');
+  assert.equal(
+    (await worker.fetch(preflight(), dev)).headers.get('Access-Control-Allow-Origin'),
+    'http://localhost:5173',
+  );
+  assert.equal((await worker.fetch(logoutReq({ Origin: 'http://localhost:5173' }), dev)).status, 302);
+});
+

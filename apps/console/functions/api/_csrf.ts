@@ -20,8 +20,18 @@
 export const FIRST_PARTY_ORIGINS = new Set([
   'https://console.freegamestore.online',
   'https://freegamestore.online',
-  'http://localhost:5173',
 ]);
+
+/** Local development only (#486): one extra origin trusted like a first-party
+ *  one, e.g. `DEV_ORIGIN=http://localhost:5173` in `.dev.vars`. Unset in
+ *  production, so a localhost page is never trusted there. */
+export interface DevOriginEnv {
+  DEV_ORIGIN?: string;
+}
+
+export function isFirstPartyOrigin(origin: string, env: DevOriginEnv = {}): boolean {
+  return FIRST_PARTY_ORIGINS.has(origin) || (!!env.DEV_ORIGIN && origin === env.DEV_ORIGIN);
+}
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -41,13 +51,17 @@ function reject(error: string, status: number): Response {
  * browser POST a non-null `request.body`, and such a POST carries no
  * Content-Type), so body-less handlers must not opt in.
  */
-export function rejectCrossSite(request: Request, opts: { body?: boolean } = {}): Response | null {
+export function rejectCrossSite(
+  request: Request,
+  opts: { body?: boolean } = {},
+  env: DevOriginEnv = {},
+): Response | null {
   if (SAFE_METHODS.has(request.method)) return null;
   const origin = request.headers.get('Origin');
   const firstParty =
     origin === null
       ? request.headers.get('Sec-Fetch-Site') === 'same-origin'
-      : FIRST_PARTY_ORIGINS.has(origin);
+      : isFirstPartyOrigin(origin, env);
   if (!firstParty) return reject('forbidden origin', 403);
   if (
     opts.body &&

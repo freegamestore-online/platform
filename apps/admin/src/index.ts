@@ -19,18 +19,22 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const data = dataService(env);
-    const transportResponse = await routeAdminRequest(request, {
-      preflight: (req) => new Response(null, { status: 204, headers: corsHeaders(req) }),
-      auth: (req) => handleAdminAuthRoute(req, env),
-      // API routing below deliberately remains a separate data/lifecycle layer.
-      api: async () => null,
-      static: (req) =>
-        serveAdminStatic(req, {
-          authenticate: (staticRequest) => authenticateAdmin(staticRequest, env),
-          renderSignIn,
-          assets: env.ASSETS,
-        }),
-    });
+    const transportResponse = await routeAdminRequest(
+      request,
+      {
+        preflight: (req) => new Response(null, { status: 204, headers: corsHeaders(req) }),
+        auth: (req) => handleAdminAuthRoute(req, env),
+        // API routing below deliberately remains a separate data/lifecycle layer.
+        api: async () => null,
+        static: (req) =>
+          serveAdminStatic(req, {
+            authenticate: (staticRequest) => authenticateAdmin(staticRequest, env),
+            renderSignIn,
+            assets: env.ASSETS,
+          }),
+      },
+      env.DEV_ORIGIN,
+    );
     if (transportResponse) return transportResponse;
 
     // Route all requests through the declarative route table dispatcher.

@@ -66,6 +66,18 @@ pnpm --dir web test # vitest (jsdom) — pure lib logic
 pnpm build          # tsc -b + Vite build → web/dist
 ```
 
+### Local dev origin
+
+No `localhost` origin is trusted in production (#486). To let a local page call the console's functions (the CSRF guard and CORS), for example when the page is served from a different port than the functions, with
+credentials, name its exact origin in `.dev.vars` (gitignored, never deployed):
+
+```
+DEV_ORIGIN=http://localhost:5173
+```
+
+Leave it unset everywhere else: it is not in `wrangler.toml` and must never be set as a
+production var or secret.
+
 > Tests use an in-memory `localStorage` polyfill (`web/src/test/setup.ts`) — Node's
 > experimental global `localStorage` shadows jsdom's and throws otherwise.
 

@@ -47,4 +47,19 @@ describe('useAuth', () => {
     act(() => result.current.signIn());
     expect(nav.href).toContain('auth.freegamestore.online/login?redirect=');
   });
+
+  it('signOut submits a top-level form POST to auth logout, not a background fetch (#486)', async () => {
+    globalThis.fetch = vi.fn(
+      async () => ({ ok: false, json: async () => null }) as Response,
+    ) as unknown as typeof fetch;
+    const submit = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {});
+    const { result } = renderHook(() => useAuth());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => result.current.signOut());
+    expect(submit).toHaveBeenCalledTimes(1);
+    const form = submit.mock.contexts[0] as HTMLFormElement;
+    expect(form.method).toBe('post');
+    expect(form.action).toBe('https://auth.freegamestore.online/v1/logout');
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1); // only the /me lookup
+  });
 });

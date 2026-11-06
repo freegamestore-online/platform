@@ -17,7 +17,7 @@ function getCookie(request: Request, name: string): string | null {
  * session, which resolveCreatorUser would otherwise still honour.
  */
 export const onRequestPost: PagesFunction<SessionEnv> = async (context) => {
-  const crossSite = rejectCrossSite(context.request);
+  const crossSite = rejectCrossSite(context.request, {}, context.env);
   if (crossSite) return crossSite;
   const legacy = getCookie(context.request, LEGACY_COOKIE);
   if (legacy) {

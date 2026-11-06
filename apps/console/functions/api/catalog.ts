@@ -1,7 +1,8 @@
 import { corsHeaders } from './_auth';
+import type { DevOriginEnv } from './_csrf';
 import { getRegistry } from './_games';
 
-interface Env {
+interface Env extends DevOriginEnv {
   GITHUB_TOKEN?: string;
 }
 
@@ -9,7 +10,7 @@ interface Env {
 // existing game" picker. The registry is already public (it drives the
 // storefront), so no auth: return just the fields the picker needs.
 export const onRequestOptions: PagesFunction<Env> = async (ctx) =>
-  new Response(null, { status: 204, headers: corsHeaders(ctx.request) });
+  new Response(null, { status: 204, headers: corsHeaders(ctx.request, ctx.env) });
 
 export const onRequestGet: PagesFunction<Env> = async (ctx) => {
   const games = await getRegistry(ctx.env.GITHUB_TOKEN);
@@ -22,7 +23,7 @@ export const onRequestGet: PagesFunction<Env> = async (ctx) => {
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-store',
-        ...corsHeaders(ctx.request),
+        ...corsHeaders(ctx.request, ctx.env),
       },
     });
   }
@@ -34,7 +35,7 @@ export const onRequestGet: PagesFunction<Env> = async (ctx) => {
     headers: {
       'Content-Type': 'application/json',
       'Cache-Control': 'public, max-age=120',
-      ...corsHeaders(ctx.request),
+      ...corsHeaders(ctx.request, ctx.env),
     },
   });
 };

@@ -10,9 +10,11 @@ export interface AdminRequestHandlers {
   static(request: Request): Promise<Response | null>;
 }
 
+/** `devOrigin` is the env's DEV_ORIGIN: local development only, unset in production (#486). */
 export async function routeAdminRequest(
   request: Request,
   handlers: AdminRequestHandlers,
+  devOrigin?: string,
 ): Promise<Response | null> {
   if (request.method === 'OPTIONS') return handlers.preflight(request);
 
@@ -24,7 +26,7 @@ export async function routeAdminRequest(
       /(?:^|;\s*)__Host-fgs_token=/.test(cookie) && !request.headers.get('X-FGS-Token');
     const origin = request.headers.get('Origin');
     const allowedOrigin =
-      origin === 'https://admin.freegamestore.online' || origin === 'http://localhost:5173';
+      origin === 'https://admin.freegamestore.online' || (!!devOrigin && origin === devOrigin);
     if (
       usesCookie &&
       !allowedOrigin &&

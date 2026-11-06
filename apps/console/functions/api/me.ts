@@ -25,7 +25,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   if (!cu) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders(context.request) },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders(context.request, context.env) },
     });
   }
   const user = cu.github;
@@ -48,7 +48,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         }),
         {
           status: 503,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders(context.request) },
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders(context.request, context.env),
+          },
         },
       );
     }
@@ -79,6 +82,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   // CORS so the storefront's analytics page (freegamestore.online) can list the
   // signed-in creator's games. corsHeaders only echoes first-party origins.
   return new Response(JSON.stringify({ user, creator }), {
-    headers: { 'Content-Type': 'application/json', ...corsHeaders(context.request) },
+    headers: { 'Content-Type': 'application/json', ...corsHeaders(context.request, context.env) },
   });
 };

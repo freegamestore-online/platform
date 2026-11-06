@@ -1,8 +1,8 @@
 import { corsHeaders, getCookie, resolveCreator, SESSION_COOKIE } from '../_auth';
-import { rejectCrossSite } from '../_csrf';
+import { type DevOriginEnv, rejectCrossSite } from '../_csrf';
 import { validateId } from '../_validate';
 
-interface Env {
+interface Env extends DevOriginEnv {
   SESSIONS: KVNamespace;
   JWT_SECRET?: string;
 }
@@ -15,7 +15,7 @@ interface Env {
 const ADMIN_GAMES = 'https://admin.freegamestore.online/api/games';
 
 export const onRequestOptions: PagesFunction<Env> = async (ctx) =>
-  new Response(null, { status: 204, headers: corsHeaders(ctx.request) });
+  new Response(null, { status: 204, headers: corsHeaders(ctx.request, ctx.env) });
 
 async function proxy(
   context: Parameters<PagesFunction<Env>>[0],
@@ -24,10 +24,10 @@ async function proxy(
   const json = (v: unknown, status = 200) =>
     new Response(JSON.stringify(v), {
       status,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders(context.request) },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders(context.request, context.env) },
     });
 
-  const crossSite = rejectCrossSite(context.request, { body: method === 'PATCH' });
+  const crossSite = rejectCrossSite(context.request, { body: method === 'PATCH' }, context.env);
   if (crossSite) return crossSite;
   const user = await resolveCreator(context.request, context.env);
   if (!user) return json({ error: 'Unauthorized' }, 401);

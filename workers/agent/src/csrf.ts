@@ -41,7 +41,12 @@ function reject(error: string, status: number, cors: Record<string, string>): Re
  * Returns a 403/415 for a state-changing, cookie-authenticated request that did
  * not come from a first-party page, or null when routing may proceed.
  */
-export function rejectCrossSite(request: Request, domain: string, cors: Record<string, string>): Response | null {
+export function rejectCrossSite(
+  request: Request,
+  domain: string,
+  cors: Record<string, string>,
+  devOrigin?: string,
+): Response | null {
   if (SAFE_METHODS.has(request.method)) return null;
   const headerAuth =
     !!request.headers.get("X-FGS-Token") || (request.headers.get("Authorization") ?? "").startsWith("Bearer ");
@@ -52,7 +57,7 @@ export function rejectCrossSite(request: Request, domain: string, cors: Record<s
   const firstParty =
     origin === null
       ? request.headers.get("Sec-Fetch-Site") === "same-origin"
-      : origin === `https://console.${domain}` || origin === "http://localhost:5173";
+      : origin === `https://console.${domain}` || (!!devOrigin && origin === devOrigin);
   if (!firstParty) return reject("forbidden origin", 403, cors);
 
   const path = new URL(request.url).pathname;

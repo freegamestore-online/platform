@@ -121,3 +121,24 @@ describe("agent same-site CSRF guard (#462)", () => {
     expect(seen.auth).toBe(3);
   });
 });
+
+describe("local dev origin (#486)", () => {
+  const DEV = "http://localhost:5173";
+
+  it("is neither trusted for cookie writes nor reflected in CORS unless DEV_ORIGIN names it", async () => {
+    const { env } = makeEnv();
+    const write = await worker.fetch(req("POST", "/session/abc/reset", { Cookie: COOKIE, Origin: DEV }), env, ctx);
+    expect(write.status).toBe(403);
+    const preflight = await worker.fetch(req("OPTIONS", "/v1/account", { Origin: DEV }), env, ctx);
+    expect(preflight.headers.get("Access-Control-Allow-Origin")).toBe(CONSOLE);
+  });
+
+  it("is trusted when DEV_ORIGIN is set to it", async () => {
+    const { env } = makeEnv();
+    const dev = { ...env, DEV_ORIGIN: DEV } as typeof env;
+    const write = await worker.fetch(req("POST", "/session/abc/reset", { Cookie: COOKIE, Origin: DEV }), dev, ctx);
+    expect(write.status).toBe(401); // past the guard; the token itself is refused
+    const preflight = await worker.fetch(req("OPTIONS", "/v1/account", { Origin: DEV }), dev, ctx);
+    expect(preflight.headers.get("Access-Control-Allow-Origin")).toBe(DEV);
+  });
+});

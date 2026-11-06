@@ -34,8 +34,11 @@ describe('rejectCrossSite — allowed', () => {
     ).toBeNull();
   });
 
-  it('lets the local dev origin through', () => {
-    expect(rejectCrossSite(req('POST', { Origin: 'http://localhost:5173' }))).toBeNull();
+  it('lets the local dev origin through only when DEV_ORIGIN names it (#486)', () => {
+    const dev = req('POST', { Origin: 'http://localhost:5173' });
+    expect(rejectCrossSite(dev)?.status).toBe(403);
+    expect(rejectCrossSite(dev, {}, { DEV_ORIGIN: 'http://localhost:8788' })?.status).toBe(403);
+    expect(rejectCrossSite(dev, {}, { DEV_ORIGIN: 'http://localhost:5173' })).toBeNull();
   });
 
   it('accepts a JSON body, with or without a charset parameter', () => {

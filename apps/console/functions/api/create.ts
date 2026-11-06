@@ -1,6 +1,6 @@
 import { githubIdFromSub } from '../../../../contracts/registry-ownership/v1/contract';
 import { corsHeaders, getCookie, resolveCreatorUser, SESSION_COOKIE } from './_auth';
-import { rejectCrossSite } from './_csrf';
+import { type DevOriginEnv, rejectCrossSite } from './_csrf';
 import { fetchWithTimeout, recordError } from './_errlog';
 import { listUserGames } from './_games';
 // Single source of truth shared with check-id.ts so the create gate and the
@@ -10,7 +10,7 @@ import { validateId } from './_validate';
 
 export { validateId };
 
-interface Env {
+interface Env extends DevOriginEnv {
   GITHUB_TOKEN: string;
   MAX_APPS_PER_USER: string;
   CREATORS: KVNamespace;
@@ -21,7 +21,7 @@ interface Env {
 }
 
 export const onRequestOptions: PagesFunction<Env> = async (ctx) =>
-  new Response(null, { status: 204, headers: corsHeaders(ctx.request) });
+  new Response(null, { status: 204, headers: corsHeaders(ctx.request, ctx.env) });
 
 const CONFIG = {
   org: 'freegamestore-online',
@@ -57,7 +57,7 @@ function isProductionCreateCanary(user: string, id: string): boolean {
  * immediately (registry entry). No CF Pages project is created.
  */
 export const onRequestPost: PagesFunction<Env> = async (context) => {
-  const crossSite = rejectCrossSite(context.request, { body: true });
+  const crossSite = rejectCrossSite(context.request, { body: true }, context.env);
   if (crossSite) return crossSite;
   // --- instrumentation only (does not change provisioning behavior) ---
   const t0 = Date.now();
@@ -66,7 +66,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const json = (v: unknown, status = 200) =>
     new Response(JSON.stringify(v), {
       status,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders(context.request) },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders(context.request, context.env) },
     });
 
   let userForLog: string | undefined;

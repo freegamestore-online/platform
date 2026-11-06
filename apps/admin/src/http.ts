@@ -12,10 +12,9 @@ export function safeEqual(a: string, b: string): boolean {
 // provision/delete. The admin console is served same-origin from here, and the
 // creator publish flow reaches this worker server-to-server (no browser Origin),
 // so no *.freegamestore.online game origin ever needs cross-origin access.
-export const CORS_ORIGINS = new Set([
-  'https://admin.freegamestore.online',
-  'http://localhost:5173',
-]);
+// No localhost either (#486): local admin dev goes through Vite's /api proxy,
+// which is same-origin to the browser and needs no CORS.
+export const CORS_ORIGINS = new Set(['https://admin.freegamestore.online']);
 
 export function corsHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get('Origin') ?? '';

@@ -4,6 +4,11 @@
 
 Drop-in for games on 0.19.x; no code changes are needed.
 
+- **`useAuth().signOut` works with auth's logout CSRF check (#486).** Auth now refuses a
+  background `POST /logout` from a game, since any game could otherwise sign the player out
+  silently. `signOut` submits a top-level form POST instead, which auth accepts only as a
+  user-activated navigation, so call it from a click handler. Auth redirects back to the game,
+  which loads signed out. On 0.19.x, `signOut` reloads the page but the player stays signed in.
 - **Leaderboard reads work in the browser again (#409).** `useLeaderboard` fetched the public
   top and recent boards with `credentials: 'include'`, but the leaderboard worker answers public
   reads without `Access-Control-Allow-Credentials`, so the browser discarded every response and

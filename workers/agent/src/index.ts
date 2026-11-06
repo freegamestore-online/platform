@@ -32,147 +32,166 @@ export interface Env {
   COMP_KEY_OPENAI?: string;
   COMP_KEY_GOOGLE?: string;
   COMP_KEY_GITHUB?: string;
+  /** Local development only (#486): the Studio's dev origin (e.g.
+   *  `http://localhost:5173`, set in `.dev.vars`), trusted with credentials and
+   *  for cookie writes. Unset in production. */
+  DEV_ORIGIN?: string;
 }
 
 const SESSION_COOKIE = "__Host-fgs_token";
 const AGENT_ORIGIN = "https://agent.freegamestore.online";
 
+/** Reflect the configured dev origin with credentials (#486). Only runs when
+ *  DEV_ORIGIN is set, so production responses pass through untouched. */
+function withDevOrigin(request: Request, env: Env, response: Response): Response {
+  const origin = request.headers.get("Origin");
+  if (!env.DEV_ORIGIN || origin !== env.DEV_ORIGIN) return response;
+  const res = new Response(response.body, response);
+  res.headers.set("Access-Control-Allow-Origin", origin);
+  res.headers.set("Access-Control-Allow-Credentials", "true");
+  return res;
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const config = getConfig(env.STORE);
+    return withDevOrigin(request, env, await route(request, env, ctx));
+  },
+};
 
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders(request, config.domain) });
-    }
+async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const config = getConfig(env.STORE);
 
-    // Cookie-authenticated writes must come from the Studio, not a same-site game (#462).
-    const crossSite = rejectCrossSite(request, config.domain, corsHeaders(request, config.domain));
-    if (crossSite) return crossSite;
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders(request, config.domain) });
+  }
 
-    const url = new URL(request.url);
-    const path = url.pathname;
+  // Cookie-authenticated writes must come from the Studio, not a same-site game (#462).
+  const crossSite = rejectCrossSite(request, config.domain, corsHeaders(request, config.domain), env.DEV_ORIGIN);
+  if (crossSite) return crossSite;
 
-    // The console establishes this cookie with auth's signed, five-minute
-    // handoff. A user-authored game cannot set a __Host- cookie for agent.
-    if (path === "/auth/handoff" && request.method === "GET") {
-      const handoff = url.searchParams.get("token") ?? "";
-      if (!handoff)
-        return new Response(JSON.stringify({ error: "missing session handoff" }), {
-          status: 400,
-          headers: { "Content-Type": "application/json", ...corsHeaders(request, config.domain) },
-        });
-      const exchanged = await env.AUTH.fetch("https://auth.freegamestore.online/handoff/consume", {
-        method: "POST",
-        headers: { "X-FGS-Handoff": handoff, "X-FGS-Handoff-Target": AGENT_ORIGIN },
-      });
-      if (!exchanged.ok)
-        return new Response(JSON.stringify({ error: "invalid or expired session handoff" }), {
-          status: 401,
-          headers: { "Content-Type": "application/json", ...corsHeaders(request, config.domain) },
-        });
-      const body = (await exchanged.json()) as { token?: string };
-      if (!body.token) return new Response(JSON.stringify({ error: "invalid session handoff response" }), { status: 502 });
-      const headers = new Headers({ "Cache-Control": "no-store", ...corsHeaders(request, config.domain) });
-      headers.append("Set-Cookie", `${SESSION_COOKIE}=${body.token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`);
-      headers.append("Set-Cookie", "fgs_token=; Domain=.freegamestore.online; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
-      return new Response(null, { status: 204, headers });
-    }
+  const url = new URL(request.url);
+  const path = url.pathname;
 
-    // Self-service account deletion — DELETE /v1/account or /account
-    const accountResp = await handleAccountDelete(request, env, config, corsHeaders(request, config.domain));
-    if (accountResp) return accountResp;
-
-    // Per-user session list (D1) — /sessions, /sessions/:id
-    const sessionsResp = await handleSessionsApi(request, env, corsHeaders(request, config.domain));
-    if (sessionsResp) return sessionsResp;
-
-    // Per-user AI-key vault (D1, encrypted) — /v1/keys/status, /v1/keys/:provider
-    const keysResp = await handleKeysApi(request, env, corsHeaders(request, config.domain));
-    if (keysResp) return keysResp;
-
-    // Internal admin: complimentary grants — /v1/admin/comp (INTERNAL_TOKEN gated,
-    // called by the admin worker over its service binding).
-    const compResp = await handleAdminCompApi(request, env, corsHeaders(request, config.domain), ctx);
-    if (compResp) return compResp;
-
-    // Kid-friendly message rewrite (free tier, platform token) — POST /kidify
-    const kidResp = await handleKidify(request, env, corsHeaders(request, config.domain));
-    if (kidResp) return kidResp;
-
-    // Health check
-    if (path === "/" || path === "/health") {
-      return new Response(
-        JSON.stringify({
-          ok: true,
-          service: config.agentName,
-          hasSecrets: !!env.GITHUB_TOKEN,
-        }),
-        {
-          headers: { "Content-Type": "application/json", ...corsHeaders(request, config.domain) },
-        },
-      );
-    }
-
-    // Routes: /session/:id/chat, /session/:id/status, /session/:id/files,
-    // /session/:id/import (bind to an existing game), /session/:id/reset, …
-    const match = path.match(/^\/session\/([a-zA-Z0-9_-]{1,64})\/(chat|status|files|history|errors|reset|import|push-subscribe)$/);
-    if (!match) {
-      return new Response(JSON.stringify({ error: "not found", hint: "Use /session/:id/chat" }), {
-        status: 404,
+  // The console establishes this cookie with auth's signed, five-minute
+  // handoff. A user-authored game cannot set a __Host- cookie for agent.
+  if (path === "/auth/handoff" && request.method === "GET") {
+    const handoff = url.searchParams.get("token") ?? "";
+    if (!handoff)
+      return new Response(JSON.stringify({ error: "missing session handoff" }), {
+        status: 400,
         headers: { "Content-Type": "application/json", ...corsHeaders(request, config.domain) },
       });
-    }
-
-    const [, sessionId, route] = match;
-
-    // Authenticate: every /session/* route requires a valid FGS session. The DO
-    // (one per session) has no edge route of its own, so identity is established
-    // here — verified via the auth worker's /me over the service binding — and
-    // the DO binds the session to its owner (trust-on-first-use).
-    const user = await resolveUser(request, env.AUTH);
-    if (!user) {
-      return new Response(JSON.stringify({ error: "unauthorized" }), {
+    const exchanged = await env.AUTH.fetch("https://auth.freegamestore.online/handoff/consume", {
+      method: "POST",
+      headers: { "X-FGS-Handoff": handoff, "X-FGS-Handoff-Target": AGENT_ORIGIN },
+    });
+    if (!exchanged.ok)
+      return new Response(JSON.stringify({ error: "invalid or expired session handoff" }), {
         status: 401,
         headers: { "Content-Type": "application/json", ...corsHeaders(request, config.domain) },
       });
-    }
+    const body = (await exchanged.json()) as { token?: string };
+    if (!body.token) return new Response(JSON.stringify({ error: "invalid session handoff response" }), { status: 502 });
+    const headers = new Headers({ "Cache-Control": "no-store", ...corsHeaders(request, config.domain) });
+    headers.append("Set-Cookie", `${SESSION_COOKIE}=${body.token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`);
+    headers.append("Set-Cookie", "fgs_token=; Domain=.freegamestore.online; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
+    return new Response(null, { status: 204, headers });
+  }
 
-    const subpath = `/${route}`;
-    const doId = env.SESSION.idFromName(sessionId);
-    const stub = env.SESSION.get(doId);
+  // Self-service account deletion — DELETE /v1/account or /account
+  const accountResp = await handleAccountDelete(request, env, config, corsHeaders(request, config.domain));
+  if (accountResp) return accountResp;
 
-    // Forward to the DO with the worker-verified identity. set() overwrites any
-    // client-supplied X-Auth-User, so a caller can't spoof session ownership.
-    const fwdHeaders = new Headers(request.headers);
-    fwdHeaders.set("X-Auth-User", user.id);
-    // Admin read-through (?admin=1 on GET history/status): org members may read
-    // any session's transcript/status — the "parent view". Verified HERE (the
-    // client header is always stripped first, so it can't be spoofed) and only
-    // for read routes; admins can't chat/reset as someone else.
-    fwdHeaders.delete("X-Auth-Admin");
-    if (
-      url.searchParams.get("admin") === "1" &&
-      request.method === "GET" &&
-      (route === "history" || route === "status") &&
-      user.login &&
-      (await isOrgAdmin(config, env.GITHUB_TOKEN, user.login))
-    ) {
-      fwdHeaders.set("X-Auth-Admin", "1");
-    }
-    // The GitHub login (username) — used at deploy time to add the creator as a
-    // collaborator on the repo the platform bot creates for them. set() so a
-    // client can't spoof it. Blank when the session predates login capture.
-    fwdHeaders.set("X-Auth-Login", user.login ?? "");
-    // The DO is addressed by idFromName(sessionId) and can't recover the
-    // original session id from its opaque DO id. Pass it so the DO can keep the
-    // D1 /sessions index (cross-browser discovery) authoritative server-side.
-    fwdHeaders.set("X-Session-Id", sessionId);
-    const doRequest = new Request(`https://do${subpath}`, {
-      method: request.method,
-      headers: fwdHeaders,
-      body: request.method === "POST" ? request.body : undefined,
+  // Per-user session list (D1) — /sessions, /sessions/:id
+  const sessionsResp = await handleSessionsApi(request, env, corsHeaders(request, config.domain));
+  if (sessionsResp) return sessionsResp;
+
+  // Per-user AI-key vault (D1, encrypted) — /v1/keys/status, /v1/keys/:provider
+  const keysResp = await handleKeysApi(request, env, corsHeaders(request, config.domain));
+  if (keysResp) return keysResp;
+
+  // Internal admin: complimentary grants — /v1/admin/comp (INTERNAL_TOKEN gated,
+  // called by the admin worker over its service binding).
+  const compResp = await handleAdminCompApi(request, env, corsHeaders(request, config.domain), ctx);
+  if (compResp) return compResp;
+
+  // Kid-friendly message rewrite (free tier, platform token) — POST /kidify
+  const kidResp = await handleKidify(request, env, corsHeaders(request, config.domain));
+  if (kidResp) return kidResp;
+
+  // Health check
+  if (path === "/" || path === "/health") {
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        service: config.agentName,
+        hasSecrets: !!env.GITHUB_TOKEN,
+      }),
+      {
+        headers: { "Content-Type": "application/json", ...corsHeaders(request, config.domain) },
+      },
+    );
+  }
+
+  // Routes: /session/:id/chat, /session/:id/status, /session/:id/files,
+  // /session/:id/import (bind to an existing game), /session/:id/reset, …
+  const match = path.match(/^\/session\/([a-zA-Z0-9_-]{1,64})\/(chat|status|files|history|errors|reset|import|push-subscribe)$/);
+  if (!match) {
+    return new Response(JSON.stringify({ error: "not found", hint: "Use /session/:id/chat" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json", ...corsHeaders(request, config.domain) },
     });
+  }
 
-    return stub.fetch(doRequest);
-  },
-};
+  const [, sessionId, route] = match;
+
+  // Authenticate: every /session/* route requires a valid FGS session. The DO
+  // (one per session) has no edge route of its own, so identity is established
+  // here — verified via the auth worker's /me over the service binding — and
+  // the DO binds the session to its owner (trust-on-first-use).
+  const user = await resolveUser(request, env.AUTH);
+  if (!user) {
+    return new Response(JSON.stringify({ error: "unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json", ...corsHeaders(request, config.domain) },
+    });
+  }
+
+  const subpath = `/${route}`;
+  const doId = env.SESSION.idFromName(sessionId);
+  const stub = env.SESSION.get(doId);
+
+  // Forward to the DO with the worker-verified identity. set() overwrites any
+  // client-supplied X-Auth-User, so a caller can't spoof session ownership.
+  const fwdHeaders = new Headers(request.headers);
+  fwdHeaders.set("X-Auth-User", user.id);
+  // Admin read-through (?admin=1 on GET history/status): org members may read
+  // any session's transcript/status — the "parent view". Verified HERE (the
+  // client header is always stripped first, so it can't be spoofed) and only
+  // for read routes; admins can't chat/reset as someone else.
+  fwdHeaders.delete("X-Auth-Admin");
+  if (
+    url.searchParams.get("admin") === "1" &&
+    request.method === "GET" &&
+    (route === "history" || route === "status") &&
+    user.login &&
+    (await isOrgAdmin(config, env.GITHUB_TOKEN, user.login))
+  ) {
+    fwdHeaders.set("X-Auth-Admin", "1");
+  }
+  // The GitHub login (username) — used at deploy time to add the creator as a
+  // collaborator on the repo the platform bot creates for them. set() so a
+  // client can't spoof it. Blank when the session predates login capture.
+  fwdHeaders.set("X-Auth-Login", user.login ?? "");
+  // The DO is addressed by idFromName(sessionId) and can't recover the
+  // original session id from its opaque DO id. Pass it so the DO can keep the
+  // D1 /sessions index (cross-browser discovery) authoritative server-side.
+  fwdHeaders.set("X-Session-Id", sessionId);
+  const doRequest = new Request(`https://do${subpath}`, {
+    method: request.method,
+    headers: fwdHeaders,
+    body: request.method === "POST" ? request.body : undefined,
+  });
+
+  return stub.fetch(doRequest);
+}

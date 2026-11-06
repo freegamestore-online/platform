@@ -26,6 +26,18 @@ Required secrets (set with `wrangler secret put <NAME>`):
 |---|---|
 | `GITHUB_TOKEN` | Org-level PAT for repo provisioning and code push |
 | `CF_API_TOKEN` | Cloudflare API token for Pages and DNS |
+
+### Local dev origin
+
+No `localhost` origin is trusted in production (#486). To let a local page call the agent (CORS, and the cookie-write origin check) with
+credentials, name its exact origin in `.dev.vars` (gitignored, never deployed):
+
+```
+DEV_ORIGIN=http://localhost:5173
+```
+
+Leave it unset everywhere else: it is not in `wrangler.toml` and must never be set as a
+production var or secret.
 | `# (removed)` | Cloudflare Global API key (DNS) |
 | `# (removed)` | Cloudflare account email (DNS) |
 

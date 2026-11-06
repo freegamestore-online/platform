@@ -30,6 +30,18 @@ GOOGLE_CLIENT_SECRET=...
 JWT_SECRET=...
 ```
 
+### Local dev origin
+
+No `localhost` origin is trusted in production (#486). To let a local page call auth (CORS on `/me`, and `POST /logout`) with
+credentials, name its exact origin in `.dev.vars` (gitignored, never deployed):
+
+```
+DEV_ORIGIN=http://localhost:5173
+```
+
+Leave it unset everywhere else: it is not in `wrangler.toml` and must never be set as a
+production var or secret.
+
 ## Deploy
 
 Push to `main` — GitHub Actions deploys automatically via Wrangler.

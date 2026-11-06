@@ -91,6 +91,24 @@ describe('mutation guards', () => {
     );
     expect(h.api).toHaveBeenCalled();
   });
+  it('trusts localhost:5173 for cookie mutations only when DEV_ORIGIN names it (#486)', async () => {
+    const devReq = () =>
+      new Request('https://admin.test/api/comp', {
+        method: 'POST',
+        headers: {
+          Origin: 'http://localhost:5173',
+          Cookie: '__Host-fgs_token=t',
+          'Content-Type': 'application/json',
+        },
+        body: '{}',
+      });
+    const prod = handlers();
+    expect((await routeAdminRequest(devReq(), prod))?.status).toBe(403);
+    expect(prod.api).not.toHaveBeenCalled();
+    const dev = handlers();
+    await routeAdminRequest(devReq(), dev, 'http://localhost:5173');
+    expect(dev.api).toHaveBeenCalled();
+  });
   it('rejects text bodies even from the admin origin', async () => {
     const response = await routeAdminRequest(
       new Request('https://admin.test/api/comp', {

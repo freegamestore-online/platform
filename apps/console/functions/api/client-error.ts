@@ -1,9 +1,9 @@
 import { clampErrorLogText, ERROR_LOG_LIMITS } from '../../../../contracts/error-log/v1/contract';
 import { corsHeaders, resolveCreator } from './_auth';
-import { rejectCrossSite } from './_csrf';
+import { type DevOriginEnv, rejectCrossSite } from './_csrf';
 import { recordError } from './_errlog';
 
-interface Env {
+interface Env extends DevOriginEnv {
   SESSIONS: KVNamespace;
   JWT_SECRET?: string;
   /** Admin's "freegamestore" D1 — for durable error/crash logging. */
@@ -29,7 +29,7 @@ function isRateLimited(ip: string): boolean {
 }
 
 export const onRequestOptions: PagesFunction<Env> = async (ctx) =>
-  new Response(null, { status: 204, headers: corsHeaders(ctx.request) });
+  new Response(null, { status: 204, headers: corsHeaders(ctx.request, ctx.env) });
 
 /**
  * POST /api/client-error — accept a client-side error report and insert it
@@ -38,12 +38,12 @@ export const onRequestOptions: PagesFunction<Env> = async (ctx) =>
  */
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
-  const crossSite = rejectCrossSite(request, { body: true });
+  const crossSite = rejectCrossSite(request, { body: true }, env);
   if (crossSite) return crossSite;
   const json = (v: unknown, status = 200) =>
     new Response(JSON.stringify(v), {
       status,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders(request) },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders(request, env) },
     });
 
   // Rate-limit by CF-connecting IP (best effort; CF always sets this header).

@@ -5,9 +5,23 @@ interface Env {
   GITHUB_CLIENT_ID: string;
   GITHUB_CLIENT_SECRET: string;
   JWT_SECRET: string;
+  /** Local development only (#486): one extra origin trusted with credentials,
+   *  e.g. `http://localhost:5173` in `.dev.vars`. Unset in production. */
+  DEV_ORIGIN?: string;
 }
 
 const ALLOWED_ORIGIN = /^https:\/\/[\w-]+\.freegamestore\.online$/;
+const CONSOLE_ORIGIN = 'https://console.freegamestore.online';
+/**
+ * Pages that may sign the player out with a background request (#486). Games
+ * are NOT here: a body-less POST is a CORS simple request, so any game could
+ * otherwise end the player's session silently.
+ */
+const LOGOUT_ORIGINS = new Set([
+  'https://freegamestore.online',
+  CONSOLE_ORIGIN,
+  'https://admin.freegamestore.online',
+]);
 /**
  * Browser sessions are deliberately host-only.  FGS publishes untrusted games
  * on sibling subdomains, so a Domain=.freegamestore.online cookie can be
@@ -124,12 +138,10 @@ export async function jwtVerify(
 // Broad CORS for identity endpoints (/me, OAuth) that games legitimately need
 // for the GameAuth component. Reflects any *.freegamestore.online; safe because
 // these endpoints expose only the player's own public identity, never secrets.
+// A local dev origin is added per deployment by withDevOrigin (#486), never here.
 function cors(request: Request): Record<string, string> {
   const origin = request.headers.get('Origin') ?? '';
-  const allowed =
-    ALLOWED_ORIGIN.test(origin) ||
-    origin === 'https://freegamestore.online' ||
-    origin === 'http://localhost:5173';
+  const allowed = ALLOWED_ORIGIN.test(origin) || origin === 'https://freegamestore.online';
   return {
     'Access-Control-Allow-Origin': allowed ? origin : '',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -472,7 +484,33 @@ export async function handleMe(request: Request, env: Env): Promise<Response> {
   );
 }
 
-function handleLogout(request: Request): Response {
+/**
+ * Logout is a state change, so it must not be forgeable by a game (#486).
+ * Allowed:
+ *  - a background request from a first-party page (or the dev origin), or one
+ *    the browser itself labels same-origin;
+ *  - a top-level navigation (a form POST) the player started with a click:
+ *    it takes them to this worker and back, and a game can't fire it on page
+ *    load because the browser only marks user-activated navigations
+ *    (Sec-Fetch-User). The games SDK's signOut uses this.
+ * Anything else — a game's fetch, a hidden iframe, a request with no browser
+ * metadata — is refused.
+ */
+function logoutAllowed(request: Request, env: Env): boolean {
+  const origin = request.headers.get('Origin');
+  if (origin !== null && (LOGOUT_ORIGINS.has(origin) || (!!env.DEV_ORIGIN && origin === env.DEV_ORIGIN))) {
+    return true;
+  }
+  if (origin === null && request.headers.get('Sec-Fetch-Site') === 'same-origin') return true;
+  return (
+    request.headers.get('Sec-Fetch-Mode') === 'navigate' &&
+    request.headers.get('Sec-Fetch-Dest') === 'document' &&
+    request.headers.get('Sec-Fetch-User') === '?1'
+  );
+}
+
+function handleLogout(request: Request, env: Env): Response {
+  if (!logoutAllowed(request, env)) return json({ error: 'forbidden origin' }, 403, request);
   const referrer = safeRedirect(request.headers.get('Referer'));
   // One Set-Cookie header per cookie. Comma-joining them into one header makes
   // browsers read a single cookie carrying the legacy cookie's Domain attribute,
@@ -851,60 +889,75 @@ export async function handleHandoffIssue(request: Request, env: Env): Promise<Re
 
 // --- Main ---
 
+/** Trust the configured local dev origin with credentials (#486). Every
+ *  response here is built by this worker, so its headers are mutable. */
+function withDevOrigin(request: Request, env: Env, response: Response): Response {
+  const origin = request.headers.get('Origin');
+  if (env.DEV_ORIGIN && origin === env.DEV_ORIGIN) {
+    response.headers.set('Access-Control-Allow-Origin', origin);
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+  }
+  return response;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-    // Versioned alias: /v1/me, /v1/logout, etc. resolve to the same handlers
-    // as their unversioned paths so older game bundles keep working while new
-    // ones can adopt /v1. OAuth redirect URIs are always unversioned. See
-    // platform/docs/API-CONTRACT.md (additive-only contract).
-    const path = url.pathname.startsWith('/v1/') ? url.pathname.slice(3) : url.pathname;
-
-    // CORS preflight
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: cors(request) });
-    }
-
-    // GitHub OAuth (primary — used by console + CLI)
-    if (request.method === 'GET' && path === '/login') {
-      return handleGitHubLogin(request, env);
-    }
-    if (request.method === 'GET' && path === '/callback/github') {
-      return handleGitHubCallback(request, env);
-    }
-    if (request.method === 'POST' && path === '/token/github') {
-      return handleGitHubTokenExchange(request, env);
-    }
-    if (request.method === 'POST' && path === '/handoff/consume') {
-      return handleHandoffConsume(request, env);
-    }
-    if (request.method === 'POST' && path === '/handoff/issue') {
-      return handleHandoffIssue(request, env);
-    }
-
-    // Google OAuth (legacy — used by games for player auth)
-    if (request.method === 'GET' && path === '/login/google') {
-      return handleLogin(request, env);
-    }
-    if (request.method === 'GET' && path === '/callback') {
-      return handleCallback(request, env);
-    }
-
-    // GET /me
-    if (request.method === 'GET' && path === '/me') {
-      return handleMe(request, env);
-    }
-
-    // POST /logout
-    if (request.method === 'POST' && path === '/logout') {
-      return handleLogout(request);
-    }
-
-    // DELETE /account (self-service account deletion)
-    if (request.method === 'DELETE' && path === '/account') {
-      return handleDeleteAccount(request, env);
-    }
-
-    return json({ error: 'Not found' }, 404, request);
+    return withDevOrigin(request, env, await route(request, env));
   },
 };
+
+async function route(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  // Versioned alias: /v1/me, /v1/logout, etc. resolve to the same handlers
+  // as their unversioned paths so older game bundles keep working while new
+  // ones can adopt /v1. OAuth redirect URIs are always unversioned. See
+  // platform/docs/API-CONTRACT.md (additive-only contract).
+  const path = url.pathname.startsWith('/v1/') ? url.pathname.slice(3) : url.pathname;
+
+  // CORS preflight
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: cors(request) });
+  }
+
+  // GitHub OAuth (primary — used by console + CLI)
+  if (request.method === 'GET' && path === '/login') {
+    return handleGitHubLogin(request, env);
+  }
+  if (request.method === 'GET' && path === '/callback/github') {
+    return handleGitHubCallback(request, env);
+  }
+  if (request.method === 'POST' && path === '/token/github') {
+    return handleGitHubTokenExchange(request, env);
+  }
+  if (request.method === 'POST' && path === '/handoff/consume') {
+    return handleHandoffConsume(request, env);
+  }
+  if (request.method === 'POST' && path === '/handoff/issue') {
+    return handleHandoffIssue(request, env);
+  }
+
+  // Google OAuth (legacy — used by games for player auth)
+  if (request.method === 'GET' && path === '/login/google') {
+    return handleLogin(request, env);
+  }
+  if (request.method === 'GET' && path === '/callback') {
+    return handleCallback(request, env);
+  }
+
+  // GET /me
+  if (request.method === 'GET' && path === '/me') {
+    return handleMe(request, env);
+  }
+
+  // POST /logout
+  if (request.method === 'POST' && path === '/logout') {
+    return handleLogout(request, env);
+  }
+
+  // DELETE /account (self-service account deletion)
+  if (request.method === 'DELETE' && path === '/account') {
+    return handleDeleteAccount(request, env);
+  }
+
+  return json({ error: 'Not found' }, 404, request);
+}

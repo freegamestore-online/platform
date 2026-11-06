@@ -36,4 +36,8 @@ export interface Env {
    *  observability endpoint are restricted to these (verified Google emails
    *  resolved via the auth worker's /me). Falls back to the sole owner. */
   ADMIN_EMAILS?: string;
+  /** Local development only (#486): the admin UI's dev origin (e.g.
+   *  `http://localhost:5173`, in `.dev.vars`), allowed past the cookie-write
+   *  origin check. Unset in production. */
+  DEV_ORIGIN?: string;
 }

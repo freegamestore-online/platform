@@ -1,12 +1,12 @@
 import { getCookie, SESSION_COOKIE } from '../api/_auth';
-import { rejectCrossSite } from '../api/_csrf';
+import { type DevOriginEnv, rejectCrossSite } from '../api/_csrf';
 
 const AUTH = 'https://auth.freegamestore.online';
 const AGENT = 'https://agent.freegamestore.online';
 
 /** Gives the browser a short-lived agent-only handoff, never the console JWT. */
-export const onRequestPost: PagesFunction = async (context) => {
-  const crossSite = rejectCrossSite(context.request);
+export const onRequestPost: PagesFunction<DevOriginEnv> = async (context) => {
+  const crossSite = rejectCrossSite(context.request, {}, context.env);
   if (crossSite) return crossSite;
   const token = getCookie(context.request, SESSION_COOKIE);
   if (!token) return new Response(JSON.stringify({ error: 'not signed in' }), { status: 401 });

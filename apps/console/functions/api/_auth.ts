@@ -10,12 +10,12 @@
 // Requires JWT_SECRET (same value as the auth worker) to verify console tokens.
 // Files prefixed with `_` are not routed by Pages, so this is import-only.
 
-export interface SessionEnv {
+import { type DevOriginEnv, isFirstPartyOrigin } from './_csrf';
+
+export interface SessionEnv extends DevOriginEnv {
   SESSIONS: KVNamespace;
   JWT_SECRET?: string;
 }
-
-import { FIRST_PARTY_ORIGINS } from './_csrf';
 
 export const SESSION_COOKIE = '__Host-fgs_token';
 
@@ -24,9 +24,9 @@ export const SESSION_COOKIE = '__Host-fgs_token';
 // subdomains too — and games are untrusted user content sharing the session
 // cookie's registrable domain, so any game could read this credentialed API
 // (project list, chat history, /api/me) cross-origin.
-export function corsHeaders(request: Request): Record<string, string> {
+export function corsHeaders(request: Request, env: DevOriginEnv = {}): Record<string, string> {
   const origin = request.headers.get('Origin') ?? '';
-  const allow = FIRST_PARTY_ORIGINS.has(origin) ? origin : 'https://console.freegamestore.online';
+  const allow = isFirstPartyOrigin(origin, env) ? origin : 'https://console.freegamestore.online';
   return {
     'Access-Control-Allow-Origin': allow,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',

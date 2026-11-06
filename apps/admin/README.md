@@ -22,6 +22,10 @@ Secrets required locally (set via `wrangler secret put` or `.dev.vars`):
 - `# (removed)` — Cloudflare account email
 - `GITHUB_TOKEN` — GitHub personal access token
 
+The admin UI's Vite dev server proxies `/api` to `wrangler dev`, so it needs no CORS. For its
+cookie writes to pass the origin check, set `DEV_ORIGIN=http://localhost:5173` in `.dev.vars`
+(gitignored). It is unset in production, where no `localhost` origin is trusted (#486).
+
 ## Deploy
 
 Push to `main` — GitHub Actions deploys via Wrangler automatically.

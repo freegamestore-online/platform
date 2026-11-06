@@ -43,18 +43,17 @@ export function useAuth(): {
     window.location.href = `https://auth.freegamestore.online/login?redirect=${encodeURIComponent(window.location.href)}`;
   }, []);
 
+  // A top-level form POST, not a background fetch: auth refuses a game's
+  // background logout request, since any game could otherwise sign the player
+  // out silently (#486). Auth accepts a top-level navigation the player started,
+  // so call signOut from a click handler; auth redirects back to the game,
+  // which loads signed out.
   const signOut = useCallback(() => {
-    void fetch('https://auth.freegamestore.online/v1/logout', {
-      method: 'POST',
-      credentials: 'include',
-    })
-      .catch(() => {
-        // best-effort
-      })
-      .finally(() => {
-        setUser(null);
-        window.location.reload();
-      });
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'https://auth.freegamestore.online/v1/logout';
+    document.body.appendChild(form);
+    form.submit();
   }, []);
 
   return { user, loading, signIn, signOut };
