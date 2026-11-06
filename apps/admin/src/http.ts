@@ -29,6 +29,18 @@ export function corsHeaders(request: Request): Record<string, string> {
   };
 }
 
+/** The admin UI holds an admin session: no page may frame it (#465). */
+export const FRAME_DENY_HEADERS = {
+  'Content-Security-Policy': "frame-ancestors 'none'",
+  'X-Frame-Options': 'DENY',
+} as const;
+
+export function denyFraming(response: Response): Response {
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(FRAME_DENY_HEADERS)) headers.set(name, value);
+  return new Response(response.body, { status: response.status, headers });
+}
+
 export function jsonResponse(data: unknown, status: number, request: Request): Response {
   return new Response(JSON.stringify(data), {
     status,

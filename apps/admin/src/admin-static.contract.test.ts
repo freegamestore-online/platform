@@ -36,6 +36,27 @@ describe('admin static boundary contract', () => {
     expect(response.status).toBe(200);
     expect(await response.text()).toContain('Sign in');
     expect(assets.fetch).not.toHaveBeenCalled();
+    expect(response.headers.get('X-Frame-Options')).toBe('DENY');
+    expect(response.headers.get('Content-Security-Policy')).toBe("frame-ancestors 'none'");
+  });
+
+  it('forbids framing the app shell and its assets (#465)', async () => {
+    const assets = {
+      fetch: vi
+        .fn()
+        .mockResolvedValue(
+          new Response('<div id="root">', { headers: { 'Content-Type': 'text/html' } }),
+        ),
+    } as unknown as Fetcher;
+    const response = await serveAdminStatic(new Request('https://admin.test/'), {
+      authenticate: async () => ({ email: 'admin@example.test', isAdmin: true }),
+      renderSignIn: () => 'unused',
+      assets,
+    });
+    expect(await response.text()).toBe('<div id="root">');
+    expect(response.headers.get('Content-Type')).toBe('text/html');
+    expect(response.headers.get('X-Frame-Options')).toBe('DENY');
+    expect(response.headers.get('Content-Security-Policy')).toBe("frame-ancestors 'none'");
   });
 
   it('falls back to the app shell when a permitted static asset is missing', async () => {
@@ -52,5 +73,6 @@ describe('admin static boundary contract', () => {
     });
     expect(await response.text()).toBe('shell');
     expect(assets.fetch).toHaveBeenCalledTimes(2);
+    expect(response.headers.get('X-Frame-Options')).toBe('DENY');
   });
 });

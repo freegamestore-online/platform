@@ -344,6 +344,10 @@ export default {
           headers: {
             'content-type': 'text/html; charset=utf-8',
             'cache-control': 'no-store',
+            // The consent form grants a client access to the user's games: no
+            // page may frame it (#465).
+            'content-security-policy': "frame-ancestors 'none'",
+            'x-frame-options': 'DENY',
           },
         },
       );

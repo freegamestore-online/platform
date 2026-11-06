@@ -457,6 +457,9 @@ test('GET /callback renders the consent page naming the client and the account',
   assert.equal(res.status, 200);
   assert.match(res.headers.get('content-type'), /text\/html/);
   assert.equal(res.headers.get('cache-control'), 'no-store');
+  // The consent form must not be frameable (#465).
+  assert.equal(res.headers.get('x-frame-options'), 'DENY');
+  assert.equal(res.headers.get('content-security-policy'), "frame-ancestors 'none'");
   const html = await res.text();
   assert.match(html, /Claude Code/, 'must name the client');
   assert.match(html, /grace/, 'must name the account');

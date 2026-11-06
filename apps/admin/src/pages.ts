@@ -1,4 +1,5 @@
 import { renderApiDocs } from './dashboard';
+import { FRAME_DENY_HEADERS } from './http';
 
 /** Sign-in / not-authorized page for the console. `signedInAs` distinguishes a
  *  fresh visitor (null → "sign in") from a signed-in non-admin (→ "wrong
@@ -49,11 +50,15 @@ export function docsPage(caller: { admin: string | null; isAdmin: boolean }): Re
   if (!caller.isAdmin) {
     return new Response(renderSignIn(caller.admin), {
       status: 200,
-      headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+        ...FRAME_DENY_HEADERS,
+      },
     });
   }
   return new Response(renderApiDocs(), {
-    headers: { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' },
+    headers: { 'Content-Type': 'text/html', 'Cache-Control': 'no-store', ...FRAME_DENY_HEADERS },
   });
 }
 
