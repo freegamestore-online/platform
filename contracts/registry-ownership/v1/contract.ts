@@ -1,7 +1,7 @@
 /**
  * Shared registry ownership contract: game-id validation, reserved IDs, ownership facts,
  * JWT verification, and GitHub username validation. Consolidated from duplicates across
- * workers/agent, workers/mcp, workers/auth, workers/leaderboard, apps/admin, apps/console.
+ * workers/agent, workers/mcp, workers/auth, apps/admin, apps/console.
  *
  * Security-relevant rules live here so changes propagate uniformly and consistently.
  * All caller patterns use the same logic and signatures.

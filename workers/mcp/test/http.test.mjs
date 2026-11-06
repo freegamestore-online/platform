@@ -204,10 +204,10 @@ test('getDeployStatus still returns runs on the happy path', async () => {
 test('safeFetch labels the hop it was given', async () => {
   // safeFetch invokes the callback it is handed, so the throw belongs there —
   // swapping globalThis.fetch would not reach it.
-  const r = await safeFetch('the leaderboard API', async () => {
+  const r = await safeFetch('the admin API', async () => {
     throw new Error('boom');
   });
-  assert.match(r.error, /the leaderboard API/);
+  assert.match(r.error, /the admin API/);
   assert.match(r.error, /boom/);
 });
 

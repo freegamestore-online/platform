@@ -28,7 +28,8 @@ service = "freegamestore-auth"
 binding = "ADMIN"
 service = "freegamestore-admin"
 
-# Shared with auth + leaderboard. Holds the per-user `agent_sessions` index
+# Shared with auth (the D1 is still named `leaderboard`; its worker was
+# deleted in #491, its scores data kept). Holds the per-user `agent_sessions` index
 # (session metadata only; conversation state stays in the Durable Object).
 [[d1_databases]]
 binding = "DB"

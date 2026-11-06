@@ -185,21 +185,6 @@ importers:
         specifier: ^4.76.0
         version: 4.148.0(@cloudflare/workers-types@4.20260702.1)(@types/node@22.20.5)
 
-  workers/leaderboard:
-    devDependencies:
-      '@cloudflare/workers-types':
-        specifier: ^4
-        version: 4.20260702.1
-      typescript:
-        specifier: ^5.7
-        version: 5.9.3
-      vitest:
-        specifier: ^2
-        version: 2.1.9(@types/node@22.20.5)(jsdom@26.1.0)(tsx@4.23.15)(yaml@2.9.1)
-      wrangler:
-        specifier: ^4
-        version: 4.148.0(@cloudflare/workers-types@4.20260702.1)(@types/node@22.20.5)
-
   workers/mcp:
     dependencies:
       '@cloudflare/workers-oauth-provider':

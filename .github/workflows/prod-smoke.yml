@@ -28,11 +28,12 @@ jobs:
 
       - name: Leaderboard stays out of service
         run: |
-          # Out of service for now (#424): every route answers 410. Fail if it
-          # starts serving scores again without this check being updated.
-          STATUS=$(curl -s -o /dev/null -w '%{http_code}' 'https://leaderboard.freegamestore.online/api/leaderboard/tetris?limit=5')
+          # The leaderboard worker was deleted (#491) after being out of service
+          # (#424). Whatever still answers this host (a 410, or nothing once the
+          # route goes) must never serve scores again: fail on any 2xx.
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' 'https://leaderboard.freegamestore.online/api/leaderboard/tetris?limit=5' || true)
           echo "leaderboard/api/leaderboard/tetris → $STATUS"
-          [ "$STATUS" = "410" ] || exit 1
+          case "$STATUS" in 2*) exit 1 ;; esac
 
       - name: Sample games (spot check 5)
         run: |

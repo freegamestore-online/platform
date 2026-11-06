@@ -60,7 +60,7 @@ describe('checkPwaOffline', () => {
     expect(r.detail).toMatch(/platform mandate/i);
   });
 
-  it('passes when there is no web/index.html (not a game — admin/leaderboard/etc.)', async () => {
+  it('passes when there is no web/index.html (not a game — admin/auditor/etc.)', async () => {
     // No index.html → not a publishable game → mandate exempt. Repos
     // in the org without a web entry aren't subject to the storefront
     // PWA requirement.

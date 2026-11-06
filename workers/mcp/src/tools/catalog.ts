@@ -174,46 +174,6 @@ export function registerCatalogTools(ctx: RegistrationContext): void {
     },
   );
 
-  // -- leaderboard: HIDDEN (issue #31) --
-  // Not surfaced to users for now. The tool body and the workers/leaderboard
-  // API behind it are intentionally left intact — uncomment to re-enable, and
-  // add "leaderboard" back to server.json (safety.test.mjs holds the two in
-  // sync). Line comments rather than a block comment on purpose: that test
-  // discovers tools by scanning the raw source for the registration call, and
-  // only a `//` between the paren and the quote stops it matching.
-  // ctx.safeTool(
-  // "leaderboard",
-  // "Query the leaderboard for a game — top scores and recent scores.",
-  // {
-  // game_id: z.string().describe("Game ID"),
-  // limit: z.number().optional().describe("Max entries (default 10)"),
-  // },
-  // async ({ game_id, limit }) => {
-  // const n = limit ?? 10;
-  // const r = await safeFetch("the leaderboard API", (signal) => fetch(
-  // `${ctx.env.LEADERBOARD_BASE}/api/leaderboard/${game_id}?limit=${n}`,
-  // { headers: { "User-Agent": "freegamestore-mcp" }, signal }
-  // ));
-  // if ("error" in r) return errText(r.error);
-  // const res = r.res;
-  // if (!res.ok) return errText(`Leaderboard API error: ${res.status}`);
-  // // The worker returns rows keyed `player_name` (not `name`); keep `name`
-  // // as a fallback so this doesn't render "**undefined**".
-  // let data: { scores?: Array<{ player_name?: string; name?: string; score: number; created_at: string }> };
-  // try {
-  // data = (await res.json()) as typeof data;
-  // } catch {
-  // return errText(`Leaderboard API returned invalid JSON.`);
-  // }
-  // const scores = data.scores ?? [];
-  // if (scores.length === 0) return txt(`No leaderboard entries for ${game_id}.`);
-  // const lines = scores.map(
-  // (s, i) => `${i + 1}. **${s.player_name ?? s.name ?? "Anonymous"}** — ${s.score} (${new Date(s.created_at).toLocaleDateString()})`
-  // );
-  // return txt(`Leaderboard for **${game_id}** (top ${scores.length}):\n\n${lines.join("\n")}`);
-  // }
-  // );
-
   // -- platform_guide --
   ctx.safeTool(
     'platform_guide',

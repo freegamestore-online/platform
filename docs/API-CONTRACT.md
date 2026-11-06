@@ -1,6 +1,6 @@
 # FGS Worker API Contract
 
-The `auth` and `leaderboard` workers serve **deployed game bundles we don't
+The `auth` worker serves **deployed game bundles we don't
 control after they ship**. A game is built once, its SDK (and the worker URLs
 baked into it) are frozen at build time, and the bundle sits in R2 until the
 creator re-publishes — which may be never. Today most games are pinned to an
@@ -8,7 +8,7 @@ older `@freegamestore/games` release.
 
 That means a breaking change to a worker response silently breaks every game
 built before the change, with no rollback and no way to push a fix. To make the
-workers safe to evolve, they follow an **additive-only contract**.
+worker safe to evolve, it follows an **additive-only contract**.
 
 ## The rule
 
@@ -30,32 +30,21 @@ If you need a genuinely incompatible shape, introduce a **new version prefix**
 
 ## Versioned aliases
 
-Both workers strip a leading `/v1/` and route to the same handlers as the
+The worker strips a leading `/v1/` and routes to the same handlers as the
 unversioned paths:
 
 | Worker | Unversioned (legacy bundles) | Versioned (SDK ≥ 0.15.0) |
 |---|---|---|
 | auth | `GET /me`, `POST /logout` | `GET /v1/me`, `POST /v1/logout` |
-| leaderboard | `GET /api/leaderboard/:game`, `…/recent`, `…/overall`, `…/user/:uid`, `POST /api/scores` | same paths under `/v1/…` |
 
 Both forms must keep working. The unversioned paths are the contract with games
 already in the wild; do not remove them.
 
-The leaderboard is out of service for now (#424): every route answers `410 Gone`
-and auth no longer issues leaderboard handoffs. Game bundles already handle a
-refusal (empty boards, `submitScore` resolves `{ ok: false }`), so this is not
-a breaking change for them. The routes above still exist in code as `route()`.
+The leaderboard worker was taken out of service (#424) and then deleted (#491).
+Game bundles already handle a refused or failed request (empty boards,
+`submitScore` resolves `{ ok: false }`), so the SDK's `useLeaderboard` export
+stays and needs no server. The scores data stays in the `leaderboard` D1
+database, which auth and agent still use.
 
 - auth alias: `auth/src/index.ts` (`path = … startsWith("/v1/") ? slice(3)`)
-- leaderboard alias: `leaderboard/src/index.ts` (same)
-- SDK adoption: `platform/packages/games-sdk/src/useAuth.ts`, `useLeaderboard.ts`
-
-## Note on `/api/scores`
-
-`POST /api/scores` now **requires authentication** (returns `401` for anonymous
-submissions) and rejects scores above a per-game cap (`422`). This is a
-deliberate tightening, but it does not break the additive contract for *reading*
-boards: anonymous scores were already filtered out of every leaderboard query
-(`user_id IS NOT NULL`), so no displayed data changes. Older bundles that let a
-signed-out user "submit" simply get a `401` and show no rank — the same visible
-outcome as before.
+- SDK adoption: `platform/packages/games-sdk/src/useAuth.ts`

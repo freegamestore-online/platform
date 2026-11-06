@@ -81,11 +81,6 @@ jobs:
             install: ""
             cache-path: pnpm-lock.yaml
             use-workspace: true
-          - dir: workers/leaderboard
-            filter: freegamestore-leaderboard
-            install: ""
-            cache-path: pnpm-lock.yaml
-            use-workspace: true
           - dir: jobs/auditor
             install: pnpm install --frozen-lockfile --ignore-workspace
             cache-path: pnpm-lock.yaml

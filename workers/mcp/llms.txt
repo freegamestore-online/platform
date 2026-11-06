@@ -12,7 +12,7 @@ Connect: npx mcp-remote https://mcp.freegamestore.online/mcp
 
 ## Tools
 
-- Read (open): deploy_status, game_info, game_quality, leaderboard, platform_guide, sdk_reference
+- Read (open): deploy_status, game_info, game_quality, platform_guide, sdk_reference
 - Read (account): whoami, list_games, list_files, read_file, list_sessions, session_history, agent_status, mcp_audit_log
 - Write (owner): create_game, update_files, agent_build, edit_game
 - Destructive (owner): delete_game (confirm=game_id), discard_session (confirm=session_id)

@@ -318,6 +318,8 @@ Returns `{ user: User | null, loading: boolean, signIn: () => void, signOut: () 
 
 Fetch and submit scores to the platform leaderboard.
 
+> **No leaderboard service runs today.** The leaderboard worker was removed (#491), so boards are always empty and `submitScore` resolves `{ ok: false }`. The hook and `<Leaderboard>` stay exported so existing games keep building; save high scores locally with `localStorage`.
+
 ```tsx
 const { topScores, recentScores, submitScore, loading, refresh } = useLeaderboard('tetris')
 

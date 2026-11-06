@@ -29,7 +29,7 @@ const HANDOFF_TARGETS = new Set([
 // Browser origins allowed to request a handoff for each target via
 // /handoff/issue (#68). Server-to-server callers send no Origin. Games
 // (*.freegamestore.online) are untrusted user content and get no handoff at
-// all since the leaderboard was taken out of service (#424).
+// all since the leaderboard was removed (#424, #491).
 const HANDOFF_ISSUER_ORIGINS: Record<string, ReadonlySet<string>> = {
   'https://console.freegamestore.online': new Set(['https://console.freegamestore.online']),
   'https://admin.freegamestore.online': new Set(['https://admin.freegamestore.online']),
@@ -816,7 +816,7 @@ export async function handleHandoffConsume(request: Request, env: Env): Promise<
 /**
  * Issue a short-lived, single-use handoff. Privileged surfaces invoke this from
  * their server-side origin after reading their own HttpOnly cookie. Games get
- * none: the leaderboard, the only handoff they used, is out of service (#424).
+ * none: the leaderboard, the only handoff they used, was removed (#424, #491).
  */
 export async function handleHandoffIssue(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);

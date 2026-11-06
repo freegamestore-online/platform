@@ -15,7 +15,7 @@ const PUBLIC_DIR = 'web/public';
  *      Vite-built app destined for the storefront). Hand-rolled
  *      `serviceWorker.register` counts; vite-plugin-pwa counts.
  *      Anything else fails. Non-game repos that don't ship a web
- *      entry (admin, auditor, leaderboard, etc.) are naturally exempt
+ *      entry (admin, auditor, etc.) are naturally exempt
  *      — they're not subject to compliance anyway.
  *
  *   2. Offline-correctness quality — among PWAs that ARE configured,

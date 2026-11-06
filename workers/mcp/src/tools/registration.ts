@@ -8,7 +8,6 @@ export interface Env {
   GITHUB_ORG: string;
   AGENT_BASE: string;
   AUTH_BASE: string;
-  LEADERBOARD_BASE: string;
   STORE_REPO: string;
   MCP_OBJECT: DurableObjectNamespace;
   GITHUB_TOKEN?: string;

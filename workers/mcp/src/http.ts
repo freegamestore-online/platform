@@ -12,7 +12,7 @@
 // prevent.
 
 // Wrap a fetch in an AbortController-backed timeout so a slow/edge-stalled
-// upstream (admin/agent/leaderboard/GitHub) can't hang the MCP request all the
+// upstream (admin/agent/GitHub) can't hang the MCP request all the
 // way to the Worker wall-clock limit. fetchFn receives the abort signal.
 export async function withTimeout<T>(
   fetchFn: (signal: AbortSignal) => Promise<T>,

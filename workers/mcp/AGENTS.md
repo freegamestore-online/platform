@@ -30,7 +30,7 @@ Connect: `claude mcp add freegamestore -- npx mcp-remote https://mcp.freegamesto
 
 | Level | Tools | Requires |
 |---|---|---|
-| Read (open) | `deploy_status`, `game_info`, `game_quality`, `leaderboard`, `platform_guide`, `sdk_reference` | nothing |
+| Read (open) | `deploy_status`, `game_info`, `game_quality`, `platform_guide`, `sdk_reference` | nothing |
 | Read (account) | `whoami`, `list_games`, `list_files`, `read_file`, `list_sessions`, `session_history`, `agent_status`, `mcp_audit_log` | FGS session |
 | Write (owner) | `create_game`, `update_files`, `agent_build`, `edit_game` | FGS session + ownership |
 | Destructive (owner) | `delete_game` (confirm=game_id), `discard_session` (confirm=session_id) | FGS session + ownership |

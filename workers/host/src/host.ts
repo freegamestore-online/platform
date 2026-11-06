@@ -200,8 +200,8 @@ export function securityHeaders(opts: { revalidate: boolean; crossOriginIsolated
   // WebSockets on any https host, like any website on its own origin. The old
   // allowlist (platform + analytics only) was meant to stop exfiltration of "a
   // stolen token", but a game page holds no platform credential it can read
-  // (the session cookie is on auth.freegamestore.online, HttpOnly; the only
-  // token a game sees is a 5-minute leaderboard handoff for that game), inline
+  // (the session cookie is on auth.freegamestore.online, HttpOnly, and auth
+  // issues games no handoff token since the leaderboard was removed, #491), inline
   // script is allowed anyway, and img-src https: already lets a page send data
   // out. Blocking connect/script only stopped multiplayer servers, public APIs
   // and engines loaded from a CDN.

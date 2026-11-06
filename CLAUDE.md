@@ -24,7 +24,6 @@ workers/
   agent/      AI game-builder Durable Object — agent.freegamestore.online
   auth/       Google OAuth + JWT — auth.freegamestore.online
   host/       R2 static host — *.freegamestore.online
-  leaderboard/  D1 scores REST API — leaderboard.freegamestore.online; out of service, answers 410 (#424)
   mcp/        MCP server — mcp.freegamestore.online
 jobs/
   auditor/    Playwright quality-audit runner
@@ -81,7 +80,7 @@ than assuming a script exists. Lint and format are repo-wide via Biome
 
 Per-service GitHub Actions workflows in `.github/workflows/`, each path-filtered
 to its own directory — `deploy-console.yml`, `deploy-agent.yml`, `deploy-admin.yml`,
-`deploy-auth.yml`, `deploy-host.yml`, `deploy-leaderboard.yml`, `deploy-mcp.yml`.
+`deploy-auth.yml`, `deploy-host.yml`, `deploy-mcp.yml`.
 Editing `workers/agent/**` deploys only the agent.
 
 Everything except the console is a Worker with a route in its `wrangler.toml`.

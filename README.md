@@ -12,7 +12,6 @@ The platform monorepo for [FreeGameStore](https://freegamestore.online): the sto
 | `workers/agent` | AI game builder |
 | `workers/auth` | Authentication |
 | `workers/host` | Game hosting from R2 through D1 routes |
-| `workers/leaderboard` | Scores API — out of service, answers 410 (#424) |
 | `workers/mcp` | MCP tools for creators and agents |
 | `jobs/auditor` | Scheduled browser audits |
 | `contracts` | Shared service contracts |
