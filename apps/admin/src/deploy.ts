@@ -189,6 +189,16 @@ export function parseManifest(body: unknown): { files: Record<string, number>; t
   return { files: files as Record<string, number>, total };
 }
 
+/** `owner/name` from a stored repo reference, which may be a GitHub URL. */
+export function repoName(ref: string): string {
+  return ref
+    .trim()
+    .replace(/^(?:https?:\/\/)?(?:www\.)?github\.com\//i, '')
+    .replace(/\.git$/i, '')
+    .replace(/\/+$/, '')
+    .toLowerCase();
+}
+
 async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -253,10 +263,7 @@ export async function resolveDeployGame(env: Env, claims: OidcClaims): Promise<s
     throw new DeployError(503, 'games registry unavailable; retry');
   const entry = registry.games.find((g) => g.id === gameId);
   if (!entry) throw new DeployError(403, `game ${gameId} is not in the registry`);
-  if (
-    typeof entry.repo === 'string' &&
-    entry.repo.toLowerCase() !== claims.repository.toLowerCase()
-  )
+  if (typeof entry.repo === 'string' && repoName(entry.repo) !== repoName(claims.repository))
     throw new DeployError(403, `game ${gameId} is registered to ${entry.repo}`);
   // Two first deploys can race (a push and a dispatch): the first pin wins.
   await env.DB.prepare(

@@ -358,6 +358,11 @@ describe('keyless game deploys (/v1/deploys)', () => {
     expect(await res.text()).toMatch(/registered to/);
   });
 
+  it('accepts a registry repo recorded as a GitHub URL', async () => {
+    registry.games = [{ id: 'alpha', repo: 'https://github.com/freegamestore-online/alpha' }];
+    expect((await open(await oidc('alpha', '101'), { 'index.html': 1 })).status).toBe(201);
+  });
+
   it('refuses an unregistered repository', async () => {
     expect((await open(await oidc('gamma', '303'), { 'index.html': 1 })).status).toBe(403);
   });
