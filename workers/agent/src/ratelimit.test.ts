@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { allowDeploy, allowRequest, DEPLOY_LIMIT } from "./ratelimit";
 
 /** In-memory D1 stub: models the INSERT … ON CONFLICT … RETURNING count upsert. */
@@ -76,5 +76,23 @@ describe("allowDeploy — per-user deploy budget", () => {
     for (let i = 0; i < DEPLOY_LIMIT; i++) await allowDeploy(db, "spammer", now);
     expect(await allowDeploy(db, "spammer", now)).toBe(false); // exhausted
     expect(await allowDeploy(db, "innocent", now)).toBe(true); // unaffected
+  });
+
+  it("fails CLOSED and logs when the limiter itself errors (#457)", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const broken = {
+        prepare() {
+          throw new Error("no such binding");
+        },
+      } as unknown as D1Database;
+      expect(await allowDeploy(broken, "user-1", 1_000_000)).toBe(false);
+      // The object the call site used to pass by mistake: not a D1 at all.
+      expect(await allowDeploy({ env: {}, session: {} } as unknown as D1Database, "user-1", 1_000_000)).toBe(false);
+      expect(error).toHaveBeenCalledTimes(2);
+      expect(String(error.mock.calls[0][0])).toMatch(/deploy budget check failed .*refusing/);
+    } finally {
+      error.mockRestore();
+    }
   });
 });

@@ -26,6 +26,32 @@ function ensure(db: D1Database): Promise<unknown> {
   return ready;
 }
 
+/** Count this hit against `key`'s current window and report whether it's within
+ *  `limit`. Throws on any DB error; the exported gates decide what that means. */
+async function countHit(db: D1Database, key: string, limit: number, windowSec: number, nowSec: number): Promise<boolean> {
+  await ensure(db);
+  const windowStart = Math.floor(nowSec / windowSec) * windowSec;
+  const bucket = `${key}:${windowStart}`;
+  const row = await db
+    .prepare(
+      `INSERT INTO rate_limits (bucket, count, window_start) VALUES (?, 1, ?)
+       ON CONFLICT(bucket) DO UPDATE SET count = count + 1
+       RETURNING count`,
+    )
+    .bind(bucket, windowStart)
+    .first<{ count: number }>();
+  const count = row?.count ?? 1;
+  // On the first hit of a new window, prune this key's stale buckets so the
+  // table stays bounded (~1 row per active key). Best-effort.
+  if (count === 1) {
+    db.prepare("DELETE FROM rate_limits WHERE bucket LIKE ? AND window_start < ?")
+      .bind(`${key}:%`, windowStart)
+      .run()
+      .catch(() => {});
+  }
+  return count <= limit;
+}
+
 /**
  * Count this hit against `key`'s current window and report whether it's within
  * `limit`. `nowSec` is injected for testability. Returns true (allow) on any
@@ -33,27 +59,7 @@ function ensure(db: D1Database): Promise<unknown> {
  */
 export async function allowRequest(db: D1Database, key: string, limit: number, windowSec: number, nowSec: number): Promise<boolean> {
   try {
-    await ensure(db);
-    const windowStart = Math.floor(nowSec / windowSec) * windowSec;
-    const bucket = `${key}:${windowStart}`;
-    const row = await db
-      .prepare(
-        `INSERT INTO rate_limits (bucket, count, window_start) VALUES (?, 1, ?)
-         ON CONFLICT(bucket) DO UPDATE SET count = count + 1
-         RETURNING count`,
-      )
-      .bind(bucket, windowStart)
-      .first<{ count: number }>();
-    const count = row?.count ?? 1;
-    // On the first hit of a new window, prune this key's stale buckets so the
-    // table stays bounded (~1 row per active key). Best-effort.
-    if (count === 1) {
-      db.prepare("DELETE FROM rate_limits WHERE bucket LIKE ? AND window_start < ?")
-        .bind(`${key}:%`, windowStart)
-        .run()
-        .catch(() => {});
-    }
-    return count <= limit;
+    return await countHit(db, key, limit, windowSec, nowSec);
   } catch {
     return true; // fail open
   }
@@ -68,7 +74,16 @@ export const DEPLOY_LIMIT = 30;
 export const DEPLOY_WINDOW_SEC = 3600;
 
 /** Count a deploy/push_update against `userId`'s hourly budget. Returns true if
- *  within the limit (fails open on any DB error, like allowRequest). */
-export function allowDeploy(db: D1Database, userId: string, nowSec: number): Promise<boolean> {
-  return allowRequest(db, `deploy:${userId}`, DEPLOY_LIMIT, DEPLOY_WINDOW_SEC, nowSec);
+ *  within the limit. Unlike allowRequest this fails CLOSED: a limiter error
+ *  refuses the deploy and is logged, so a broken binding is a visible incident
+ *  rather than a silent bypass — which is exactly what happened when the call
+ *  site passed the wrong object as `db` and every deploy was waved through
+ *  (#457). */
+export async function allowDeploy(db: D1Database, userId: string, nowSec: number): Promise<boolean> {
+  try {
+    return await countHit(db, `deploy:${userId}`, DEPLOY_LIMIT, DEPLOY_WINDOW_SEC, nowSec);
+  } catch (err) {
+    console.error(`[ratelimit] deploy budget check failed for ${userId}; refusing the deploy: ${String(err)}`);
+    return false;
+  }
 }

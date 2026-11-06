@@ -128,9 +128,11 @@ export async function executeInfraRound(deps: InfraRoundDeps): Promise<InfraRoun
       continue;
     }
 
-    // Deploy rate limit
+    // Deploy rate limit. The D1 binding itself: this used to pass `deps`, which
+    // has no `prepare`, so the limiter threw, failed open, and the budget was
+    // never enforced (#457). allowDeploy now fails closed on a limiter error.
     const spendsSharedToken = tc.name === "deploy" || tc.name === "push_update";
-    if (spendsSharedToken && userId && !(await allowDeploy(deps as any, userId, Math.floor(Date.now() / 1000)))) {
+    if (spendsSharedToken && userId && !(await allowDeploy(env.DB, userId, Math.floor(Date.now() / 1000)))) {
       toolResult = `Error: you've hit the deploy limit (30/hour). Wait a bit before deploying again.`;
       logError("ratelimit", `deploy rate limit hit for ${userId}`);
       sendSSE({ type: "tool_result", data: JSON.stringify({ id: tc.id, tool: tc.name, result: toolResult }) });
