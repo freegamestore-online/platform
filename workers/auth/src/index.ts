@@ -16,7 +16,10 @@ const ALLOWED_ORIGIN = /^https:\/\/[\w-]+\.freegamestore\.online$/;
 export const COOKIE_NAME = '__Host-fgs_token';
 const LEGACY_COOKIE_NAME = 'fgs_token';
 const COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
-const HANDOFF_MAX_AGE = 5 * 60;
+// A handoff is redeemed by the very next request after it is issued (the
+// target's /auth/handoff, or the Studio's establishAgentSession), so a minute
+// is plenty; it also bounds how long a leaked one (#450) is worth anything.
+const HANDOFF_MAX_AGE = 60;
 const HANDOFF_TARGETS = new Set([
   'https://console.freegamestore.online',
   'https://admin.freegamestore.online',
@@ -244,6 +247,8 @@ async function mintHandoff(token: string, target: string, secret: string): Promi
   return jwtSign(
     {
       typ: 'fgs_handoff',
+      // Single-use: /handoff/consume records the jti and refuses it again (#464).
+      jti: crypto.randomUUID(),
       aud: target,
       sub: payload.sub,
       name: payload.name,
@@ -423,7 +428,7 @@ export async function handleMe(request: Request, env: Env): Promise<Response> {
   }
 
   // /me must only accept SESSION credentials, and only for the service asking
-  // (#69). A handoff is a 5-minute exchange token — games used to hold a
+  // (#69). A handoff is a short-lived exchange token — games used to hold a
   // leaderboard one — so presenting it here as X-FGS-Token used to return the
   // player's identity and email, and admin granted admin rights from that email.
   if (payload.typ === 'fgs_handoff') {
@@ -490,7 +495,7 @@ async function handleDeleteAccount(request: Request, env: Env): Promise<Response
   }
 
   const payload = await jwtVerify(token, env.JWT_SECRET).catch(() => null);
-  // A 5-minute handoff is an exchange token, not a credential (#425, like /me #69).
+  // A handoff is an exchange token, not a credential (#425, like /me #69).
   if (!payload || payload.typ === 'fgs_handoff' || typeof payload.sub !== 'string') {
     return json({ error: 'Invalid or expired token' }, 401, request);
   }
@@ -728,7 +733,43 @@ export async function handleGitHubTokenExchange(request: Request, env: Env): Pro
   return json({ token, login: intro.user.login, expiresAt }, 200, request);
 }
 
-/** Exchange a five-minute audience-bound handoff for a host-only target session. */
+// --- Consumed-handoff set (#464) ---
+// A handoff travels in a URL query string (#450), so anyone who sees one could
+// redeem it again for a fresh 30-day session until it expired. Every handoff
+// now carries a jti, and consuming records it here so a second redeem fails.
+// The auth worker binds only D1 (no KV), so the set is a small table created
+// on first use — no provisioning step — and pruned of expired rows as it goes.
+
+let consumedTableReady: Promise<unknown> | null = null;
+
+function ensureConsumedTable(db: D1Database): Promise<unknown> {
+  consumedTableReady ??= db
+    .prepare('CREATE TABLE IF NOT EXISTS handoff_consumed (jti TEXT PRIMARY KEY, exp INTEGER NOT NULL)')
+    .run()
+    .catch((e: unknown) => {
+      consumedTableReady = null;
+      throw e;
+    });
+  return consumedTableReady;
+}
+
+/** Record `jti` as consumed. False when it already was — a replay. */
+async function consumeOnce(db: D1Database, jti: string, exp: number): Promise<boolean> {
+  await ensureConsumedTable(db);
+  const inserted = await db
+    .prepare('INSERT OR IGNORE INTO handoff_consumed (jti, exp) VALUES (?, ?)')
+    .bind(jti, exp)
+    .run();
+  // Rows past their exp can never verify again, so they can go. Best-effort.
+  await db
+    .prepare('DELETE FROM handoff_consumed WHERE exp < ?')
+    .bind(Math.floor(Date.now() / 1000))
+    .run()
+    .catch(() => {});
+  return inserted.meta.changes === 1;
+}
+
+/** Exchange a short-lived, single-use, audience-bound handoff for a host-only target session. */
 export async function handleHandoffConsume(request: Request, env: Env): Promise<Response> {
   const handoff = request.headers.get('X-FGS-Handoff') ?? '';
   const target = request.headers.get('X-FGS-Handoff-Target') ?? '';
@@ -738,10 +779,22 @@ export async function handleHandoffConsume(request: Request, env: Env): Promise<
     payload.typ !== 'fgs_handoff' ||
     payload.aud !== target ||
     !HANDOFF_TARGETS.has(target) ||
-    typeof payload.sub !== 'string'
+    typeof payload.sub !== 'string' ||
+    typeof payload.jti !== 'string' ||
+    typeof payload.exp !== 'number'
   ) {
     return json({ error: 'invalid or expired handoff' }, 401, request);
   }
+  // Single-use (#464). Fail closed if the set can't be written: an un-recorded
+  // consume would be a replayable one.
+  let fresh: boolean;
+  try {
+    fresh = await consumeOnce(env.DB, payload.jti, payload.exp);
+  } catch (e) {
+    console.error('handoff consumed-set unavailable:', e instanceof Error ? e.message : e);
+    return json({ error: 'handoff store unavailable' }, 503, request);
+  }
+  if (!fresh) return json({ error: 'invalid or expired handoff' }, 401, request);
   const now = Math.floor(Date.now() / 1000);
   const token = await jwtSign(
     {
@@ -761,9 +814,9 @@ export async function handleHandoffConsume(request: Request, env: Env): Promise<
 }
 
 /**
- * Issue a five-minute handoff. Privileged surfaces invoke this from their
- * server-side origin after reading their own HttpOnly cookie. Games get none:
- * the leaderboard, the only handoff they used, is out of service (#424).
+ * Issue a short-lived, single-use handoff. Privileged surfaces invoke this from
+ * their server-side origin after reading their own HttpOnly cookie. Games get
+ * none: the leaderboard, the only handoff they used, is out of service (#424).
  */
 export async function handleHandoffIssue(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);

@@ -144,7 +144,41 @@ test('jwtVerify rejects a token missing a numeric exp (never non-expiring)', asy
 // Email is exposed ONLY over the worker-to-worker path (X-FGS-Token), never to a
 // game subdomain calling /me with the browser cookie.
 
-const ME_ENV = { JWT_SECRET: SECRET } as unknown as Parameters<typeof handleMe>[1];
+/** A D1 stub for the consumed-handoff set (#464): a real set of jtis. */
+function consumedDb(opts: { failInsert?: boolean } = {}) {
+  const jtis = new Set<string>();
+  const sql: string[] = [];
+  return {
+    jtis,
+    sql,
+    prepare(query: string) {
+      sql.push(query);
+      return {
+        bind(...args: unknown[]) {
+          return {
+            async run() {
+              if (query.startsWith('INSERT')) {
+                if (opts.failInsert) throw new Error('D1 down');
+                const jti = String(args[0]);
+                const fresh = !jtis.has(jti);
+                jtis.add(jti);
+                return { meta: { changes: fresh ? 1 : 0 } };
+              }
+              return { meta: { changes: 0 } };
+            },
+          };
+        },
+        async run() {
+          return { meta: { changes: 0 } };
+        },
+      };
+    },
+  };
+}
+
+const ME_ENV = { JWT_SECRET: SECRET, DB: consumedDb() } as unknown as Parameters<
+  typeof handleMe
+>[1];
 
 async function mintToken(): Promise<string> {
   return jwtSign(
@@ -885,6 +919,83 @@ test('a session with a non-string or missing aud cannot mint any handoff (#463)'
   for (const target of PRIVILEGED) {
     assert.equal((await handleHandoffIssue(issueReq(target, { token: noAud }), ME_ENV)).status, 401);
   }
+});
+
+// --- handoffs are single-use and short-lived (#464) ---
+// A handoff travels in ?token= (#450). Without a jti and a consumed set, anyone
+// who saw one could redeem it again for a fresh 30-day session for five minutes.
+
+function consumeReq(handoff: string, target = CONSOLE_ORIGIN): Request {
+  return new Request('https://auth.freegamestore.online/handoff/consume', {
+    method: 'POST',
+    headers: { 'X-FGS-Handoff': handoff, 'X-FGS-Handoff-Target': target },
+  });
+}
+
+async function consoleHandoff(env = ME_ENV): Promise<string> {
+  const res = await handleHandoffIssue(issueReq(CONSOLE_ORIGIN, { token: await mintToken() }), env);
+  assert.equal(res.status, 200);
+  return ((await res.json()) as { token: string }).token;
+}
+
+test('every handoff carries a unique jti and lives 60 seconds (#464)', async () => {
+  const a = await jwtVerify(await consoleHandoff(), SECRET);
+  const b = await jwtVerify(await consoleHandoff(), SECRET);
+  assert.equal(typeof a?.jti, 'string');
+  assert.equal(typeof b?.jti, 'string');
+  assert.notEqual(a?.jti, b?.jti);
+  assert.equal((a?.exp as number) - (a?.iat as number), 60);
+});
+
+test('a handoff can be consumed exactly once (#464)', async () => {
+  const db = consumedDb();
+  const env = { JWT_SECRET: SECRET, DB: db } as unknown as Parameters<typeof handleMe>[1];
+  const handoff = await consoleHandoff(env);
+  const first = await handleHandoffConsume(consumeReq(handoff), env);
+  assert.equal(first.status, 200);
+  assert.ok(((await first.json()) as { token?: string }).token);
+  const { jti } = (await jwtVerify(handoff, SECRET)) as { jti: string };
+  assert.ok(db.jtis.has(jti), 'the jti was recorded as consumed');
+
+  const replay = await handleHandoffConsume(consumeReq(handoff), env);
+  assert.equal(replay.status, 401);
+  assert.equal(((await replay.json()) as { token?: string }).token, undefined);
+});
+
+test('a handoff without a jti is refused (#464)', async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const legacy = await jwtSign(
+    { typ: 'fgs_handoff', aud: CONSOLE_ORIGIN, sub: 'github:7', login: 'grace', iat: now, exp: now + 60 },
+    SECRET,
+  );
+  assert.equal((await handleHandoffConsume(consumeReq(legacy), ME_ENV)).status, 401);
+});
+
+test('consume fails closed (503, no session) when the consumed set cannot be written (#464)', async () => {
+  const env = {
+    JWT_SECRET: SECRET,
+    DB: consumedDb({ failInsert: true }),
+  } as unknown as Parameters<typeof handleMe>[1];
+  const realConsoleError = console.error;
+  console.error = (() => {}) as typeof console.error;
+  try {
+    const res = await handleHandoffConsume(consumeReq(await consoleHandoff(env)), env);
+    assert.equal(res.status, 503);
+    assert.equal(((await res.json()) as { token?: string }).token, undefined);
+  } finally {
+    console.error = realConsoleError;
+  }
+});
+
+test('the consumed set is created once per isolate and pruned of expired rows on consume (#464)', async () => {
+  const db = consumedDb();
+  const env = { JWT_SECRET: SECRET, DB: db } as unknown as Parameters<typeof handleMe>[1];
+  await handleHandoffConsume(consumeReq(await consoleHandoff(env)), env);
+  assert.ok(db.sql.some((q) => /DELETE FROM handoff_consumed WHERE exp </.test(q)));
+  // CREATE TABLE IF NOT EXISTS ran against the first DB this process consumed
+  // through (ME_ENV's) and is cached after that — no provisioning step needed.
+  const first = (ME_ENV as unknown as { DB: ReturnType<typeof consumedDb> }).DB;
+  assert.ok(first.sql.some((q) => /CREATE TABLE IF NOT EXISTS handoff_consumed/.test(q)));
 });
 
 function deleteReq(headers: Record<string, string>): Request {
