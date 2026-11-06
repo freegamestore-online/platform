@@ -520,7 +520,9 @@ function handleLogout(request: Request, env: Env): Response {
   // One Set-Cookie header per cookie. Comma-joining them into one header makes
   // browsers read a single cookie carrying the legacy cookie's Domain attribute,
   // and a __Host- cookie with a Domain is rejected — so it was never cleared.
-  const headers = new Headers({ Location: referrer, 'Cache-Control': 'no-store' });
+  // CORS headers too: the storefront's /signout page (#498) calls this with
+  // fetch, and browsers reject even a redirect: 'manual' answer without them.
+  const headers = new Headers({ Location: referrer, 'Cache-Control': 'no-store', ...cors(request) });
   headers.append('Set-Cookie', clearTokenCookie());
   headers.append('Set-Cookie', clearLegacyTokenCookie());
   return new Response(null, { status: 302, headers });

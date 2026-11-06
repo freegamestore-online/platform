@@ -1158,3 +1158,12 @@ test('a valid token whose account row is gone is refused (#499)', async () => {
   assert.equal((await handleMe(meReq(orphan), env)).status, 401);
   assert.equal((await handleHandoffIssue(issueReq(CONSOLE_ORIGIN, { token: orphan }), env)).status, 401);
 });
+
+test('POST /logout from the storefront answers with CORS headers, for its /signout fetch (#498)', async () => {
+  const env = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<typeof worker.fetch>[1];
+  const res = await worker.fetch(logoutReq({ Origin: 'https://freegamestore.online' }), env);
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get('Access-Control-Allow-Origin'), 'https://freegamestore.online');
+  assert.equal(res.headers.get('Access-Control-Allow-Credentials'), 'true');
+  assert.equal(res.headers.getSetCookie().length, 2);
+});
