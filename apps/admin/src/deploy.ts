@@ -24,6 +24,8 @@ const DEPLOY_EVENTS = new Set(['push', 'workflow_dispatch']);
 const SESSION_TTL_MS = 15 * 60 * 1000;
 const DEPLOYS_PER_HOUR = 20;
 const OPEN_DEPLOYS = 3;
+const PRUNE_GRACE_MS = 10 * 60 * 1000;
+const DEPLOY_WORKFLOW = 'freegamestore-online/ci-workflows/.github/workflows/game-deploy.yml@';
 export const MAX_FILES = 5000;
 export const MAX_FILE_BYTES = 25 * 1024 * 1024;
 export const MAX_TOTAL_BYTES = 250 * 1024 * 1024;
@@ -223,6 +225,10 @@ export async function resolveDeployGame(env: Env, claims: OidcClaims): Promise<s
     throw new DeployError(403, `event ${claims.event_name ?? '(none)'} may not deploy`);
   if (!claims.repository_id || !claims.jti)
     throw new DeployError(401, 'token lacks repository_id or jti');
+  // Only the reusable game-deploy pipeline may deploy, so the `fgs check`
+  // compliance gate and the smoke test always run before a release goes live.
+  if (!claims.job_workflow_ref?.startsWith(DEPLOY_WORKFLOW))
+    throw new DeployError(403, `workflow ${claims.job_workflow_ref ?? '(none)'} may not deploy`);
 
   const pinned = await env.DB.prepare(
     'SELECT game_id FROM game_repositories WHERE repository_id = ?',
@@ -241,11 +247,7 @@ export async function resolveDeployGame(env: Env, claims: OidcClaims): Promise<s
     .first<{ pinned_to: string | null }>();
   if (!route)
     throw new DeployError(403, `repository ${claims.repository} is not a provisioned game`);
-  if (route.pinned_to)
-    throw new DeployError(
-      403,
-      `game ${gameId} deploys from another repository (id ${route.pinned_to})`,
-    );
+  if (route.pinned_to) throw new DeployError(403, `game ${gameId} deploys from another repository`);
   const registry = await readRegistry(env.GITHUB_TOKEN);
   if (registry.status !== 'available')
     throw new DeployError(503, 'games registry unavailable; retry');
@@ -256,11 +258,19 @@ export async function resolveDeployGame(env: Env, claims: OidcClaims): Promise<s
     entry.repo.toLowerCase() !== claims.repository.toLowerCase()
   )
     throw new DeployError(403, `game ${gameId} is registered to ${entry.repo}`);
+  // Two first deploys can race (a push and a dispatch): the first pin wins.
   await env.DB.prepare(
-    'INSERT INTO game_repositories (game_id, repository_id, repository, pinned_at) VALUES (?, ?, ?, ?)',
+    `INSERT INTO game_repositories (game_id, repository_id, repository, pinned_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT DO NOTHING`,
   )
     .bind(gameId, claims.repository_id, claims.repository, Date.now())
     .run();
+  const won = await env.DB.prepare(
+    'SELECT 1 AS ok FROM game_repositories WHERE game_id = ? AND repository_id = ?',
+  )
+    .bind(gameId, claims.repository_id)
+    .first();
+  if (!won) throw new DeployError(403, `game ${gameId} deploys from another repository`);
   return gameId;
 }
 
@@ -312,23 +322,31 @@ async function deletePrefix(bucket: R2Bucket, prefix: string): Promise<void> {
  */
 export async function pruneDeploys(env: Env, gameId?: string, limit = 5): Promise<number> {
   if (!env.GAMES) return 0;
+  // Grace: an expired session may still be mid-commit, and a host isolate (60s
+  // route cache) or a page cached just before a switch may still ask for the
+  // release before last.
+  const cutoff = Date.now() - PRUNE_GRACE_MS;
   const stale = await env.DB.prepare(
     `SELECT d.id, d.game_id FROM game_deploys d
       WHERE (?1 IS NULL OR d.game_id = ?1)
         AND d.id NOT IN (SELECT release FROM routes WHERE release IS NOT NULL)
         AND ((d.status = 'open' AND d.expires_at < ?2)
-          OR (d.status = 'superseded' AND d.id != (
-                SELECT s.id FROM game_deploys s WHERE s.game_id = d.game_id AND s.status = 'superseded'
-                 ORDER BY s.created_at DESC, s.rowid DESC LIMIT 1)))
+          OR (d.status = 'superseded'
+              AND d.id != (SELECT s.id FROM game_deploys s
+                            WHERE s.game_id = d.game_id AND s.status = 'superseded'
+                            ORDER BY s.created_at DESC, s.rowid DESC LIMIT 1)
+              AND NOT EXISTS (SELECT 1 FROM game_deploys l WHERE l.game_id = d.game_id
+                               AND l.status = 'live' AND l.committed_at > ?2)))
       ORDER BY d.created_at LIMIT ?3`,
   )
-    .bind(gameId ?? null, Date.now(), limit)
+    .bind(gameId ?? null, cutoff, limit)
     .all<{ id: string; game_id: string }>();
   for (const old of stale.results) {
-    await deletePrefix(env.GAMES, releasePrefix(old.game_id, old.id));
+    // Mark first, so a commit racing this prune can no longer switch to it.
     await env.DB.prepare("UPDATE game_deploys SET status = 'deleted' WHERE id = ?")
       .bind(old.id)
       .run();
+    await deletePrefix(env.GAMES, releasePrefix(old.game_id, old.id));
   }
   return stale.results.length;
 }
@@ -446,9 +464,10 @@ async function commit(request: Request, env: Env, id: string): Promise<Response>
   const switched = await env.DB.batch([
     env.DB.prepare(
       `UPDATE routes SET release = ?, updated_at = ? WHERE r2_prefix = ? AND hosted_on = 'r2'
+         AND EXISTS (SELECT 1 FROM game_deploys WHERE id = ? AND status = 'open')
          AND NOT EXISTS (SELECT 1 FROM game_deploys
                           WHERE game_id = ? AND status = 'live' AND created_at > ?)`,
-    ).bind(id, now, gamePrefix, row.game_id, row.created_at),
+    ).bind(id, now, gamePrefix, id, row.game_id, row.created_at),
     env.DB.prepare(
       `UPDATE game_deploys SET status = 'superseded' WHERE game_id = ? AND status = 'live'
          AND EXISTS (SELECT 1 FROM routes WHERE r2_prefix = ? AND release = ?)`,

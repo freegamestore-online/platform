@@ -4,6 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { contentTypeFor, DEPLOY_AUDIENCE, GAME_ORG_ID, handleDeploy, pruneDeploys } from './deploy';
 import type { Env } from './env';
 import { _resetJwksCache } from './github-oidc';
+import { insertHostRoute } from './publish';
 
 // The same protocol and the same refusals as the FAS API's keyless deploy
 // (freeappstore-online/platform packages/backend/src/routes/deploy.test.ts).
@@ -113,6 +114,7 @@ async function oidc(repo: string, repoId: string, claims: Record<string, unknown
     repository_id: repoId,
     ref: 'refs/heads/main',
     event_name: 'push',
+    job_workflow_ref: `freegamestore-online/ci-workflows/.github/workflows/game-deploy.yml@${'a'.repeat(40)}`,
     sha: 'abc1234',
     run_id: '1',
     jti: `jti-${++jtiSeq}`,
@@ -237,9 +239,32 @@ describe('keyless game deploys (/v1/deploys)', () => {
     for (let i = 0; i < 3; i++)
       ids.push((await deploy('alpha', '101', { 'index.html': `v${i}` })).session.id);
     expect(release('alpha')).toBe(ids[2]);
-    const keys = [...store.objects.keys()];
-    expect(keys).toContain(`games/alpha/.r/${ids[1]}/index.html`);
-    expect(keys).not.toContain(`games/alpha/.r/${ids[0]}/index.html`);
+    const has = (id: string) => store.objects.has(`games/alpha/.r/${id}/index.html`);
+    // Within the grace a host isolate's cached route can still serve v0.
+    expect(has(ids[0]!)).toBe(true);
+    db.prepare('UPDATE game_deploys SET committed_at = committed_at - 3600000').run();
+    expect(await pruneDeploys(env())).toBe(1);
+    expect(has(ids[0]!)).toBe(false);
+    expect(has(ids[1]!) && has(ids[2]!)).toBe(true);
+  });
+
+  it('a session pruned while it commits can never become the release', async () => {
+    const s = (await (await open(await oidc('alpha', '101'), { 'index.html': 1 })).json()) as {
+      id: string;
+      token: string;
+    };
+    await put(s.id, s.token, 'index.html', 'x');
+    db.prepare("UPDATE game_deploys SET status = 'deleted' WHERE id = ?").run(s.id);
+    expect((await commit(s.id, s.token)).status).toBe(409);
+    expect(release('alpha')).toBeNull();
+  });
+
+  it('a route re-created by reconcile keeps serving the live release', async () => {
+    const { session } = await deploy('alpha', '101', { 'index.html': 'live' });
+    db.prepare("DELETE FROM routes WHERE slug = 'alpha'").run();
+    const step = await insertHostRoute({ DB: d1(db) } as never, 'alpha');
+    expect(step.status).toBe('ok');
+    expect(release('alpha')).toBe(session.id);
   });
 
   it('never serves a half-uploaded deploy', async () => {
@@ -302,6 +327,21 @@ describe('keyless game deploys (/v1/deploys)', () => {
     ['another org', { repository_owner_id: '1', repository_owner: 'evil' }, 403],
     ['a branch other than main', { ref: 'refs/heads/feature' }, 403],
     ['a pull_request event', { event_name: 'pull_request' }, 403],
+    [
+      'a workflow that skips the game-deploy pipeline',
+      {
+        job_workflow_ref: 'freegamestore-online/alpha/.github/workflows/deploy.yml@refs/heads/main',
+      },
+      403,
+    ],
+    [
+      'the legacy game-ci pipeline',
+      {
+        job_workflow_ref:
+          'freegamestore-online/ci-workflows/.github/workflows/game-ci.yml@refs/heads/main',
+      },
+      403,
+    ],
     ['another audience', { aud: 'https://api.proappstore.online' }, 401],
     ['an expired token', { exp: Math.floor(Date.now() / 1000) - 120 }, 401],
     ['a not-yet-valid token', { nbf: Math.floor(Date.now() / 1000) + 600 }, 401],

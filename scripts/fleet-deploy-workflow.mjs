@@ -223,7 +223,22 @@ async function waitForDeploy(repo, sha) {
         'databaseId,status,conclusion,url,event',
       ]),
     ).filter((r) => r.event === 'push');
-    if (runs[0]?.status === 'completed') return runs[0];
+    const run = runs[0];
+    if (run?.status === 'completed') {
+      const { jobs } = JSON.parse(
+        sh('gh', [
+          'run',
+          'view',
+          String(run.databaseId),
+          '--repo',
+          `${ORG}/${repo}`,
+          '--json',
+          'jobs',
+        ]),
+      );
+      const deploy = jobs.find((j) => /deploy/.test(j.name) && !/compliance|build/.test(j.name));
+      return { ...run, deployJob: deploy?.conclusion || 'skipped' };
+    }
     await new Promise((r) => setTimeout(r, 20000));
   }
   return { conclusion: 'timeout' };
@@ -263,16 +278,21 @@ async function apply(plan, generated, wait) {
         commit === sha ? 'green' : `deployed; version.json commit ${commit || version.status}`,
     };
   }
-  // The run failed before its commit switched the route (commit is its last
-  // step), so the game still serves its legacy files: put the old workflow back.
-  // Never revert once a keyless release has been live: the legacy sync's
-  // --delete would remove the release the route serves.
-  if (plan.variant.startsWith('keyless') || run.conclusion !== 'failure')
+  // Revert only when the deploy job never started (the build failed): then no
+  // keyless release went live and the game still serves its legacy files. A
+  // deploy job that failed may have switched the route already (a lost commit
+  // response), and the legacy sync's --delete would then remove the release
+  // the route serves, so that, and any keyless repo, is left for a person.
+  if (
+    plan.variant.startsWith('keyless') ||
+    run.conclusion !== 'failure' ||
+    run.deployJob !== 'skipped'
+  )
     return {
       ...plan,
       sha,
       run: run.url,
-      result: `run ${run.conclusion}; not reverted, check by hand`,
+      result: `run ${run.conclusion} (deploy job ${run.deployJob}); not reverted, check by hand`,
     };
   sh('git', ['-C', dir, 'pull', '--rebase', '--quiet', 'origin', 'main']);
   sh('git', ['-C', dir, 'revert', '--no-commit', sha]);

@@ -34,6 +34,8 @@ export interface OidcClaims {
   event_name?: string;
   run_id?: string;
   jti?: string;
+  /** `<owner>/<repo>/<path>@<ref>` of the workflow file the job runs in. */
+  job_workflow_ref?: string;
   exp: number;
   iat?: number;
   nbf?: number;

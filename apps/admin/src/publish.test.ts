@@ -224,12 +224,17 @@ describe('handleDeleteGame ownership', () => {
     });
     const env = {
       GITHUB_TOKEN: 'x',
-      DB: { prepare: () => ({ bind: () => ({ run: dbRun }) }) },
+      DB: {
+        prepare: () => ({ bind: () => ({ run: dbRun }) }),
+        batch: async (stmts: Array<{ run: () => Promise<unknown> }>) =>
+          Promise.all(stmts.map((stmt) => stmt.run())),
+      },
     } as unknown as Parameters<typeof handleDeleteGame>[2];
     const res = await handleDeleteGame('chess', 'serge-the-dev', env);
     expect(res.ok).toBe(true);
     expect((putBody as Record<string, unknown>).content).toBeDefined(); // registry rewritten (entry removed)
-    expect(dbRun).toHaveBeenCalled(); // route deletion attempted
+    // The route, the keyless-deploy pin and the deploy sessions (#488).
+    expect(dbRun).toHaveBeenCalledTimes(3);
   });
 
   it('reports a failed GitHub archive instead of claiming the repo was archived', async () => {

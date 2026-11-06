@@ -293,8 +293,11 @@ export async function insertHostRoute(env: PublishEnv, slug: string): Promise<St
   }
   try {
     await env.DB.prepare(
-      `INSERT INTO routes (slug, zone, r2_prefix, store, hosted_on, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, 'r2', ?5, ?5)
+      // A route re-created by reconcile keeps serving the game's live keyless
+      // release (#488); an upsert leaves `release` as it is.
+      `INSERT INTO routes (slug, zone, r2_prefix, store, hosted_on, created_at, updated_at, release)
+         VALUES (?1, ?2, ?3, ?4, 'r2', ?5, ?5,
+                 (SELECT id FROM game_deploys WHERE game_id = ?1 AND status = 'live'))
          ON CONFLICT (slug, zone) DO UPDATE SET
            r2_prefix = excluded.r2_prefix,
            store = excluded.store,
@@ -1530,9 +1533,13 @@ export async function handleDeleteGame(
     // reporting a successful route removal when a misconfigured environment
     // has no D1 binding (optional chaining would otherwise make this a no-op).
     if (!env.DB) throw new Error('D1 binding not available');
-    await env.DB.prepare('DELETE FROM routes WHERE slug = ? AND zone = ?')
-      .bind(gameId, config.domain)
-      .run();
+    // With the keyless-deploy pin and sessions (#488): a re-created game id
+    // must be able to pin its new repository, and the old repo loses access.
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM routes WHERE slug = ? AND zone = ?').bind(gameId, config.domain),
+      env.DB.prepare('DELETE FROM game_repositories WHERE game_id = ?').bind(gameId),
+      env.DB.prepare('DELETE FROM game_deploys WHERE game_id = ?').bind(gameId),
+    ]);
     steps.push({
       name: 'Hosting route',
       status: 'ok',
