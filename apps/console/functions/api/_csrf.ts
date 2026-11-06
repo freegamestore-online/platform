@@ -13,6 +13,8 @@
 //
 // Files prefixed with `_` are not routed by Pages, so this is import-only.
 
+import { rejectCrossSite as rejectCrossSiteRequest } from '../../../../contracts/cross-site/v1/contract';
+
 // First-party origins ONLY. The old `*.freegamestore.online` wildcard reflected
 // game subdomains too — and games are untrusted user content sharing the
 // session cookie's registrable domain. The storefront is here because its
@@ -33,41 +35,23 @@ export function isFirstPartyOrigin(origin: string, env: DevOriginEnv = {}): bool
   return FIRST_PARTY_ORIGINS.has(origin) || (!!env.DEV_ORIGIN && origin === env.DEV_ORIGIN);
 }
 
-const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-
-function reject(error: string, status: number): Response {
-  return new Response(JSON.stringify({ error }), {
-    status,
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-  });
-}
-
 /**
  * Returns a 403/415 for a state-changing request that did not come from a
  * first-party page, or null when the handler may proceed. Call it first, before
  * reading the session cookie. Handlers that read the request body pass
  * `{ body: true }` to also require `Content-Type: application/json`; the
- * presence of a body can't be inferred (the Workers runtime hands a body-less
- * browser POST a non-null `request.body`, and such a POST carries no
- * Content-Type), so body-less handlers must not opt in.
+ * presence of a body can't be inferred from `request.body` (3d7522c), so
+ * body-less handlers must not opt in. The check itself is the shared
+ * cross-site contract (#489).
  */
 export function rejectCrossSite(
   request: Request,
   opts: { body?: boolean } = {},
   env: DevOriginEnv = {},
 ): Response | null {
-  if (SAFE_METHODS.has(request.method)) return null;
-  const origin = request.headers.get('Origin');
-  const firstParty =
-    origin === null
-      ? request.headers.get('Sec-Fetch-Site') === 'same-origin'
-      : isFirstPartyOrigin(origin, env);
-  if (!firstParty) return reject('forbidden origin', 403);
-  if (
-    opts.body &&
-    request.headers.get('Content-Type')?.split(';')[0]?.trim().toLowerCase() !== 'application/json'
-  ) {
-    return reject('application/json required', 415);
-  }
-  return null;
+  return rejectCrossSiteRequest(request, {
+    origins: FIRST_PARTY_ORIGINS,
+    devOrigin: env.DEV_ORIGIN,
+    body: opts.body,
+  });
 }

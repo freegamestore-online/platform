@@ -121,3 +121,57 @@ describe('mutation guards', () => {
     expect(response?.status).toBe(415);
   });
 });
+
+// #489: workerd gives a body-less POST a non-null `request.body`, so the old
+// `request.body !== null` gate answered 415 to every body-less admin call.
+describe('body-less mutations', () => {
+  const noBody = (method: string, headers: Record<string, string> = {}) =>
+    new Request('https://admin.test/api/games/test/heal-route', {
+      method,
+      headers: { 'Content-Length': '0', ...headers },
+    });
+
+  it.each(['POST', 'PUT', 'PATCH', 'DELETE'])(
+    'lets a body-less %s through (CLI token)',
+    async (method) => {
+      const h = handlers();
+      await routeAdminRequest(noBody(method, { 'X-FGS-Token': 't' }), h);
+      expect(h.api).toHaveBeenCalled();
+    },
+  );
+
+  it('lets a body-less same-origin cookie POST through', async () => {
+    const h = handlers();
+    await routeAdminRequest(
+      noBody('POST', {
+        Cookie: '__Host-fgs_token=t',
+        Origin: 'https://admin.freegamestore.online',
+      }),
+      h,
+    );
+    expect(h.api).toHaveBeenCalled();
+  });
+
+  it('still blocks a body-less cross-site cookie POST', async () => {
+    const h = handlers();
+    const res = await routeAdminRequest(
+      noBody('POST', { Cookie: '__Host-fgs_token=t', Origin: 'https://evil.freegamestore.online' }),
+      h,
+    );
+    expect(res?.status).toBe(403);
+  });
+
+  it('still 415s a non-JSON body on a token-authenticated request', async () => {
+    const h = handlers();
+    const res = await routeAdminRequest(
+      new Request('https://admin.test/api/comp', {
+        method: 'POST',
+        headers: { 'X-FGS-Token': 't', 'Content-Type': 'text/plain', 'Content-Length': '2' },
+        body: '{}',
+      }),
+      h,
+    );
+    expect(res?.status).toBe(415);
+    expect(h.api).not.toHaveBeenCalled();
+  });
+});

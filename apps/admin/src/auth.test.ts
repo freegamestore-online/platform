@@ -74,6 +74,55 @@ describe('admin session tokens', () => {
     expect(await verifySession(expired, KEY)).toBeNull();
   });
 
+  // #490/#501: the admin Worker must never accept a session meant for another
+  // store or service, even if a key were ever equal (a FAS token would pass the
+  // HMAC and exp checks).
+  async function signed(header: object, payload: object, key = KEY): Promise<string> {
+    const b64 = (o: unknown) => btoa(JSON.stringify(o)).replace(/=+$/, '');
+    const data = `${b64(header)}.${b64(payload)}`;
+    const k = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(key),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign'],
+    );
+    const sig = new Uint8Array(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(data)));
+    return `${data}.${btoa(String.fromCharCode(...sig)).replace(/=+$/, '')}`;
+  }
+  const claims = () => ({ sub: 'serge-the-dev', exp: Math.floor(Date.now() / 1000) + 3600 });
+
+  it('rejects a validly signed token whose iss is another store (a FAS token)', async () => {
+    const hs = { alg: 'HS256', typ: 'JWT' };
+    expect(
+      await verifySession(await signed(hs, { ...claims(), iss: 'freeappstore' }), KEY),
+    ).toBeNull();
+    expect(
+      await verifySession(await signed(hs, { ...claims(), iss: 'freegamestore' }), KEY),
+    ).not.toBeNull();
+  });
+
+  it('rejects a token with no iss', async () => {
+    expect(
+      await verifySession(await signed({ alg: 'HS256', typ: 'JWT' }, claims()), KEY),
+    ).toBeNull();
+  });
+
+  it('rejects a token signed with the auth worker key (a different secret)', async () => {
+    const authToken = await signed(
+      { alg: 'HS256', typ: 'JWT' },
+      { ...claims(), iss: 'freegamestore' },
+      'the-auth-workers-jwt-secret',
+    );
+    expect(await verifySession(authToken, KEY)).toBeNull();
+  });
+
+  it('rejects alg none and other algorithms', async () => {
+    const p = { ...claims(), iss: 'freegamestore' };
+    expect(await verifySession(await signed({ alg: 'none' }, p), KEY)).toBeNull();
+    expect(await verifySession(await signed({ alg: 'HS512' }, p), KEY)).toBeNull();
+  });
+
   it('fails closed when the signing key is empty (unforgeable-key guard)', async () => {
     const token = await mintSessionToken('serge-the-dev', KEY);
     expect(await verifySession(token, '')).toBeNull();

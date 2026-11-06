@@ -5,6 +5,7 @@
 // principle). `fgs login` exchanges a GitHub token for a session here.
 
 import { githubIdFromSub } from '../../../contracts/registry-ownership/v1/contract';
+import { signHs256Jwt, verifyHs256Jwt } from '../../../contracts/session-jwt/v1/contract';
 
 // Per-IP, in-memory (per isolate) limit on exchanges: each one is a GitHub
 // introspection, and this is the one place a stolen GitHub token can be tried.
@@ -72,65 +73,31 @@ export async function mintSessionToken(
   signingKey: string,
   githubId: string | null = null,
 ): Promise<string> {
-  // Fail closed: an unset/empty key would make TextEncoder.encode() hash the
-  // literal "undefined" — a known, forgeable HMAC key anyone could mint with.
   if (!signingKey) throw new Error('SESSION_SIGNING_KEY is not configured');
-  const payload = {
-    sub: login,
-    ...(githubId ? { gid: githubId } : {}),
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30 days
-    iss: 'freegamestore',
-  };
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(signingKey),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
+  const now = Math.floor(Date.now() / 1000);
+  return signHs256Jwt(
+    {
+      sub: login,
+      ...(githubId ? { gid: githubId } : {}),
+      iat: now,
+      exp: now + 30 * 24 * 60 * 60, // 30 days
+    },
+    signingKey,
   );
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).replace(/=+$/, '');
-  const body = btoa(JSON.stringify(payload)).replace(/=+$/, '');
-  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(`${header}.${body}`));
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=+$/, '');
-  return `${header}.${body}.${sigB64}`;
 }
 
 export async function verifySession(
   token: string,
   signingKey: string,
 ): Promise<{ login: string; githubId: string | null } | null> {
-  try {
-    // Fail closed if the key is missing — never verify against a "undefined" key.
-    if (!signingKey) return null;
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(signingKey),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['verify'],
-    );
-    const sig = Uint8Array.from(atob(parts[2]!), (c) => c.charCodeAt(0));
-    const valid = await crypto.subtle.verify(
-      'HMAC',
-      key,
-      sig,
-      encoder.encode(`${parts[0]}.${parts[1]}`),
-    );
-    if (!valid) return null;
-    const payload = JSON.parse(atob(parts[1]!)) as { sub: string; gid?: unknown; exp: number };
-    if (typeof payload.exp !== 'number' || payload.exp < Math.floor(Date.now() / 1000)) return null;
-    // Tokens minted before #472 carry no gid: ownership falls back to the login.
-    const githubId =
-      typeof payload.gid === 'string' && /^\d+$/.test(payload.gid) ? payload.gid : null;
-    return { login: payload.sub, githubId };
-  } catch {
-    return null;
-  }
+  // alg, exp and iss (FGS_ISSUER) are checked by the shared contract (#490), so a
+  // token signed for another store, or with another key, is refused.
+  const payload = await verifyHs256Jwt(token, signingKey);
+  if (typeof payload?.sub !== 'string') return null;
+  // Tokens minted before #472 carry no gid: ownership falls back to the login.
+  const githubId =
+    typeof payload.gid === 'string' && /^\d+$/.test(payload.gid) ? payload.gid : null;
+  return { login: payload.sub, githubId };
 }
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };

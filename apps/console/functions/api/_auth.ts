@@ -11,6 +11,7 @@
 // and asks auth's /me whether the account still exists (#499).
 // Files prefixed with `_` are not routed by Pages, so this is import-only.
 
+import { verifyHs256Jwt } from '../../../../contracts/session-jwt/v1/contract';
 import { type DevOriginEnv, isFirstPartyOrigin } from './_csrf';
 
 export interface SessionEnv extends DevOriginEnv {
@@ -44,45 +45,10 @@ export function getCookie(request: Request, name: string): string | null {
   return m ? m[1] : null;
 }
 
-function b64urlToBytes(s: string): Uint8Array {
-  s = s.replace(/-/g, '+').replace(/_/g, '/');
-  while (s.length % 4) s += '=';
-  return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
-}
-
-export async function verifyJWT(
-  token: string,
-  secret: string,
-): Promise<Record<string, unknown> | null> {
-  const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  try {
-    const header = JSON.parse(new TextDecoder().decode(b64urlToBytes(parts[0])));
-    if (header.alg !== 'HS256') return null;
-    const key = await crypto.subtle.importKey(
-      'raw',
-      new TextEncoder().encode(secret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['verify'],
-    );
-    const ok = await crypto.subtle.verify(
-      'HMAC',
-      key,
-      b64urlToBytes(parts[2]),
-      new TextEncoder().encode(`${parts[0]}.${parts[1]}`),
-    );
-    if (!ok) return null;
-    const payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(parts[1]))) as Record<
-      string,
-      unknown
-    >;
-    // Require a numeric, unexpired exp — a token missing exp must not verify forever.
-    if (typeof payload.exp !== 'number' || payload.exp < Math.floor(Date.now() / 1000)) return null;
-    return payload;
-  } catch {
-    return null;
-  }
+/** Console sign-in tokens come from the auth worker; see jwtVerify there for why
+ *  a missing iss is still accepted (#490). */
+export function verifyJWT(token: string, secret: string): Promise<Record<string, unknown> | null> {
+  return verifyHs256Jwt(token, secret, { allowMissingIss: true });
 }
 
 const CONSOLE_ORIGIN = 'https://console.freegamestore.online';

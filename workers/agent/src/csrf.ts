@@ -16,6 +16,8 @@
 // not gated. A browser can't add those headers cross-origin without a preflight,
 // which CORS refuses.
 
+import { rejectCrossSite as rejectCrossSiteRequest } from "../../../contracts/cross-site/v1/contract";
+
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 // Routes whose handler reads a JSON body. Body presence can't be inferred from
@@ -29,13 +31,6 @@ const BODY_ROUTES: { method: string; path: RegExp }[] = [
   { method: "POST", path: /^\/session\/[^/]+\/(chat|import|push-subscribe)$/ },
   { method: "POST", path: /^\/v1\/admin\/session-chat$/ },
 ];
-
-function reject(error: string, status: number, cors: Record<string, string>): Response {
-  return new Response(JSON.stringify({ error }), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...cors },
-  });
-}
 
 /**
  * Returns a 403/415 for a state-changing, cookie-authenticated request that did
@@ -53,19 +48,11 @@ export function rejectCrossSite(
   const cookieAuth = /(?:^|;\s*)__Host-fgs_token=/.test(request.headers.get("Cookie") ?? "");
   if (headerAuth || !cookieAuth) return null;
 
-  const origin = request.headers.get("Origin");
-  const firstParty =
-    origin === null
-      ? request.headers.get("Sec-Fetch-Site") === "same-origin"
-      : origin === `https://console.${domain}` || (!!devOrigin && origin === devOrigin);
-  if (!firstParty) return reject("forbidden origin", 403, cors);
-
   const path = new URL(request.url).pathname;
-  if (
-    BODY_ROUTES.some((r) => r.method === request.method && r.path.test(path)) &&
-    request.headers.get("Content-Type")?.split(";")[0]?.trim().toLowerCase() !== "application/json"
-  ) {
-    return reject("application/json required", 415, cors);
-  }
-  return null;
+  return rejectCrossSiteRequest(request, {
+    origins: [`https://console.${domain}`],
+    devOrigin,
+    body: BODY_ROUTES.some((r) => r.method === request.method && r.path.test(path)),
+    headers: cors,
+  });
 }

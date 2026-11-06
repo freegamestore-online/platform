@@ -1,3 +1,5 @@
+import { signHs256Jwt, verifyHs256Jwt } from '../../../contracts/session-jwt/v1/contract';
+
 interface Env {
   DB: D1Database;
   GOOGLE_CLIENT_ID: string;
@@ -89,48 +91,16 @@ export function base64urlDecode(str: string): string {
   return new TextDecoder().decode(bytes);
 }
 
-async function getSigningKey(secret: string): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign', 'verify'],
-  );
+// Signing and verification live in the shared session-jwt contract (#490):
+// alg, exp and iss are checked in one place. Tokens minted before the contract
+// added `iss` have none, so a missing iss is still accepted here (a wrong one is
+// not); drop allowMissingIss once the longest-lived of them has expired.
+export function jwtSign(payload: Record<string, unknown>, secret: string): Promise<string> {
+  return signHs256Jwt(payload, secret);
 }
 
-export async function jwtSign(payload: Record<string, unknown>, secret: string): Promise<string> {
-  const header = base64urlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const body = base64urlEncode(JSON.stringify(payload));
-  const data = `${header}.${body}`;
-  const key = await getSigningKey(secret);
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
-  return `${data}.${base64url(new Uint8Array(sig))}`;
-}
-
-export async function jwtVerify(
-  token: string,
-  secret: string,
-): Promise<Record<string, unknown> | null> {
-  const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  const [header, body, sig] = parts;
-  const key = await getSigningKey(secret);
-  const sigBytes = Uint8Array.from(atob(sig.replace(/-/g, '+').replace(/_/g, '/')), (c) =>
-    c.charCodeAt(0),
-  );
-  const valid = await crypto.subtle.verify(
-    'HMAC',
-    key,
-    sigBytes,
-    new TextEncoder().encode(`${header}.${body}`),
-  );
-  if (!valid) return null;
-  const payload = JSON.parse(base64urlDecode(body)) as Record<string, unknown>;
-  // Require a numeric, unexpired exp. A token missing exp (or with a non-numeric
-  // one) must not be treated as non-expiring.
-  if (typeof payload.exp !== 'number' || payload.exp < Math.floor(Date.now() / 1000)) return null;
-  return payload;
+export function jwtVerify(token: string, secret: string): Promise<Record<string, unknown> | null> {
+  return verifyHs256Jwt(token, secret, { allowMissingIss: true });
 }
 
 // --- CORS ---

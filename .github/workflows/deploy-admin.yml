@@ -8,6 +8,8 @@ on:
       - contracts/error-log/**
       - contracts/game-metadata/**
       - contracts/registry-ownership/**
+      - contracts/cross-site/**
+      - contracts/session-jwt/**
       - .github/workflows/deploy-admin.yml
   workflow_dispatch:
 

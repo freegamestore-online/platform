@@ -1,3 +1,9 @@
+import {
+  declaresBody,
+  rejectCrossSite,
+  requireJsonBody,
+} from '../../../contracts/cross-site/v1/contract';
+
 /**
  * Transport-only admin router.  It intentionally knows no registry, D1, GitHub,
  * or reconciliation details: those remain behind the injected API handler.
@@ -24,24 +30,21 @@ export async function routeAdminRequest(
     // Match the credential precedence used by the authentication handlers.
     const usesCookie =
       /(?:^|;\s*)__Host-fgs_token=/.test(cookie) && !request.headers.get('X-FGS-Token');
-    const origin = request.headers.get('Origin');
-    const allowedOrigin =
-      origin === 'https://admin.freegamestore.online' || (!!devOrigin && origin === devOrigin);
-    if (
-      usesCookie &&
-      !allowedOrigin &&
-      (origin !== null || request.headers.get('Sec-Fetch-Site') !== 'same-origin')
-    ) {
-      return Response.json({ error: 'forbidden origin' }, { status: 403 });
+    if (usesCookie) {
+      const blocked = rejectCrossSite(request, {
+        origins: ['https://admin.freegamestore.online'],
+        devOrigin,
+      });
+      if (blocked) return blocked;
     }
     if (
       (path.startsWith('/api/') || path.startsWith('/v1/')) &&
-      !(path === '/api/ci/test-report' && request.method === 'PUT') &&
-      request.body !== null &&
-      request.headers.get('Content-Type')?.split(';')[0]?.trim().toLowerCase() !==
-        'application/json'
+      !(path === '/api/ci/test-report' && request.method === 'PUT')
     ) {
-      return Response.json({ error: 'application/json required' }, { status: 415 });
+      // A body-less POST is fine; `request.body !== null` can't tell it apart from
+      // one with a body (workerd 415'd every such call, #489).
+      const blocked = declaresBody(request) ? requireJsonBody(request) : null;
+      if (blocked) return blocked;
     }
   }
   if (path === '/auth/handoff' || path.startsWith('/v1/auth/')) return handlers.auth(request);

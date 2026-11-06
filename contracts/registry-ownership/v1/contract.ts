@@ -1,6 +1,6 @@
 /**
  * Shared registry ownership contract: game-id validation, reserved IDs, ownership facts,
- * JWT verification, and GitHub username validation. Consolidated from duplicates across
+ * and GitHub username validation. Consolidated from duplicates across
  * workers/agent, workers/mcp, workers/auth, apps/admin, apps/console.
  *
  * Security-relevant rules live here so changes propagate uniformly and consistently.
@@ -196,68 +196,4 @@ export function normalizeForkedFrom(
       legacyForkedAt,
     ) ?? value
   );
-}
-
-/**
- * Verify an FGS JWT token with typ and aud validation.
- * Self-contained HS256 verification for session tokens and inter-service authentication.
- *
- * @param token The JWT token (header.payload.signature format)
- * @param signingKey The HMAC secret used to sign the token
- * @param options Validation options: { typ?, aud? } (optional checks for token type and audience)
- * @returns Decoded payload if valid, null if invalid, expired, or checks fail
- */
-export async function verifyFgsJwt(
-  token: string,
-  signingKey: string,
-  options?: { typ?: string; aud?: string },
-): Promise<{ [key: string]: unknown } | null> {
-  try {
-    // Fail closed if the key is missing — never verify against an undefined key
-    if (!signingKey) return null;
-
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(signingKey),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['verify'],
-    );
-
-    // Decode and verify signature
-    const sig = Uint8Array.from(atob(parts[2]!), (c) => c.charCodeAt(0));
-    const valid = await crypto.subtle.verify(
-      'HMAC',
-      key,
-      sig,
-      encoder.encode(`${parts[0]}.${parts[1]}`),
-    );
-    if (!valid) return null;
-
-    // Decode header and payload
-    const header = JSON.parse(atob(parts[0]!)) as { alg: string; typ?: string };
-    const payload = JSON.parse(atob(parts[1]!)) as { [key: string]: unknown; exp?: number };
-
-    // Check algorithm
-    if (header.alg !== 'HS256') return null;
-
-    // Check typ if specified in options
-    if (options?.typ && header.typ !== options.typ) return null;
-
-    // Check aud if specified in options
-    if (options?.aud && payload.aud !== options.aud) return null;
-
-    // Check expiration
-    if (typeof payload.exp === 'number' && payload.exp < Math.floor(Date.now() / 1000)) {
-      return null;
-    }
-
-    return payload;
-  } catch {
-    return null;
-  }
 }

@@ -7,6 +7,8 @@ on:
       - apps/console/**
       - contracts/error-log/**
       - contracts/registry-ownership/**
+      - contracts/cross-site/**
+      - contracts/session-jwt/**
       - .github/workflows/deploy-console.yml
   workflow_dispatch:
 
