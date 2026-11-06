@@ -1485,3 +1485,185 @@ describe('normalizeIconBg (#361)', () => {
     expect(normalizeIconBg(raw)).toBe(expected);
   });
 });
+
+describe('ownership by GitHub id (#472)', () => {
+  /** One-game registry; the returned getter yields the registry PUT body (null = no write). */
+  function stubRegistry(game: Record<string, unknown>) {
+    let putBody: unknown | null = null;
+    vi.stubGlobal('fetch', async (_input: unknown, init?: { method?: string; body?: string }) => {
+      if (init?.method === 'PUT') {
+        putBody = JSON.parse(init.body!);
+        return new Response(JSON.stringify({ content: {} }), { status: 200 });
+      }
+      if (init?.method === 'PATCH')
+        return new Response(JSON.stringify({ archived: true }), { status: 200 });
+      return new Response(
+        JSON.stringify({ content: btoa(JSON.stringify({ games: [game] })), sha: 's' }),
+        { status: 200 },
+      );
+    });
+    return () => putBody;
+  }
+  const env = {
+    GITHUB_TOKEN: 'x',
+    DB: { prepare: () => ({ bind: () => ({ run: async () => {} }) }) },
+  } as unknown as Parameters<typeof handleUpdateGame>[3];
+  // Provisioned after #472: both the (mutable) login and the stable id are recorded.
+  const owned = { id: 'chess', name: 'Chess', creatorGithub: 'alice', creatorGithubId: '100' };
+
+  it('refuses a caller whose login matches but whose id does not (login reused after a rename)', async () => {
+    const wrote = stubRegistry(owned);
+    const res = await handleUpdateGame('chess', 'alice', { name: 'Defaced' }, env, '200');
+    expect(res.code).toBe('forbidden');
+    expect(wrote()).toBeNull();
+  });
+
+  it('accepts a caller whose id matches although the login changed (owner renamed)', async () => {
+    const wrote = stubRegistry(owned);
+    const res = await handleUpdateGame('chess', 'alice-renamed', { name: 'New Name' }, env, '100');
+    expect(res.ok).toBe(true);
+    expect(wrote()).not.toBeNull();
+  });
+
+  it('falls back to the login for a legacy entry that recorded no id', async () => {
+    const wrote = stubRegistry({ id: 'chess', name: 'Chess', creatorGithub: 'Alice' });
+    const res = await handleUpdateGame('chess', 'alice', { name: 'New Name' }, env, '999');
+    expect(res.ok).toBe(true);
+    expect(wrote()).not.toBeNull();
+  });
+
+  it('falls back to the login when the credential carries no id (CLI session)', async () => {
+    let wrote = stubRegistry(owned);
+    expect((await handleUpdateGame('chess', 'alice', { name: 'New Name' }, env)).ok).toBe(true);
+    expect(wrote()).not.toBeNull();
+    wrote = stubRegistry(owned);
+    expect((await handleUpdateGame('chess', 'mallory', { name: 'Defaced' }, env)).code).toBe(
+      'forbidden',
+    );
+    expect(wrote()).toBeNull();
+  });
+
+  it('handleDeleteGame applies the same rule', async () => {
+    let wrote = stubRegistry(owned);
+    const refused = await handleDeleteGame('chess', 'alice', env, { callerGithubId: '200' });
+    expect(refused.code).toBe('forbidden');
+    expect(wrote()).toBeNull();
+    wrote = stubRegistry(owned);
+    const ok = await handleDeleteGame('chess', 'alice-renamed', env, { callerGithubId: '100' });
+    expect(ok.ok).toBe(true);
+    expect(wrote()).not.toBeNull(); // delisted
+  });
+
+  it('handlePublish records creatorGithubId from GET /users/{login} beside the login', async () => {
+    let written: { games: Array<Record<string, unknown>> } | null = null;
+    vi.stubGlobal('fetch', async (input: unknown, init?: { method?: string; body?: string }) => {
+      const url = typeof input === 'string' ? input : (input as Request).url;
+      const method = init?.method ?? 'GET';
+      if (method === 'GET' && url.endsWith('/users/serge-the-dev')) {
+        return new Response(JSON.stringify({ login: 'serge-the-dev', id: 4242, type: 'User' }), {
+          status: 200,
+        });
+      }
+      if (method === 'GET' && url.endsWith('/repos/freegamestore-online/chess')) {
+        // Exists, generated from a game template (an established game — no re-substitute).
+        return new Response(JSON.stringify({ id: 123, template_repository: GAME_TEMPLATE }), {
+          status: 200,
+        });
+      }
+      if (method === 'GET' && url.includes('/contents/package.json')) {
+        return new Response(JSON.stringify({ content: btoa(JSON.stringify({ name: 'chess' })) }), {
+          status: 200,
+        });
+      }
+      if (method === 'GET' && url.includes('/collaborators/')) {
+        return new Response(null, { status: 204 });
+      }
+      if (url.includes('registry.json')) {
+        if (method === 'PUT') {
+          const body = JSON.parse(init?.body ?? '{}') as { content: string };
+          written = JSON.parse(atob(body.content));
+          return new Response(JSON.stringify({ content: { sha: 's2' } }), { status: 200 });
+        }
+        return new Response(
+          JSON.stringify({ content: btoa(JSON.stringify({ games: [] })), sha: 's' }),
+          { status: 200 },
+        );
+      }
+      if (method === 'GET' && url.includes('/contents/')) {
+        return new Response(JSON.stringify({}), { status: 404 });
+      }
+      return new Response(JSON.stringify({ ok: true, object: { sha: 'headsha' } }), {
+        status: 200,
+      });
+    });
+    const env = { GITHUB_TOKEN: 'x', DB: undefined } as unknown as Parameters<
+      typeof handlePublish
+    >[1];
+    await handlePublish(
+      { id: 'chess', name: 'Chess', category: 'arcade', creatorGithub: 'serge-the-dev' },
+      env,
+    );
+    const entry = written!.games.find((g) => g.id === 'chess');
+    expect(entry).toMatchObject({ creatorGithub: 'serge-the-dev', creatorGithubId: '4242' });
+  });
+
+  it('handlePublish still lists the game (by login only) when the id lookup fails', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      let written: { games: Array<Record<string, unknown>> } | null = null;
+      vi.stubGlobal('fetch', async (input: unknown, init?: { method?: string; body?: string }) => {
+        const url = typeof input === 'string' ? input : (input as Request).url;
+        const method = init?.method ?? 'GET';
+        if (url.endsWith('/users/serge-the-dev')) {
+          return new Response(JSON.stringify({ message: 'rate limited' }), { status: 403 });
+        }
+        if (method === 'GET' && url.endsWith('/repos/freegamestore-online/chess')) {
+          return new Response(JSON.stringify({ id: 123, template_repository: GAME_TEMPLATE }), {
+            status: 200,
+          });
+        }
+        if (method === 'GET' && url.includes('/contents/package.json')) {
+          return new Response(
+            JSON.stringify({ content: btoa(JSON.stringify({ name: 'chess' })) }),
+            { status: 200 },
+          );
+        }
+        if (method === 'GET' && url.includes('/collaborators/')) {
+          return new Response(null, { status: 204 });
+        }
+        if (url.includes('registry.json')) {
+          if (method === 'PUT') {
+            const body = JSON.parse(init?.body ?? '{}') as { content: string };
+            written = JSON.parse(atob(body.content));
+            return new Response(JSON.stringify({ content: { sha: 's2' } }), { status: 200 });
+          }
+          return new Response(
+            JSON.stringify({ content: btoa(JSON.stringify({ games: [] })), sha: 's' }),
+            { status: 200 },
+          );
+        }
+        if (method === 'GET' && url.includes('/contents/')) {
+          return new Response(JSON.stringify({}), { status: 404 });
+        }
+        return new Response(JSON.stringify({ ok: true, object: { sha: 'headsha' } }), {
+          status: 200,
+        });
+      });
+      const env = { GITHUB_TOKEN: 'x', DB: undefined } as unknown as Parameters<
+        typeof handlePublish
+      >[1];
+      await handlePublish(
+        { id: 'chess', name: 'Chess', category: 'arcade', creatorGithub: 'serge-the-dev' },
+        env,
+      );
+      const entry = written!.games.find((g) => g.id === 'chess')!;
+      expect(entry.creatorGithub).toBe('serge-the-dev');
+      expect(entry).not.toHaveProperty('creatorGithubId');
+      expect(error).toHaveBeenCalledWith(
+        expect.stringContaining('could not resolve the GitHub id'),
+      );
+    } finally {
+      error.mockRestore();
+    }
+  });
+});

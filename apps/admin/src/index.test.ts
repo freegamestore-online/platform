@@ -684,7 +684,10 @@ describe('Google admin sessions reach the admin paths (#361)', () => {
       makeEnv({ meEmail: ADMIN, adminEmails: ADMIN }),
     );
     expect(res.status).toBe(200);
-    expect(del).toHaveBeenCalledWith('chess', ADMIN, expect.anything(), { adminOverride: true });
+    expect(del).toHaveBeenCalledWith('chess', ADMIN, expect.anything(), {
+      adminOverride: true,
+      callerGithubId: null,
+    });
   });
 
   it('DELETE /api/games/:id still refuses a Google session that is not an admin', async () => {

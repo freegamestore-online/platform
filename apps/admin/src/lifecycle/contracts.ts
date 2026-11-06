@@ -21,6 +21,8 @@ export interface UpdateGame {
     login: string,
     updates: Record<string, unknown>,
     env: PublishEnv,
+    /** The caller's numeric GitHub id when the credential carries one (#472). */
+    callerGithubId?: string | null,
   ): Promise<{ ok?: boolean; error?: string; code?: LifecycleErrorCode }>;
 }
 
@@ -29,7 +31,7 @@ export interface DeleteGame {
     gameId: string,
     login: string,
     env: PublishEnv,
-    options?: { adminOverride?: boolean },
+    options?: { adminOverride?: boolean; callerGithubId?: string | null },
   ): Promise<{ ok?: boolean; error?: string; code?: LifecycleErrorCode; steps?: Step[] }>;
 }
 

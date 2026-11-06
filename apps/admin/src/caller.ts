@@ -1,3 +1,4 @@
+import { githubIdFromSub } from '../../../contracts/registry-ownership/v1/contract';
 import { handleAuthExchange, handleAuthMe, verifySession } from './auth';
 import type { Env } from './env';
 
@@ -5,7 +6,13 @@ export type CallerCredentials = {
   admin: string | null;
   isAdmin: boolean;
   login: string | null;
+  /** The caller's numeric GitHub id, from the fgs_token `sub` (`github:<id>`).
+   *  Null for an admin-minted CLI session, which carries only the login (#472). */
+  githubId: string | null;
 };
+
+/** A creator identity: the (mutable) login plus the stable id when the credential carries one. */
+export type CreatorIdentity = { login: string; githubId: string | null };
 
 /** The admin allowlist (verified Google emails). Defaults to the sole owner so
  *  the console is never accidentally left open if the var is unset. */
@@ -55,14 +62,18 @@ export async function authenticateAdmin(
  *  1. Bearer admin session token (CLI `fgs login`)
  *  2. fgs_token — as an Authorization Bearer (MCP) OR an fgs_token cookie (console),
  *     verified by the auth worker's /me (single uniform identity, like the other stores). */
-export async function authenticateLogin(request: Request, env: Env): Promise<string | null> {
+export async function authenticateLogin(
+  request: Request,
+  env: Env,
+): Promise<CreatorIdentity | null> {
   const auth = request.headers.get('Authorization') ?? '';
   const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
 
-  // 1. Admin-minted session token (CLI).
+  // 1. Admin-minted session token (CLI). Login only: ownership checks fall
+  //    back to the login match for this credential (#472).
   if (bearer) {
     const login = await verifySession(bearer, env.SESSION_SIGNING_KEY);
-    if (login) return login;
+    if (login) return { login, githubId: null };
   }
 
   // 2. fgs_token — via X-FGS-Token (MCP, worker-to-worker), cookie (console),
@@ -86,7 +97,8 @@ export async function authenticateLogin(request: Request, env: Env): Promise<str
             login?: string;
             sub?: string;
           };
-          return typeof payload.login === 'string' ? payload.login : null;
+          if (typeof payload.login !== 'string') return null;
+          return { login: payload.login, githubId: githubIdFromSub(payload.sub) };
         }
         return null;
       }
@@ -101,11 +113,16 @@ export async function authenticateLogin(request: Request, env: Env): Promise<str
  *  via Google), admin status, and GitHub login (if authenticated via fgs_token/session).
  *  Routes can then check isAdmin OR login based on their requirements. */
 export async function resolveCaller(request: Request, env: Env): Promise<CallerCredentials> {
-  const [{ email, isAdmin }, login] = await Promise.all([
+  const [{ email, isAdmin }, creator] = await Promise.all([
     authenticateAdmin(request, env),
     authenticateLogin(request, env),
   ]);
-  return { admin: email, isAdmin, login };
+  return {
+    admin: email,
+    isAdmin,
+    login: creator?.login ?? null,
+    githubId: creator?.githubId ?? null,
+  };
 }
 
 /** Auth transport is deliberately kept ahead of every API/static route. */

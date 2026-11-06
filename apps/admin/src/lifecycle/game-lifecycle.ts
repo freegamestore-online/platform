@@ -25,11 +25,20 @@ export function createGameLifecycle(
       ((request: PublishRequest, env: PublishEnv) => handlePublish(request, env)),
     update:
       operations.update ??
-      ((gameId: string, login: string, updates: Record<string, unknown>, env: PublishEnv) =>
-        handleUpdateGame(gameId, login, updates, env)),
+      ((
+        gameId: string,
+        login: string,
+        updates: Record<string, unknown>,
+        env: PublishEnv,
+        callerGithubId?: string | null,
+      ) => handleUpdateGame(gameId, login, updates, env, callerGithubId)),
     delete:
       operations.delete ??
-      ((gameId: string, login: string, env: PublishEnv, options?: { adminOverride?: boolean }) =>
-        handleDeleteGame(gameId, login, env, options)),
+      ((
+        gameId: string,
+        login: string,
+        env: PublishEnv,
+        options?: { adminOverride?: boolean; callerGithubId?: string | null },
+      ) => handleDeleteGame(gameId, login, env, options)),
   };
 }

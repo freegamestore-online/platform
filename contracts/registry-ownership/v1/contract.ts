@@ -71,22 +71,45 @@ export interface OwnershipFacts {
   isLegacyAcceptedCollaborator: boolean;
 }
 
+/** The numeric GitHub id carried by a session `sub` of the form `github:<id>`,
+ *  as a string; null for anything else (a Google subject, a malformed value). */
+export function githubIdFromSub(sub: unknown): string | null {
+  const m = typeof sub === 'string' ? /^github:(\d+)$/.exec(sub) : null;
+  return m ? m[1]! : null;
+}
+
 /**
  * Derive ownership facts from game data (registry), login, and membership signals.
  * Shared contract: all callers agree on when creator/org/legacy facts apply.
  *
- * @param game Game data (undefined or object with optional creatorGithub)
+ * `isCreator` (#472): a GitHub login is mutable and re-assignable — after a
+ * rename, whoever registers the old login would match every game its previous
+ * holder published. The numeric id is neither. So when BOTH the registry entry
+ * (`creatorGithubId`, recorded at provision) and the caller carry an id, the id
+ * decides and the login is ignored: a renamed owner still matches, a reused
+ * login no longer does. Otherwise — a legacy entry without the id, or a caller
+ * whose session has no `github:<id>` subject — the case-insensitive login match
+ * applies as before.
+ *
+ * @param game Game data (undefined or object with optional creatorGithub / creatorGithubId)
  * @param login GitHub login to check
  * @param signals Membership and collaborator signals (isOrgMember, isLegacyAcceptedCollaborator)
+ * @param callerGithubId The caller's numeric GitHub id (from `sub`), when known
  */
 export function ownershipFacts(
-  game: { creatorGithub?: unknown } | undefined,
+  game: { creatorGithub?: unknown; creatorGithubId?: unknown } | undefined,
   login: string,
   signals: Pick<OwnershipFacts, 'isOrgMember' | 'isLegacyAcceptedCollaborator'>,
+  callerGithubId?: string | null,
 ): OwnershipFacts {
   const creator = typeof game?.creatorGithub === 'string' ? game.creatorGithub : '';
+  const creatorId = typeof game?.creatorGithubId === 'string' ? game.creatorGithubId : '';
+  const isCreator =
+    creatorId && callerGithubId
+      ? creatorId === callerGithubId
+      : !!creator && creator.toLowerCase() === login.toLowerCase();
   return {
-    isCreator: !!creator && creator.toLowerCase() === login.toLowerCase(),
+    isCreator,
     isOrgMember: signals.isOrgMember,
     isLegacyAcceptedCollaborator: !creator && signals.isLegacyAcceptedCollaborator,
   };

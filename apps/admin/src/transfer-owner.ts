@@ -142,7 +142,8 @@ async function canonicalLogin(
   env: PublishEnv,
   login: string,
 ): Promise<
-  { ok: true; login: string } | { ok: false; reason: 'unknown' | 'not_user' | 'unavailable' }
+  | { ok: true; login: string; id: string | null }
+  | { ok: false; reason: 'unknown' | 'not_user' | 'unavailable' }
 > {
   const user = await ghApi(env, `/users/${encodeURIComponent(login)}`);
   if (user.__status === 404) return { ok: false, reason: 'unknown' };
@@ -150,7 +151,11 @@ async function canonicalLogin(
     return { ok: false, reason: 'unavailable' };
   }
   if (user.type !== 'User') return { ok: false, reason: 'not_user' };
-  return { ok: true, login: user.login as string };
+  return {
+    ok: true,
+    login: user.login as string,
+    id: typeof user.id === 'number' ? String(user.id) : null,
+  };
 }
 
 /** The game repo, from the registry entry when it names one in our org, else
@@ -335,6 +340,10 @@ export async function transferGameOwner(
     previous = owner;
     repo = gameRepo(game, input.game_id);
     game.creatorGithub = toLogin;
+    // The stable id moves with the owner (#472). Never leave the previous
+    // owner's id behind: it would keep matching them after the transfer.
+    if (checked.id) game.creatorGithubId = checked.id;
+    else delete game.creatorGithubId;
     // `developer` is the display credit and defaults to the creator. Move it
     // with the owner only when it still shows the old owner.
     if (typeof game.developer === 'string' && same(game.developer, owner)) {

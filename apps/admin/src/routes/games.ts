@@ -31,7 +31,13 @@ export function gamesRoutes(data: DataService): Route[] {
         } catch {
           return jsonResponse({ error: 'invalid JSON' }, 400, request);
         }
-        const result: GameLifecycleResult = await gameLifecycle.update(id, login, body, env);
+        const result: GameLifecycleResult = await gameLifecycle.update(
+          id,
+          login,
+          body,
+          env,
+          caller.githubId,
+        );
         return jsonResponse(result, result.error ? lifecycleStatus(result.code) : 200, request);
       },
     },
@@ -57,6 +63,7 @@ export function gamesRoutes(data: DataService): Route[] {
 
         const result: GameLifecycleResult = await gameLifecycle.delete(id, actor, env, {
           adminOverride: isAdmin,
+          callerGithubId: caller.githubId,
         });
         return jsonResponse(result, result.error ? lifecycleStatus(result.code) : 200, request);
       },

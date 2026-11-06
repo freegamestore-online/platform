@@ -274,6 +274,17 @@ function migrateLegacyForkAttribution(items: Array<Record<string, unknown>>): bo
  *  Idempotent via ON CONFLICT DO UPDATE — re-publishing the same id is a
  *  no-op for routing. r2_prefix follows the convention `games/<id>` which
  *  matches what the template's deploy.yml uploads to in fgs-games. */
+/** The numeric GitHub id of `login` as a string, or null when it can't be
+ *  resolved right now (unknown login, outage). Never throws (#472). */
+export async function lookupGithubId(env: PublishEnv, login: string): Promise<string | null> {
+  try {
+    const user = await ghApi(env, `/users/${encodeURIComponent(login)}`);
+    return user?.__status === 200 && typeof user.id === 'number' ? String(user.id) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function insertHostRoute(env: PublishEnv, slug: string): Promise<Step> {
   const r2Prefix = `${STORE_CONFIG.registryKey}/${slug}`;
   const now = Date.now();
@@ -1155,6 +1166,16 @@ export async function handlePublish(
   const provisionedSha =
     typeof headRef?.object?.sha === 'string' ? (headRef.object.sha as string) : undefined;
 
+  // #472: record the creator's stable numeric id beside the mutable login so a
+  // later rename / login reuse can't transfer ownership. Best-effort: without
+  // it the entry authorises by login, exactly as before.
+  const creatorGithubId = req.creatorGithub ? await lookupGithubId(env, req.creatorGithub) : null;
+  if (req.creatorGithub && !creatorGithubId) {
+    console.error(
+      `[provision] could not resolve the GitHub id of ${req.creatorGithub}; ${id} authorises by login`,
+    );
+  }
+
   const registryResult = await mutateRegistry(
     env,
     `Add ${name} to games registry`,
@@ -1197,6 +1218,7 @@ export async function handlePublish(
         type: req.type || 'standalone',
         developer: req.creatorGithub || config.developer,
         ...(req.creatorGithub ? { creatorGithub: req.creatorGithub } : {}),
+        ...(creatorGithubId ? { creatorGithubId } : {}),
         // Which engine/template this game was generated from (kaplay|phaser|3d|
         // canvas|grid|cards). Lets the storefront + studio show the engine and
         // lets the agent load engine-correct authoring context on import. Only
@@ -1368,6 +1390,9 @@ export async function handleUpdateGame(
   login: string,
   updates: Record<string, unknown>,
   env: PublishEnv,
+  /** The caller's numeric GitHub id when the credential carries one: decides
+   *  ownership over the login for entries that recorded `creatorGithubId` (#472). */
+  callerGithubId?: string | null,
 ): Promise<{ ok?: boolean; error?: string; code?: LifecycleErrorCode }> {
   // Allow updating these fields only, validated + normalized like provision.
   const checked = validateGameUpdates(updates, gameId);
@@ -1391,8 +1416,12 @@ export async function handleUpdateGame(
       // owned game uneditable.
       const owner = typeof game.creatorGithub === 'string' ? game.creatorGithub : '';
       if (
-        !ownershipFacts(game, login, { isOrgMember: false, isLegacyAcceptedCollaborator: false })
-          .isCreator
+        !ownershipFacts(
+          game,
+          login,
+          { isOrgMember: false, isLegacyAcceptedCollaborator: false },
+          callerGithubId,
+        ).isCreator
       ) {
         return {
           ok: false,
@@ -1437,7 +1466,7 @@ export async function handleDeleteGame(
    *  repo, for a game the caller does NOT own. Without it the console's
    *  Deprovision button could only ever delete the admin's own games, which is
    *  not what an ops console is for. */
-  opts: { adminOverride?: boolean } = {},
+  opts: { adminOverride?: boolean; callerGithubId?: string | null } = {},
 ): Promise<{ ok?: boolean; error?: string; code?: LifecycleErrorCode; steps?: Step[] }> {
   const config = STORE_CONFIG;
 
@@ -1467,8 +1496,12 @@ export async function handleDeleteGame(
     }
     if (
       !opts.adminOverride &&
-      !ownershipFacts(game, login, { isOrgMember: false, isLegacyAcceptedCollaborator: false })
-        .isCreator
+      !ownershipFacts(
+        game,
+        login,
+        { isOrgMember: false, isLegacyAcceptedCollaborator: false },
+        opts.callerGithubId,
+      ).isCreator
     ) {
       return {
         ok: false,
