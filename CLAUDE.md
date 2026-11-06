@@ -91,8 +91,10 @@ has Pages Functions rather than a Worker entrypoint.
 `weekly-audit.yml`, `quality.yml`, `fleet-health.yml`, and `prod-smoke.yml` are
 scheduled/CI health jobs, not deploys.
 
-Secrets are set per Worker with `wrangler secret put` and in GitHub Actions —
-never committed. See `SECURITY.md`.
+Secrets are never committed. They are stored SOPS-encrypted in `~/dev/ops` and
+placed on each Worker and in GitHub Actions with `ops put` (read `~/dev/ops/AGENTS.md`
+first); an agent prepares the step and Serge runs it. Don't run `wrangler secret put`
+by hand: the value would exist nowhere in the store. See `SECURITY.md`.
 
 ## Notes
 
@@ -113,7 +115,16 @@ All UI, including games-sdk/console/admin, is React + Tailwind on tokens
 
 ## Delivery mode
 
-**Straight to `main`. No branches, no pull requests.** Declared 2026-08-16.
+**Issue first, then straight to `main`. No pull requests** unless Serge asks for one
+for that specific issue. Declared 2026-08-16, replaced by Serge's rule of 2026-09-25
+(serge-ivo/oc-config#54):
+
+1. No implementation without a filed GitHub issue. Read it and all its comments first.
+2. Commit and push finished work directly to `main`, after fetching and rebasing onto
+   it. Never force-push a shared branch.
+3. `Closes #N` in the commit only when the issue is fully resolved, otherwise `Refs #N`.
+4. Run the tests and typecheck first; stop and ask before anything destructive or
+   credential-sensitive.
 
 ## Production deployment policy
 

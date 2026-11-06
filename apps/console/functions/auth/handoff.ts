@@ -1,10 +1,6 @@
 import { AUTH_ORIGIN, readHandoff } from '../../../../contracts/handoff-delivery/v1/contract';
 import { SESSION_COOKIE } from '../api/_auth';
 
-interface Env {
-  JWT_SECRET?: string;
-}
-
 const AUTH = 'https://auth.freegamestore.online';
 const TARGET = 'https://console.freegamestore.online';
 
@@ -45,4 +41,4 @@ async function complete(request: Request): Promise<Response> {
   return new Response(null, { status: 302, headers });
 }
 
-export const onRequestPost: PagesFunction<Env> = (context) => complete(context.request);
+export const onRequestPost: PagesFunction = (context) => complete(context.request);
