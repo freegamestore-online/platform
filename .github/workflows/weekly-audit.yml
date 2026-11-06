@@ -20,9 +20,9 @@ jobs:
       run:
         working-directory: jobs/auditor
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Checkout platform monorepo for storefront audit data
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: freegamestore-online/platform
           path: jobs/auditor/freegamestore
@@ -31,10 +31,10 @@ jobs:
           sparse-checkout-cone-mode: true
       # No `version:` here on purpose — same fix as e759e8a on packages-ci.yml.
       # The root package.json declares packageManager "pnpm@10.30.3", and
-      # pnpm/action-setup@v4 hard-errors on "Multiple versions of pnpm specified"
+      # pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0 hard-errors on "Multiple versions of pnpm specified"
       # when a pin is also given, failing the job before it installs anything.
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
@@ -47,7 +47,7 @@ jobs:
       - name: Run audit
         run: npx tsx audit.ts --all --output audit-results.json
       - name: Upload results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: audit-results
           path: jobs/auditor/audit-results.json
@@ -60,7 +60,7 @@ jobs:
       contents: write
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Check GH_ADMIN_TOKEN
         run: |
           set -euo pipefail
@@ -73,7 +73,7 @@ jobs:
           GH_ADMIN_TOKEN: ${{ secrets.GH_ADMIN_TOKEN }}
 
       - name: Download audit results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: audit-results
 
