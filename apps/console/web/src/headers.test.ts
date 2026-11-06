@@ -40,13 +40,17 @@ describe('console security headers', () => {
           .digest('base64')}'`,
     );
     expect(inline).toHaveLength(1);
-    expect(directive('script-src')).toBe(`script-src 'self' ${inline.join(' ')}`);
+    expect(directive('script-src')).toBe(
+      `script-src 'self' ${inline.join(' ')} https://static.cloudflareinsights.com`,
+    );
     expect(csp).not.toContain("'unsafe-eval'");
     expect(directive('default-src')).toBe("default-src 'self'");
   });
 
   it('reaches only the platform origins the console calls', () => {
-    expect(directive('connect-src')).toBe("connect-src 'self' https://*.freegamestore.online");
+    expect(directive('connect-src')).toBe(
+      "connect-src 'self' https://*.freegamestore.online https://cloudflareinsights.com",
+    );
     expect(directive('frame-src')).toBe('frame-src https://*.freegamestore.online');
     expect(directive('form-action')).toBe("form-action 'self'");
     expect(directive('base-uri')).toBe("base-uri 'self'");

@@ -2,7 +2,9 @@
 # static files only — the /api/* and /auth/* Functions in _routes.json are
 # unaffected). The CSP is derived from what the console loads (#465):
 #   - script-src: the Vite bundle plus the inline theme boot script in
-#     index.html, pinned by sha256 (src/headers.test.ts recomputes it)
+#     index.html, pinned by sha256 (src/headers.test.ts recomputes it), and
+#     the Cloudflare Web Analytics beacon the zone injects into HTML (it
+#     reports to cloudflareinsights.com)
 #   - style/font-src: own CSS (plus React's dynamic style props) and Google Fonts
 #   - img-src: own assets, game screenshots on *.freegamestore.online, GitHub and
 #     Google account avatars
@@ -11,7 +13,7 @@
 #   - frame-src: the game preview iframe on /create
 # The console holds the creator's session, so nothing may frame it.
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-d/wK5FD0xcSEvCWgt1qHmgWNBnTFjA+mxbm4FFhK0T0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.freegamestore.online https://avatars.githubusercontent.com https://lh3.googleusercontent.com; connect-src 'self' https://*.freegamestore.online; frame-src https://*.freegamestore.online; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-d/wK5FD0xcSEvCWgt1qHmgWNBnTFjA+mxbm4FFhK0T0=' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.freegamestore.online https://avatars.githubusercontent.com https://lh3.googleusercontent.com; connect-src 'self' https://*.freegamestore.online https://cloudflareinsights.com; frame-src https://*.freegamestore.online; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
