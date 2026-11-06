@@ -12,6 +12,7 @@
 
 import type { StoreConfig } from "./config";
 import type { Env } from "./index";
+import { INTERNAL_WIPE_PATH } from "./session-router";
 import { resolveUser } from "./sessions";
 
 export async function handleAccountDelete(
@@ -32,6 +33,7 @@ export async function handleAccountDelete(
     new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...cors } });
 
   if (!env.DB) return json({ error: "database not configured" }, 500);
+  if (!env.INTERNAL_TOKEN) return json({ error: "INTERNAL_TOKEN not configured" }, 500);
 
   const user = await resolveUser(request, env.AUTH);
   if (!user) return json({ error: "unauthorized" }, 401);
@@ -42,21 +44,31 @@ export async function handleAccountDelete(
       .bind(user.id)
       .all<{ session_id: string }>();
 
-    // Delete each session's Durable Object storage
+    // Wipe each session's Durable Object. This used to POST a route that did not
+    // exist and ignore the 401, so the transcripts and files survived "deletion"
+    // (#459). Every wipe is checked; the index rows below are only removed once
+    // all of them succeeded, so a retry still finds the sessions it must wipe.
+    const failed: string[] = [];
     for (const session of sessions || []) {
       try {
-        const doId = env.SESSION.idFromName(session.session_id);
-        const doStub = env.SESSION.get(doId);
-        // Delete all storage in the DO
-        const storageReq = new Request("https://internal/storage/delete-all", {
-          method: "POST",
-          headers: { "X-Internal-Call": "true" },
-        });
-        await doStub.fetch(storageReq);
+        const doStub = env.SESSION.get(env.SESSION.idFromName(session.session_id));
+        const res = await doStub.fetch(
+          new Request(`https://do${INTERNAL_WIPE_PATH}`, {
+            method: "POST",
+            headers: { "X-Internal-Token": env.INTERNAL_TOKEN },
+          }),
+        );
+        if (!res.ok) throw new Error(`DO responded ${res.status}`);
       } catch (e) {
-        console.error(`Failed to clear DO storage for session ${session.session_id}:`, e);
-        // Continue with others; partial deletion is better than rollback
+        console.error(`Failed to wipe DO storage for session ${session.session_id}: ${String(e)}`);
+        failed.push(session.session_id);
       }
+    }
+    if (failed.length > 0) {
+      return json(
+        { ok: false, error: `could not wipe ${failed.length} of ${sessions?.length ?? 0} session(s); retry`, failedSessions: failed },
+        500,
+      );
     }
 
     // Delete the session index rows

@@ -1,118 +1,149 @@
 import { describe, expect, it, vi } from "vitest";
 import { handleAccountDelete } from "./account";
 import type { Env } from "./index";
+import { INTERNAL_WIPE_PATH } from "./session-router";
 
-describe("agent: DELETE /v1/account", () => {
-  async function callDelete(token = "user.token.here") {
-    const mockDB = {
-      prepare: vi.fn().mockReturnValue({
+const INTERNAL_TOKEN = "internal-secret";
+
+/** D1 stub that records every statement and the rows each one was bound with. */
+function mockDb(sessions = ["sess1", "sess2"]) {
+  const statements: string[] = [];
+  const db = {
+    prepare: vi.fn((sql: string) => {
+      statements.push(sql);
+      return {
         bind: vi.fn().mockReturnValue({
-          all: vi.fn().mockResolvedValue({ results: [{ session_id: "sess1" }] }),
+          all: vi.fn().mockResolvedValue({ results: sessions.map((session_id) => ({ session_id })) }),
           run: vi.fn().mockResolvedValue({ success: true }),
           first: vi.fn().mockResolvedValue(null),
         }),
+      };
+    }),
+  };
+  return { db: db as unknown as D1Database, statements };
+}
+
+/** DO namespace stub: `respond` decides each wipe's outcome by session id. */
+function mockSessions(respond: (sessionId: string, req: Request) => Response | Promise<Response>) {
+  const wipes: { sessionId: string; req: Request }[] = [];
+  const ns = {
+    idFromName: vi.fn((name: string) => name),
+    get: vi.fn((sessionId: string) => ({
+      fetch: vi.fn(async (req: Request) => {
+        wipes.push({ sessionId, req });
+        return respond(sessionId, req);
       }),
-    } as unknown as D1Database;
+    })),
+  };
+  return { ns: ns as unknown as DurableObjectNamespace, wipes };
+}
 
-    const mockSession = { fetch: vi.fn().mockResolvedValue(new Response(null, { status: 204 })) };
-    const mockSessionNS = {
-      idFromName: vi.fn().mockReturnValue("do-id"),
-      get: vi.fn().mockReturnValue(mockSession),
-    } as unknown as DurableObjectNamespace;
+const mockAuth = (ok = true) =>
+  ({
+    fetch: vi.fn().mockResolvedValue(
+      ok
+        ? new Response(JSON.stringify({ id: "user123" }), { status: 200 })
+        : new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 }),
+    ),
+  }) as unknown as Fetcher;
 
-    const mockAuth = {
-      fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "user123" }), { status: 200 })),
-    } as unknown as Fetcher;
+function deleteRequest(token = "user.token.here") {
+  return new Request("https://agent.freegamestore.online/v1/account", {
+    method: "DELETE",
+    headers: { "X-FGS-Token": token },
+  });
+}
 
-    const env: Env = {
-      DB: mockDB,
-      SESSION: mockSessionNS,
-      AUTH: mockAuth,
-    } as Env;
+const deletes = (statements: string[]) => statements.filter((sql) => sql.includes("DELETE FROM"));
 
-    const request = new Request("https://agent.freegamestore.online/v1/account", {
-      method: "DELETE",
-      headers: { "X-FGS-Token": token },
-    });
+describe("agent: DELETE /v1/account", () => {
+  it("wipes every session DO through the token-gated internal route, then deletes the D1 rows", async () => {
+    const { db, statements } = mockDb(["sess1", "sess2"]);
+    const { ns, wipes } = mockSessions(() => new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    const env = { DB: db, SESSION: ns, AUTH: mockAuth(), INTERNAL_TOKEN } as unknown as Env;
 
-    const cors = { "Access-Control-Allow-Origin": "*" };
-    const response = await handleAccountDelete(request, env, { domain: "freegamestore.online" } as any, cors);
-    return { response, mockDB, mockAuth, mockSession };
-  }
-
-  it("deletes all user data on successful request", async () => {
-    const { response, mockDB } = await callDelete();
+    const response = await handleAccountDelete(deleteRequest(), env, { domain: "freegamestore.online" } as any, {});
     expect(response?.status).toBe(200);
+    expect(((await response?.json()) as { ok?: boolean }).ok).toBe(true);
 
-    const body = (await response?.json()) as { ok?: boolean };
-    expect(body.ok).toBe(true);
-
-    // Verify the DB prepare was called for each delete operation
-    const calls = mockDB.prepare.mock.calls;
-    const deleteStatements = calls.map((c: any[]) => c[0]).filter((sql: string) => sql.includes("DELETE FROM"));
-    expect(deleteStatements.length).toBeGreaterThan(0);
+    // Both DOs received the real wipe route with the shared secret (#459) —
+    // not the old nonexistent /storage/delete-all with a made-up header.
+    expect(wipes.map((w) => w.sessionId)).toEqual(["sess1", "sess2"]);
+    for (const { req } of wipes) {
+      expect(req.method).toBe("POST");
+      expect(new URL(req.url).pathname).toBe(INTERNAL_WIPE_PATH);
+      expect(req.headers.get("X-Internal-Token")).toBe(INTERNAL_TOKEN);
+    }
+    expect(deletes(statements)).toEqual([
+      expect.stringContaining("agent_sessions"),
+      expect.stringContaining("user_api_keys"),
+      expect.stringContaining("complimentary_grants"),
+      expect.stringContaining("rate_limits"),
+    ]);
   });
 
   it("requires authentication", async () => {
-    const mockDB = { prepare: vi.fn() } as unknown as D1Database;
-    const mockAuth = {
-      fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 })),
-    } as unknown as Fetcher;
-
-    const env: Env = { DB: mockDB, AUTH: mockAuth } as Env;
-
-    const request = new Request("https://agent.freegamestore.online/v1/account", {
-      method: "DELETE",
-      headers: {},
-    });
-
-    const response = await handleAccountDelete(request, env, {} as any, {});
+    const { db } = mockDb();
+    const env = { DB: db, AUTH: mockAuth(false), INTERNAL_TOKEN } as unknown as Env;
+    const response = await handleAccountDelete(deleteRequest(), env, {} as any, {});
     expect(response?.status).toBe(401);
   });
 
-  it("returns 404 for non-DELETE requests", async () => {
-    const mockDB = {} as unknown as D1Database;
-    const env: Env = { DB: mockDB } as Env;
-
-    const request = new Request("https://agent.freegamestore.online/v1/account", {
-      method: "GET",
-    });
-
-    const response = await handleAccountDelete(request, env, {} as any, {});
-    expect(response).toBeNull();
+  it("returns null for non-DELETE requests", async () => {
+    const env = { DB: {} as D1Database } as Env;
+    const request = new Request("https://agent.freegamestore.online/v1/account", { method: "GET" });
+    expect(await handleAccountDelete(request, env, {} as any, {})).toBeNull();
   });
 
-  it("handles DO storage deletion errors gracefully", async () => {
-    const mockDB = {
-      prepare: vi.fn().mockReturnValue({
-        bind: vi.fn().mockReturnValue({
-          all: vi.fn().mockResolvedValue({ results: [{ session_id: "sess1" }] }),
-          run: vi.fn().mockResolvedValue({ success: true }),
-        }),
-      }),
-    } as unknown as D1Database;
+  it("fails loudly when a DO wipe is refused: 500, ok:false, and NO index rows deleted", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const { db, statements } = mockDb(["sess1", "sess2"]);
+      // sess2 answers like the old router did to the old request: 401.
+      const { ns, wipes } = mockSessions((id) =>
+        id === "sess2"
+          ? new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 })
+          : new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+      const env = { DB: db, SESSION: ns, AUTH: mockAuth(), INTERNAL_TOKEN } as unknown as Env;
 
-    const mockSession = {
-      fetch: vi.fn().mockRejectedValue(new Error("DO fetch failed")),
-    };
-    const mockSessionNS = {
-      idFromName: vi.fn().mockReturnValue("do-id"),
-      get: vi.fn().mockReturnValue(mockSession),
-    } as unknown as DurableObjectNamespace;
+      const response = await handleAccountDelete(deleteRequest(), env, {} as any, {});
+      expect(response?.status).toBe(500);
+      const body = (await response?.json()) as { ok?: boolean; failedSessions?: string[] };
+      expect(body.ok).toBe(false);
+      expect(body.failedSessions).toEqual(["sess2"]);
+      expect(wipes).toHaveLength(2); // sess1 still wiped; sess2 reported
+      // The index rows survive so a retry finds sess2 again.
+      expect(deletes(statements)).toEqual([]);
+      expect(error).toHaveBeenCalledWith(expect.stringContaining("sess2"));
+    } finally {
+      error.mockRestore();
+    }
+  });
 
-    const mockAuth = {
-      fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "user123" }), { status: 200 })),
-    } as unknown as Fetcher;
+  it("fails loudly when a DO fetch throws", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const { db, statements } = mockDb(["sess1"]);
+      const { ns } = mockSessions(() => {
+        throw new Error("DO fetch failed");
+      });
+      const env = { DB: db, SESSION: ns, AUTH: mockAuth(), INTERNAL_TOKEN } as unknown as Env;
+      const response = await handleAccountDelete(deleteRequest(), env, {} as any, {});
+      expect(response?.status).toBe(500);
+      expect(deletes(statements)).toEqual([]);
+    } finally {
+      error.mockRestore();
+    }
+  });
 
-    const env: Env = { DB: mockDB, SESSION: mockSessionNS, AUTH: mockAuth } as Env;
-
-    const request = new Request("https://agent.freegamestore.online/v1/account", {
-      method: "DELETE",
-      headers: { "X-FGS-Token": "token" },
-    });
-
-    // Should continue even if DO deletion fails
-    const response = await handleAccountDelete(request, env, {} as any, {});
-    expect(response?.status).toBe(200);
+  it("refuses to run without INTERNAL_TOKEN rather than sending unauthenticated wipes", async () => {
+    const { db, statements } = mockDb(["sess1"]);
+    const { ns, wipes } = mockSessions(() => new Response(null, { status: 200 }));
+    const env = { DB: db, SESSION: ns, AUTH: mockAuth() } as unknown as Env;
+    const response = await handleAccountDelete(deleteRequest(), env, {} as any, {});
+    expect(response?.status).toBe(500);
+    expect(wipes).toEqual([]);
+    expect(deletes(statements)).toEqual([]);
   });
 });

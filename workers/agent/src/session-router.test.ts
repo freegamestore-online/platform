@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { routeSessionRequest, type SessionRouteHandlers } from "./session-router";
+import { INTERNAL_WIPE_PATH, routeSessionRequest, type SessionRouteHandlers } from "./session-router";
 
 function setup() {
   const rows = new Map<string, unknown>();
@@ -12,6 +12,7 @@ function setup() {
     import: vi.fn(async () => new Response("import")),
     reset: vi.fn(async () => new Response("reset")),
     pushSubscribe: vi.fn(async () => new Response("push")),
+    wipe: vi.fn(async () => new Response("wiped")),
   };
   return {
     rows,
@@ -20,9 +21,46 @@ function setup() {
       storage: { get: async (key: string) => rows.get(key), put: async (key: string, value: unknown) => void rows.set(key, value) },
       config: { domain: "freegamestore.online" },
       handlers,
+      internalToken: "internal-secret",
     },
   };
 }
+
+describe("routeSessionRequest — internal wipe (#459)", () => {
+  const wipe = (headers: Record<string, string>, method = "POST") =>
+    new Request(`https://do${INTERNAL_WIPE_PATH}`, { method, headers });
+
+  it("wipes with the shared secret and no session owner, without claiming the session", async () => {
+    const { deps, handlers, rows } = setup();
+    const res = await routeSessionRequest(wipe({ "X-Internal-Token": "internal-secret" }), deps);
+    expect(res.status).toBe(200);
+    expect(handlers.wipe).toHaveBeenCalledOnce();
+    expect(rows.has("owner")).toBe(false);
+  });
+
+  it("refuses a missing, wrong, or non-POST token presentation", async () => {
+    const { deps, handlers } = setup();
+    for (const req of [
+      wipe({}),
+      wipe({ "X-Internal-Token": "wrong" }),
+      wipe({ "X-Internal-Token": "internal-secret" }, "GET"),
+      // The old account handler's request: no token, a made-up header.
+      wipe({ "X-Internal-Call": "true" }),
+      // A session owner is not enough: this is not a user route.
+      wipe({ "X-Auth-User": "alice" }),
+    ]) {
+      expect((await routeSessionRequest(req, deps)).status, req.method).toBe(401);
+    }
+    expect(handlers.wipe).not.toHaveBeenCalled();
+  });
+
+  it("is closed when no INTERNAL_TOKEN is configured", async () => {
+    const { deps, handlers } = setup();
+    const res = await routeSessionRequest(wipe({ "X-Internal-Token": "" }), { ...deps, internalToken: undefined });
+    expect(res.status).toBe(401);
+    expect(handlers.wipe).not.toHaveBeenCalled();
+  });
+});
 
 describe("routeSessionRequest", () => {
   it("preserves TOFU authorization before dispatching a route", async () => {

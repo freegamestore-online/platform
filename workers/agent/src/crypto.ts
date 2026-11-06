@@ -17,6 +17,15 @@
  *   wrangler secret put AI_KEYS_KEK        (paste `openssl rand -base64 32`)
  */
 
+/** Length-checked constant-time string compare (avoids leaking a secret via
+ *  early-exit timing). Length difference is not itself secret. */
+export function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 export interface SealedSecret {
   /** AES-256-GCM ciphertext of the API key (includes the auth tag). */
   keyCiphertext: Uint8Array;

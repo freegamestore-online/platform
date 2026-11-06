@@ -11,6 +11,7 @@
 
 import { DEFAULT_MODELS } from "@freegamestore/contracts";
 import { getConfig } from "./config";
+import { timingSafeEqual } from "./crypto";
 import type { Env } from "./index";
 import { COMP_PROVIDERS, compKeyFor, grantComp, listComp, revokeComp } from "./keygrants";
 import { deleteUserKey, isValidProvider, saveUserKey } from "./keys";
@@ -332,15 +333,6 @@ export async function handleAdminCompApi(
   }
 
   return json({ error: "not found" }, 404);
-}
-
-/** Length-checked constant-time string compare (avoids leaking the secret via
- *  early-exit timing). Length difference is not itself secret. */
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
 }
 
 /** Map a GitHub login → the `github:<numericId>` vault key format. */

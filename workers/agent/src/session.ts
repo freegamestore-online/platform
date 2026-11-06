@@ -277,6 +277,7 @@ export class AgentSession implements DurableObject {
     return routeSessionRequest(request, {
       storage: this.state.storage,
       config: this.config,
+      internalToken: this.env.INTERNAL_TOKEN,
       handlers: {
         chat: (req) => this.handleChat(req),
         status: (req) => this.handleStatus(req),
@@ -286,8 +287,29 @@ export class AgentSession implements DurableObject {
         import: (req) => this.handleImport(req),
         reset: (req) => this.handleReset(req),
         pushSubscribe: (req) => this.handlePushSubscribe(req),
+        wipe: (req) => this.handleWipe(req),
       },
     });
+  }
+
+  /** POST /internal/delete-all — account deletion (#459): drop EVERYTHING this
+   *  DO holds (session, files, owner binding, push subscription, pending turn,
+   *  alarm). Refused while a turn is streaming, like reset: the in-flight turn
+   *  would persist the old session straight back. The caller treats a non-2xx
+   *  as a failed deletion and retries. */
+  private async handleWipe(request: Request): Promise<Response> {
+    const busy = () => json({ error: "A build is in progress — retry after it finishes." }, 409, request, this.config.domain);
+    if (this.chatInProgress && !(await this.breakStaleLock())) return busy();
+    const lock = this.claimMutationLock();
+    if (lock === null) return busy();
+    try {
+      await this.state.storage.deleteAlarm();
+      await this.state.storage.deleteAll();
+      this.session = null;
+      return json({ ok: true }, 200, request, this.config.domain);
+    } finally {
+      this.releaseMutationLock(lock);
+    }
   }
 
   /** Resolve the effective AIConfig for a turn: explicit key (MCP BYO) →

@@ -5,6 +5,7 @@
  */
 import { corsHeaders as sharedCorsHeaders } from "@freegamestore/contracts";
 import type { StoreConfig } from "./config";
+import { timingSafeEqual } from "./crypto";
 
 export interface SessionRouteHandlers {
   chat(request: Request): Promise<Response>;
@@ -15,13 +16,21 @@ export interface SessionRouteHandlers {
   import(request: Request): Promise<Response>;
   reset(request: Request): Promise<Response>;
   pushSubscribe(request: Request): Promise<Response>;
+  /** Worker-internal: wipe this session's storage outright (account deletion, #459). */
+  wipe(request: Request): Promise<Response>;
 }
 
 export interface SessionRouterDeps {
   storage: Pick<DurableObjectStorage, "get" | "put">;
   config: Pick<StoreConfig, "domain">;
   handlers: SessionRouteHandlers;
+  /** Shared INTERNAL_TOKEN secret gating the internal wipe route. The route is
+   *  unreachable from the public edge (index.ts only forwards the user routes),
+   *  so this is defense in depth; unset means the route is closed. */
+  internalToken?: string;
 }
+
+export const INTERNAL_WIPE_PATH = "/internal/delete-all";
 
 export const corsHeaders = sharedCorsHeaders;
 
@@ -39,6 +48,16 @@ export async function routeSessionRequest(request: Request, deps: SessionRouterD
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(request, config.domain) });
 
   try {
+    // Internal wipe: authenticated by the shared secret, not by a session owner —
+    // the caller is the worker's account-deletion handler, which has no user
+    // header to present. Checked before TOFU so it can never claim ownership.
+    if (path === INTERNAL_WIPE_PATH) {
+      const token = request.headers.get("X-Internal-Token") ?? "";
+      const ok = request.method === "POST" && !!deps.internalToken && timingSafeEqual(token, deps.internalToken);
+      if (!ok) return jsonResponse({ error: "unauthorized" }, 401, request, config.domain);
+      return await handlers.wipe(request);
+    }
+
     const caller = request.headers.get("X-Auth-User");
     if (!caller) return jsonResponse({ error: "unauthorized" }, 401, request, config.domain);
 
