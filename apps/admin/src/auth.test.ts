@@ -11,7 +11,16 @@ describe('admin session tokens', () => {
   it('mint → verify returns the original login', async () => {
     const token = await mintSessionToken('serge-the-dev', KEY);
     expect(token.split('.')).toHaveLength(3);
-    expect(await verifySession(token, KEY)).toBe('serge-the-dev');
+    expect(await verifySession(token, KEY)).toEqual({ login: 'serge-the-dev', githubId: null });
+  });
+
+  // #472: the session carries the numeric GitHub id so ownership can match on it.
+  it('mint → verify round-trips the GitHub id', async () => {
+    const token = await mintSessionToken('serge-the-dev', KEY, '2824906');
+    expect(await verifySession(token, KEY)).toEqual({
+      login: 'serge-the-dev',
+      githubId: '2824906',
+    });
   });
 
   it('rejects a token signed with a different key', async () => {
@@ -106,12 +115,17 @@ describe('handleAuthExchange (#458)', () => {
   }
 
   it('mints an admin session for the login the auth worker verified', async () => {
-    const { env: e, AUTH } = env(200, { token: 'fgs.jwt.here', login: 'octocat' });
+    // The FGS JWT auth minted carries sub github:<id> (#472).
+    const fgsJwt = `h.${btoa(JSON.stringify({ sub: 'github:583231', login: 'octocat' })).replace(/=+$/, '')}.s`;
+    const { env: e, AUTH } = env(200, { token: fgsJwt, login: 'octocat' });
     const res = await handleAuthExchange(exchange(), e);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { sessionToken: string; login: string };
     expect(body.login).toBe('octocat');
-    expect(await verifySession(body.sessionToken, KEY)).toBe('octocat');
+    expect(await verifySession(body.sessionToken, KEY)).toEqual({
+      login: 'octocat',
+      githubId: '583231',
+    });
     // The user's token went to auth's exchange as the bearer, over the binding.
     expect(AUTH.fetch).toHaveBeenCalledTimes(1);
     const [url, init] = AUTH.fetch.mock.calls[0] as unknown as [string, RequestInit];

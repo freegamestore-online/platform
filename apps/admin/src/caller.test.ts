@@ -41,7 +41,14 @@ describe('resolveCaller — creator identity (#472)', () => {
     }
   });
 
-  it('an admin-minted CLI session carries only the login', async () => {
+  it('an admin-minted CLI session carries the GitHub id it was minted with', async () => {
+    const bearer = await mintSessionToken('serge', 'signing-key', '2824906');
+    const caller = await resolveCaller(request({ Authorization: `Bearer ${bearer}` }), env());
+    expect(caller.login).toBe('serge');
+    expect(caller.githubId).toBe('2824906');
+  });
+
+  it('a CLI session minted before #472 (no gid) falls back to the login', async () => {
     const bearer = await mintSessionToken('serge', 'signing-key');
     const caller = await resolveCaller(request({ Authorization: `Bearer ${bearer}` }), env());
     expect(caller.login).toBe('serge');

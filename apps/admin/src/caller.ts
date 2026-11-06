@@ -69,11 +69,11 @@ export async function authenticateLogin(
   const auth = request.headers.get('Authorization') ?? '';
   const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
 
-  // 1. Admin-minted session token (CLI). Login only: ownership checks fall
-  //    back to the login match for this credential (#472).
+  // 1. Admin-minted session token (CLI). Carries the GitHub id once minted
+  //    after #472; older tokens fall back to the login match.
   if (bearer) {
-    const login = await verifySession(bearer, env.SESSION_SIGNING_KEY);
-    if (login) return { login, githubId: null };
+    const session = await verifySession(bearer, env.SESSION_SIGNING_KEY);
+    if (session) return session;
   }
 
   // 2. fgs_token — via X-FGS-Token (MCP, worker-to-worker), cookie (console),

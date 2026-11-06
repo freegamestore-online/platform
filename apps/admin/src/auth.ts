@@ -4,6 +4,8 @@
 // dependency on FAS's signing key (per the admin-worker-per-store
 // principle). `fgs login` exchanges a GitHub token for a session here.
 
+import { githubIdFromSub } from '../../../contracts/registry-ownership/v1/contract';
+
 // Per-IP, in-memory (per isolate) limit on exchanges: each one is a GitHub
 // introspection, and this is the one place a stolen GitHub token can be tried.
 const EXCHANGE_RATE_LIMIT = 10;
@@ -35,23 +37,47 @@ function exchangeRateLimited(request: Request): boolean {
 async function verifyGithubToken(
   token: string,
   auth: Fetcher,
-): Promise<{ status: number; login?: string }> {
+): Promise<{ status: number; login?: string; githubId?: string | null }> {
   const res = await auth.fetch('https://auth.freegamestore.online/token/github', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   });
   if (res.status !== 200) return { status: res.status };
-  const body = (await res.json().catch(() => null)) as { login?: unknown } | null;
+  const body = (await res.json().catch(() => null)) as { login?: unknown; token?: unknown } | null;
   if (typeof body?.login !== 'string' || !body.login) return { status: 502 };
-  return { status: 200, login: body.login };
+  return { status: 200, login: body.login, githubId: githubIdFromJwt(body.token) };
 }
 
-export async function mintSessionToken(login: string, signingKey: string): Promise<string> {
+/** The numeric GitHub id in the `sub` (`github:<id>`) of the FGS JWT the auth
+ *  worker just minted for this user. Read, not verified: it arrived over the
+ *  AUTH service binding, in the same answer as the login we already trust. */
+function githubIdFromJwt(jwt: unknown): string | null {
+  try {
+    const part = typeof jwt === 'string' ? jwt.split('.')[1] : undefined;
+    if (!part) return null;
+    const payload = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/'))) as {
+      sub?: unknown;
+    };
+    return githubIdFromSub(payload.sub);
+  } catch {
+    return null;
+  }
+}
+
+/** Admin session token. `sub` is the login; `gid` the numeric GitHub id when
+ *  known, so ownership checks can match on the id rather than the mutable,
+ *  re-assignable login (#472). */
+export async function mintSessionToken(
+  login: string,
+  signingKey: string,
+  githubId: string | null = null,
+): Promise<string> {
   // Fail closed: an unset/empty key would make TextEncoder.encode() hash the
   // literal "undefined" — a known, forgeable HMAC key anyone could mint with.
   if (!signingKey) throw new Error('SESSION_SIGNING_KEY is not configured');
   const payload = {
     sub: login,
+    ...(githubId ? { gid: githubId } : {}),
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30 days
     iss: 'freegamestore',
@@ -71,7 +97,10 @@ export async function mintSessionToken(login: string, signingKey: string): Promi
   return `${header}.${body}.${sigB64}`;
 }
 
-export async function verifySession(token: string, signingKey: string): Promise<string | null> {
+export async function verifySession(
+  token: string,
+  signingKey: string,
+): Promise<{ login: string; githubId: string | null } | null> {
   try {
     // Fail closed if the key is missing — never verify against a "undefined" key.
     if (!signingKey) return null;
@@ -93,9 +122,12 @@ export async function verifySession(token: string, signingKey: string): Promise<
       encoder.encode(`${parts[0]}.${parts[1]}`),
     );
     if (!valid) return null;
-    const payload = JSON.parse(atob(parts[1]!)) as { sub: string; exp: number };
+    const payload = JSON.parse(atob(parts[1]!)) as { sub: string; gid?: unknown; exp: number };
     if (typeof payload.exp !== 'number' || payload.exp < Math.floor(Date.now() / 1000)) return null;
-    return payload.sub;
+    // Tokens minted before #472 carry no gid: ownership falls back to the login.
+    const githubId =
+      typeof payload.gid === 'string' && /^\d+$/.test(payload.gid) ? payload.gid : null;
+    return { login: payload.sub, githubId };
   } catch {
     return null;
   }
@@ -140,7 +172,11 @@ export async function handleAuthExchange(
         : `token exchange unavailable (${verdict.status})`;
     return new Response(JSON.stringify({ error }), { status, headers: JSON_HEADERS });
   }
-  const sessionToken = await mintSessionToken(verdict.login, env.SESSION_SIGNING_KEY);
+  const sessionToken = await mintSessionToken(
+    verdict.login,
+    env.SESSION_SIGNING_KEY,
+    verdict.githubId,
+  );
   return new Response(JSON.stringify({ sessionToken, login: verdict.login }), {
     headers: JSON_HEADERS,
   });
@@ -157,7 +193,7 @@ export async function handleAuthMe(
       headers: JSON_HEADERS,
     });
   }
-  const login = await verifySession(authHeader.slice(7), env.SESSION_SIGNING_KEY);
+  const login = (await verifySession(authHeader.slice(7), env.SESSION_SIGNING_KEY))?.login;
   if (!login) {
     return new Response(JSON.stringify({ error: 'invalid or expired session' }), {
       status: 401,
