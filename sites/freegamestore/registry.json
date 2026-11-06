@@ -29,7 +29,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "asteroids",
@@ -55,7 +56,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "billiards",
@@ -71,7 +73,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T03:05:32Z"
+      "lastUpdated": "2026-11-05T03:05:32Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "blackjack",
@@ -87,7 +90,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T03:02:07Z"
+      "lastUpdated": "2026-11-05T03:02:07Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "bowling",
@@ -113,7 +117,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "breakout",
@@ -139,7 +144,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "bubbleshooter",
@@ -155,7 +161,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T03:00:48Z"
+      "lastUpdated": "2026-11-05T03:00:48Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "checkers",
@@ -181,7 +188,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "chess",
@@ -207,7 +215,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "coinflip",
@@ -223,7 +232,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T03:14:04Z"
+      "lastUpdated": "2026-11-05T03:14:04Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "connect4",
@@ -249,7 +259,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "dice",
@@ -265,7 +276,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T03:17:11Z"
+      "lastUpdated": "2026-11-05T03:17:11Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "dragontap",
@@ -281,7 +293,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T20:36:00Z"
+      "lastUpdated": "2026-11-05T20:36:00Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "flappy",
@@ -307,7 +320,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "frogger",
@@ -333,7 +347,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "hangman",
@@ -359,7 +374,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "highlow",
@@ -375,7 +391,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T03:10:05Z"
+      "lastUpdated": "2026-11-05T03:10:05Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "mahjong",
@@ -401,7 +418,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "match3",
@@ -427,7 +445,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "memory",
@@ -453,7 +472,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "memorymatch",
@@ -469,7 +489,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T04:23:21Z"
+      "lastUpdated": "2026-11-05T04:23:21Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "minesweeper",
@@ -495,7 +516,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "musicbot",
@@ -511,7 +533,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T04:17:29Z"
+      "lastUpdated": "2026-11-05T04:17:29Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "pacman",
@@ -537,7 +560,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "pinball",
@@ -553,7 +577,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T04:37:29Z"
+      "lastUpdated": "2026-11-05T04:37:29Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "pixelcode",
@@ -569,7 +594,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T04:35:38Z"
+      "lastUpdated": "2026-11-05T04:35:38Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "platformer",
@@ -595,7 +621,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "pong",
@@ -621,7 +648,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "puzzle",
@@ -647,7 +675,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "quickdice",
@@ -663,7 +692,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T20:37:06Z"
+      "lastUpdated": "2026-11-05T20:37:06Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "racing",
@@ -689,7 +719,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "reversi",
@@ -705,7 +736,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T03:12:19Z"
+      "lastUpdated": "2026-11-05T03:12:19Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "riichi",
@@ -721,7 +753,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-10-05T07:02:50Z"
+      "lastUpdated": "2026-10-05T07:02:50Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "roboclean",
@@ -737,7 +770,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T04:40:06Z"
+      "lastUpdated": "2026-11-05T04:40:06Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "simon",
@@ -763,7 +797,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "slither",
@@ -789,7 +824,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "snake",
@@ -815,7 +851,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "solitaire",
@@ -841,7 +878,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "spaceinvaders",
@@ -857,7 +895,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T04:41:07Z"
+      "lastUpdated": "2026-11-05T04:41:07Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "spaceshooter",
@@ -883,7 +922,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "sudoku",
@@ -909,7 +949,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "tanks",
@@ -925,7 +966,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T04:28:54Z"
+      "lastUpdated": "2026-11-05T04:28:54Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "tetris",
@@ -951,7 +993,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "tictactoe",
@@ -967,7 +1010,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-10-05T06:17:54Z"
+      "lastUpdated": "2026-10-05T06:17:54Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "toetap",
@@ -983,7 +1027,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T20:37:31Z"
+      "lastUpdated": "2026-11-05T20:37:31Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "turtlecode",
@@ -999,7 +1044,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T04:30:48Z"
+      "lastUpdated": "2026-11-05T04:30:48Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "war",
@@ -1015,7 +1061,8 @@
       "developer": "serge-ivo",
       "hostedOn": "r2",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T03:06:07Z"
+      "lastUpdated": "2026-11-05T03:06:07Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "whackamole",
@@ -1041,7 +1088,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "wordle",
@@ -1067,7 +1115,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "wordsearch",
@@ -1093,7 +1142,8 @@
         }
       ],
       "hostedOn": "r2",
-      "creatorGithub": "serge-ivo"
+      "creatorGithub": "serge-ivo",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "uno",
@@ -1108,7 +1158,8 @@
       "type": "standalone",
       "developer": "dawsonhuang0",
       "creatorGithub": "dawsonhuang0",
-      "lastUpdated": "2026-11-05T20:37:35Z"
+      "lastUpdated": "2026-11-05T20:37:35Z",
+      "creatorGithubId": "180063675"
     },
     {
       "id": "mcp-hybrid-test",
@@ -1123,7 +1174,8 @@
       "type": "standalone",
       "developer": "serge-ivo",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T20:36:32Z"
+      "lastUpdated": "2026-11-05T20:36:32Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "blockudoku",
@@ -1138,7 +1190,8 @@
       "type": "standalone",
       "developer": "serge-ivo",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T20:35:27Z"
+      "lastUpdated": "2026-11-05T20:35:27Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "maze-racer",
@@ -1153,7 +1206,8 @@
       "type": "standalone",
       "developer": "serge-ivo",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T03:17:57Z"
+      "lastUpdated": "2026-11-05T03:17:57Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "wordguess",
@@ -1168,7 +1222,8 @@
       "type": "standalone",
       "developer": "kirantikoo",
       "creatorGithub": "kirantikoo",
-      "lastUpdated": "2026-11-05T20:37:36Z"
+      "lastUpdated": "2026-11-05T20:37:36Z",
+      "creatorGithubId": "195621646"
     },
     {
       "id": "color-match",
@@ -1183,7 +1238,8 @@
       "type": "standalone",
       "developer": "serge-ivo",
       "creatorGithub": "serge-ivo",
-      "lastUpdated": "2026-11-05T20:35:41Z"
+      "lastUpdated": "2026-11-05T20:35:41Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "fireboyandwatergirl",
@@ -1198,7 +1254,8 @@
       "type": "standalone",
       "developer": "Advika123456",
       "creatorGithub": "Advika123456",
-      "lastUpdated": "2026-11-05T20:36:04Z"
+      "lastUpdated": "2026-11-05T20:36:04Z",
+      "creatorGithubId": "130810021"
     },
     {
       "id": "nail-studio",
@@ -1214,7 +1271,8 @@
       "developer": "serge-the-dev",
       "creatorGithub": "serge-the-dev",
       "firstPublished": "2026-07-03T05:32:14.615Z",
-      "lastUpdated": "2026-11-05T21:13:09Z"
+      "lastUpdated": "2026-11-05T21:13:09Z",
+      "creatorGithubId": "298595113"
     },
     {
       "id": "ts-probe",
@@ -1230,7 +1288,8 @@
       "developer": "serge-ivo",
       "creatorGithub": "serge-ivo",
       "firstPublished": "2026-07-03T06:24:22.295Z",
-      "lastUpdated": "2026-11-05T20:37:34Z"
+      "lastUpdated": "2026-11-05T20:37:34Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "apple-picking",
@@ -1246,7 +1305,8 @@
       "developer": "serge-the-dev",
       "creatorGithub": "serge-the-dev",
       "firstPublished": "2026-07-03T13:38:29.205Z",
-      "lastUpdated": "2026-11-05T21:14:11Z"
+      "lastUpdated": "2026-11-05T21:14:11Z",
+      "creatorGithubId": "298595113"
     },
     {
       "id": "kart-racers",
@@ -1262,7 +1322,8 @@
       "developer": "serge-the-dev",
       "creatorGithub": "serge-the-dev",
       "firstPublished": "2026-07-03T13:44:38.591Z",
-      "lastUpdated": "2026-11-05T21:07:56Z"
+      "lastUpdated": "2026-11-05T21:07:56Z",
+      "creatorGithubId": "298595113"
     },
     {
       "id": "mcp-proof",
@@ -1278,7 +1339,8 @@
       "developer": "serge-ivo",
       "creatorGithub": "serge-ivo",
       "firstPublished": "2026-07-03T13:56:38.100Z",
-      "lastUpdated": "2026-11-05T20:36:33Z"
+      "lastUpdated": "2026-11-05T20:36:33Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "slicing-game",
@@ -1294,7 +1356,8 @@
       "developer": "buildlessonline-spec",
       "creatorGithub": "buildlessonline-spec",
       "firstPublished": "2026-07-03T23:12:05.206Z",
-      "lastUpdated": "2026-11-05T21:09:04Z"
+      "lastUpdated": "2026-11-05T21:09:04Z",
+      "creatorGithubId": "283377337"
     },
     {
       "id": "bladeblast",
@@ -1311,7 +1374,8 @@
       "creatorGithub": "BUDDY-KIWI-BERRY",
       "firstPublished": "2026-07-04T03:09:09.928Z",
       "updatedAt": "2026-07-04T03:28:30.618Z",
-      "lastUpdated": "2026-11-05T21:14:32Z"
+      "lastUpdated": "2026-11-05T21:14:32Z",
+      "creatorGithubId": "297873086"
     },
     {
       "id": "decaying-tic-tac-toe",
@@ -1327,7 +1391,8 @@
       "developer": "abid8195",
       "creatorGithub": "abid8195",
       "firstPublished": "2026-07-04T03:40:57.632Z",
-      "lastUpdated": "2026-11-05T21:09:30Z"
+      "lastUpdated": "2026-11-05T21:09:30Z",
+      "creatorGithubId": "116783337"
     },
     {
       "id": "beat-star",
@@ -1343,7 +1408,8 @@
       "developer": "buildlessonline-spec",
       "creatorGithub": "buildlessonline-spec",
       "firstPublished": "2026-07-04T03:50:01.615Z",
-      "lastUpdated": "2026-11-05T21:52:34Z"
+      "lastUpdated": "2026-11-05T21:52:34Z",
+      "creatorGithubId": "283377337"
     },
     {
       "id": "frofrogjumping",
@@ -1359,7 +1425,8 @@
       "developer": "buildlessonline-spec",
       "creatorGithub": "buildlessonline-spec",
       "firstPublished": "2026-07-04T04:39:21.570Z",
-      "lastUpdated": "2026-11-05T21:14:23Z"
+      "lastUpdated": "2026-11-05T21:14:23Z",
+      "creatorGithubId": "283377337"
     },
     {
       "id": "angrry",
@@ -1375,7 +1442,8 @@
       "developer": "buildlessonline-spec",
       "creatorGithub": "buildlessonline-spec",
       "firstPublished": "2026-07-05T00:31:56.182Z",
-      "lastUpdated": "2026-11-05T20:56:40Z"
+      "lastUpdated": "2026-11-05T20:56:40Z",
+      "creatorGithubId": "283377337"
     },
     {
       "id": "sliceit",
@@ -1391,7 +1459,8 @@
       "developer": "BUDDY-KIWI-BERRY",
       "creatorGithub": "BUDDY-KIWI-BERRY",
       "firstPublished": "2026-07-05T01:30:21.956Z",
-      "lastUpdated": "2026-11-05T21:21:39Z"
+      "lastUpdated": "2026-11-05T21:21:39Z",
+      "creatorGithubId": "297873086"
     },
     {
       "id": "climberadventure",
@@ -1407,7 +1476,8 @@
       "developer": "PATRICIA-AU",
       "creatorGithub": "PATRICIA-AU",
       "firstPublished": "2026-07-05T01:52:48.184Z",
-      "lastUpdated": "2026-11-05T20:35:39Z"
+      "lastUpdated": "2026-11-05T20:35:39Z",
+      "creatorGithubId": "299976953"
     },
     {
       "id": "flappyslaybird",
@@ -1424,7 +1494,8 @@
       "creatorGithub": "Pumpkin12345678910",
       "firstPublished": "2026-07-05T01:56:01.014Z",
       "updatedAt": "2026-07-05T01:56:46.414Z",
-      "lastUpdated": "2026-11-05T20:36:15Z"
+      "lastUpdated": "2026-11-05T20:36:15Z",
+      "creatorGithubId": "299975127"
     },
     {
       "id": "ocean-save",
@@ -1440,7 +1511,8 @@
       "developer": "buildlessonline-spec",
       "creatorGithub": "buildlessonline-spec",
       "firstPublished": "2026-07-05T02:12:33.855Z",
-      "lastUpdated": "2026-11-05T21:08:52Z"
+      "lastUpdated": "2026-11-05T21:08:52Z",
+      "creatorGithubId": "283377337"
     },
     {
       "id": "bouncingball",
@@ -1457,7 +1529,8 @@
       "creatorGithub": "SBDing",
       "firstPublished": "2026-07-05T02:26:24.829Z",
       "updatedAt": "2026-07-05T02:27:44.808Z",
-      "lastUpdated": "2026-11-05T20:35:30Z"
+      "lastUpdated": "2026-11-05T20:35:30Z",
+      "creatorGithubId": "299975406"
     },
     {
       "id": "pixeljump",
@@ -1473,7 +1546,8 @@
       "developer": "Crystal12341",
       "creatorGithub": "Crystal12341",
       "firstPublished": "2026-07-05T02:41:18.176Z",
-      "lastUpdated": "2026-11-05T21:52:48Z"
+      "lastUpdated": "2026-11-05T21:52:48Z",
+      "creatorGithubId": "299980342"
     },
     {
       "id": "cat-clicker",
@@ -1490,7 +1564,8 @@
       "creatorGithub": "imhappyamber-design",
       "engine": "kaplay",
       "firstPublished": "2026-07-11T04:25:17.948Z",
-      "lastUpdated": "2026-11-05T20:35:36Z"
+      "lastUpdated": "2026-11-05T20:35:36Z",
+      "creatorGithubId": "302363899"
     },
     {
       "id": "snake-io",
@@ -1507,7 +1582,8 @@
       "creatorGithub": "PATRICIA-AU",
       "engine": "kaplay",
       "firstPublished": "2026-07-11T04:47:42.967Z",
-      "lastUpdated": "2026-11-05T20:37:19Z"
+      "lastUpdated": "2026-11-05T20:37:19Z",
+      "creatorGithubId": "299976953"
     },
     {
       "id": "the-cycle-of-life",
@@ -1525,7 +1601,8 @@
       "engine": "kaplay",
       "firstPublished": "2026-07-11T05:25:15.846Z",
       "updatedAt": "2026-07-11T05:25:58.014Z",
-      "lastUpdated": "2026-11-05T21:22:17Z"
+      "lastUpdated": "2026-11-05T21:22:17Z",
+      "creatorGithubId": "299975127"
     },
     {
       "id": "monster-attack",
@@ -1542,7 +1619,8 @@
       "creatorGithub": "SBDing",
       "engine": "grid",
       "firstPublished": "2026-07-11T05:37:25.739Z",
-      "lastUpdated": "2026-11-05T20:36:40Z"
+      "lastUpdated": "2026-11-05T20:36:40Z",
+      "creatorGithubId": "299975406"
     },
     {
       "id": "escape",
@@ -1558,7 +1636,8 @@
       "developer": "Crystal12341",
       "creatorGithub": "Crystal12341",
       "firstPublished": "2026-07-11T07:06:41.941Z",
-      "lastUpdated": "2026-07-05T02:20:43Z"
+      "lastUpdated": "2026-07-05T02:20:43Z",
+      "creatorGithubId": "299980342"
     },
     {
       "id": "orb-cascade",
@@ -1575,7 +1654,8 @@
       "creatorGithub": "serge-ivo",
       "engine": "pixi",
       "firstPublished": "2026-07-11T16:26:29.716Z",
-      "lastUpdated": "2026-11-05T04:57:49Z"
+      "lastUpdated": "2026-11-05T04:57:49Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "crystal-orbit",
@@ -1592,7 +1672,8 @@
       "creatorGithub": "serge-ivo",
       "engine": "babylon",
       "firstPublished": "2026-07-11T16:27:38.174Z",
-      "lastUpdated": "2026-11-05T04:47:30Z"
+      "lastUpdated": "2026-11-05T04:47:30Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "glow-match",
@@ -1609,7 +1690,8 @@
       "creatorGithub": "serge-ivo",
       "engine": "grid",
       "firstPublished": "2026-07-11T16:29:34.679Z",
-      "lastUpdated": "2026-11-05T20:36:22Z"
+      "lastUpdated": "2026-11-05T20:36:22Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "royal-heist",
@@ -1626,7 +1708,8 @@
       "creatorGithub": "serge-ivo",
       "engine": "cards",
       "firstPublished": "2026-07-11T16:29:51.243Z",
-      "lastUpdated": "2026-11-05T20:37:10Z"
+      "lastUpdated": "2026-11-05T20:37:10Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "neon-runner",
@@ -1643,7 +1726,8 @@
       "creatorGithub": "serge-ivo",
       "engine": "phaser",
       "firstPublished": "2026-07-12T00:48:04.616Z",
-      "lastUpdated": "2026-11-05T21:23:39Z"
+      "lastUpdated": "2026-11-05T21:23:39Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "star-dodger",
@@ -1660,7 +1744,8 @@
       "creatorGithub": "serge-ivo",
       "engine": "excalibur",
       "firstPublished": "2026-07-12T05:40:46.151Z",
-      "lastUpdated": "2026-11-01T11:10:41Z"
+      "lastUpdated": "2026-11-01T11:10:41Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "brick-blast",
@@ -1677,7 +1762,8 @@
       "creatorGithub": "serge-ivo",
       "engine": "littlejs",
       "firstPublished": "2026-07-12T05:49:50.890Z",
-      "lastUpdated": "2026-11-05T04:21:01Z"
+      "lastUpdated": "2026-11-05T04:21:01Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "minigolf",
@@ -1693,7 +1779,8 @@
       "developer": "Sanjiv19",
       "creatorGithub": "Sanjiv19",
       "firstPublished": "2026-07-15T17:26:54.618Z",
-      "lastUpdated": "2026-11-05T20:36:37Z"
+      "lastUpdated": "2026-11-05T20:36:37Z",
+      "creatorGithubId": "62422451"
     },
     {
       "id": "angry-birds3",
@@ -1710,7 +1797,8 @@
       "creatorGithub": "buildlessonline-spec",
       "engine": "pixi",
       "firstPublished": "2026-07-17T07:07:25.694Z",
-      "lastUpdated": "2026-11-01T10:53:17Z"
+      "lastUpdated": "2026-11-01T10:53:17Z",
+      "creatorGithubId": "283377337"
     },
     {
       "id": "cart",
@@ -1727,7 +1815,8 @@
       "creatorGithub": "buildlessonline-spec",
       "engine": "babylon",
       "firstPublished": "2026-07-19T03:59:15.065Z",
-      "lastUpdated": "2026-11-01T11:07:20Z"
+      "lastUpdated": "2026-11-01T11:07:20Z",
+      "creatorGithubId": "283377337"
     },
     {
       "id": "fish-life",
@@ -1744,7 +1833,8 @@
       "creatorGithub": "PATRICIA-AU",
       "engine": "kaplay",
       "firstPublished": "2026-07-19T04:35:45.195Z",
-      "lastUpdated": "2026-11-05T21:24:53Z"
+      "lastUpdated": "2026-11-05T21:24:53Z",
+      "creatorGithubId": "299976953"
     },
     {
       "id": "stack-pack",
@@ -1761,7 +1851,8 @@
       "creatorGithub": "ElliT-coder",
       "engine": "kaplay",
       "firstPublished": "2026-07-19T04:37:32.349Z",
-      "lastUpdated": "2026-11-05T21:26:38Z"
+      "lastUpdated": "2026-11-05T21:26:38Z",
+      "creatorGithubId": "306669992"
     },
     {
       "id": "digicritter",
@@ -1778,7 +1869,8 @@
       "creatorGithub": "EnaKat-hairballs",
       "engine": "phaser",
       "firstPublished": "2026-07-19T04:50:21.285Z",
-      "lastUpdated": "2026-11-05T20:35:53Z"
+      "lastUpdated": "2026-11-05T20:35:53Z",
+      "creatorGithubId": "306671693"
     },
     {
       "id": "crossy-school",
@@ -1795,7 +1887,8 @@
       "creatorGithub": "thatonenerdykidinclass",
       "engine": "kaplay",
       "firstPublished": "2026-07-19T04:51:07.698Z",
-      "lastUpdated": "2026-11-05T20:35:47Z"
+      "lastUpdated": "2026-11-05T20:35:47Z",
+      "creatorGithubId": "306672883"
     },
     {
       "id": "good-pizza-great-pizza",
@@ -1812,7 +1905,8 @@
       "creatorGithub": "kaitlyn531",
       "engine": "kaplay",
       "firstPublished": "2026-07-19T04:54:50.920Z",
-      "lastUpdated": "2026-11-05T21:14:56Z"
+      "lastUpdated": "2026-11-05T21:14:56Z",
+      "creatorGithubId": "306675764"
     },
     {
       "id": "dont-look-up",
@@ -1829,7 +1923,8 @@
       "creatorGithub": "imhappyamber-design",
       "engine": "kaplay",
       "firstPublished": "2026-07-19T04:56:55.460Z",
-      "lastUpdated": "2026-11-05T21:39:07Z"
+      "lastUpdated": "2026-11-05T21:39:07Z",
+      "creatorGithubId": "302363899"
     },
     {
       "id": "phone-case-diy",
@@ -1846,7 +1941,8 @@
       "creatorGithub": "Pumpkin12345678910",
       "engine": "phaser",
       "firstPublished": "2026-07-19T05:17:07.618Z",
-      "lastUpdated": "2026-11-05T20:37:00Z"
+      "lastUpdated": "2026-11-05T20:37:00Z",
+      "creatorGithubId": "299975127"
     },
     {
       "id": "obby",
@@ -1863,7 +1959,8 @@
       "creatorGithub": "ElliT-coder",
       "engine": "kaplay",
       "firstPublished": "2026-07-19T05:32:36.692Z",
-      "lastUpdated": "2026-11-05T20:36:54Z"
+      "lastUpdated": "2026-11-05T20:36:54Z",
+      "creatorGithubId": "306669992"
     },
     {
       "id": "seasons-matter",
@@ -1880,7 +1977,8 @@
       "creatorGithub": "kaitlyn531",
       "engine": "3d",
       "firstPublished": "2026-07-19T06:14:06.812Z",
-      "lastUpdated": "2026-11-05T21:10:56Z"
+      "lastUpdated": "2026-11-05T21:10:56Z",
+      "creatorGithubId": "306675764"
     },
     {
       "id": "stacky-birdy",
@@ -1897,7 +1995,8 @@
       "creatorGithub": "ElliT-coder",
       "engine": "kaplay",
       "firstPublished": "2026-07-20T08:08:26.659Z",
-      "lastUpdated": "2026-11-05T20:37:24Z"
+      "lastUpdated": "2026-11-05T20:37:24Z",
+      "creatorGithubId": "306669992"
     },
     {
       "id": "lavaman-and-icegirl",
@@ -1913,7 +2012,8 @@
       "developer": "Advika123456",
       "creatorGithub": "Advika123456",
       "firstPublished": "2026-07-26T11:54:01.129Z",
-      "lastUpdated": "2026-11-05T20:36:29Z"
+      "lastUpdated": "2026-11-05T20:36:29Z",
+      "creatorGithubId": "130810021"
     },
     {
       "id": "fruitydropz",
@@ -1930,7 +2030,8 @@
       "creatorGithub": "BUDDY-KIWI-BERRY",
       "engine": "phaser",
       "firstPublished": "2026-08-01T08:11:13.336Z",
-      "lastUpdated": "2026-11-05T21:25:08Z"
+      "lastUpdated": "2026-11-05T21:25:08Z",
+      "creatorGithubId": "297873086"
     },
     {
       "id": "crossy-rivers",
@@ -1946,7 +2047,8 @@
       "developer": "Advika123456",
       "creatorGithub": "Advika123456",
       "firstPublished": "2026-08-08T03:11:50.821Z",
-      "lastUpdated": "2026-11-05T20:35:43Z"
+      "lastUpdated": "2026-11-05T20:35:43Z",
+      "creatorGithubId": "130810021"
     },
     {
       "id": "cubisworld",
@@ -1963,7 +2065,8 @@
       "creatorGithub": "BUDDY-KIWI-BERRY",
       "engine": "kaplay",
       "firstPublished": "2026-08-09T03:29:25.778Z",
-      "lastUpdated": "2026-11-05T21:24:47Z"
+      "lastUpdated": "2026-11-05T21:24:47Z",
+      "creatorGithubId": "297873086"
     },
     {
       "id": "zombie",
@@ -1980,7 +2083,8 @@
       "creatorGithub": "Crystal12341",
       "engine": "babylon",
       "firstPublished": "2026-08-09T04:21:36.954Z",
-      "lastUpdated": "2026-11-01T10:53:18Z"
+      "lastUpdated": "2026-11-01T10:53:18Z",
+      "creatorGithubId": "299980342"
     },
     {
       "id": "race",
@@ -1997,7 +2101,8 @@
       "creatorGithub": "Crystal12341",
       "engine": "kaplay",
       "firstPublished": "2026-08-09T04:30:26.170Z",
-      "lastUpdated": "2026-11-05T21:39:03Z"
+      "lastUpdated": "2026-11-05T21:39:03Z",
+      "creatorGithubId": "299980342"
     },
     {
       "id": "endlesshighway",
@@ -2014,7 +2119,8 @@
       "creatorGithub": "imhappyamber-design",
       "engine": "3d",
       "firstPublished": "2026-08-09T04:32:41.800Z",
-      "lastUpdated": "2026-11-05T20:59:08Z"
+      "lastUpdated": "2026-11-05T20:59:08Z",
+      "creatorGithubId": "302363899"
     },
     {
       "id": "my-dream-room",
@@ -2031,7 +2137,8 @@
       "creatorGithub": "SASASKIA",
       "engine": "kaplay",
       "firstPublished": "2026-08-09T04:34:08.410Z",
-      "lastUpdated": "2026-11-05T21:25:32Z"
+      "lastUpdated": "2026-11-05T21:25:32Z",
+      "creatorGithubId": "314870472"
     },
     {
       "id": "squishy-swap",
@@ -2048,7 +2155,8 @@
       "creatorGithub": "OperationBannana",
       "engine": "phaser",
       "firstPublished": "2026-08-09T04:53:48.433Z",
-      "lastUpdated": "2026-11-05T21:09:17Z"
+      "lastUpdated": "2026-11-05T21:09:17Z",
+      "creatorGithubId": "314871693"
     },
     {
       "id": "candy-shop",
@@ -2065,7 +2173,8 @@
       "creatorGithub": "Boris-The-Pug",
       "engine": "kaplay",
       "firstPublished": "2026-08-09T04:59:39.294Z",
-      "lastUpdated": "2026-11-05T21:14:39Z"
+      "lastUpdated": "2026-11-05T21:14:39Z",
+      "creatorGithubId": "314873622"
     },
     {
       "id": "survive",
@@ -2082,7 +2191,8 @@
       "creatorGithub": "Crystal12341",
       "engine": "kaplay",
       "firstPublished": "2026-08-09T05:24:26.918Z",
-      "lastUpdated": "2026-11-05T20:37:26Z"
+      "lastUpdated": "2026-11-05T20:37:26Z",
+      "creatorGithubId": "299980342"
     },
     {
       "id": "trade",
@@ -2099,7 +2209,8 @@
       "creatorGithub": "Crystal12341",
       "engine": "kaplay",
       "firstPublished": "2026-08-09T05:47:47.517Z",
-      "lastUpdated": "2026-11-05T20:37:32Z"
+      "lastUpdated": "2026-11-05T20:37:32Z",
+      "creatorGithubId": "299980342"
     },
     {
       "id": "the-make-up-game",
@@ -2116,7 +2227,8 @@
       "creatorGithub": "Pumpkin12345678910",
       "engine": "kaplay",
       "firstPublished": "2026-08-09T06:10:33.164Z",
-      "lastUpdated": "2026-11-05T21:14:42Z"
+      "lastUpdated": "2026-11-05T21:14:42Z",
+      "creatorGithubId": "299975127"
     },
     {
       "id": "candy-store-2",
@@ -2133,7 +2245,8 @@
       "creatorGithub": "Boris-The-Pug",
       "engine": "phaser",
       "firstPublished": "2026-08-09T06:43:36.422Z",
-      "lastUpdated": "2026-11-05T20:35:34Z"
+      "lastUpdated": "2026-11-05T20:35:34Z",
+      "creatorGithubId": "314873622"
     },
     {
       "id": "zombie-attack",
@@ -2150,7 +2263,8 @@
       "creatorGithub": "imhappyamber-design",
       "engine": "babylon",
       "firstPublished": "2026-08-09T07:01:22.345Z",
-      "lastUpdated": "2026-11-01T11:04:59Z"
+      "lastUpdated": "2026-11-01T11:04:59Z",
+      "creatorGithubId": "302363899"
     },
     {
       "id": "my-shopping-spree",
@@ -2167,7 +2281,8 @@
       "creatorGithub": "SASASKIA",
       "engine": "3d",
       "firstPublished": "2026-08-09T07:19:11.106Z",
-      "lastUpdated": "2026-11-05T21:10:25Z"
+      "lastUpdated": "2026-11-05T21:10:25Z",
+      "creatorGithubId": "314870472"
     },
     {
       "id": "starship",
@@ -2184,7 +2299,8 @@
       "creatorGithub": "iamapug-blip",
       "engine": "kaplay",
       "firstPublished": "2026-08-09T08:20:03.363Z",
-      "lastUpdated": "2026-11-05T20:37:25Z"
+      "lastUpdated": "2026-11-05T20:37:25Z",
+      "creatorGithubId": "314921929"
     },
     {
       "id": "command",
@@ -2201,7 +2317,8 @@
       "creatorGithub": "iamapug-blip",
       "engine": "kaplay",
       "firstPublished": "2026-08-09T08:55:25.042Z",
-      "lastUpdated": "2026-11-05T20:35:42Z"
+      "lastUpdated": "2026-11-05T20:35:42Z",
+      "creatorGithubId": "314921929"
     },
     {
       "id": "dress-to-impress",
@@ -2218,7 +2335,8 @@
       "creatorGithub": "serge-ivo",
       "engine": "canvas",
       "firstPublished": "2026-08-30T01:13:44.441Z",
-      "lastUpdated": "2026-11-05T20:36:00Z"
+      "lastUpdated": "2026-11-05T20:36:00Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "a-jungle-race",
@@ -2235,7 +2353,8 @@
       "creatorGithub": "SASASKIA",
       "engine": "kaplay",
       "firstPublished": "2026-08-30T04:14:35.351Z",
-      "lastUpdated": "2026-11-05T21:38:59Z"
+      "lastUpdated": "2026-11-05T21:38:59Z",
+      "creatorGithubId": "314870472"
     },
     {
       "id": "puppy-fashion",
@@ -2253,7 +2372,8 @@
       "engine": "kaplay",
       "firstPublished": "2026-09-13T04:36:39.935Z",
       "status": "live",
-      "lastUpdated": "2026-11-05T20:37:05Z"
+      "lastUpdated": "2026-11-05T20:37:05Z",
+      "creatorGithubId": "314873622"
     },
     {
       "id": "whispers-of-the-wild",
@@ -2271,7 +2391,8 @@
       "engine": "babylon",
       "firstPublished": "2026-09-13T04:46:15.507Z",
       "status": "live",
-      "lastUpdated": "2026-11-01T11:07:26Z"
+      "lastUpdated": "2026-11-01T11:07:26Z",
+      "creatorGithubId": "297873086"
     },
     {
       "id": "mosaic-rush",
@@ -2289,7 +2410,8 @@
       "firstPublished": "2026-10-15T05:23:08.616Z",
       "status": "live",
       "provisionedSha": "f7267158be410aae43e17a133f6fd33834afb00c",
-      "lastUpdated": "2026-11-05T20:36:41Z"
+      "lastUpdated": "2026-11-05T20:36:41Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "sort-puzzle",
@@ -2307,7 +2429,8 @@
       "firstPublished": "2026-10-15T05:34:54.275Z",
       "status": "live",
       "provisionedSha": "36bda61d246adbe8ed5df2d0ffc85f93ab2b2960",
-      "lastUpdated": "2026-11-05T21:18:10Z"
+      "lastUpdated": "2026-11-05T21:18:10Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "line-link",
@@ -2325,7 +2448,8 @@
       "firstPublished": "2026-10-15T12:02:01.912Z",
       "status": "live",
       "provisionedSha": "9c8af00b3a4593c936f34da6fb7b9cf0092d4322",
-      "lastUpdated": "2026-11-01T10:59:36Z"
+      "lastUpdated": "2026-11-01T10:59:36Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "number-match",
@@ -2343,7 +2467,8 @@
       "firstPublished": "2026-10-15T13:25:40.415Z",
       "status": "live",
       "provisionedSha": "7b5e23ce1ca0804797e36e6de5da93800b46ddc0",
-      "lastUpdated": "2026-11-01T11:05:42Z"
+      "lastUpdated": "2026-11-01T11:05:42Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "pixline",
@@ -2361,7 +2486,8 @@
       "firstPublished": "2026-10-15T14:25:37.838Z",
       "status": "live",
       "provisionedSha": "17374415273e847d7e2d615426b8de44a9b37f12",
-      "lastUpdated": "2026-11-05T20:37:04Z"
+      "lastUpdated": "2026-11-05T20:37:04Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "flowarrow",
@@ -2379,7 +2505,8 @@
       "firstPublished": "2026-10-15T15:06:17.524Z",
       "status": "live",
       "provisionedSha": "109ba897d92334bbfa90b0b695d294ee1bcbc3a4",
-      "lastUpdated": "2026-11-01T11:04:16Z"
+      "lastUpdated": "2026-11-01T11:04:16Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "boltsort",
@@ -2397,7 +2524,8 @@
       "firstPublished": "2026-10-15T15:36:46.138Z",
       "status": "live",
       "provisionedSha": "2970e784fb7271d77585739276d96b5d64c1b7af",
-      "lastUpdated": "2026-11-01T11:06:39Z"
+      "lastUpdated": "2026-11-01T11:06:39Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "tallyroll",
@@ -2415,7 +2543,8 @@
       "firstPublished": "2026-10-15T16:15:52.744Z",
       "status": "live",
       "provisionedSha": "8934b22d7a3c5ec2e2702d92dcd30f351200f6df",
-      "lastUpdated": "2026-10-15T16:58:33Z"
+      "lastUpdated": "2026-10-15T16:58:33Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "tilerun",
@@ -2433,7 +2562,8 @@
       "firstPublished": "2026-10-15T16:46:08.542Z",
       "status": "live",
       "provisionedSha": "7ba8c67a262f2279a763cd2abe2f145cbc1a6077",
-      "lastUpdated": "2026-11-01T11:05:54Z"
+      "lastUpdated": "2026-11-01T11:05:54Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "rollway-ludo",
@@ -2451,7 +2581,8 @@
       "firstPublished": "2026-10-15T17:15:36.989Z",
       "status": "live",
       "provisionedSha": "cdfce800af9b09d0fd6d1e15262f503bd3b8ce01",
-      "lastUpdated": "2026-10-15T18:01:34Z"
+      "lastUpdated": "2026-10-15T18:01:34Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "crossweave",
@@ -2469,7 +2600,8 @@
       "firstPublished": "2026-10-15T17:45:41.580Z",
       "status": "live",
       "provisionedSha": "b79d9c96ff690167e8458c4b90c816d16e527e09",
-      "lastUpdated": "2026-10-15T18:42:00Z"
+      "lastUpdated": "2026-10-15T18:42:00Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "puzzlepix",
@@ -2487,7 +2619,8 @@
       "firstPublished": "2026-10-15T18:56:02.092Z",
       "status": "live",
       "provisionedSha": "45be5e7deb8f2da7b5ed065f43c72e4576c07d1e",
-      "lastUpdated": "2026-10-15T19:40:15Z"
+      "lastUpdated": "2026-10-15T19:40:15Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "quillcipher",
@@ -2505,7 +2638,8 @@
       "firstPublished": "2026-10-15T19:26:27.225Z",
       "status": "live",
       "provisionedSha": "a046b7eb74f3dd614e1f002e7fdae7f037668dcb",
-      "lastUpdated": "2026-11-01T11:09:41Z"
+      "lastUpdated": "2026-11-01T11:09:41Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "cascade-keys",
@@ -2523,7 +2657,8 @@
       "firstPublished": "2026-10-15T20:16:30.757Z",
       "status": "live",
       "provisionedSha": "3be042574a0565e9198197f9fe9cd4de87484327",
-      "lastUpdated": "2026-10-15T20:57:29Z"
+      "lastUpdated": "2026-10-15T20:57:29Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "hexaspell",
@@ -2541,7 +2676,8 @@
       "firstPublished": "2026-10-15T21:05:54.706Z",
       "status": "live",
       "provisionedSha": "6c27ca61f8939f7384bb2f000d434f675a1ee8a0",
-      "lastUpdated": "2026-10-15T21:58:18Z"
+      "lastUpdated": "2026-10-15T21:58:18Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "tenwise",
@@ -2559,7 +2695,8 @@
       "firstPublished": "2026-10-15T22:16:00.558Z",
       "status": "live",
       "provisionedSha": "1598f9cdb29e28e3eb6d7cd71f328a9c1fb6d391",
-      "lastUpdated": "2026-11-01T10:51:18Z"
+      "lastUpdated": "2026-11-01T10:51:18Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "chain-rush",
@@ -2577,7 +2714,8 @@
       "firstPublished": "2026-10-15T23:06:32.451Z",
       "status": "live",
       "provisionedSha": "51eccffdda8509d197b183f3d373735861938643",
-      "lastUpdated": "2026-11-01T11:05:53Z"
+      "lastUpdated": "2026-11-01T11:05:53Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "zap-drills",
@@ -2595,7 +2733,8 @@
       "firstPublished": "2026-10-16T00:15:50.672Z",
       "status": "live",
       "provisionedSha": "1d4fa79bab1efeb7cbc2f42f538a48302b0cbd97",
-      "lastUpdated": "2026-10-20T05:57:09Z"
+      "lastUpdated": "2026-10-20T05:57:09Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "fourfold",
@@ -2613,7 +2752,8 @@
       "firstPublished": "2026-10-16T03:16:08.399Z",
       "status": "live",
       "provisionedSha": "2f11ac3301fce7fbce2cd87d63fe2bfe5bff22f5",
-      "lastUpdated": "2026-10-20T05:45:45Z"
+      "lastUpdated": "2026-10-20T05:45:45Z",
+      "creatorGithubId": "2824906"
     },
     {
       "id": "penfight",
@@ -2631,7 +2771,8 @@
       "firstPublished": "2026-10-30T17:50:06.089Z",
       "status": "live",
       "provisionedSha": "0fc9b4d05587c23b8ca882f5a295bd31d6248e47",
-      "lastUpdated": "2026-11-05T20:37:01Z"
+      "lastUpdated": "2026-11-05T20:37:01Z",
+      "creatorGithubId": "116783337"
     },
     {
       "id": "math-invaders",
@@ -2650,7 +2791,8 @@
       "firstPublished": "2026-11-04T00:10:28.919Z",
       "status": "live",
       "provisionedSha": "986045da7e69627d989b33f2a866dba7e20c990c",
-      "lastUpdated": "2026-11-05T20:36:29Z"
+      "lastUpdated": "2026-11-05T20:36:29Z",
+      "creatorGithubId": "152139341"
     }
   ]
 }
