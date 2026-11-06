@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { listUserGames } from './_games';
 import { onRequestGet } from './me';
 
 // The storefront's analytics page (freegamestore.online) calls /api/me to list
@@ -58,6 +59,8 @@ describe('/api/me CORS for the storefront (#355)', () => {
     const body = (await res.json()) as { user: string; creator: { games: Array<{ id: string }> } };
     expect(body.user).toBe('alice');
     expect(body.creator.games).toEqual([{ id: 'chess' }]);
+    // #472: the session's numeric GitHub id reaches the ownership match.
+    expect(vi.mocked(listUserGames)).toHaveBeenCalledWith(env, 'alice', '1');
   });
 
   it('keeps the 401 readable from the storefront so it can show a sign-in prompt', async () => {

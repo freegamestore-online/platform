@@ -1,4 +1,5 @@
-import { corsHeaders, getCookie, resolveCreator, SESSION_COOKIE } from './_auth';
+import { githubIdFromSub } from '../../../../contracts/registry-ownership/v1/contract';
+import { corsHeaders, getCookie, resolveCreatorUser, SESSION_COOKIE } from './_auth';
 import { rejectCrossSite } from './_csrf';
 import { fetchWithTimeout, recordError } from './_errlog';
 import { listUserGames } from './_games';
@@ -72,7 +73,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   let idForLog: string | undefined;
   try {
     log('start');
-    const user = await resolveCreator(context.request, context.env);
+    const creator = await resolveCreatorUser(context.request, context.env);
+    const user = creator?.github ?? null;
     userForLog = user ?? undefined;
     log(`auth: ${user ?? 'unauthenticated'}`);
     if (!user) return json({ error: 'Unauthorized' }, 401);
@@ -108,7 +110,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     // create gate can never disagree.
     let owned: { id: string }[] = [];
     try {
-      ({ owned } = await listUserGames(context.env, user));
+      ({ owned } = await listUserGames(context.env, user, githubIdFromSub(creator?.sub)));
       log(`listUserGames ok: ${owned.length} owned`);
     } catch (e) {
       // Don't fall through to the ownership/limit checks on a registry outage —

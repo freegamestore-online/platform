@@ -1,16 +1,21 @@
 // Ownership + game-listing contract (registry-primary).
 //
-// A game is owned by its registry `creatorGithub`, matched case-insensitively.
+// A game is owned by its registry creator: the numeric `creatorGithubId` when
+// both the entry and the session carry one (#472 — a login is mutable and
+// re-assignable), otherwise `creatorGithub` matched case-insensitively.
 // The registry entry is written at provision time — BEFORE an outside
 // collaborator accepts their GitHub invite — so this surfaces a freshly created
 // game immediately, without the pending-invite blind spot that a GitHub
 // collaborator scan has. Org members get an admin-all view.
 //
-// This is a shared CONTRACT, not a shared module: the same rule is enforced in
-// admin (edit/provision guards) and the agent (import gate). Per the workspace
-// "vendor, don't depend" rule those are separate copies; keep them in sync.
+// The creator rule is the shared registry-ownership contract's `ownershipFacts`
+// (contracts/registry-ownership/v1), the same function admin's edit/provision
+// guards use, so the "my games" list and admin's gate can't disagree.
 
+import { ownershipFacts } from '../../../../contracts/registry-ownership/v1/contract';
 import { validateId } from './_validate';
+
+export { ownershipFacts };
 
 export const ORG = 'freegamestore-online';
 const DOMAIN = 'freegamestore.online';
@@ -41,6 +46,8 @@ export interface RegistryGame {
   appUrl?: string;
   repo?: string;
   creatorGithub?: string;
+  /** Numeric GitHub id of the creator, recorded at provision (#472). */
+  creatorGithubId?: string;
   developer?: string;
   firstPublished?: string;
   updatedAt?: string;
@@ -88,27 +95,6 @@ const VALID_GH_LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
 
 function isCanonicalId(id: string): boolean {
   return VALID_ID.test(id) && validateId(id) === null;
-}
-
-export interface OwnershipFacts {
-  isCreator: boolean;
-  isOrgMember: boolean;
-  isLegacyAcceptedCollaborator: boolean;
-}
-
-/** Shared-contract facts; individual endpoints decide which facts authorize an operation. */
-export function ownershipFacts(
-  game: Pick<RegistryGame, 'creatorGithub'> | undefined,
-  login: string,
-  signals: Pick<OwnershipFacts, 'isOrgMember' | 'isLegacyAcceptedCollaborator'>,
-): OwnershipFacts {
-  const isCreator =
-    !!game?.creatorGithub && game.creatorGithub.toLowerCase() === login.toLowerCase();
-  return {
-    isCreator,
-    isOrgMember: signals.isOrgMember,
-    isLegacyAcceptedCollaborator: !game?.creatorGithub && signals.isLegacyAcceptedCollaborator,
-  };
 }
 
 function isForkAttribution(value: unknown): value is ForkAttribution {
@@ -290,7 +276,9 @@ async function enrichTimes(env: GhEnv, games: GameRepo[]): Promise<void> {
 /**
  * The ownership contract. Returns the games a user owns, whether they're an org
  * member, and the admin-all list. `owned` =
- *   - registry games with `creatorGithub === login` (case-insensitive), PLUS
+ *   - registry games whose creator is the caller per the shared contract's
+ *     `ownershipFacts` (GitHub id first when both sides have one, else
+ *     `creatorGithub === login` case-insensitive), PLUS
  *   - legacy games with NO `creatorGithub` where the user is an accepted
  *     collaborator (this candidate set shrinks to zero after the creatorGithub
  *     backfill, so steady-state cost is a single registry fetch + membership
@@ -308,6 +296,7 @@ async function enrichTimes(env: GhEnv, games: GameRepo[]): Promise<void> {
 export async function listUserGames(
   env: GhEnv,
   login: string,
+  githubId: string | null = null,
 ): Promise<{ owned: GameRepo[]; isOrgMember: boolean; adminAll: GameRepo[] }> {
   const [games, member] = await Promise.all([
     getRegistry(env.GITHUB_TOKEN),
@@ -316,10 +305,10 @@ export async function listUserGames(
   if (games === null) throw new Error('registry_unavailable');
   const adminAll = games.map((g) => registryToRepo(g, true, games));
 
-  const lc = login.toLowerCase();
+  const noSignals = { isOrgMember: false, isLegacyAcceptedCollaborator: false };
   const ownedIds = new Set<string>();
   for (const g of games) {
-    if (g.creatorGithub && g.creatorGithub.toLowerCase() === lc) ownedIds.add(g.id);
+    if (ownershipFacts(g, login, noSignals, githubId).isCreator) ownedIds.add(g.id);
   }
 
   // Legacy safety net: games with no recorded creatorGithub — check accepted

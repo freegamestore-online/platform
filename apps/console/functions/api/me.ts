@@ -1,3 +1,4 @@
+import { githubIdFromSub } from '../../../../contracts/registry-ownership/v1/contract';
 import { corsHeaders, resolveCreatorUser, type SessionEnv } from './_auth';
 import { type GameRepo, listUserGames } from './_games';
 
@@ -36,7 +37,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   // create.ts gates on, so the slot count and the create gate never disagree.
   let owned: GameRepo[] = [];
   try {
-    ({ owned } = await listUserGames(context.env, user));
+    ({ owned } = await listUserGames(context.env, user, githubIdFromSub(cu.sub)));
   } catch (e) {
     // A registry fetch failure must NOT masquerade as "you have no games" —
     // that reads as data loss and hands out phantom free slots. Surface it.

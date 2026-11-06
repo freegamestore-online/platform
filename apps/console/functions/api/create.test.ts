@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // Mock the three dependency modules so we can drive onRequestPost's authorization
 // branches deterministically without a live GitHub / admin backend.
 vi.mock('./_auth', () => ({
-  resolveCreator: vi.fn(),
+  resolveCreatorUser: vi.fn(),
   corsHeaders: () => ({}),
   SESSION_COOKIE: '__Host-fgs_token',
   getCookie: (request: Request, name: string) => {
@@ -21,12 +21,20 @@ vi.mock('./_errlog', () => ({
   fetchWithTimeout: vi.fn(),
 }));
 
-import { resolveCreator } from './_auth';
+import { resolveCreatorUser } from './_auth';
 import { fetchWithTimeout } from './_errlog';
 import { listUserGames } from './_games';
 import { onRequestPost } from './create';
 
-const mResolveCreator = vi.mocked(resolveCreator);
+const mResolveCreator = vi.mocked(resolveCreatorUser);
+const creator = (github: string) => ({
+  github,
+  githubId: 1,
+  sub: 'github:1',
+  name: null,
+  avatarUrl: '',
+  email: null,
+});
 const mListUserGames = vi.mocked(listUserGames);
 const mFetch = vi.mocked(fetchWithTimeout);
 
@@ -84,7 +92,7 @@ beforeEach(() => {
 
 describe('create onRequestPost authorization', () => {
   it('403s a same-site game page posting with the creator cookie, before any auth or I/O (#460)', async () => {
-    mResolveCreator.mockResolvedValue('alice');
+    mResolveCreator.mockResolvedValue(creator('alice'));
     const res = await onRequestPost(
       makeCtx({ id: 'coolgame', name: 'Cool' }, {}, 'https://evil-game.freegamestore.online'),
     );
@@ -101,15 +109,17 @@ describe('create onRequestPost authorization', () => {
   });
 
   it('returns 409 when the repo exists and is NOT owned by the user', async () => {
-    mResolveCreator.mockResolvedValue('alice');
+    mResolveCreator.mockResolvedValue(creator('alice'));
     mListUserGames.mockResolvedValue({ owned: [], isOrgMember: false, adminAll: [] });
     wireFetch({ repoStatus: 200 }); // repo exists on GitHub
     const res = await onRequestPost(makeCtx({ id: 'coolgame', name: 'Cool' }));
     expect(res.status).toBe(409);
+    // #472: ownership is matched on the session's GitHub id, not just the login.
+    expect(mListUserGames).toHaveBeenCalledWith(expect.anything(), 'alice', '1');
   });
 
   it('returns 403 when over the per-creator game limit', async () => {
-    mResolveCreator.mockResolvedValue('alice');
+    mResolveCreator.mockResolvedValue(creator('alice'));
     const owned = Array.from({ length: 10 }, (_, i) => ({ id: `g${i}` }));
     mListUserGames.mockResolvedValue({ owned, isOrgMember: false, adminAll: [] } as never);
     wireFetch({ repoStatus: 404 }); // repo does not exist → would be a NEW game
@@ -120,7 +130,7 @@ describe('create onRequestPost authorization', () => {
   });
 
   it('lets the production create canary bypass the owner quota for hidden -test fixtures only', async () => {
-    mResolveCreator.mockResolvedValue('serge-ivo');
+    mResolveCreator.mockResolvedValue(creator('serge-ivo'));
     const owned = Array.from({ length: 64 }, (_, i) => ({ id: `g${i}` }));
     mListUserGames.mockResolvedValue({ owned, isOrgMember: true, adminAll: [] } as never);
     let provisionBody: Record<string, unknown> | undefined;
@@ -147,7 +157,7 @@ describe('create onRequestPost authorization', () => {
   });
 
   it("FAIL-SAFE: a non-200/404 GitHub status returns 502 (not treated as 'free')", async () => {
-    mResolveCreator.mockResolvedValue('alice');
+    mResolveCreator.mockResolvedValue(creator('alice'));
     mListUserGames.mockResolvedValue({ owned: [], isOrgMember: false, adminAll: [] });
     // 403 (rate limit) / 401 (token expiry) / 5xx must NOT be read as available.
     for (const status of [401, 403, 500, 502]) {
@@ -160,7 +170,7 @@ describe('create onRequestPost authorization', () => {
   });
 
   it("pins creatorGithub to the resolved user (can't re-own another's game)", async () => {
-    mResolveCreator.mockResolvedValue('alice');
+    mResolveCreator.mockResolvedValue(creator('alice'));
     mListUserGames.mockResolvedValue({ owned: [], isOrgMember: false, adminAll: [] });
     let provisionBody: Record<string, unknown> | undefined;
     wireFetch({
@@ -181,14 +191,14 @@ describe('create onRequestPost authorization', () => {
   });
 
   it('returns 503 when the registry is unavailable', async () => {
-    mResolveCreator.mockResolvedValue('alice');
+    mResolveCreator.mockResolvedValue(creator('alice'));
     mListUserGames.mockRejectedValue(new Error('registry_unavailable'));
     const res = await onRequestPost(makeCtx({ id: 'coolgame', name: 'Cool' }));
     expect(res.status).toBe(503);
   });
 
   it('rejects an invalid id with 400 before any network call', async () => {
-    mResolveCreator.mockResolvedValue('alice');
+    mResolveCreator.mockResolvedValue(creator('alice'));
     const res = await onRequestPost(makeCtx({ id: 'Bad Id!', name: 'Cool' }));
     expect(res.status).toBe(400);
     expect(mFetch).not.toHaveBeenCalled();
