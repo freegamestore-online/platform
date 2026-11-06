@@ -124,7 +124,7 @@ export function gamesRoutes(data: DataService): Route[] {
         const result = await getGameAnalytics(
           env,
           id,
-          caller.login,
+          { login: caller.login, githubId: caller.githubId },
           await data.registryItems(),
           new URL(request.url).searchParams,
         );
@@ -150,7 +150,7 @@ export function gamesRoutes(data: DataService): Route[] {
         const result = await putGameAnalyticsConfig(
           env,
           id,
-          caller.login,
+          { login: caller.login, githubId: caller.githubId },
           await data.registryItems(),
           body,
         );

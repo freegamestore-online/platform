@@ -18,6 +18,9 @@ afterEach(() => {
 });
 
 const REGISTRY = [{ id: 'chess', creatorGithub: 'alice' }];
+
+/** A caller with no GitHub id on its credential: matched by login. */
+const who = (login: string, githubId: string | null = null) => ({ login, githubId });
 const CONFIGURED: AnalyticsEnv = {
   DB: undefined as unknown as D1Database,
   CF_ACCOUNT_ID: 'acct',
@@ -158,7 +161,7 @@ describe('queryGameStats', () => {
         DB: fakeDb({ ga4: 'G-ABC123', plausible: 'chess.freegamestore.online' }).db,
       } as AnalyticsEnv,
       'chess',
-      'alice',
+      who('alice'),
       REGISTRY,
       new URLSearchParams(),
     );
@@ -176,7 +179,7 @@ describe('queryGameStats', () => {
     const res = await getGameAnalytics(
       { ...CONFIGURED, DB: fakeDb({ ga4: 'G-ABC123', plausible: null }).db },
       'chess',
-      'alice',
+      who('alice'),
       REGISTRY,
       new URLSearchParams(),
     );
@@ -193,7 +196,7 @@ describe('queryGameStats', () => {
     const res = await getGameAnalytics(
       { ...CONFIGURED, DB: fakeDb().db },
       'chess',
-      'alice',
+      who('alice'),
       REGISTRY,
       new URLSearchParams(),
     );
@@ -215,7 +218,7 @@ describe('queryGameStats', () => {
     const res = await getGameAnalytics(
       { ...CONFIGURED, DB: failing },
       'chess',
-      'alice',
+      who('alice'),
       REGISTRY,
       new URLSearchParams(),
     );
@@ -231,7 +234,7 @@ describe('getGameAnalytics owner gating (#354)', () => {
     const res = await getGameAnalytics(
       { ...CONFIGURED, DB: db },
       'chess',
-      'alice',
+      who('alice'),
       REGISTRY,
       new URLSearchParams('days=7'),
     );
@@ -250,7 +253,7 @@ describe('getGameAnalytics owner gating (#354)', () => {
     const res = await getGameAnalytics(
       { ...CONFIGURED, DB: db },
       'chess',
-      'ALICE',
+      who('ALICE'),
       REGISTRY,
       new URLSearchParams(),
     );
@@ -263,7 +266,7 @@ describe('getGameAnalytics owner gating (#354)', () => {
     const res = await getGameAnalytics(
       { ...CONFIGURED, DB: db },
       'chess',
-      'mallory',
+      who('mallory'),
       REGISTRY,
       new URLSearchParams(),
     );
@@ -275,7 +278,7 @@ describe('getGameAnalytics owner gating (#354)', () => {
     const res = await getGameAnalytics(
       { ...CONFIGURED, DB: fakeDb().db },
       'ghost',
-      'alice',
+      who('alice'),
       REGISTRY,
       new URLSearchParams(),
     );
@@ -286,7 +289,7 @@ describe('getGameAnalytics owner gating (#354)', () => {
     const res = await getGameAnalytics(
       { ...CONFIGURED, DB: fakeDb().db },
       'chess',
-      'alice',
+      who('alice'),
       null,
       new URLSearchParams(),
     );
@@ -297,7 +300,7 @@ describe('getGameAnalytics owner gating (#354)', () => {
     const res = await getGameAnalytics(
       { ...CONFIGURED, DB: fakeDb().db },
       'Bad_Id',
-      'alice',
+      who('alice'),
       REGISTRY,
       new URLSearchParams(),
     );
@@ -356,7 +359,7 @@ describe('putGameAnalyticsConfig', () => {
     const res = await putGameAnalyticsConfig(
       { ...CONFIGURED, DB: db },
       'chess',
-      'alice',
+      who('alice'),
       REGISTRY,
       { ga4: 'G-ABC123' },
       1_000,
@@ -377,7 +380,7 @@ describe('putGameAnalyticsConfig', () => {
     const res = await putGameAnalyticsConfig(
       { ...CONFIGURED, DB: db },
       'chess',
-      'mallory',
+      who('mallory'),
       REGISTRY,
       { ga4: 'G-ABC123' },
     );
@@ -390,7 +393,7 @@ describe('putGameAnalyticsConfig', () => {
     const res = await putGameAnalyticsConfig(
       { ...CONFIGURED, DB: db },
       'chess',
-      'alice',
+      who('alice'),
       REGISTRY,
       { ga4: 'nope' },
     );
@@ -449,12 +452,12 @@ describe('analytics config on real SQL (#361)', () => {
     const db = await sqliteDb();
     if (!db) return; // node:sqlite unavailable on this Node
     const env = { ...CONFIGURED, DB: db };
-    await putGameAnalyticsConfig(env, 'chess', 'alice', REGISTRY, {
+    await putGameAnalyticsConfig(env, 'chess', who('alice'), REGISTRY, {
       ga4: 'G-ABC123',
       plausible: 'chess.freegamestore.online',
     });
 
-    const onlyGa4 = await putGameAnalyticsConfig(env, 'chess', 'alice', REGISTRY, {
+    const onlyGa4 = await putGameAnalyticsConfig(env, 'chess', who('alice'), REGISTRY, {
       ga4: 'G-NEW999',
     });
     expect(onlyGa4).toEqual({
@@ -462,7 +465,7 @@ describe('analytics config on real SQL (#361)', () => {
       body: { ok: true, config: { ga4: 'G-NEW999', plausible: 'chess.freegamestore.online' } },
     });
 
-    const cleared = await putGameAnalyticsConfig(env, 'chess', 'alice', REGISTRY, {
+    const cleared = await putGameAnalyticsConfig(env, 'chess', who('alice'), REGISTRY, {
       plausible: null,
     });
     expect(cleared.body).toEqual({ ok: true, config: { ga4: 'G-NEW999', plausible: null } });
@@ -477,5 +480,42 @@ describe('parseStatsQuery days fallback (#361)', () => {
       days: fallback.days,
     });
     expect(fallback.days).toBeGreaterThan(1);
+  });
+});
+
+// #484: the gate used to compare logins only. After alice renames her GitHub
+// account, whoever registers "alice" must not read her stats or set her tags.
+describe('owner gate with a reused login (#484)', () => {
+  const ID_REGISTRY = [{ id: 'chess', creatorGithub: 'alice', creatorGithubId: '100' }];
+
+  it('403s the new holder of the login on GET and PUT, and writes nothing', async () => {
+    const { db, writes } = fakeDb();
+    const env = { ...CONFIGURED, DB: db };
+    const get = await getGameAnalytics(
+      env,
+      'chess',
+      who('alice', '999'),
+      ID_REGISTRY,
+      new URLSearchParams(),
+    );
+    expect(get.status).toBe(403);
+    const put = await putGameAnalyticsConfig(env, 'chess', who('alice', '999'), ID_REGISTRY, {
+      ga4: 'G-EVIL123',
+    });
+    expect(put.status).toBe(403);
+    expect(writes).toHaveLength(0);
+  });
+
+  it('still admits the creator by id after the rename', async () => {
+    const { db, writes } = fakeDb();
+    const res = await putGameAnalyticsConfig(
+      { ...CONFIGURED, DB: db },
+      'chess',
+      who('alice-renamed', '100'),
+      ID_REGISTRY,
+      { ga4: 'G-ABC123' },
+    );
+    expect(res.status).toBe(200);
+    expect(writes).toHaveLength(1);
   });
 });

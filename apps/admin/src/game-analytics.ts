@@ -10,6 +10,7 @@
 // Ownership is checked against the registry, the same source of truth that
 // PATCH /api/games/:id uses. A non-owner gets 403, an unknown game 404.
 
+import type { CreatorIdentity } from './caller';
 import { ownershipFacts } from './publish';
 
 /** A registry entry, as ownershipFacts and the registry reader see it. */
@@ -184,11 +185,12 @@ export async function queryGameStats(
   };
 }
 
-/** Owner check against the registry. Returns an error result unless `login` is
- *  the game's recorded creator. */
+/** Owner check against the registry. Returns an error result unless `caller`
+ *  is the game's recorded creator — by GitHub id when both sides carry one, so
+ *  whoever later registers a renamed creator's old login is not the owner (#484). */
 function gateOwner(
   gameId: string,
-  login: string,
+  caller: CreatorIdentity,
   registry: RegistryGame[] | null,
 ): GameAnalyticsResult | null {
   if (!GAME_ID_RE.test(gameId)) return { status: 400, body: { error: 'invalid game id' } };
@@ -196,8 +198,12 @@ function gateOwner(
   const game = registry.find((g) => g?.id === gameId);
   if (!game) return { status: 404, body: { error: 'game not found' } };
   if (
-    !ownershipFacts(game, login, { isOrgMember: false, isLegacyAcceptedCollaborator: false })
-      .isCreator
+    !ownershipFacts(
+      game,
+      caller.login,
+      { isOrgMember: false, isLegacyAcceptedCollaborator: false },
+      caller.githubId,
+    ).isCreator
   ) {
     return { status: 403, body: { error: 'not the game owner' } };
   }
@@ -220,11 +226,11 @@ export type StatsUnavailable = 'not-configured' | 'unavailable';
 export async function getGameAnalytics(
   env: AnalyticsEnv,
   gameId: string,
-  login: string,
+  caller: CreatorIdentity,
   registry: RegistryGame[] | null,
   params: URLSearchParams,
 ): Promise<GameAnalyticsResult> {
-  const denied = gateOwner(gameId, login, registry);
+  const denied = gateOwner(gameId, caller, registry);
   if (denied) return denied;
   const parsed = parseStatsQuery(params);
   if ('error' in parsed) return { status: 400, body: { error: parsed.error } };
@@ -303,12 +309,12 @@ export function validateAnalyticsConfig(
 export async function putGameAnalyticsConfig(
   env: AnalyticsEnv,
   gameId: string,
-  login: string,
+  caller: CreatorIdentity,
   registry: RegistryGame[] | null,
   input: unknown,
   now: number = Date.now(),
 ): Promise<GameAnalyticsResult> {
-  const denied = gateOwner(gameId, login, registry);
+  const denied = gateOwner(gameId, caller, registry);
   if (denied) return denied;
   const checked = validateAnalyticsConfig(input);
   if (!checked.ok) return { status: 400, body: { error: checked.error } };
