@@ -8,6 +8,7 @@ on:
       - contracts/error-log/**
       - contracts/registry-ownership/**
       - contracts/cross-site/**
+      - contracts/handoff-delivery/**
       - .github/workflows/deploy-agent.yml
   workflow_dispatch:
 

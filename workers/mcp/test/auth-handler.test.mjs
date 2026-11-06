@@ -14,9 +14,25 @@
 // Imports the real auth-handler.ts (Node strips the types on import), with the
 // OAuthProvider helpers, the audit KV, and the AUTH service binding faked.
 import assert from 'node:assert/strict';
+import { registerHooks } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+
+// Sources import the in-repo contracts as './x.js'; Node's type stripping loads .ts but
+// won't map the .js specifier. Retry as .ts.
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    try {
+      return nextResolve(specifier, context);
+    } catch (err) {
+      if (/^\.\.?\//.test(specifier) && specifier.endsWith('.js')) {
+        return nextResolve(specifier.replace(/\.js$/, '.ts'), context);
+      }
+      throw err;
+    }
+  },
+});
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
@@ -790,3 +806,43 @@ test('an MCP call proceeds only while auth still vouches for the grant\'s sessio
   }
 });
 
+
+// #450: auth's page POSTs the handoff, so the token is never in a URL.
+function handoffPost(origin, fields) {
+  return new Request(`${ORIGIN}/auth/handoff`, {
+    method: 'POST',
+    headers: origin ? { Origin: origin } : {},
+    body: new URLSearchParams(fields),
+  });
+}
+function handoffAuth() {
+  const calls = [];
+  return {
+    calls,
+    async fetch(_url, init) {
+      calls.push(init.headers);
+      return new Response(JSON.stringify({ token: 'mcp.session.jwt' }), { status: 200 });
+    },
+  };
+}
+
+test('MCP /auth/handoff takes the handoff from a POST body sent by the auth origin (#450)', async () => {
+  const auth = handoffAuth();
+  const res = await handler.fetch(
+    handoffPost('https://auth.freegamestore.online', { token: 'handoff.jwt', return_to: `${ORIGIN}/authorize?x=1` }),
+    makeEnv({ AUTH: auth }),
+  );
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get('Location'), `${ORIGIN}/authorize?x=1`);
+  assert.match(res.headers.get('Set-Cookie') ?? '', /__Host-fgs_token=mcp\.session\.jwt/);
+  assert.equal(auth.calls[0]['X-FGS-Handoff'], 'handoff.jwt');
+});
+
+test('MCP /auth/handoff refuses a POST from a game page or from nowhere (#450)', async () => {
+  for (const origin of ['https://evil.freegamestore.online', undefined]) {
+    const auth = handoffAuth();
+    const res = await handler.fetch(handoffPost(origin, { token: 'handoff.jwt' }), makeEnv({ AUTH: auth }));
+    assert.equal(res.status, 400, String(origin));
+    assert.equal(auth.calls.length, 0);
+  }
+});

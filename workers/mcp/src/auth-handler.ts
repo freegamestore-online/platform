@@ -21,6 +21,7 @@
  *                    completeAuthorization()s with it as the props token;
  *                    `deny` sends the client error=access_denied.
  */
+import { AUTH_ORIGIN, readHandoff } from '../../../contracts/handoff-delivery/v1/contract.js';
 import type { AuthRequest, OAuthHelpers } from '@cloudflare/workers-oauth-provider';
 
 interface Env {
@@ -270,9 +271,11 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    if (url.pathname === '/auth/handoff' && request.method === 'GET') {
-      const handoff = url.searchParams.get('token') ?? '';
-      if (!handoff) return new Response('missing session handoff', { status: 400 });
+    if (url.pathname === '/auth/handoff' && (request.method === 'GET' || request.method === 'POST')) {
+      // Auth's page POSTs the handoff (#450); GET ?token= is the legacy delivery.
+      const received = await readHandoff(request, AUTH_ORIGIN, true);
+      if (!received) return new Response('missing session handoff', { status: 400 });
+      const handoff = received.token;
       const exchanged = await env.AUTH.fetch('https://auth.freegamestore.online/handoff/consume', {
         method: 'POST',
         headers: { 'X-FGS-Handoff': handoff, 'X-FGS-Handoff-Target': MCP_ORIGIN },
@@ -280,7 +283,7 @@ export default {
       if (!exchanged.ok) return new Response('invalid or expired session handoff', { status: 401 });
       const body = (await exchanged.json()) as { token?: string };
       if (!body.token) return new Response('invalid session handoff response', { status: 502 });
-      const returnTo = url.searchParams.get('return_to');
+      const returnTo = received.returnTo;
       let location = `${MCP_ORIGIN}/`;
       try {
         if (returnTo && new URL(returnTo).origin === MCP_ORIGIN) location = returnTo;

@@ -9,6 +9,7 @@ on:
       - contracts/game-metadata/**
       - contracts/registry-ownership/**
       - contracts/cross-site/**
+      - contracts/handoff-delivery/**
       - contracts/session-jwt/**
       - .github/workflows/deploy-admin.yml
   workflow_dispatch:

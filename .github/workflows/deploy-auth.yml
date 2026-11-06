@@ -8,6 +8,7 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - contracts/session-jwt/**
+      - contracts/handoff-delivery/**
       - .github/workflows/deploy-auth.yml
   workflow_dispatch:
 

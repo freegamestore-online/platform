@@ -1,3 +1,4 @@
+import { AUTH_ORIGIN, readHandoff } from '../../../contracts/handoff-delivery/v1/contract';
 import { githubIdFromSub } from '../../../contracts/registry-ownership/v1/contract';
 import { handleAuthExchange, handleAuthMe, verifySession } from './auth';
 import type { Env } from './env';
@@ -130,9 +131,11 @@ export async function handleAdminAuthRoute(request: Request, env: Env): Promise<
   const url = new URL(request.url);
   // Auth owns the OAuth state cookie; this origin only receives a signed,
   // short-lived handoff and writes its own host-only session cookie.
-  if (url.pathname === '/auth/handoff' && request.method === 'GET') {
-    const handoff = url.searchParams.get('token') ?? '';
-    if (!handoff) return new Response('missing session handoff', { status: 400 });
+  if (url.pathname === '/auth/handoff' && (request.method === 'GET' || request.method === 'POST')) {
+    // Auth's page POSTs the handoff (#450); GET ?token= is the legacy delivery.
+    const received = await readHandoff(request, AUTH_ORIGIN, true);
+    if (!received) return new Response('missing session handoff', { status: 400 });
+    const handoff = received.token;
     const exchanged = await env.AUTH.fetch('https://auth.freegamestore.online/handoff/consume', {
       method: 'POST',
       headers: {
@@ -143,7 +146,7 @@ export async function handleAdminAuthRoute(request: Request, env: Env): Promise<
     if (!exchanged.ok) return new Response('invalid or expired session handoff', { status: 401 });
     const body = (await exchanged.json()) as { token?: string };
     if (!body.token) return new Response('invalid session handoff response', { status: 502 });
-    const returnTo = url.searchParams.get('return_to');
+    const returnTo = received.returnTo;
     let location = 'https://admin.freegamestore.online/';
     try {
       if (returnTo && new URL(returnTo).origin === 'https://admin.freegamestore.online')

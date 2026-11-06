@@ -6,6 +6,7 @@ on:
     paths:
       - workers/mcp/**
       - contracts/registry-ownership/**
+      - contracts/handoff-delivery/**
       - .github/workflows/deploy-mcp.yml
   workflow_dispatch:
 

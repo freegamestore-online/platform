@@ -30,7 +30,9 @@ export async function routeAdminRequest(
     // Match the credential precedence used by the authentication handlers.
     const usesCookie =
       /(?:^|;\s*)__Host-fgs_token=/.test(cookie) && !request.headers.get('X-FGS-Token');
-    if (usesCookie) {
+    // /auth/handoff is POSTed by the auth worker's page, a different origin; the
+    // handler itself requires that origin (#450).
+    if (usesCookie && path !== '/auth/handoff') {
       const blocked = rejectCrossSite(request, {
         origins: ['https://admin.freegamestore.online'],
         devOrigin,

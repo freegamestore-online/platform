@@ -1,6 +1,7 @@
 /** Worker entry — routes requests to the correct Durable Object session. */
 
 import { corsHeaders } from "@freegamestore/contracts";
+import { readHandoff } from "../../../contracts/handoff-delivery/v1/contract";
 import { handleAccountDelete } from "./account";
 import { handleAdminCompApi } from "./admin-comp";
 import { getConfig } from "./config";
@@ -74,8 +75,10 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
 
   // The console establishes this cookie with auth's signed, five-minute
   // handoff. A user-authored game cannot set a __Host- cookie for agent.
-  if (path === "/auth/handoff" && request.method === "GET") {
-    const handoff = url.searchParams.get("token") ?? "";
+  if (path === "/auth/handoff" && (request.method === "GET" || request.method === "POST")) {
+    // The Studio POSTs it (#450); GET ?token= is the legacy delivery, removed once
+    // the console stops sending it. The sender is the console, not the auth page.
+    const handoff = (await readHandoff(request, `https://console.${config.domain}`, true))?.token ?? "";
     if (!handoff)
       return new Response(JSON.stringify({ error: "missing session handoff" }), {
         status: 400,
