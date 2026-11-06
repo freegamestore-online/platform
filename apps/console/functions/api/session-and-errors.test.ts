@@ -99,7 +99,9 @@ describe('legacy session no longer shadows the JWT (#81)', () => {
 
 describe('upstream failures return JSON errors, not uncaught 500s (#81)', () => {
   it('PATCH /api/games/:id → 502 JSON with CORS when admin is unreachable', async () => {
-    vi.mocked(fetch).mockRejectedValueOnce(new TypeError('network connection lost'));
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response('{}')) // auth /me (#499)
+      .mockRejectedValueOnce(new TypeError('network connection lost'));
     const res = await onRequestPatch({
       request: req('/api/games/chess', `__Host-fgs_token=${await jwt('bob')}`, {
         method: 'PATCH',

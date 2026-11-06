@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { stubFetchWithAuth } from '../../../test/auth-me';
 import { onRequestGet, onRequestPut } from './[id]';
 
 // #354: the console proxy must reject anonymous callers before anything reaches
@@ -41,7 +42,7 @@ afterEach(() => {
 describe('/api/analytics/:id proxy (#354)', () => {
   it('answers 401 and never calls admin when there is no session', async () => {
     const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
+    stubFetchWithAuth(fetchMock);
     const res = await onRequestGet({
       request: new Request('https://console.freegamestore.online/api/analytics/chess?days=7'),
       env,
@@ -53,7 +54,7 @@ describe('/api/analytics/:id proxy (#354)', () => {
 
   it('rejects a malformed game id before calling admin', async () => {
     const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
+    stubFetchWithAuth(fetchMock);
     const cookie = await signSession('alice');
     const res = await onRequestGet({
       request: new Request('https://console.freegamestore.online/api/analytics/Bad_Id', {
@@ -70,7 +71,7 @@ describe('/api/analytics/:id proxy (#354)', () => {
     const fetchMock = vi.fn(
       async () => new Response(JSON.stringify({ error: 'not the game owner' }), { status: 403 }),
     );
-    vi.stubGlobal('fetch', fetchMock);
+    stubFetchWithAuth(fetchMock);
     const cookie = await signSession('mallory');
     const res = await onRequestGet({
       request: new Request(
@@ -95,7 +96,7 @@ describe('/api/analytics/:id proxy (#354)', () => {
     const fetchMock = vi.fn(
       async () => new Response(JSON.stringify({ ok: true }), { status: 200 }),
     );
-    vi.stubGlobal('fetch', fetchMock);
+    stubFetchWithAuth(fetchMock);
     const cookie = await signSession('alice');
     const res = await onRequestPut({
       request: new Request('https://console.freegamestore.online/api/analytics/chess', {
@@ -119,7 +120,7 @@ describe('/api/analytics/:id proxy (#354)', () => {
 
   it('403s a PUT from a game subdomain before admin is called (#460)', async () => {
     const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
+    stubFetchWithAuth(fetchMock);
     const cookie = await signSession('alice');
     const res = await onRequestPut({
       request: new Request('https://console.freegamestore.online/api/analytics/chess', {
@@ -139,8 +140,7 @@ describe('/api/analytics/:id proxy (#354)', () => {
   });
 
   it('answers 502 with JSON when admin is unreachable', async () => {
-    vi.stubGlobal(
-      'fetch',
+    stubFetchWithAuth(
       vi.fn(async () => {
         throw new Error('socket hang up');
       }),

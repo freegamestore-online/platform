@@ -12,3 +12,12 @@ CREATE TABLE IF NOT EXISTS handoff_consumed (
   jti TEXT PRIMARY KEY,
   exp INTEGER NOT NULL
 );
+
+-- Account-deletion watermark (#499): tokens for `sub` issued at or before
+-- revoked_at_ms (epoch milliseconds) are refused. Kept apart from `users`
+-- because deletion removes that row and a new sign-in recreates it.
+-- The worker creates this itself on first use.
+CREATE TABLE IF NOT EXISTS session_revocations (
+  sub TEXT PRIMARY KEY,
+  revoked_at_ms INTEGER NOT NULL
+);

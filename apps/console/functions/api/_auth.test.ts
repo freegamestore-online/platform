@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { stubFetchWithAuth } from '../../test/auth-me';
 import { resolveCreatorUser, SESSION_COOKIE, verifyJWT } from './_auth';
 
 // verifyJWT guards every creator API (via resolveCreatorUser). It must:
@@ -108,7 +109,12 @@ describe('_auth resolveCreatorUser token kind (#425)', () => {
     });
   const claims = { sub: 'github:1', login: 'octo', exp: nowSec() + 3600 };
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('accepts a console session and a sign-in token', async () => {
+    stubFetchWithAuth();
     const session = await makeToken('HS256', {
       ...claims,
       typ: 'fgs_session',
@@ -132,5 +138,29 @@ describe('_auth resolveCreatorUser token kind (#425)', () => {
       aud: 'https://agent.freegamestore.online',
     });
     expect(await resolveCreatorUser(withCookie(agentSession), env)).toBeNull();
+  });
+
+  it('rejects a valid console session auth no longer vouches for: the account was deleted (#499)', async () => {
+    stubFetchWithAuth(vi.fn(), 401);
+    const session = await makeToken('HS256', {
+      ...claims,
+      typ: 'fgs_session',
+      aud: 'https://console.freegamestore.online',
+    });
+    expect(await resolveCreatorUser(withCookie(session), env)).toBeNull();
+  });
+
+  it('asks auth /me with the token and the console audience (#499)', async () => {
+    const calls: Request[] = [];
+    vi.stubGlobal('fetch', async (input: RequestInfo, init?: RequestInit) => {
+      calls.push(new Request(input, init));
+      return new Response('{}');
+    });
+    const signIn = await makeToken('HS256', claims);
+    expect((await resolveCreatorUser(withCookie(signIn), env))?.github).toBe('octo');
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('https://auth.freegamestore.online/me');
+    expect(calls[0].headers.get('X-FGS-Token')).toBe(signIn);
+    expect(calls[0].headers.get('X-FGS-Audience')).toBe('https://console.freegamestore.online');
   });
 });

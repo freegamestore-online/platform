@@ -21,7 +21,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 
-const { default: handler } = await import(pathToFileURL(resolve(root, 'src/auth-handler.ts')).href);
+const { default: handler, refuseRevokedGrant } = await import(pathToFileURL(resolve(root, 'src/auth-handler.ts')).href);
 
 const AUTH_BASE = 'https://auth.freegamestore.online';
 const ORIGIN = 'https://mcp.freegamestore.online';
@@ -757,3 +757,36 @@ test('the consent step verifies the session as an MCP-issued one', async () => {
   assert.ok(me, 'expected a /me verification call');
   assert.equal(new Headers(me.headers).get('X-FGS-Audience'), 'https://mcp.freegamestore.online');
 });
+
+// -- every MCP API call re-checks the grant's FGS session (#499) --
+
+test('an MCP call proceeds only while auth still vouches for the grant\'s session (#499)', async () => {
+  const seen = [];
+  const auth = (status) => ({
+    async fetch(url, init) {
+      seen.push({ url, headers: new Headers(init.headers) });
+      if (status === 'throw') throw new Error('binding down');
+      return new Response('{}', { status });
+    },
+  });
+  assert.equal(await refuseRevokedGrant(auth(200), { token: 'tok' }), null);
+  assert.equal(seen[0].url, `${AUTH_BASE}/me`);
+  assert.equal(seen[0].headers.get('X-FGS-Token'), 'tok');
+  assert.equal(seen[0].headers.get('X-FGS-Audience'), ORIGIN);
+
+  // Account deleted (or session expired): 401 with a Bearer challenge, so the
+  // client signs in again.
+  const revoked = await refuseRevokedGrant(auth(401), { token: 'tok' });
+  assert.equal(revoked.status, 401);
+  assert.match(revoked.headers.get('WWW-Authenticate'), /invalid_token/);
+  assert.equal((await refuseRevokedGrant(auth(200), {})).status, 401);
+  assert.equal((await refuseRevokedGrant(auth(200), undefined)).status, 401);
+
+  // Auth unwell is not a verdict on the session: 503, no challenge.
+  for (const status of [500, 'throw']) {
+    const res = await refuseRevokedGrant(auth(status), { token: 'tok' });
+    assert.equal(res.status, 503);
+    assert.equal(res.headers.get('WWW-Authenticate'), null);
+  }
+});
+

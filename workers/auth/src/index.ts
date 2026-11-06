@@ -462,6 +462,10 @@ export async function handleMe(request: Request, env: Env): Promise<Response> {
   ) {
     return json({ error: 'Token not valid for this service' }, 401, request);
   }
+  // The account was deleted after this token was issued, or is gone (#499).
+  if (!(await accountLive(env.DB, payload))) {
+    return json({ error: 'Invalid or expired token' }, 401, request);
+  }
 
   // Email is PII, so expose it only on the worker-to-worker path (X-FGS-Token —
   // e.g. the admin worker resolving the signed-in user for its allowlist), never
@@ -549,10 +553,23 @@ async function handleDeleteAccount(request: Request, env: Env): Promise<Response
   if (!payload || typeof payload.sub !== 'string' || !canDeleteAccount(payload)) {
     return json({ error: 'Invalid or expired token' }, 401, request);
   }
+  // A token from before an earlier deletion must not delete the account the
+  // user made when they signed in again (#499).
+  if (!(await accountLive(env.DB, payload))) {
+    return json({ error: 'Invalid or expired token' }, 401, request);
+  }
 
   try {
-    // Delete the user from the database
-    await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(payload.sub).run();
+    // Revoke every token issued so far, then delete the user, atomically
+    // (#499). The watermark outlives the row, so it still holds if they sign in
+    // again and get a new one.
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO session_revocations (sub, revoked_at_ms) VALUES (?, ?)
+         ON CONFLICT(sub) DO UPDATE SET revoked_at_ms = excluded.revoked_at_ms`,
+      ).bind(payload.sub, Date.now()),
+      env.DB.prepare('DELETE FROM users WHERE id = ?').bind(payload.sub),
+    ]);
 
     return json({ ok: true, message: 'Account deleted from auth' }, 200, request);
   } catch (error) {
@@ -783,29 +800,76 @@ export async function handleGitHubTokenExchange(request: Request, env: Env): Pro
   return json({ token, login: intro.user.login, expiresAt }, 200, request);
 }
 
+// --- Tables the worker creates itself ---
+// The auth worker binds only D1 (no KV) and has no migration step: each table
+// it owns beyond `users` is created on first use, once per isolate (schema.sql
+// lists them all).
+
+const tableReady = new Map<string, Promise<unknown>>();
+
+function ensureTable(db: D1Database, ddl: string): Promise<unknown> {
+  let ready = tableReady.get(ddl);
+  if (!ready) {
+    ready = db
+      .prepare(ddl)
+      .run()
+      .catch((e: unknown) => {
+        tableReady.delete(ddl);
+        throw e;
+      });
+    tableReady.set(ddl, ready);
+  }
+  return ready;
+}
+
+// --- Account revocation (#499) ---
+// Tokens are stateless HS256, so deleting an account used to leave every token
+// minted before it valid until `exp` (up to 30 days). Deletion now records a
+// watermark for the subject, and every place auth accepts a token refuses one
+// issued at or before it, or one whose account row is gone.
+//
+// The watermark lives in its own table, not on the users row: the row is what
+// deletion removes, and a deleted user who signs in again gets a new row, so a
+// column there would forget the deletion and bring the old tokens back.
+
+const REVOCATIONS_DDL =
+  'CREATE TABLE IF NOT EXISTS session_revocations (sub TEXT PRIMARY KEY, revoked_at_ms INTEGER NOT NULL)';
+
+/**
+ * Whether the account a verified token names still stands behind it: its users
+ * row exists, and the token was issued after the account's last deletion.
+ */
+async function accountLive(db: D1Database, payload: Record<string, unknown>): Promise<boolean> {
+  if (typeof payload.sub !== 'string') return false;
+  await ensureTable(db, REVOCATIONS_DDL);
+  const row = await db
+    .prepare(
+      `SELECT EXISTS(SELECT 1 FROM users WHERE id = ?1) AS present,
+              (SELECT revoked_at_ms FROM session_revocations WHERE sub = ?1) AS revoked_at_ms`,
+    )
+    .bind(payload.sub)
+    .first<{ present: number; revoked_at_ms: number | null }>();
+  if (!row?.present) return false;
+  if (row.revoked_at_ms === null) return true;
+  // `iat` is whole seconds, rounded down, and the watermark is milliseconds,
+  // so a token minted in the same second as the deletion compares as at-or-
+  // before it and is refused (the FAS per-second comparison let it through,
+  // FAS #518). A token with no iat can't be placed after the deletion either.
+  return typeof payload.iat === 'number' && payload.iat * 1000 > row.revoked_at_ms;
+}
+
 // --- Consumed-handoff set (#464) ---
 // A handoff travels in a URL query string (#450), so anyone who sees one could
 // redeem it again for a fresh 30-day session until it expired. Every handoff
 // now carries a jti, and consuming records it here so a second redeem fails.
-// The auth worker binds only D1 (no KV), so the set is a small table created
-// on first use — no provisioning step — and pruned of expired rows as it goes.
+// The set is pruned of expired rows as it goes.
 
-let consumedTableReady: Promise<unknown> | null = null;
-
-function ensureConsumedTable(db: D1Database): Promise<unknown> {
-  consumedTableReady ??= db
-    .prepare('CREATE TABLE IF NOT EXISTS handoff_consumed (jti TEXT PRIMARY KEY, exp INTEGER NOT NULL)')
-    .run()
-    .catch((e: unknown) => {
-      consumedTableReady = null;
-      throw e;
-    });
-  return consumedTableReady;
-}
+const CONSUMED_DDL =
+  'CREATE TABLE IF NOT EXISTS handoff_consumed (jti TEXT PRIMARY KEY, exp INTEGER NOT NULL)';
 
 /** Record `jti` as consumed. False when it already was — a replay. */
 async function consumeOnce(db: D1Database, jti: string, exp: number): Promise<boolean> {
-  await ensureConsumedTable(db);
+  await ensureTable(db, CONSUMED_DDL);
   const inserted = await db
     .prepare('INSERT OR IGNORE INTO handoff_consumed (jti, exp) VALUES (?, ?)')
     .bind(jti, exp)
@@ -833,6 +897,10 @@ export async function handleHandoffConsume(request: Request, env: Env): Promise<
     typeof payload.jti !== 'string' ||
     typeof payload.exp !== 'number'
   ) {
+    return json({ error: 'invalid or expired handoff' }, 401, request);
+  }
+  // Issued before the account was deleted (#499).
+  if (!(await accountLive(env.DB, payload))) {
     return json({ error: 'invalid or expired handoff' }, 401, request);
   }
   // Single-use (#464). Fail closed if the set can't be written: an un-recorded
@@ -895,6 +963,10 @@ export async function handleHandoffIssue(request: Request, env: Env): Promise<Re
   // A handoff, or a session for some other site, is not a source (#425, #463).
   if (!canIssueHandoff(payload, target)) {
     return json({ error: 'token cannot issue a handoff for this target' }, 401, request);
+  }
+  // A token from before the account's deletion mints nothing (#499).
+  if (!(await accountLive(env.DB, payload))) {
+    return json({ error: 'not signed in' }, 401, request);
   }
   return json({ token: await mintHandoff(token, target, env.JWT_SECRET) }, 200, request);
 }

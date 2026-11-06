@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { onRequestPost as consoleDelete } from "../../../apps/console/functions/auth/delete";
+import { resolveCaller } from "../../../apps/admin/src/caller";
+import { dispatchApiRoute } from "../../../apps/admin/src/routes/dispatch";
+import { resolveCreatorUser } from "../../../apps/console/functions/api/_auth";
 import authWorker, { jwtSign } from "../../auth/src/index";
+import { sqliteD1 } from "../../auth/test/sqlite-d1";
+import { refuseRevokedGrant } from "../../mcp/src/auth-handler";
 import agentWorker from "./index";
 import { INTERNAL_WIPE_PATH } from "./session-router";
 
@@ -10,6 +15,10 @@ import { INTERNAL_WIPE_PATH } from "./session-router";
 // console-audience session signed with a test key. The old test mocked /me, so
 // it never noticed the agent refuses console sessions (#69) and every real
 // deletion failed.
+//
+// #499: after deletion, every token issued before it is refused by each
+// service that trusts one (agent, MCP, admin, console), and a fresh sign-in
+// works. Auth runs on a real SQLite D1 here, so its SQL runs as written.
 
 const SECRET = "integration-test-secret";
 const USER = "github:4242";
@@ -41,10 +50,11 @@ function fakeD1(sessions: string[]) {
 
 function setup(opts: { sessions?: string[]; wipeStatus?: number } = {}) {
   const sessions = opts.sessions ?? ["s1", "s2"];
-  const authDb = fakeD1([]);
+  // The user signed in, so auth has their row.
+  const authDb = sqliteD1([USER]);
   const agentDb = fakeD1(sessions);
   const wiped: string[] = [];
-  const authEnv = { JWT_SECRET: SECRET, DB: authDb.db } as unknown as AuthEnv;
+  const authEnv = { JWT_SECRET: SECRET, DB: authDb } as unknown as AuthEnv;
   const agentEnv = {
     STORE: "games",
     INTERNAL_TOKEN: "internal",
@@ -71,18 +81,19 @@ function setup(opts: { sessions?: string[]; wipeStatus?: number } = {}) {
     const host = new URL(req.url).host;
     if (host === "auth.freegamestore.online") return authWorker.fetch(req, authEnv);
     if (host === "agent.freegamestore.online") return agentWorker.fetch(req, agentEnv, {} as ExecutionContext);
+    if (host === "api.github.com" || host === "raw.githubusercontent.com") return new Response("{}", { status: 404 });
     throw new Error(`unexpected fetch ${req.url}`);
   });
 
-  const deleted = (db: typeof authDb, table: string) =>
+  const deleted = (db: typeof agentDb, table: string) =>
     db.runs.some((r) => r.sql.startsWith(`DELETE FROM ${table} WHERE`) && r.args[0] === USER);
-  return { authDb, agentDb, wiped, deleted };
+  const authUserDeleted = () => !authDb.sqlite.prepare("SELECT 1 FROM users WHERE id = ?").get(USER);
+  return { authDb, agentDb, wiped, deleted, authUserDeleted, agentEnvAuth: (agentEnv as unknown as { AUTH: Fetcher }).AUTH };
 }
 
 /** What auth's /handoff/consume mints for the console: the browser's cookie. */
-async function consoleSession(aud = CONSOLE): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  return jwtSign({ typ: "fgs_session", aud, sub: USER, login: "deleter", iat: now, exp: now + 3600 }, SECRET);
+async function consoleSession(aud = CONSOLE, iat = Math.floor(Date.now() / 1000)): Promise<string> {
+  return jwtSign({ typ: "fgs_session", aud, sub: USER, login: "deleter", iat, exp: iat + 3600 }, SECRET);
 }
 
 async function postDelete(token: string): Promise<Response> {
@@ -99,7 +110,7 @@ afterEach(() => {
 
 describe("account deletion across console, agent and auth (#483)", () => {
   it("deletes the agent data, BYO keys, grants and the auth record for a real console session", async () => {
-    const { authDb, agentDb, wiped, deleted } = setup();
+    const { agentDb, wiped, deleted, authUserDeleted } = setup();
     const res = await postDelete(await consoleSession());
     const body = (await res.json()) as { ok: boolean };
     expect(res.status).toBe(200);
@@ -108,7 +119,7 @@ describe("account deletion across console, agent and auth (#483)", () => {
     for (const table of ["agent_sessions", "user_api_keys", "complimentary_grants"]) {
       expect(deleted(agentDb, table), table).toBe(true);
     }
-    expect(deleted(authDb, "users")).toBe(true);
+    expect(authUserDeleted()).toBe(true);
     expect(res.headers.getSetCookie().some((c) => c.startsWith("__Host-fgs_token=;"))).toBe(true);
   });
 
@@ -122,20 +133,88 @@ describe("account deletion across console, agent and auth (#483)", () => {
   });
 
   it("reports failure and keeps the auth record when a session wipe fails", async () => {
-    const { authDb, deleted } = setup({ wipeStatus: 500 });
+    const { authUserDeleted } = setup({ wipeStatus: 500 });
     const res = await postDelete(await consoleSession());
     expect(res.status).toBe(502);
     expect(((await res.json()) as { ok: boolean }).ok).toBe(false);
-    expect(deleted(authDb, "users")).toBe(false);
+    expect(authUserDeleted()).toBe(false);
     expect(res.headers.getSetCookie()).toHaveLength(0);
   });
 
   it("deletes nothing for a session minted for another site", async () => {
-    const { authDb, agentDb, wiped, deleted } = setup();
+    const { agentDb, wiped, deleted, authUserDeleted } = setup();
     const res = await postDelete(await consoleSession("https://mcp.freegamestore.online"));
     expect(res.status).toBe(401);
     expect(wiped).toEqual([]);
     expect(deleted(agentDb, "agent_sessions")).toBe(false);
-    expect(deleted(authDb, "users")).toBe(false);
+    expect(authUserDeleted()).toBe(false);
+  });
+});
+
+describe("tokens issued before deletion are dead everywhere (#499)", () => {
+  const AGENT = "https://agent.freegamestore.online";
+  const MCP = "https://mcp.freegamestore.online";
+  const ADMIN = "https://admin.freegamestore.online";
+
+  /** The services each token is presented to, with a 2xx/401 verdict apiece. */
+  async function verdicts(env: ReturnType<typeof setup>, tokens: { agent: string; mcp: string; admin: string; console: string }) {
+    const agentRes = await fetch(`${AGENT}/sessions`, { headers: { "X-FGS-Token": tokens.agent } });
+    const mcpRes = await refuseRevokedGrant(env.agentEnvAuth, { token: tokens.mcp });
+    const adminEnv = { AUTH: env.agentEnvAuth, SESSION_SIGNING_KEY: "admin-key" } as unknown as Parameters<typeof resolveCaller>[1];
+    // A creator write: PATCH /api/games/:id is login-gated in admin's router.
+    const adminRes = await dispatchApiRoute(
+      new Request(`${ADMIN}/api/games/chess`, { method: "PATCH", headers: { "X-FGS-Token": tokens.admin } }),
+      adminEnv,
+      {} as never,
+    );
+    const consoleUser = await resolveCreatorUser(
+      new Request(`${CONSOLE}/api/me`, { headers: { Cookie: `__Host-fgs_token=${tokens.console}` } }),
+      { JWT_SECRET: SECRET } as never,
+    );
+    return {
+      agent: agentRes.status,
+      mcp: mcpRes?.status ?? 200,
+      adminLogin: (await resolveCaller(new Request(`${ADMIN}/`, { headers: { "X-FGS-Token": tokens.admin } }), adminEnv)).login,
+      admin: adminRes?.status,
+      console: consoleUser?.github ?? null,
+    };
+  }
+
+  async function tokensIssued(ago: number) {
+    const iat = Math.floor(Date.now() / 1000) - ago;
+    return {
+      agent: await consoleSession(AGENT, iat),
+      mcp: await consoleSession(MCP, iat),
+      admin: await consoleSession(MCP, iat), // MCP forwards its session to admin
+      console: await consoleSession(CONSOLE, iat),
+    };
+  }
+
+  it("a pre-deletion token gets 401 from agent, MCP and admin, and no console identity", async () => {
+    const env = setup();
+    const before = await tokensIssued(0);
+    const live = await verdicts(env, before);
+    expect(live).toMatchObject({ agent: 200, mcp: 200, adminLogin: "deleter", console: "deleter" });
+    expect(live.admin).not.toBe(401);
+
+    expect((await postDelete(await consoleSession())).status).toBe(200);
+
+    expect(await verdicts(env, before)).toEqual({ agent: 401, mcp: 401, adminLogin: null, admin: 401, console: null });
+  });
+
+  it("a fresh sign-in after deletion works, and the old tokens stay dead", async () => {
+    const env = setup();
+    const old = await tokensIssued(30);
+    expect((await postDelete(await consoleSession(CONSOLE, Math.floor(Date.now() / 1000) - 30))).status).toBe(200);
+    // The user signs in again later: the OAuth callback upserts a new users row
+    // and every token from here on is issued after the deletion.
+    env.authDb.sqlite.prepare("UPDATE session_revocations SET revoked_at_ms = revoked_at_ms - 5000").run();
+    env.authDb.sqlite.prepare("INSERT INTO users (id, name) VALUES (?, 'again')").run(USER);
+    const fresh = await tokensIssued(0);
+
+    const now = await verdicts(env, fresh);
+    expect(now).toMatchObject({ agent: 200, mcp: 200, adminLogin: "deleter", console: "deleter" });
+    expect(now.admin).not.toBe(401);
+    expect(await verdicts(env, old)).toEqual({ agent: 401, mcp: 401, adminLogin: null, admin: 401, console: null });
   });
 });

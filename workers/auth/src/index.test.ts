@@ -25,6 +25,7 @@ import worker, {
   jwtVerify,
   safeRedirect,
 } from './index';
+import { sqliteD1 } from '../test/sqlite-d1';
 
 // --- base64url (real helpers, imported) ---
 
@@ -144,34 +145,24 @@ test('jwtVerify rejects a token missing a numeric exp (never non-expiring)', asy
 // Email is exposed ONLY over the worker-to-worker path (X-FGS-Token), never to a
 // game subdomain calling /me with the browser cookie.
 
-/** A D1 stub for the consumed-handoff set (#464): a real set of jtis. */
+/** Subjects the tests sign tokens for; each has a users row (#499). */
+const TEST_USERS = ['github:7', 'github:42', 'github:1', '9'];
+
+/** A real SQLite D1 (consumed-handoff set #464, revocations #499) that also
+ *  records each statement's SQL, and can be told to fail handoff inserts. */
 function consumedDb(opts: { failInsert?: boolean } = {}) {
-  const jtis = new Set<string>();
+  const d1 = sqliteD1(TEST_USERS);
   const sql: string[] = [];
   return {
-    jtis,
+    ...d1,
     sql,
+    jti: (jti: string) => !!d1.sqlite.prepare('SELECT 1 FROM handoff_consumed WHERE jti = ?').get(jti),
     prepare(query: string) {
       sql.push(query);
-      return {
-        bind(...args: unknown[]) {
-          return {
-            async run() {
-              if (query.startsWith('INSERT')) {
-                if (opts.failInsert) throw new Error('D1 down');
-                const jti = String(args[0]);
-                const fresh = !jtis.has(jti);
-                jtis.add(jti);
-                return { meta: { changes: fresh ? 1 : 0 } };
-              }
-              return { meta: { changes: 0 } };
-            },
-          };
-        },
-        async run() {
-          return { meta: { changes: 0 } };
-        },
-      };
+      if (opts.failInsert && query.startsWith('INSERT OR IGNORE INTO handoff_consumed')) {
+        return { bind: () => ({ run: async () => { throw new Error('D1 down'); } }) };
+      }
+      return d1.prepare(query);
     },
   };
 }
@@ -958,7 +949,7 @@ test('a handoff can be consumed exactly once (#464)', async () => {
   assert.equal(first.status, 200);
   assert.ok(((await first.json()) as { token?: string }).token);
   const { jti } = (await jwtVerify(handoff, SECRET)) as { jti: string };
-  assert.ok(db.jtis.has(jti), 'the jti was recorded as consumed');
+  assert.ok(db.jti(jti), 'the jti was recorded as consumed');
 
   const replay = await handleHandoffConsume(consumeReq(handoff), env);
   assert.equal(replay.status, 401);
@@ -1006,13 +997,9 @@ function deleteReq(headers: Record<string, string>): Request {
 }
 
 test('DELETE /account rejects a handoff, and an Authorization header without Bearer (#425)', async () => {
-  let deletes = 0;
-  const env = {
-    JWT_SECRET: SECRET,
-    DB: {
-      prepare: () => ({ bind: () => ({ run: async () => { deletes++; return {}; } }) }),
-    },
-  } as unknown as Parameters<typeof handleMe>[1];
+  const db = consumedDb();
+  const env = { JWT_SECRET: SECRET, DB: db } as unknown as Parameters<typeof handleMe>[1];
+  const deleted = () => !db.sqlite.prepare("SELECT 1 FROM users WHERE id = 'github:7'").get();
   const handoff = await agentHandoff();
   assert.equal((await worker.fetch(deleteReq({ 'X-FGS-Token': handoff }), env)).status, 401);
   assert.equal(
@@ -1021,9 +1008,9 @@ test('DELETE /account rejects a handoff, and an Authorization header without Bea
   );
   const signIn = await mintToken();
   assert.equal((await worker.fetch(deleteReq({ Authorization: `Xearer ${signIn}` }), env)).status, 401);
-  assert.equal(deletes, 0);
+  assert.equal(deleted(), false);
   assert.equal((await worker.fetch(deleteReq({ Authorization: `Bearer ${signIn}` }), env)).status, 200);
-  assert.equal(deletes, 1);
+  assert.equal(deleted(), true);
 });
 
 // --- logout CSRF + dev origin (#486) ---
@@ -1094,13 +1081,9 @@ test('localhost:5173 is trusted only when DEV_ORIGIN names it (#486)', async () 
 // --- DELETE /account: header credential + console audience only (#485) ---
 
 test('DELETE /account ignores the cookie and refuses sessions for any site but the console (#485)', async () => {
-  let deletes = 0;
-  const env = {
-    JWT_SECRET: SECRET,
-    DB: {
-      prepare: () => ({ bind: () => ({ run: async () => { deletes++; return {}; } }) }),
-    },
-  } as unknown as Parameters<typeof handleMe>[1];
+  const db = consumedDb();
+  const env = { JWT_SECRET: SECRET, DB: db } as unknown as Parameters<typeof handleMe>[1];
+  const deleted = () => !db.sqlite.prepare("SELECT 1 FROM users WHERE id = 'github:1'").get();
   const consoleSession = await sessionFor('https://console.freegamestore.online');
   // A same-site game's fetch carries only the cookie.
   const cookieOnly = await worker.fetch(
@@ -1116,7 +1099,62 @@ test('DELETE /account ignores the cookie and refuses sessions for any site but t
     const res = await worker.fetch(deleteReq({ 'X-FGS-Token': await sessionFor(aud) }), env);
     assert.equal(res.status, 401, aud);
   }
-  assert.equal(deletes, 0);
+  assert.equal(deleted(), false);
   assert.equal((await worker.fetch(deleteReq({ 'X-FGS-Token': consoleSession }), env)).status, 200);
-  assert.equal(deletes, 1);
+  assert.equal(deleted(), true);
+});
+
+// --- account revocation on deletion (#499) ---
+
+/** A sign-in token for github:7 issued `ago` seconds before now. */
+async function signInIssued(ago: number): Promise<string> {
+  const iat = nowSec() - ago;
+  return jwtSign({ sub: 'github:7', login: 'grace', name: 'Grace', iat, exp: iat + 3600 }, SECRET);
+}
+
+test('after deletion, every earlier token is refused everywhere auth accepts one (#499)', async () => {
+  const env = { JWT_SECRET: SECRET, DB: consumedDb() } as unknown as Parameters<typeof handleMe>[1];
+  const signIn = await signInIssued(60);
+  // Issued in the same second as the deletion: still before it (FAS #518).
+  const sameSecond = await signInIssued(0);
+  const handoff = await consoleHandoff(env);
+  const consoleSession = ((await (await handleHandoffConsume(consumeReq(await consoleHandoff(env)), env)).json()) as {
+    token: string;
+  }).token;
+
+  assert.equal((await worker.fetch(deleteReq({ 'X-FGS-Token': consoleSession }), env)).status, 200);
+
+  for (const token of [signIn, sameSecond, consoleSession]) {
+    assert.equal((await handleMe(meReq(token), env)).status, 401, '/me');
+    assert.equal((await handleHandoffIssue(issueReq(CONSOLE_ORIGIN, { token }), env)).status, 401, 'issue');
+  }
+  assert.equal((await handleHandoffConsume(consumeReq(handoff), env)).status, 401, 'consume');
+});
+
+test('a fresh sign-in after deletion works, and the old tokens stay dead (#499)', async () => {
+  const db = consumedDb();
+  const env = { JWT_SECRET: SECRET, DB: db } as unknown as Parameters<typeof handleMe>[1];
+  const old = await signInIssued(0);
+  assert.equal((await worker.fetch(deleteReq({ 'X-FGS-Token': old }), env)).status, 200);
+  // Deletion was recorded, then the user signs in again a little later: the
+  // callback upserts a new users row and mints a token.
+  db.sqlite.prepare('UPDATE session_revocations SET revoked_at_ms = revoked_at_ms - 5000').run();
+  db.sqlite.prepare("INSERT INTO users (id, name) VALUES ('github:7', 'Grace')").run();
+  const fresh = await signInIssued(0);
+
+  assert.equal((await handleMe(meReq(fresh), env)).status, 200);
+  assert.equal((await handleHandoffIssue(issueReq(CONSOLE_ORIGIN, { token: fresh }), env)).status, 200);
+  const old2 = await signInIssued(10);
+  assert.equal((await handleMe(meReq(old2), env)).status, 401);
+  // A pre-deletion token can't delete the new account either.
+  assert.equal((await worker.fetch(deleteReq({ 'X-FGS-Token': old2 }), env)).status, 401);
+  assert.ok(db.sqlite.prepare("SELECT 1 FROM users WHERE id = 'github:7'").get());
+});
+
+test('a valid token whose account row is gone is refused (#499)', async () => {
+  const env = { JWT_SECRET: SECRET, DB: consumedDb() } as unknown as Parameters<typeof handleMe>[1];
+  const iat = nowSec();
+  const orphan = await jwtSign({ sub: 'github:999', login: 'ghost', iat, exp: iat + 3600 }, SECRET);
+  assert.equal((await handleMe(meReq(orphan), env)).status, 401);
+  assert.equal((await handleHandoffIssue(issueReq(CONSOLE_ORIGIN, { token: orphan }), env)).status, 401);
 });

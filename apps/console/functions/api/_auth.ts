@@ -7,7 +7,8 @@
 // GitHub-OAuth JWT minted by the auth worker; its `login` claim is the GitHub
 // username, which is exactly the creator identity these endpoints need.
 //
-// Requires JWT_SECRET (same value as the auth worker) to verify console tokens.
+// Requires JWT_SECRET (same value as the auth worker) to verify console tokens,
+// and asks auth's /me whether the account still exists (#499).
 // Files prefixed with `_` are not routed by Pages, so this is import-only.
 
 import { type DevOriginEnv, isFirstPartyOrigin } from './_csrf';
@@ -96,6 +97,22 @@ function isConsoleSession(p: Record<string, unknown>): boolean {
   return p.typ === 'fgs_session' && p.aud === CONSOLE_ORIGIN;
 }
 
+/**
+ * The signature only proves auth minted the token. Whether the account still
+ * stands behind it (not deleted since, #499) only auth knows, so ask its /me,
+ * which applies the same console-audience rule as isConsoleSession.
+ */
+async function accountLive(token: string): Promise<boolean> {
+  try {
+    const res = await fetch('https://auth.freegamestore.online/me', {
+      headers: { 'X-FGS-Token': token, 'X-FGS-Audience': CONSOLE_ORIGIN },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** The signed-in creator's identity, normalized across both session sources. */
 export interface CreatorUser {
   /** GitHub login / username. */
@@ -130,7 +147,7 @@ export async function resolveCreatorUser(
   const tok = getCookie(request, SESSION_COOKIE);
   if (tok && env.JWT_SECRET) {
     const p = await verifyJWT(tok, env.JWT_SECRET);
-    if (p && isConsoleSession(p) && typeof p.login === 'string') {
+    if (p && isConsoleSession(p) && typeof p.login === 'string' && (await accountLive(tok))) {
       const sub = typeof p.sub === 'string' ? p.sub : null;
       const parsed = sub?.startsWith('github:') ? Number(sub.slice('github:'.length)) : NaN;
       return {

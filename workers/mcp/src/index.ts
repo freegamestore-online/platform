@@ -4,7 +4,7 @@ import { MCP_ACCESS_TOKEN_TTL_SECONDS } from './oauth-config.js';
 import { McpServer, type ToolCallback } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { McpAgent } from 'agents/mcp';
 import type { z } from 'zod';
-import authHandler from './auth-handler.js';
+import authHandler, { refuseRevokedGrant } from './auth-handler.js';
 import { githubIdFromSub, ownershipFacts, readRegistryGames } from './github.js';
 import { errMsg } from './http.js';
 import type { SafetyContext } from './safety.js';
@@ -149,6 +149,11 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
 export class FgsApiHandler extends WorkerEntrypoint<Env> {
   async fetch(request: Request): Promise<Response> {
     const props = (this.ctx as unknown as { props?: McpProps }).props;
+    // The grant outlives the FGS session it was made from, and several tools
+    // act on props alone (GitHub writes gated on props.userId). Re-check that
+    // session on every call, so a deleted account's grant stops working (#499).
+    const refused = await refuseRevokedGrant(this.env.AUTH, props);
+    if (refused) return refused;
     const sessionId = request.headers.get('mcp-session-id');
     if (props?.token && sessionId) {
       try {

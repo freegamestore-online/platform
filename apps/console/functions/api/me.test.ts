@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { stubFetchWithAuth } from '../../test/auth-me';
 import { listUserGames } from './_games';
 import { onRequestGet } from './me';
 
@@ -44,8 +45,13 @@ const env = {
   MAX_APPS_PER_USER: '10',
 };
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe('/api/me CORS for the storefront (#355)', () => {
   it('answers a signed-in storefront request with first-party CORS headers', async () => {
+    stubFetchWithAuth();
     const cookie = await signSession('alice');
     const res = await onRequestGet({
       request: new Request('https://console.freegamestore.online/api/me', {

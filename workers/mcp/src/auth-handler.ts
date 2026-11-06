@@ -149,6 +149,53 @@ async function loadBoundRequest(
 }
 
 /**
+ * Ask auth whether an MCP session is valid: signed, unexpired, for MCP (never
+ * a handoff or another site's session, #69), and issued after the account's
+ * last deletion (#499).
+ */
+export function fgsMe(auth: Fetcher, token: string): Promise<Response> {
+  return auth.fetch('https://auth.freegamestore.online/me', {
+    headers: { 'X-FGS-Token': token, 'X-FGS-Audience': 'https://mcp.freegamestore.online' },
+  });
+}
+
+/**
+ * For an MCP API call: a 401 when auth no longer vouches for the FGS session
+ * the grant was made from (expired, or the account was deleted, #499), so the
+ * client signs in again; a 503 when auth can't answer; null to proceed.
+ */
+export async function refuseRevokedGrant(
+  auth: Fetcher,
+  props: { token?: string } | undefined,
+): Promise<Response | null> {
+  let status = 401;
+  if (props?.token) {
+    try {
+      status = (await fgsMe(auth, props.token)).status;
+    } catch {
+      status = 503;
+    }
+  }
+  if (status === 200) return null;
+  const revoked = status === 401;
+  return new Response(
+    JSON.stringify({
+      error: revoked ? 'invalid_token' : 'temporarily_unavailable',
+      error_description: revoked
+        ? 'The FreeGameStore session behind this connection is no longer valid. Reconnect to sign in again.'
+        : 'Could not verify the FreeGameStore session. Try again shortly.',
+    }),
+    {
+      status: revoked ? 401 : 503,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(revoked ? { 'WWW-Authenticate': 'Bearer error="invalid_token"' } : {}),
+      },
+    },
+  );
+}
+
+/**
  * SECURITY: verify the token's signature via the auth worker BEFORE trusting
  * any claim from it. decodeLogin() is an unsigned read — without this, a forged
  * fgs_token cookie could set props.userId/login to any GitHub user and bypass
@@ -160,10 +207,7 @@ async function verifySession(
 ): Promise<{ token: string; login: string | undefined; sub: string | undefined } | Response> {
   const token = getCookie(request, SESSION_COOKIE);
   if (!token) return new Response('sign-in did not complete (no session cookie)', { status: 401 });
-  // MCP's own session only — never a handoff or another site's session (#69).
-  const verify = await env.AUTH.fetch('https://auth.freegamestore.online/me', {
-    headers: { 'X-FGS-Token': token, 'X-FGS-Audience': 'https://mcp.freegamestore.online' },
-  });
+  const verify = await fgsMe(env.AUTH, token);
   if (!verify.ok) return new Response('invalid or expired session token', { status: 401 });
   // The stable subject (`github:<id>`) comes from auth's verified /me answer,
   // not the unsigned payload read: the tools' ownership gate matches on it (#472).

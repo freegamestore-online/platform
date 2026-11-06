@@ -8,6 +8,8 @@ export interface Env {
   GITHUB_ORG: string;
   AGENT_BASE: string;
   AUTH_BASE: string;
+  /** Service binding to the auth worker. */
+  AUTH: Fetcher;
   STORE_REPO: string;
   MCP_OBJECT: DurableObjectNamespace;
   GITHUB_TOKEN?: string;
