@@ -32,7 +32,12 @@ describe('createBurst', () => {
   });
 
   it('spreads a full radial burst in every direction', () => {
-    const burst = createBurst(0, 0, ['red'], { ...OPTIONS, count: 8 });
+    // Deterministic: with Math.random, 8 particles all fell in one half-plane about
+    // 1 run in 150 and failed CI. createBurst draws four numbers per particle and the
+    // first is the direction, so evenly spaced directions cover every quadrant.
+    let draw = 0;
+    const evenDirections = () => (draw++ % 4 === 0 ? (Math.floor((draw - 1) / 4) + 0.5) / 8 : 0.5);
+    const burst = createBurst(0, 0, ['red'], { ...OPTIONS, count: 8 }, evenDirections);
     expect([
       burst.some((p) => p.vx > 0),
       burst.some((p) => p.vx < 0),
