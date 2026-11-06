@@ -83,6 +83,14 @@ describe("AgentSession /import gate", () => {
     expect(res.status).toBe(403);
   });
 
+  // #472: the worker-verified `github:<id>` subject reaches the ownership check.
+  it("passes the caller's GitHub id from X-Auth-User to ownsGame", async () => {
+    owns.mockResolvedValue({ owns: false, game: null });
+    const s = new AgentSession(mockState({ session: {} }), doEnv);
+    await s.fetch(importReq({ id: "beat-star2" }, { "X-Auth-User": "github:42", "X-Auth-Login": "alice" }));
+    expect(owns).toHaveBeenCalledWith(expect.anything(), undefined, "beat-star2", "alice", "42");
+  });
+
   // #40 — a registry/GitHub outage is not "not found" and not "no access".
   it("502s (not 404/403) when the ownership lookup fails upstream", async () => {
     owns.mockRejectedValueOnce(new OwnershipLookupError("store registry unavailable (contents API 503; raw 503)"));

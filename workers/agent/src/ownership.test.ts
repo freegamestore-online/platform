@@ -83,6 +83,21 @@ describe("ownsGame — registry-primary ownership", () => {
     expect(res.game).not.toBeNull();
   });
 
+  // #472: a GitHub login is mutable and re-assignable, so when both the entry
+  // and the caller carry a GitHub id, the id decides and the login is ignored.
+  it("matches on creatorGithubId when the caller's id is known: renamed owner in, reused login out", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === CONTENTS_URL) return registry([{ id: "snake", creatorGithub: "old-name", creatorGithubId: "100" }]);
+      return { status: 404 } as any; // not an org member
+    });
+    globalThis.fetch = fetchMock as any;
+
+    expect((await ownsGame(games, "tok", "snake", "new-name", "100")).owns).toBe(true);
+    expect((await ownsGame(games, "tok", "snake", "old-name", "200")).owns).toBe(false);
+    // No caller id (a session without a github: sub) → login fallback.
+    expect((await ownsGame(games, "tok", "snake", "old-name")).owns).toBe(true);
+  });
+
   it("owns as org member even when creatorGithub differs", async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url === CONTENTS_URL) return registry([{ id: "snake", creatorGithub: "someone-else" }]);

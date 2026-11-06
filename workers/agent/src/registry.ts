@@ -11,6 +11,8 @@ export interface RegistryGame {
   id: string;
   name?: string;
   creatorGithub?: string;
+  /** Numeric GitHub id of the creator, recorded at provision (#472). */
+  creatorGithubId?: string;
   developer?: string;
   appUrl?: string;
   [key: string]: unknown;
@@ -31,15 +33,21 @@ export function validateGameId(id: string): boolean {
 
 // Wrapper for backward compatibility: convert positional parameters to signals object
 export function ownershipFacts(
-  game: Pick<RegistryGame, "creatorGithub"> | undefined,
+  game: Pick<RegistryGame, "creatorGithub" | "creatorGithubId"> | undefined,
   login: string,
   isOrgMember: boolean,
   isLegacyAcceptedCollaborator: boolean,
+  callerGithubId?: string | null,
 ): OwnershipFacts {
-  return contractOwnershipFacts(game, login, {
-    isOrgMember,
-    isLegacyAcceptedCollaborator,
-  });
+  return contractOwnershipFacts(
+    game,
+    login,
+    {
+      isOrgMember,
+      isLegacyAcceptedCollaborator,
+    },
+    callerGithubId,
+  );
 }
 
 function parseRegistry(value: unknown, key: string): RegistryGame[] | null {

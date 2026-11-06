@@ -69,7 +69,9 @@ async function probe(path: string, token: string, agentName: string, what: strin
 /**
  * Does `login` own game `id`? A game must be in the registry to be ownable
  * (a repo with no registry entry is drift, not a game). Owner iff:
- *   - registry `creatorGithub === login` (case-insensitive), OR
+ *   - the caller is the registry creator: `creatorGithubId === githubId` when
+ *     both are known (#472 — a login is re-assignable), else
+ *     `creatorGithub === login` (case-insensitive), OR
  *   - `login` is an org member (admin-all view), OR
  *   - the game has NO recorded `creatorGithub` (legacy) AND `login` is an
  *     accepted collaborator on the repo.
@@ -81,11 +83,12 @@ export async function ownsGame(
   token: string,
   id: string,
   login: string,
+  githubId: string | null = null,
 ): Promise<{ owns: boolean; game: RegistryGame | null }> {
   const game = await fetchRegistryGame(config, token, id);
   if (!game) return { owns: false, game: null };
 
-  if (ownershipFacts(game, login, false, false).isCreator) {
+  if (ownershipFacts(game, login, false, false, githubId).isCreator) {
     return { owns: true, game };
   }
 

@@ -2,6 +2,7 @@
  *  Stores conversation history, virtual filesystem, token usage, deploy status. */
 
 import { corsHeaders } from "@freegamestore/contracts";
+import { githubIdFromSub } from "../../../contracts/registry-ownership/v1/contract";
 import { runAgentTurn } from "./agent";
 import type { StoreConfig } from "./config";
 import { getConfig } from "./config";
@@ -1061,7 +1062,13 @@ export class AgentSession implements DurableObject {
     // not "not found" / "no access" — report it as such (#40).
     let ownership: Awaited<ReturnType<typeof ownsGame>>;
     try {
-      ownership = await ownsGame(this.config, this.env.GITHUB_TOKEN, id, login);
+      ownership = await ownsGame(
+        this.config,
+        this.env.GITHUB_TOKEN,
+        id,
+        login,
+        githubIdFromSub(request.headers.get("X-Auth-User")),
+      );
     } catch (e) {
       if (!(e instanceof OwnershipLookupError)) throw e;
       return json({ error: `could not verify "${id}": ${e.message} — try again shortly` }, 502, request, this.config.domain);
