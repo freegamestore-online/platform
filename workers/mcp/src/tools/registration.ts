@@ -20,6 +20,8 @@ export interface Env {
 export interface McpProps extends Record<string, unknown> {
   userId?: string;
   token?: string;
+  /** Verified session subject, `github:<id>` — absent on grants made before #472. */
+  sub?: string;
 }
 
 export type SafeTool = <Args extends z.ZodRawShape>(

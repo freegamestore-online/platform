@@ -4,6 +4,7 @@
 // Vendored from fas/mcp/src/github.ts — adapted for FGS.
 
 import { commitFiles } from '@freegamestore/contracts';
+import { githubIdFromSub, ownershipFacts } from '../../../contracts/registry-ownership/v1/contract.js';
 import { githubRepoUrl, withTimeout } from './http.js';
 
 const UA = 'freegamestore-mcp';
@@ -85,6 +86,8 @@ export interface RepoFile {
 export interface RegistryGame {
   id: string;
   creatorGithub?: string;
+  /** Numeric GitHub id of the creator, recorded at provision (#472). */
+  creatorGithubId?: string;
   category?: string;
   description?: string;
   appUrl?: string;
@@ -98,11 +101,6 @@ export type RegistryReadResult =
   | { status: 'missing' }
   | { status: 'unavailable'; detail: string };
 
-export interface OwnershipFacts {
-  isCreator: boolean;
-  isOrgMember: boolean;
-  isLegacyAcceptedCollaborator: boolean;
-}
 
 const RESERVED_GAME_IDS = new Set([
   'freegamestore',
@@ -149,17 +147,9 @@ export function repoPathError(path: unknown): string | null {
   return null;
 }
 
-export function ownershipFacts(
-  game: Pick<RegistryGame, 'creatorGithub'> | undefined,
-  login: string,
-  signals: Pick<OwnershipFacts, 'isOrgMember' | 'isLegacyAcceptedCollaborator'>,
-): OwnershipFacts {
-  return {
-    isCreator: !!game?.creatorGithub && game.creatorGithub.toLowerCase() === login.toLowerCase(),
-    isOrgMember: signals.isOrgMember,
-    isLegacyAcceptedCollaborator: !game?.creatorGithub && signals.isLegacyAcceptedCollaborator,
-  };
-}
+// The shared registry-ownership contract decides creatorship (GitHub id first,
+// login fallback); re-exported so the tools and tests keep one import site.
+export { githubIdFromSub, ownershipFacts };
 
 /** Fetch every file of a template repo, substituting APPNAME -> gameId in text
  *  files (matches `fgs init`). Returns path -> base64 content. */

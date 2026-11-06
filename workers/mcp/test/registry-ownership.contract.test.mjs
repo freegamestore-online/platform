@@ -22,7 +22,7 @@ registerHooks({
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const contracts = resolve(root, '../../contracts/registry-ownership-remix/v1');
-const { readRegistryGames, ownershipFacts, validateGameId } = await import(
+const { readRegistryGames, ownershipFacts, githubIdFromSub, validateGameId } = await import(
   pathToFileURL(resolve(root, 'src/github.ts')).href
 );
 const load = async (name) => JSON.parse(await readFile(resolve(contracts, name), 'utf8'));
@@ -83,4 +83,23 @@ test('registry-ownership contract v1: ownership facts', async () => {
       testCase.name,
     );
   }
+});
+
+// #472: a GitHub login is mutable and re-assignable. ownsGame matches the
+// registry's creatorGithubId against the session's `github:<id>` sub first.
+test('ownership by GitHub id: id decides when both sides carry one, login otherwise', () => {
+  const none = { isOrgMember: false, isLegacyAcceptedCollaborator: false };
+  const game = { id: 'g', creatorGithub: 'old-name', creatorGithubId: '100' };
+  // Renamed owner: new login, same id.
+  assert.equal(ownershipFacts(game, 'new-name', none, githubIdFromSub('github:100')).isCreator, true);
+  // Someone who registered the freed login: same login, different id.
+  assert.equal(ownershipFacts(game, 'old-name', none, githubIdFromSub('github:200')).isCreator, false);
+  // A pre-#472 grant without a sub falls back to the login.
+  assert.equal(ownershipFacts(game, 'old-name', none, githubIdFromSub(undefined)).isCreator, true);
+});
+
+test('ownsGame passes the session sub to the ownership contract', async () => {
+  const src = await readFile(resolve(root, 'src/index.ts'), 'utf8');
+  const body = src.slice(src.indexOf('private async ownsGame'), src.indexOf('private safety()'));
+  assert.match(body, /githubIdFromSub\(this\.session\.sub\)/);
 });

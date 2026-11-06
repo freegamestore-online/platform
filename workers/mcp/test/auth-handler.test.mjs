@@ -599,6 +599,9 @@ test('POST /callback allow completes the authorization with the verified identit
   // props are what reach the MCP tools as this.props.
   assert.equal(completed.props.token, GRACE);
   assert.equal(completed.props.userId, 'grace');
+  // #472: the stable subject from auth's verified /me answer, which the tools'
+  // ownership gate matches against the registry's creatorGithubId.
+  assert.equal(completed.props.sub, 'github:7');
 });
 
 test('POST /callback deny sends the client access_denied and mints nothing', async () => {

@@ -5,7 +5,7 @@ import { McpServer, type ToolCallback } from '@modelcontextprotocol/sdk/server/m
 import { McpAgent } from 'agents/mcp';
 import type { z } from 'zod';
 import authHandler from './auth-handler.js';
-import { ownershipFacts, readRegistryGames } from './github.js';
+import { githubIdFromSub, ownershipFacts, readRegistryGames } from './github.js';
 import { errMsg } from './http.js';
 import type { SafetyContext } from './safety.js';
 import { registerAdminTools } from './tools/admin.js';
@@ -55,7 +55,9 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
   }
 
   /** Ownership gate: does the session user own this published game?
-   *  FGS has no /v1/apps/mine — registry.json's creatorGithub is the record. */
+   *  FGS has no /v1/apps/mine — registry.json's creator is the record, matched
+   *  on creatorGithubId vs the session's `github:<id>` sub when both exist,
+   *  else on the login (#472). */
   private async ownsGame(gameId: string): Promise<boolean> {
     const login = this.session.userId;
     if (!login) return false;
@@ -76,6 +78,7 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
         isOrgMember: false,
         isLegacyAcceptedCollaborator: false,
       },
+      githubIdFromSub(this.session.sub),
     ).isCreator;
   }
 

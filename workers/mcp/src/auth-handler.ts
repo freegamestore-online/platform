@@ -157,7 +157,7 @@ async function loadBoundRequest(
 async function verifySession(
   request: Request,
   env: Env,
-): Promise<{ token: string; login: string | undefined } | Response> {
+): Promise<{ token: string; login: string | undefined; sub: string | undefined } | Response> {
   const token = getCookie(request, SESSION_COOKIE);
   if (!token) return new Response('sign-in did not complete (no session cookie)', { status: 401 });
   // MCP's own session only — never a handoff or another site's session (#69).
@@ -165,7 +165,10 @@ async function verifySession(
     headers: { 'X-FGS-Token': token, 'X-FGS-Audience': 'https://mcp.freegamestore.online' },
   });
   if (!verify.ok) return new Response('invalid or expired session token', { status: 401 });
-  return { token, login: decodeLogin(token) };
+  // The stable subject (`github:<id>`) comes from auth's verified /me answer,
+  // not the unsigned payload read: the tools' ownership gate matches on it (#472).
+  const me = (await verify.json().catch(() => null)) as { id?: unknown } | null;
+  return { token, login: decodeLogin(token), sub: typeof me?.id === 'string' ? me.id : undefined };
 }
 
 /**
@@ -390,7 +393,7 @@ export default {
       // this request, and the session may have expired in between.
       const session = await verifySession(request, env);
       if (session instanceof Response) return session;
-      const { token: fgsToken, login } = session;
+      const { token: fgsToken, login, sub } = session;
 
       const { redirectTo } = await env.OAUTH_PROVIDER.completeAuthorization({
         request: oauthReqInfo,
@@ -414,7 +417,7 @@ export default {
         scope: oauthReqInfo.scope ?? [],
         metadata: { label: login ?? 'FreeGameStore user' },
         // props reach the MCP tools as this.props
-        props: { token: fgsToken, userId: login },
+        props: { token: fgsToken, userId: login, sub },
       });
       // The nonce has done its job — expire it rather than leaving one dead
       // cookie per authorization behind in the browser.
