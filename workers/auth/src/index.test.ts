@@ -836,6 +836,57 @@ test('a session can still mint a handoff for another privileged target (#425)', 
   assert.equal(res.status, 200);
 });
 
+// --- /handoff/issue: which tokens may be a handoff's SOURCE (#463) ---
+// #68 bound the browser path and #425 stopped handoff-for-handoff, but any
+// other non-handoff token still minted a handoff for ANY target: a session
+// for one site (say mcp) presented server-to-server became a console / admin
+// / agent session. Sessions are host-bound (#69); this was the hop that
+// un-bound them.
+
+const CONSOLE_ORIGIN = 'https://console.freegamestore.online';
+const MCP_ORIGIN = 'https://mcp.freegamestore.online';
+const AGENT_ORIGIN = 'https://agent.freegamestore.online';
+
+test('a session for one site cannot mint a handoff for another site (#463)', async () => {
+  const cases: [string, string][] = [
+    [MCP_ORIGIN, CONSOLE_ORIGIN],
+    [MCP_ORIGIN, ADMIN_ORIGIN],
+    [MCP_ORIGIN, AGENT_ORIGIN],
+    [ADMIN_ORIGIN, CONSOLE_ORIGIN],
+    [ADMIN_ORIGIN, MCP_ORIGIN],
+    [ADMIN_ORIGIN, AGENT_ORIGIN],
+    [AGENT_ORIGIN, CONSOLE_ORIGIN],
+    [AGENT_ORIGIN, ADMIN_ORIGIN],
+    [CONSOLE_ORIGIN, ADMIN_ORIGIN],
+    [CONSOLE_ORIGIN, MCP_ORIGIN],
+  ];
+  for (const [aud, target] of cases) {
+    const res = await handleHandoffIssue(issueReq(target, { token: await sessionFor(aud) }), ME_ENV);
+    assert.equal(res.status, 401, `${aud} -> ${target}`);
+    assert.equal(((await res.json()) as { token?: string }).token, undefined, `${aud} -> ${target}`);
+  }
+});
+
+test("a site's own session can mint a handoff for itself (#463)", async () => {
+  for (const origin of PRIVILEGED) {
+    const res = await handleHandoffIssue(issueReq(origin, { token: await sessionFor(origin) }), ME_ENV);
+    assert.equal(res.status, 200, origin);
+    const handoff = await jwtVerify(((await res.json()) as { token: string }).token, SECRET);
+    assert.equal(handoff?.aud, origin);
+  }
+});
+
+test('a session with a non-string or missing aud cannot mint any handoff (#463)', async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const noAud = await jwtSign(
+    { typ: 'fgs_session', sub: 'github:1', login: 'octo', iat: now, exp: now + 3600 },
+    SECRET,
+  );
+  for (const target of PRIVILEGED) {
+    assert.equal((await handleHandoffIssue(issueReq(target, { token: noAud }), ME_ENV)).status, 401);
+  }
+});
+
 function deleteReq(headers: Record<string, string>): Request {
   return new Request('https://auth.freegamestore.online/account', { method: 'DELETE', headers });
 }

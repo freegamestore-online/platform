@@ -217,10 +217,27 @@ function handoffTarget(redirect: string): string | null {
   }
 }
 
+/**
+ * Which tokens may be the SOURCE of a handoff for `target` (#463):
+ *  - a plain sign-in token (no typ) — what the OAuth callbacks and
+ *    /token/github mint; it is the user's root credential;
+ *  - a per-site session whose aud is one of the origins trusted to issue
+ *    handoffs for that target (the console's session for the Studio's agent
+ *    handoff; each site's own session for itself).
+ * Anything else — a session for some other site, or a handoff (#425) — is
+ * refused: sessions are host-bound (#69), and this was the hop that
+ * un-bound them. MCP and the agent never issue handoffs; they forward their
+ * own session as X-FGS-Token and the receiver checks it via /me + audience.
+ */
+function canIssueHandoff(payload: Record<string, unknown>, target: string): boolean {
+  if (payload.typ === undefined) return true;
+  if (payload.typ !== 'fgs_session' || typeof payload.aud !== 'string') return false;
+  return HANDOFF_ISSUER_ORIGINS[target]?.has(payload.aud) ?? false;
+}
+
 async function mintHandoff(token: string, target: string, secret: string): Promise<string> {
   const payload = await jwtVerify(token, secret).catch(() => null);
-  // A handoff is single-purpose: it can be consumed, never exchanged for another (#425).
-  if (!payload || payload.typ === 'fgs_handoff' || !HANDOFF_TARGETS.has(target)) {
+  if (!payload || !HANDOFF_TARGETS.has(target) || !canIssueHandoff(payload, target)) {
     throw new Error('invalid handoff');
   }
   const now = Math.floor(Date.now() / 1000);
@@ -769,8 +786,12 @@ export async function handleHandoffIssue(request: Request, env: Env): Promise<Re
   }
   const token = request.headers.get('X-FGS-Token') || '';
   const payload = await jwtVerify(token, env.JWT_SECRET).catch(() => null);
-  if (!payload || payload.typ === 'fgs_handoff' || typeof payload.sub !== 'string') {
+  if (!payload || typeof payload.sub !== 'string') {
     return json({ error: 'not signed in' }, 401, request);
+  }
+  // A handoff, or a session for some other site, is not a source (#425, #463).
+  if (!canIssueHandoff(payload, target)) {
+    return json({ error: 'token cannot issue a handoff for this target' }, 401, request);
   }
   return json({ token: await mintHandoff(token, target, env.JWT_SECRET) }, 200, request);
 }
