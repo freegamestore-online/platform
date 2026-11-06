@@ -130,7 +130,12 @@ test(`moves @freegamestore/games below ${GAMES_SDK} to ^${GAMES_SDK}, and leaves
     `^${GAMES_SDK}`,
   );
   assert.equal(JSON.parse(bumpGamesSdk(pkg('^0.14.0'))).dependencies.react, '^19');
+  assert.equal(
+    JSON.parse(bumpGamesSdk(pkg('^0.20.1'))).dependencies['@freegamestore/games'],
+    `^${GAMES_SDK}`,
+  );
   assert.equal(bumpGamesSdk(pkg(`^${GAMES_SDK}`)), null);
+  assert.equal(bumpGamesSdk(pkg('^0.21.0')), null);
   assert.equal(bumpGamesSdk(pkg('^1.0.0')), null);
   assert.equal(bumpGamesSdk(JSON.stringify({ dependencies: { react: '^19' } })), null);
 });
