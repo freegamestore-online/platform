@@ -18,7 +18,7 @@
     "test:functions": "vitest run -c vitest.functions.config.ts"
   },
   "devDependencies": {
-    "vite": "^6",
+    "vite": "^8",
     "vitest": "^2.1.0",
     "wrangler": "4.148.0"
   },
