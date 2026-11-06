@@ -23,7 +23,7 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - run: npm install --prefix apps/admin/web
+      - run: pnpm --dir apps/admin/web install --frozen-lockfile --ignore-workspace
       - run: pnpm -r build
       - run: pnpm lint
       - run: pnpm -r typecheck
