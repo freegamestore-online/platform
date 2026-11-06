@@ -20,7 +20,7 @@
   "devDependencies": {
     "vite": "^6",
     "vitest": "^2.1.0",
-    "wrangler": "4.148.0"
+    "wrangler": "4.157.0"
   },
   "pnpm": {
     "overrides": {

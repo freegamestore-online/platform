@@ -17,7 +17,7 @@
     "@freegamestore/contracts": "workspace:*"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.15",
+    "@biomejs/biome": "^2.6.4",
     "@cloudflare/workers-types": "^4.20250415.0",
     "typescript": "^5.7",
     "vitest": "^2.1.0",
