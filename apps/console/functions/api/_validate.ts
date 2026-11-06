@@ -8,24 +8,13 @@
  * endpoints import, guaranteeing they always agree.
  */
 
-// Reserved / infrastructure repos that must never be targetable as a game id.
-export const INFRA_REPOS = new Set([
-  'freegamestore',
-  'submissions',
-  'template-game-canvas',
-  'template-game-3d',
-  'template-game-grid',
-  'template-game-cards',
-  'template-game-kaplay',
-  'template-game-phaser',
-  'template-game-pixi',
-  'template-game-babylon',
-  'template-game-excalibur',
-  'template-game-littlejs',
-  'brand',
-  'ops',
-  'sdk',
-]);
+import { RESERVED_GAME_IDS } from '../../../../contracts/registry-ownership/v1/contract';
+
+// Reserved / infrastructure repos and platform subdomains that must never be
+// targetable as a game id. The list is the shared registry-ownership contract's
+// (admin validates against the same one), so "Check" can't call an id
+// available that provisioning then rejects (#447).
+export const INFRA_REPOS = RESERVED_GAME_IDS;
 
 /** Returns an error string if `id` is not a provisionable game id, else null. */
 export function validateId(id: string): string | null {

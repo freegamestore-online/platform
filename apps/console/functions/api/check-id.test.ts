@@ -14,6 +14,13 @@ describe('check-id validateId', () => {
     }
   });
 
+  it('rejects the platform subdomains the registry-ownership contract reserves (#447)', () => {
+    // These used to pass here and be refused by admin at provision time.
+    for (const id of ['api', 'auth', 'admin', 'console', 'mcp', 'agent', 'host', 'platform']) {
+      expect(validateId(id)).toBe('Reserved id');
+    }
+  });
+
   it("bans the 'free' and 'pro' prefixes", () => {
     expect(validateId('freefoo')).toBe("Cannot start with 'free' or 'pro'");
     expect(validateId('progame')).toBe("Cannot start with 'free' or 'pro'");
