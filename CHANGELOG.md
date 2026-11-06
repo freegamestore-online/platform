@@ -8,6 +8,10 @@ versioned independently; releases publish via `.github/workflows/publish.yml`
 ## [Unreleased]
 
 ### Fixed
+- `@freegamestore/cli`: `fgs login` runs the GitHub device flow against FGS's own OAuth app
+  (`Ov23lit1nu5OOzKXQO85`) instead of FAS's. The admin exchange now accepts only tokens issued to
+  FGS's app (#458), so older CLI builds are refused at `fgs login` until updated — or run with
+  `FGS_GITHUB_CLIENT_ID=Ov23lit1nu5OOzKXQO85`. Device Flow must be enabled on that app.
 - `@freegamestore/games` (next: 0.20.0): credential-less leaderboard reads (#409), leaderboard
   exports restored (zap-drills#6), page-wide mute state with a dev warning outside
   `<GameShell>` (#410), `GameTopbar` fits 320px (#414). See

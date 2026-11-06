@@ -613,23 +613,76 @@ async function mintGitHubUserToken(
   return { token, expiresAt };
 }
 
-async function verifyGitHubBearer(token: string): Promise<GitHubUser | null> {
-  const res = await fetch(GITHUB_USER_URL, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'User-Agent': 'freegamestore-auth',
-      Accept: 'application/vnd.github+json',
-    },
-  });
-  if (!res.ok) return null;
-  return (await res.json()) as GitHubUser;
+// Per-IP, in-memory (per isolate) limit on token exchanges. Each attempt costs
+// an app-authenticated GitHub call, and the endpoint is the one place a stolen
+// GitHub token can be tried against us.
+const EXCHANGE_RATE_LIMIT = 10;
+const EXCHANGE_RATE_WINDOW_MS = 60_000;
+const exchangeBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function exchangeRateLimited(request: Request): boolean {
+  const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+  const now = Date.now();
+  let bucket = exchangeBuckets.get(ip);
+  if (!bucket || now > bucket.resetAt) {
+    bucket = { count: 0, resetAt: now + EXCHANGE_RATE_WINDOW_MS };
+    exchangeBuckets.set(ip, bucket);
+  }
+  bucket.count++;
+  return bucket.count > EXCHANGE_RATE_LIMIT;
 }
 
-/** CI/programmatic exchange: turn a valid GitHub token into the same FGS JWT
- * GitHub OAuth would mint. This removes the need for brittle 30-day copied
- * browser cookies in production canaries. It returns JSON only and does not set
- * a browser cookie. */
+/**
+ * SECURITY (#458): verify a GitHub token with GitHub's app-authenticated
+ * check-token endpoint, NOT with `GET /user`. `/user` answers 200 for *any*
+ * valid GitHub credential — a token minted for someone else's OAuth app, or a
+ * leaked PAT — so authenticating that way let any such token be swapped for a
+ * full FGS session belonging to its owner, who may never have authorized FGS at
+ * all (confused deputy). `POST /applications/{client_id}/token` is 200 only for
+ * tokens issued to *this* client_id, and 404 otherwise. The identity comes out
+ * of the introspection response, so the user we mint for is by construction
+ * the owner of the token we checked. Same fix as FAS (#47) and PAS (#84).
+ */
+async function introspectGitHubToken(
+  githubToken: string,
+  env: Env,
+): Promise<
+  | { kind: 'ok'; user: GitHubUser }
+  | { kind: 'rejected' }
+  | { kind: 'unconfigured' }
+  | { kind: 'upstream'; status: number }
+> {
+  if (!env.GITHUB_CLIENT_ID || !env.GITHUB_CLIENT_SECRET) return { kind: 'unconfigured' };
+  const res = await fetch(`https://api.github.com/applications/${env.GITHUB_CLIENT_ID}/token`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${btoa(`${env.GITHUB_CLIENT_ID}:${env.GITHUB_CLIENT_SECRET}`)}`,
+      Accept: 'application/vnd.github+json',
+      'Content-Type': 'application/json',
+      'User-Agent': 'freegamestore-auth',
+    },
+    body: JSON.stringify({ access_token: githubToken }),
+  });
+  // A 5xx is GitHub being unwell, not a verdict on the token.
+  if (res.status >= 500) return { kind: 'upstream', status: res.status };
+  // 404 = not issued to this app; 422 = malformed; 401 = our own app
+  // credentials are wrong. All of them mean "don't mint a session".
+  if (res.status !== 200) return { kind: 'rejected' };
+  const intro = (await res.json().catch(() => null)) as { user?: GitHubUser } | null;
+  if (!intro?.user || typeof intro.user.id !== 'number' || typeof intro.user.login !== 'string') {
+    return { kind: 'rejected' };
+  }
+  return { kind: 'ok', user: intro.user };
+}
+
+/** CI/programmatic exchange: turn a GitHub token issued to FGS's OAuth app into
+ * the same FGS JWT GitHub OAuth would mint. Also what the admin Worker proxies
+ * `fgs login`'s exchange to (it holds no OAuth app secret of its own). Returns
+ * JSON only and does not set a browser cookie. */
 export async function handleGitHubTokenExchange(request: Request, env: Env): Promise<Response> {
+  if (exchangeRateLimited(request)) {
+    return json({ error: 'too many token exchanges, retry later' }, 429, request);
+  }
   const authz = request.headers.get('Authorization') ?? '';
   let githubToken = authz.startsWith('Bearer ') ? authz.slice('Bearer '.length).trim() : '';
   if (!githubToken) {
@@ -642,11 +695,20 @@ export async function handleGitHubTokenExchange(request: Request, env: Env): Pro
   }
   if (!githubToken) return json({ error: 'missing GitHub token' }, 400, request);
 
-  const ghUser = await verifyGitHubBearer(githubToken);
-  if (!ghUser) return json({ error: 'invalid GitHub token' }, 401, request);
+  const intro = await introspectGitHubToken(githubToken, env);
+  if (intro.kind === 'unconfigured') {
+    return json({ error: 'token exchange is not configured' }, 503, request);
+  }
+  if (intro.kind === 'upstream') {
+    console.error(`GitHub check-token failed: HTTP ${intro.status}`);
+    return json({ error: `github error: ${intro.status}` }, 502, request);
+  }
+  if (intro.kind === 'rejected') {
+    return json({ error: 'github token was not issued to this application' }, 401, request);
+  }
 
-  const { token, expiresAt } = await mintGitHubUserToken(ghUser, env);
-  return json({ token, login: ghUser.login, expiresAt }, 200, request);
+  const { token, expiresAt } = await mintGitHubUserToken(intro.user, env);
+  return json({ token, login: intro.user.login, expiresAt }, 200, request);
 }
 
 /** Exchange a five-minute audience-bound handoff for a host-only target session. */

@@ -443,39 +443,71 @@ test('handleCallback never logs a provider-controlled token-exchange error body'
   }
 });
 
-// --- handleGitHubTokenExchange: CI can mint a fresh fgs_token from a GitHub token ---
+// --- handleGitHubTokenExchange: a GitHub token mints an fgs_token ONLY if it was
+// issued to FGS's own OAuth app (#458) ---
+//
+// It used to authenticate with GET /user, which is 200 for ANY valid GitHub
+// credential (another app's token, a leaked PAT), so any of them became a full
+// FGS session for its owner. Now it introspects with GitHub's app-authenticated
+// check-token endpoint, which is 200 only for tokens issued to our client_id.
 
-test('handleGitHubTokenExchange verifies a GitHub token and returns an FGS JWT', async () => {
-  const env = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<
-    typeof handleGitHubTokenExchange
-  >[1];
-  const realFetch = globalThis.fetch;
+const CHECK_TOKEN_URL = 'https://api.github.com/applications/cid/token';
+
+function exchangeEnv(overrides: Record<string, unknown> = {}) {
+  let writes = 0;
+  const env = {
+    JWT_SECRET: SECRET,
+    GITHUB_CLIENT_ID: 'cid',
+    GITHUB_CLIENT_SECRET: 'csecret',
+    DB: {
+      prepare: () => ({
+        bind: () => ({
+          run: async () => {
+            writes++;
+            return {};
+          },
+        }),
+      }),
+    },
+    ...overrides,
+  } as unknown as Parameters<typeof handleGitHubTokenExchange>[1];
+  return { env, writes: () => writes };
+}
+
+function exchangeReq(ip = `203.0.113.${Math.floor(Math.random() * 250)}`): Request {
+  return new Request('https://auth.freegamestore.online/v1/token/github', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer gh-test', 'CF-Connecting-IP': ip },
+  });
+}
+
+/** Stub fetch with a check-token verdict; records the request it received. */
+function stubCheckToken(status: number, body: unknown) {
+  const calls: { url: string; init?: RequestInit }[] = [];
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const u = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    assert.equal(u, 'https://api.github.com/user');
-    assert.equal((init?.headers as Record<string, string>).Authorization, 'Bearer gh-test');
-    return new Response(
-      JSON.stringify({
-        id: 42,
-        login: 'canary',
-        avatar_url: 'https://x/avatar.png',
-        name: 'Canary',
-      }),
-      {
-        status: 200,
-      },
-    );
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    calls.push({ url, init });
+    return new Response(JSON.stringify(body), { status });
   }) as typeof fetch;
+  return calls;
+}
 
+test('exchange verifies with the app-authenticated check-token endpoint, never GET /user (#458)', async () => {
+  const { env } = exchangeEnv();
+  const realFetch = globalThis.fetch;
+  const calls = stubCheckToken(200, {
+    user: { id: 42, login: 'canary', avatar_url: 'https://x/avatar.png', name: 'Canary' },
+  });
   try {
-    const res = await handleGitHubTokenExchange(
-      new Request('https://auth.freegamestore.online/v1/token/github', {
-        method: 'POST',
-        headers: { Authorization: 'Bearer gh-test' },
-      }),
-      env,
-    );
+    const res = await handleGitHubTokenExchange(exchangeReq(), env);
     assert.equal(res.status, 200);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0]!.url, CHECK_TOKEN_URL);
+    assert.equal(calls[0]!.init?.method, 'POST');
+    const headers = calls[0]!.init?.headers as Record<string, string>;
+    // Our app credentials authenticate the call; the user's token is the subject.
+    assert.equal(headers.Authorization, `Basic ${btoa('cid:csecret')}`);
+    assert.deepEqual(JSON.parse(calls[0]!.init?.body as string), { access_token: 'gh-test' });
     const body = (await res.json()) as { token: string; login: string; expiresAt: number };
     assert.equal(body.login, 'canary');
     assert.equal(typeof body.expiresAt, 'number');
@@ -488,45 +520,93 @@ test('handleGitHubTokenExchange verifies a GitHub token and returns an FGS JWT',
   }
 });
 
-test('handleGitHubTokenExchange rejects an invalid GitHub token', async () => {
-  const env = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<
-    typeof handleGitHubTokenExchange
-  >[1];
+test('exchange rejects a valid GitHub token issued to another app, writing no user (#458)', async () => {
+  const { env, writes } = exchangeEnv();
   const realFetch = globalThis.fetch;
-  globalThis.fetch = (async () =>
-    new Response(JSON.stringify({ message: 'bad credentials' }), { status: 401 })) as typeof fetch;
-
+  // The token is perfectly valid — GET /user is 200 for it (that is what the old
+  // code trusted) — but check-token is 404 because it belongs to a different
+  // OAuth app (or is a PAT).
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    if (url === 'https://api.github.com/user') {
+      return new Response(JSON.stringify({ id: 42, login: 'victim', avatar_url: 'https://x/a' }), {
+        status: 200,
+      });
+    }
+    assert.equal(url, CHECK_TOKEN_URL);
+    return new Response(JSON.stringify({ message: 'Not Found' }), { status: 404 });
+  }) as typeof fetch;
   try {
-    const res = await handleGitHubTokenExchange(
-      new Request('https://auth.freegamestore.online/v1/token/github', {
-        method: 'POST',
-        headers: { Authorization: 'Bearer bad' },
-      }),
-      env,
-    );
+    const res = await handleGitHubTokenExchange(exchangeReq(), env);
     assert.equal(res.status, 401);
+    assert.equal(((await res.json()) as { token?: string }).token, undefined);
+    assert.equal(writes(), 0);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('exchange rejects a 200 introspection that carries no user (#458)', async () => {
+  const { env, writes } = exchangeEnv();
+  const realFetch = globalThis.fetch;
+  stubCheckToken(200, { scopes: ['read:user'] });
+  try {
+    assert.equal((await handleGitHubTokenExchange(exchangeReq(), env)).status, 401);
+    assert.equal(writes(), 0);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('exchange answers 503 without calling GitHub when the app credentials are unset (#458)', async () => {
+  const { env } = exchangeEnv({ GITHUB_CLIENT_SECRET: '' });
+  const realFetch = globalThis.fetch;
+  const calls = stubCheckToken(200, {});
+  try {
+    assert.equal((await handleGitHubTokenExchange(exchangeReq(), env)).status, 503);
+    assert.equal(calls.length, 0);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('exchange reports a GitHub outage as 502, not as a bad token (#458)', async () => {
+  const { env } = exchangeEnv();
+  const realFetch = globalThis.fetch;
+  const realConsoleError = console.error;
+  console.error = (() => {}) as typeof console.error;
+  stubCheckToken(503, 'upstream down');
+  try {
+    assert.equal((await handleGitHubTokenExchange(exchangeReq(), env)).status, 502);
+  } finally {
+    globalThis.fetch = realFetch;
+    console.error = realConsoleError;
+  }
+});
+
+test('exchange is rate-limited per client IP (#458)', async () => {
+  const { env } = exchangeEnv();
+  const realFetch = globalThis.fetch;
+  stubCheckToken(404, {});
+  try {
+    const ip = '198.51.100.7';
+    for (let i = 0; i < 10; i++) {
+      assert.equal((await handleGitHubTokenExchange(exchangeReq(ip), env)).status, 401);
+    }
+    assert.equal((await handleGitHubTokenExchange(exchangeReq(ip), env)).status, 429);
+    // Another client is unaffected.
+    assert.equal((await handleGitHubTokenExchange(exchangeReq('198.51.100.8'), env)).status, 401);
   } finally {
     globalThis.fetch = realFetch;
   }
 });
 
 test('worker routes POST /v1/token/github', async () => {
-  const env = { JWT_SECRET: SECRET, DB: fakeDb() } as unknown as Parameters<typeof worker.fetch>[1];
+  const { env } = exchangeEnv();
   const realFetch = globalThis.fetch;
-  globalThis.fetch = (async () =>
-    new Response(
-      JSON.stringify({ id: 43, login: 'route-canary', avatar_url: 'https://x/avatar.png' }),
-      { status: 200 },
-    )) as typeof fetch;
-
+  stubCheckToken(200, { user: { id: 43, login: 'route-canary', avatar_url: 'https://x/a.png' } });
   try {
-    const res = await worker.fetch(
-      new Request('https://auth.freegamestore.online/v1/token/github', {
-        method: 'POST',
-        headers: { Authorization: 'Bearer gh-test' },
-      }),
-      env,
-    );
+    const res = await worker.fetch(exchangeReq(), env as never);
     assert.equal(res.status, 200);
     const body = (await res.json()) as { token: string; login: string };
     assert.equal(body.login, 'route-canary');

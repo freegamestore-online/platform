@@ -4,21 +4,46 @@
 // dependency on FAS's signing key (per the admin-worker-per-store
 // principle). `fgs login` exchanges a GitHub token for a session here.
 
-interface GitHubUser {
-  login: string;
-  id: number;
+// Per-IP, in-memory (per isolate) limit on exchanges: each one is a GitHub
+// introspection, and this is the one place a stolen GitHub token can be tried.
+const EXCHANGE_RATE_LIMIT = 10;
+const EXCHANGE_RATE_WINDOW_MS = 60_000;
+const exchangeBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function exchangeRateLimited(request: Request): boolean {
+  const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+  const now = Date.now();
+  let bucket = exchangeBuckets.get(ip);
+  if (!bucket || now > bucket.resetAt) {
+    bucket = { count: 0, resetAt: now + EXCHANGE_RATE_WINDOW_MS };
+    exchangeBuckets.set(ip, bucket);
+  }
+  bucket.count++;
+  return bucket.count > EXCHANGE_RATE_LIMIT;
 }
 
-async function verifyGithubToken(token: string): Promise<GitHubUser | null> {
-  const res = await fetch('https://api.github.com/user', {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github+json',
-      'User-Agent': 'freegamestore-admin',
-    },
+/**
+ * SECURITY (#458): a GitHub token is accepted only if it was issued to FGS's
+ * own OAuth app. This used to call `GET /user`, which is 200 for ANY valid
+ * GitHub credential (another app's token, a leaked PAT), so any of them bought
+ * an admin session for its owner. The app-authenticated check-token call needs
+ * the OAuth app's client secret, which only the auth worker holds — so the
+ * verdict (and the login it is for) comes from the auth worker's
+ * `POST /token/github` over the service binding, rather than this worker
+ * gaining a copy of the secret.
+ */
+async function verifyGithubToken(
+  token: string,
+  auth: Fetcher,
+): Promise<{ status: number; login?: string }> {
+  const res = await auth.fetch('https://auth.freegamestore.online/token/github', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) return null;
-  return (await res.json()) as GitHubUser;
+  if (res.status !== 200) return { status: res.status };
+  const body = (await res.json().catch(() => null)) as { login?: unknown } | null;
+  if (typeof body?.login !== 'string' || !body.login) return { status: 502 };
+  return { status: 200, login: body.login };
 }
 
 export async function mintSessionToken(login: string, signingKey: string): Promise<string> {
@@ -80,8 +105,14 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
 export async function handleAuthExchange(
   request: Request,
-  env: { SESSION_SIGNING_KEY: string },
+  env: { SESSION_SIGNING_KEY: string; AUTH: Fetcher },
 ): Promise<Response> {
+  if (exchangeRateLimited(request)) {
+    return new Response(JSON.stringify({ error: 'too many token exchanges, retry later' }), {
+      status: 429,
+      headers: JSON_HEADERS,
+    });
+  }
   let body: { githubToken?: string };
   try {
     body = (await request.json()) as { githubToken?: string };
@@ -97,15 +128,20 @@ export async function handleAuthExchange(
       headers: JSON_HEADERS,
     });
   }
-  const user = await verifyGithubToken(body.githubToken);
-  if (!user) {
-    return new Response(JSON.stringify({ error: 'invalid GitHub token' }), {
-      status: 401,
-      headers: JSON_HEADERS,
-    });
+  const verdict = await verifyGithubToken(body.githubToken, env.AUTH);
+  if (verdict.status !== 200 || !verdict.login) {
+    // 401: not issued to FGS's OAuth app. 429 / 503 pass through as they are
+    // (rate-limited; exchange unconfigured on auth). Anything else is auth or
+    // GitHub being unwell, not a verdict on the token.
+    const status = [401, 429, 503].includes(verdict.status) ? verdict.status : 502;
+    const error =
+      status === 401
+        ? 'github token was not issued to this application'
+        : `token exchange unavailable (${verdict.status})`;
+    return new Response(JSON.stringify({ error }), { status, headers: JSON_HEADERS });
   }
-  const sessionToken = await mintSessionToken(user.login, env.SESSION_SIGNING_KEY);
-  return new Response(JSON.stringify({ sessionToken, login: user.login }), {
+  const sessionToken = await mintSessionToken(verdict.login, env.SESSION_SIGNING_KEY);
+  return new Response(JSON.stringify({ sessionToken, login: verdict.login }), {
     headers: JSON_HEADERS,
   });
 }
