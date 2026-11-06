@@ -133,7 +133,7 @@ test('scheduled workflow publishes only changes and explicitly dispatches the ex
   assert.match(workflow, /contents: write/);
   assert.match(workflow, /actions: write/);
   assert.match(workflow, /GH_TOKEN: \$\{\{ secrets.GITHUB_TOKEN \}\}/);
-  assert.match(workflow, /actions\/cache@v4/);
+  assert.match(workflow, /actions\/cache@[0-9a-f]{40} # v4\./);
   assert.match(workflow, /git diff --quiet -- sites\/freegamestore\/game-permissions.json/);
   const steps = [
     'pnpm --filter @freegamestore/compliance build',

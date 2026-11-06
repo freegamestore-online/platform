@@ -71,8 +71,8 @@ test('deployment rejects absent docs and missing docs assets', () => {
 
 test('production workflow gates upload on storefront tests and combined SDK docs build', () => {
   const workflow = readFileSync(new URL('../../../.github/workflows/deploy-storefront.yml', import.meta.url), 'utf8');
-  const commands = ['npm test', 'npm run build', 'pnpm --dir docs install --frozen-lockfile --ignore-workspace',
-    'npm --prefix docs run build', 'node scripts/verify-dist.mjs', 'node scripts/verify-seo.mjs', 'npx wrangler pages deploy dist', 'node scripts/verify-seo.mjs --live'];
+  const commands = ['pnpm install --frozen-lockfile --ignore-workspace', 'npm test', 'npm run build', 'pnpm --dir docs install --frozen-lockfile --ignore-workspace',
+    'npm --prefix docs run build', 'node scripts/verify-dist.mjs', 'node scripts/verify-seo.mjs', 'pnpm exec wrangler pages deploy dist', 'node scripts/verify-seo.mjs --live'];
   let previous = -1;
   for (const command of commands) {
     const position = workflow.indexOf(`run: ${command}`);
