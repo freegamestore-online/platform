@@ -1,0 +1,56 @@
+# Dependabot version updates (#470). Security updates are a repo setting
+# (enabled); this file is what moves the lockfiles between advisories.
+#
+# One npm entry per lockfile CI actually installs from. The root
+# pnpm-workspace.yaml covers packages/*, workers/* and apps/admin; the rest
+# are independent installs with their own lockfile (see the deploy
+# workflows: apps/console and apps/admin/web, workers/auth and
+# workers/leaderboard --ignore-workspace, jobs/auditor, the storefront and
+# its docs). Dependabot does not discover them recursively.
+#
+# Grouped so a week of dev-tooling bumps is one PR per tree. Production
+# dependencies stay ungrouped: those ship, and get looked at one at a time.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directories:
+      - /
+      - /apps/console
+      - /apps/admin/web
+      - /workers/auth
+      - /workers/leaderboard
+      - /jobs/auditor
+      - /sites/freegamestore
+      - /sites/freegamestore/docs
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      dev-tooling:
+        dependency-type: development
+        patterns: ['*']
+        update-types: [minor, patch]
+    ignore:
+      # workers/mcp pins agents and the exact @modelcontextprotocol/sdk,
+      # /client, /server and zod versions agents is built against (#471).
+      # Those move together as a deliberate upgrade, not as a Dependabot bump
+      # (same rule as freeappstore-online/platform).
+      - dependency-name: '@modelcontextprotocol/sdk'
+      - dependency-name: '@modelcontextprotocol/client'
+      - dependency-name: '@modelcontextprotocol/server'
+      - dependency-name: agents
+        update-types: [version-update:semver-minor, version-update:semver-major]
+      - dependency-name: zod
+        update-types: [version-update:semver-major]
+
+  # Third-party actions are pinned to commit SHAs (#469); this is what moves
+  # those pins. Grouped: one PR per week for all of them.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ['*']
