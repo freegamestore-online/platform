@@ -25,6 +25,12 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const BASELINE_PATH = join(ROOT, 'scripts', 'ui-lint-baseline.json');
 export const SURFACES = ['packages/games-sdk/src', 'apps/console/web/src', 'apps/admin/web/src'];
 export const METRICS = ['cssInjection', 'inlineStyles'];
+/**
+ * The one sanctioned exception to --strict (#512): GameTopbar renders its rules in a hoisted
+ * <style>, since a CSS import breaks game tests under Node and utilities leave the bar unstyled
+ * in games that do not `@source` the SDK's dist. Drop it once every game does (#392).
+ */
+export const STRICT_EXEMPT = { 'packages/games-sdk/src': { cssInjection: 1 } };
 
 const SOURCE_RE = /\.(?:tsx|ts|jsx|js)$/;
 const TEST_RE = /\.(?:test|spec)\.[jt]sx?$|(?:^|\/)(?:test|tests|__tests__)\//;
@@ -102,7 +108,8 @@ export function evaluate(counts, baseline, { strict = false } = {}) {
       const allowed = baseline[surface]?.[metric] ?? 0;
       if (now > allowed) regressions.push({ surface, metric, now, allowed });
       else if (now < allowed) improvements.push({ surface, metric, now, allowed });
-      if (strict && now > 0) strictFailures.push({ surface, metric, now });
+      if (strict && now > (STRICT_EXEMPT[surface]?.[metric] ?? 0))
+        strictFailures.push({ surface, metric, now });
     }
   }
   return { regressions, improvements, strictFailures };

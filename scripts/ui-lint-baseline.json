@@ -1,6 +1,6 @@
 {
   "packages/games-sdk/src": {
-    "cssInjection": 0,
+    "cssInjection": 1,
     "inlineStyles": 0
   },
   "apps/console/web/src": {

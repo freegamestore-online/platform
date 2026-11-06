@@ -163,6 +163,8 @@ test('CLI exits 0 at baseline, and with --strict now that every surface is migra
   assert.equal(strict.status, 0, strict.stderr);
   const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
   for (const surface of SURFACES) {
-    assert.deepEqual(baseline[surface], { cssInjection: 0, inlineStyles: 0 }, surface);
+    // games-sdk carries the one exception: the GameTopbar <style> (#512, STRICT_EXEMPT).
+    const cssInjection = surface === 'packages/games-sdk/src' ? 1 : 0;
+    assert.deepEqual(baseline[surface], { cssInjection, inlineStyles: 0 }, surface);
   }
 });
