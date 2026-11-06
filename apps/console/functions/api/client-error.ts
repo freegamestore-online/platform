@@ -33,8 +33,8 @@ export const onRequestOptions: PagesFunction<Env> = async (ctx) =>
 
 /**
  * POST /api/client-error — accept a client-side error report and insert it
- * into the shared error_log D1 table. Identity is resolved server-side from
- * the signed-in session; any client-supplied identity field is ignored.
+ * into the shared error_log D1 table. Requires a signed-in session. Identity is
+ * resolved server-side from it; any client-supplied identity field is ignored.
  */
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
@@ -51,6 +51,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   if (isRateLimited(ip)) {
     return json({ error: 'Too many error reports' }, 429);
   }
+
+  // A report needs a signed-in session (#446): without one anybody on the internet
+  // could write rows into the admin error log. Identity is resolved server-side,
+  // never taken from the body. A signed-in account is also limited on its own, so
+  // one account behind many addresses cannot flood the log either.
+  const userLogin = await resolveCreator(request, env);
+  if (!userLogin) return json({ error: 'Sign in to report errors' }, 401);
+  if (isRateLimited(`user:${userLogin}`)) return json({ error: 'Too many error reports' }, 429);
 
   let body: Record<string, unknown>;
   try {
@@ -75,9 +83,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     typeof body.context === 'string'
       ? clampErrorLogText(body.context, ERROR_LOG_LIMITS.context)
       : null;
-
-  // Resolve the signed-in GitHub login server-side — never trust the client.
-  const userLogin = await resolveCreator(request, env);
 
   const context_str =
     [route ? `route=${route}` : null, clientContext].filter(Boolean).join(' ') || null;

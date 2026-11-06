@@ -38,6 +38,7 @@ function makeCtx(body: Record<string, unknown>, ip = '1.2.3.4'): Ctx {
 beforeEach(() => {
   vi.clearAllMocks();
   mRecordError.mockResolvedValue(undefined);
+  mResolveCreator.mockResolvedValue('alice');
 });
 
 describe('client-error onRequestPost', () => {
@@ -66,19 +67,27 @@ describe('client-error onRequestPost', () => {
     expect(row.context).toContain('route=/create/my-game');
   });
 
-  it('records without a user (unauthenticated) — session null maps to null', async () => {
+  it('refuses a report with no valid session (401), recording nothing (#446)', async () => {
     mResolveCreator.mockResolvedValue(null);
 
     const res = await onRequestPost(makeCtx({ message: 'anonymous crash', route: '/' }));
 
-    expect(res.status).toBe(200);
-    const [, row] = mRecordError.mock.calls[0];
-    expect(row.user).toBeNull();
-    expect(row.source).toBe('console/web');
+    expect(res.status).toBe(401);
+    expect(mRecordError).not.toHaveBeenCalled();
+  });
+
+  it('rate-limits a signed-in account across addresses (#446)', async () => {
+    mResolveCreator.mockResolvedValue('flooder');
+    const statuses: number[] = [];
+    for (let i = 0; i < 25; i++) {
+      statuses.push((await onRequestPost(makeCtx({ message: `m${i}` }, `9.9.9.${i}`))).status);
+    }
+    expect(statuses.filter((s) => s === 200)).toHaveLength(20);
+    expect(statuses.slice(20)).toEqual([429, 429, 429, 429, 429]);
   });
 
   it('caps message at 2000 chars and stack at 4000 chars', async () => {
-    mResolveCreator.mockResolvedValue(null);
+    mResolveCreator.mockResolvedValue('alice');
 
     const longMessage = 'x'.repeat(5000);
     const longStack = 's'.repeat(10000);
@@ -91,7 +100,7 @@ describe('client-error onRequestPost', () => {
   });
 
   it('returns 400 for non-JSON body', async () => {
-    mResolveCreator.mockResolvedValue(null);
+    mResolveCreator.mockResolvedValue('alice');
     const request = new Request('https://console.freegamestore.online/api/client-error', {
       method: 'POST',
       headers: {
