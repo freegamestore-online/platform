@@ -8,7 +8,7 @@ versioned independently; releases publish via `.github/workflows/publish.yml`
 ## [Unreleased]
 
 ### Fixed
-- `@freegamestore/cli`: `fgs login` runs the GitHub device flow against FGS's own OAuth app
+- `@freegamestore/cli` (0.2.8): `fgs login` runs the GitHub device flow against FGS's own OAuth app
   (`Ov23lit1nu5OOzKXQO85`) instead of FAS's. The admin exchange now accepts only tokens issued to
   FGS's app (#458), so older CLI builds are refused at `fgs login` until updated — or run with
   `FGS_GITHUB_CLIENT_ID=Ov23lit1nu5OOzKXQO85`. Device Flow must be enabled on that app.

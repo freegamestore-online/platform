@@ -1,7 +1,8 @@
 # @freegamestore/cli
 
-## Unreleased
+## 0.2.8
 
+- `fgs login` runs the GitHub device flow against FGS's own OAuth app (`Ov23lit1nu5OOzKXQO85`) instead of FAS's. The admin exchange accepts only tokens issued to FGS's app (platform#458), so 0.2.7 and older are refused at `fgs login` (or need `FGS_GITHUB_CLIENT_ID=Ov23lit1nu5OOzKXQO85`).
 - Add `fgs migrate tailwind-tokens [--dir <path>] [--write]` (platform#397, epic #390). It rewrites long-hand `text-[var(--muted)]` utilities to token utilities (`text-muted`), keeping variants and opacity. It inlines retired aliases (`--surface`, `--border`, `--glass`, `--dock`) by the app's own definition, and reports a light/dark conflict instead of guessing (exit code 1). It renames `--error` to `--danger`, inserts the `@theme inline` block, and reports the unlayered rules, hex values and inline styles it cannot fix. Dry run by default and idempotent. `--bg` is left alone.
 
 ## 0.1.18
