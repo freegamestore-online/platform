@@ -269,7 +269,7 @@ describe("securityHeaders", () => {
     ["frame-src", "frame-src 'self' https:"],
     [
       "frame-ancestors",
-      "frame-ancestors 'self' https://freegamestore.online https://*.freegamestore.online https://freegamestore.pages.dev",
+      "frame-ancestors 'self' https://freegamestore.online https://console.freegamestore.online https://freegamestore.pages.dev",
     ],
     ["base-uri", "base-uri 'self'"],
     ["object-src", "object-src 'none'"],

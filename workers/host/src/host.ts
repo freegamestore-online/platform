@@ -211,8 +211,10 @@ export function securityHeaders(opts: { revalidate: boolean; crossOriginIsolated
   //     surface; no game feature uses <object>/<embed> plugins.
   //   - base-uri 'self': an injected <base href> would re-point every relative
   //     URL on the page (scripts included) at another host.
-  //   - frame-ancestors: only the game itself and the storefront may embed a
-  //     game, so other sites can't frame it for clickjacking.
+  //   - frame-ancestors: only the game itself, the storefront (apex and its
+  //     Pages previews) and the console's /create preview may embed a game,
+  //     so other sites — including sibling games — can't frame it for
+  //     clickjacking (#466).
   //   - upgrade-insecure-requests: plain http subresources are blocked as mixed
   //     content anyway; this upgrades them instead of failing.
   const csp = [
@@ -225,7 +227,7 @@ export function securityHeaders(opts: { revalidate: boolean; crossOriginIsolated
     "media-src 'self' data: blob: https:",
     "connect-src 'self' https: wss: data: blob:",
     "frame-src 'self' https:",
-    "frame-ancestors 'self' https://freegamestore.online https://*.freegamestore.online https://freegamestore.pages.dev",
+    "frame-ancestors 'self' https://freegamestore.online https://console.freegamestore.online https://freegamestore.pages.dev",
     "base-uri 'self'",
     "object-src 'none'",
     "upgrade-insecure-requests",
