@@ -496,7 +496,8 @@ export async function handleMe(request: Request, env: Env): Promise<Response> {
  *  - a top-level navigation (a form POST) the player started with a click:
  *    it takes them to this worker and back, and a game can't fire it on page
  *    load because the browser only marks user-activated navigations
- *    (Sec-Fetch-User). The games SDK's signOut uses this.
+ *    (Sec-Fetch-User). Older Safari sends no Sec-Fetch-*, so the games SDK's
+ *    signOut uses the storefront's /signout page, a first-party Origin (#498).
  * Anything else — a game's fetch, a hidden iframe, a request with no browser
  * metadata — is refused.
  */

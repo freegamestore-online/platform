@@ -422,7 +422,7 @@ const cardStylesVersion = crypto.createHash('sha256')
 // against the new SRI hash → the browser blocks it (this bricked theme.js →
 // dead nav site-wide). Appending ?v=<hash> makes each version a fresh cache
 // key, so the served bytes always match the integrity hash. No purge needed.
-const JS_ASSETS = ['theme.js', 'search.js', 'storefront.js', 'detail-page.js', 'quality.js', 'get-started.js', 'analytics.js', 'ideas.js'];
+const JS_ASSETS = ['theme.js', 'search.js', 'storefront.js', 'detail-page.js', 'quality.js', 'get-started.js', 'analytics.js', 'ideas.js', 'signout.js'];
 const jsVersions = Object.fromEntries(
   JS_ASSETS.map((f) => [f, crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, f))).digest('hex').slice(0, 12)]),
 );
@@ -1136,6 +1136,8 @@ const filesToCopy = [
   'llms.txt',
   'capabilities.html',
   'browser-apis.html',
+  'signout.html',
+  'signout.js',
   'prism.js',
   'prism-autodetect.js',
 ];

@@ -32,7 +32,7 @@ interface User {
 - `loading: true` while in flight.
 - `user` becomes either `User` (signed in) or `null` (signed out / failed).
 - `signIn()` redirects to GitHub OAuth and back.
-- `signOut()` clears the session cookie and reloads.
+- `signOut()` goes to the store's sign-out page. The player confirms there, and comes back to the game signed out. Call it from a click handler.
 
 ## Example: personalized greeting
 

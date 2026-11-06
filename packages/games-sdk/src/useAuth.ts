@@ -43,17 +43,12 @@ export function useAuth(): {
     window.location.href = `https://auth.freegamestore.online/login?redirect=${encodeURIComponent(window.location.href)}`;
   }, []);
 
-  // A top-level form POST, not a background fetch: auth refuses a game's
-  // background logout request, since any game could otherwise sign the player
-  // out silently (#486). Auth accepts a top-level navigation the player started,
-  // so call signOut from a click handler; auth redirects back to the game,
-  // which loads signed out.
+  // Auth refuses a game's own logout request, since any game could otherwise
+  // sign the player out silently (#486), and older Safari can't prove a form
+  // POST was the player's (#498). So signOut goes to the store's sign-out page,
+  // which signs the player out after they confirm and returns to this page.
   const signOut = useCallback(() => {
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = 'https://auth.freegamestore.online/v1/logout';
-    document.body.appendChild(form);
-    form.submit();
+    window.location.href = `https://freegamestore.online/signout?return=${encodeURIComponent(window.location.href)}`;
   }, []);
 
   return { user, loading, signIn, signOut };

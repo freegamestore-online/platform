@@ -1,14 +1,15 @@
 # @freegamestore/games
 
-## Unreleased (next: 0.20.0)
+## 0.20.0
 
 Drop-in for games on 0.19.x; no code changes are needed.
 
-- **`useAuth().signOut` works with auth's logout CSRF check (#486).** Auth now refuses a
-  background `POST /logout` from a game, since any game could otherwise sign the player out
-  silently. `signOut` submits a top-level form POST instead, which auth accepts only as a
-  user-activated navigation, so call it from a click handler. Auth redirects back to the game,
-  which loads signed out. On 0.19.x, `signOut` reloads the page but the player stays signed in.
+- **`useAuth().signOut` works again, in every browser (#486, #498).** Auth now refuses a game's
+  own `POST /logout`, since any game could otherwise sign the player out silently. `signOut`
+  now goes to `https://freegamestore.online/signout?return=<this page>`, where the player
+  confirms; the store signs them out and returns them to the game, signed out. It replaces the
+  unreleased form-POST approach, which older Safari refused because it sends no `Sec-Fetch-*`
+  headers. On 0.19.x, `signOut` reloads the page but the player stays signed in: upgrade.
 - **Leaderboard reads work in the browser again (#409).** `useLeaderboard` fetched the public
   top and recent boards with `credentials: 'include'`, but the leaderboard worker answers public
   reads without `Access-Control-Allow-Credentials`, so the browser discarded every response and
