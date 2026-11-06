@@ -61,10 +61,11 @@ service = "freegamestore-auth"
 binding = "AGENT"
 service = "freegamestore-agent"
 
-# Secrets (set via `wrangler secret put`):
+# Secrets (set through the ops tooling, `ops put`; see ~/dev/ops/AGENTS.md):
 #   GITHUB_TOKEN          repo create + collaborator + registry write
 #   CF_API_TOKEN          (kept for future CF API calls; not used by publish)
-#   SESSION_SIGNING_KEY   shared with FAS auth flow (HS256 Bearer check)
+#   SESSION_SIGNING_KEY   FGS-only HS256 key for this Worker's own sessions (apps/admin/src/auth.ts);
+#                         never shared with FAS, and tokens must carry iss=freegamestore (#490, #501)
 
 # CI test report KV (#24) — COMMENTED OUT ON PURPOSE.
 #
