@@ -54,10 +54,33 @@ const REFERENCE = [
   { id: 'l-1366', label: '1366×1024 iPad Pro land.',width: 1366, height: 1024, orientation: 'landscape', share: 20, kind: 'tablet' },
 ];
 
+// <report-guard>
+// Which reference viewport a message is for, or null when it should be ignored (#442).
+// A report counts only if it comes from OUR iframe (event.source) and that frame's
+// own origin (event.origin is the game's origin). The viewport is taken from the
+// frame that sent it, never from the numbers the message claims, so a page that
+// can post to us cannot score another viewport or fake a score for a game it
+// isn't. Missing or mistyped fields are rejected, not left to throw in the handler.
+function acceptQualityReport(event, frames, gameOrigin) {
+  const data = event.data;
+  if (!data || typeof data !== 'object') return null;
+  if (data.type !== 'fgs:quality' && data.type !== 'fas:quality') return null;
+  if (event.origin !== gameOrigin) return null;
+  const frame = frames.find((f) => f.contentWindow && f.contentWindow === event.source);
+  if (!frame) return null;
+  const doc = data.document;
+  if (!doc || typeof doc !== 'object' || !Array.isArray(data.clipping)) return null;
+  const nums = [doc.scrollWidth, doc.clientWidth, doc.scrollHeight, doc.clientHeight];
+  if (!nums.every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
+  return { vpId: frame.dataset.vp, data };
+}
+// </report-guard>
+
 // LocalStorage cache key. Last-seen score per appId, used by the
 // summary list so it shows something useful before any iframes load.
 const CACHE_KEY = 'fgs:quality:scores:v1';
 const REPORT_TIMEOUT_MS = 6000;
+let activeHandler = null;
 
 // ---- helpers ----
 
@@ -203,7 +226,7 @@ function renderDetail(appEntry, mode) {
         </div>
         <div class="q-frame-wrap" style="height: ${wrapH}px;">
           <iframe
-            src="${appEntry.appUrl}"
+            src="${escapeHtml(appEntry.appUrl)}"
             width="${r.width}"
             height="${r.height}"
             style="width:${r.width}px;height:${r.height}px;transform:scale(${scale.toFixed(4)});"
@@ -218,14 +241,16 @@ function renderDetail(appEntry, mode) {
     `;
   }).join('');
 
-  // Listen for reports. We can't tell which iframe sent which message
-  // because cross-origin iframes don't expose `event.source` identity
-  // in a reliable way, but the report carries `viewport.width/height`
-  // — match by that.
+  // Listen for reports, one listener at a time: re-rendering (mode tabs) drops the
+  // previous one. Accept only messages from these iframes (acceptQualityReport).
+  const frames = Array.from(grid.querySelectorAll('iframe'));
+  const gameOrigin = new URL(appEntry.appUrl).origin;
+  if (activeHandler) window.removeEventListener('message', activeHandler);
   const handler = (e) => {
-    const data = e.data;
-    if (!data || (data.type !== 'fgs:quality' && data.type !== 'fas:quality')) return;
-    const vp = REFERENCE.find(r => r.width === data.viewport.width && r.height === data.viewport.height);
+    const report = acceptQualityReport(e, frames, gameOrigin);
+    if (!report) return;
+    const data = report.data;
+    const vp = REFERENCE.find(r => r.id === report.vpId);
     if (!vp) return;
     reports.set(vp.id, data);
     const cell = grid.querySelector(`.q-cell[data-vp="${vp.id}"]`);
@@ -255,6 +280,7 @@ function renderDetail(appEntry, mode) {
     indexEl.className = `index ${indexClass(score)}`;
     setCachedScore(appEntry.id, score);
   };
+  activeHandler = handler;
   window.addEventListener('message', handler);
 
   // Timeout: if a viewport never reports back, flag it as
