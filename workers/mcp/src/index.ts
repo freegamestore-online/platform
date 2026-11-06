@@ -6,6 +6,7 @@ import { McpAgent } from 'agents/mcp';
 import type { z } from 'zod';
 import authHandler, { refuseRevokedGrant } from './auth-handler.js';
 import { githubIdFromSub, ownershipFacts, readRegistryGames } from './github.js';
+import { type GuardEnv, withBoundedBody, withOriginPolicy, withRateLimits } from './guards.js';
 import { errMsg } from './http.js';
 import type { SafetyContext } from './safety.js';
 import { registerAdminTools } from './tools/admin.js';
@@ -174,7 +175,7 @@ export class FgsApiHandler extends WorkerEntrypoint<Env> {
 // /token, /register, discovery metadata, the 401 challenge, PKCE, and
 // audience-bound tokens. Sign-in is delegated to the auth worker (auth-handler.ts),
 // so the MCP needs no GitHub app of its own.
-export default new OAuthProvider({
+const oauthProvider = new OAuthProvider({
   apiRoute: '/mcp',
   apiHandler: FgsApiHandler as never,
   defaultHandler: authHandler as never,
@@ -183,4 +184,18 @@ export default new OAuthProvider({
   clientRegistrationEndpoint: '/register',
   // Keep MCP access grants aligned with the 30-day FGS session default.
   accessTokenTTL: MCP_ACCESS_TOKEN_TTL_SECONDS,
+  // S256 only: `plain` offers no protection, /authorize already refuses it, and the
+  // discovery metadata must stop advertising it (#445).
+  allowPlainPKCE: false,
 });
+
+// Guards run before the provider, outermost first: Origin, then rate limits, then
+// the body bound (guards.ts, #445).
+export default {
+  fetch: withOriginPolicy<Env & GuardEnv>(
+    withRateLimits<Env & GuardEnv>(
+      withBoundedBody<Env & GuardEnv>((request, env, ctx) => oauthProvider.fetch(request, env, ctx)),
+    ),
+  ),
+};
+

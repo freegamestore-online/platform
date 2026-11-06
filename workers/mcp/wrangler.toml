@@ -25,6 +25,20 @@ zone_name = "freegamestore.online"
 # Secrets (set via `wrangler secret put`):
 #   GITHUB_TOKEN          — org-level PAT for repo read/write
 
+# Request limits checked in src/guards.ts (#445): 120 requests / 60 s / IP on every
+# route, and 10 / 60 s / IP on POST /register. period must match
+# RATE_LIMIT_PERIOD_SECONDS. namespace_id is account-wide and must stay unique to
+# this worker.
+[[ratelimits]]
+name = "MCP_RATE_LIMIT"
+namespace_id = "2101"
+simple = { limit = 120, period = 60 }
+
+[[ratelimits]]
+name = "MCP_REGISTER_LIMIT"
+namespace_id = "2102"
+simple = { limit = 10, period = 60 }
+
 [[kv_namespaces]]
 binding = "OAUTH_KV"
 id = "c649c4239dbd4250bc1e6507cfb8be14"

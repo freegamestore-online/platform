@@ -9,3 +9,9 @@ const { MCP_ACCESS_TOKEN_TTL_SECONDS } = await import(pathToFileURL(resolve(root
 test('MCP access tokens default to 30 days', () => {
   assert.equal(MCP_ACCESS_TOKEN_TTL_SECONDS, 30 * 86_400);
 });
+
+test('the OAuth provider is configured S256-only, so discovery metadata stops advertising plain (#445)', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const src = await readFile(resolve(root, 'src/index.ts'), 'utf8');
+  assert.match(src, /new OAuthProvider\(\{[\s\S]*allowPlainPKCE:\s*false[\s\S]*\}\)/);
+});
