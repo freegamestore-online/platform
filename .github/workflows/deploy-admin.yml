@@ -35,10 +35,12 @@ jobs:
       # apps/admin is now a pnpm workspace member with deps in root pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter admin test
-      # apps/admin/web has no workspace file, so pin this install.
-      - run: npm install --prefix apps/admin/web
-      - run: npm run --prefix apps/admin/web build
-      - run: cd apps/admin && npx wrangler deploy
+      # apps/admin/web is not a workspace member; install from its own lockfile
+      # (--ignore-workspace, same as workers/auth) instead of an unpinned npm install.
+      - run: pnpm --dir apps/admin/web install --frozen-lockfile --ignore-workspace
+      - run: pnpm --dir apps/admin/web build
+      # wrangler is an exact devDependency of apps/admin (#468), never npx-fetched.
+      - run: pnpm --filter admin exec wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

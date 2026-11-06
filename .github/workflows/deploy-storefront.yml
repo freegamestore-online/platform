@@ -29,6 +29,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      # The storefront has no runtime deps; the lockfile exists to pin wrangler
+      # (exact devDependency) so the deploy step never runs an unpinned npx
+      # package with CLOUDFLARE_API_TOKEN in its env (#468). --ignore-workspace:
+      # sites/freegamestore is not a root workspace member (same as docs/).
+      - name: Install storefront tooling
+        run: pnpm install --frozen-lockfile --ignore-workspace
       - name: Test storefront and deployment contract
         run: npm test
       - name: Build
@@ -42,7 +48,7 @@ jobs:
       - name: Verify sitemap and canonical agreement
         run: node scripts/verify-seo.mjs
       - name: Deploy to Cloudflare Pages
-        run: npx wrangler pages deploy dist --project-name=freegamestore --branch=main --commit-hash=${{ github.sha }}
+        run: pnpm exec wrangler pages deploy dist --project-name=freegamestore --branch=main --commit-hash=${{ github.sha }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

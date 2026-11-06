@@ -29,7 +29,7 @@ jobs:
       - name: Run vcqa
         id: vcqa
         continue-on-error: true
-        run: npx @vibecodeqa/cli --ci --badge --sarif --skip-tests .
+        run: npx @vibecodeqa/cli@0.57.0 --ci --badge --sarif --skip-tests .
 
       - name: Upload SARIF
         if: always() && hashFiles('.vibe-check/report.sarif') != ''
