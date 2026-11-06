@@ -1,4 +1,5 @@
 import { SESSION_COOKIE, type SessionEnv } from '../api/_auth';
+import { rejectCrossSite } from '../api/_csrf';
 
 const LEGACY_COOKIE = 'fgs_pub_session';
 
@@ -16,6 +17,8 @@ function getCookie(request: Request, name: string): string | null {
  * session, which resolveCreatorUser would otherwise still honour.
  */
 export const onRequestPost: PagesFunction<SessionEnv> = async (context) => {
+  const crossSite = rejectCrossSite(context.request);
+  if (crossSite) return crossSite;
   const legacy = getCookie(context.request, LEGACY_COOKIE);
   if (legacy) {
     try {

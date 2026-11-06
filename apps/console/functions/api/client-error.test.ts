@@ -24,6 +24,7 @@ function makeCtx(body: Record<string, unknown>, ip = '1.2.3.4'): Ctx {
       'Content-Type': 'application/json',
       'CF-Connecting-IP': ip,
       Cookie: 'fgs_token=abc',
+      Origin: 'https://console.freegamestore.online',
     },
     body: JSON.stringify(body),
   });
@@ -93,7 +94,11 @@ describe('client-error onRequestPost', () => {
     mResolveCreator.mockResolvedValue(null);
     const request = new Request('https://console.freegamestore.online/api/client-error', {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain', 'CF-Connecting-IP': '1.2.3.4' },
+      headers: {
+        'Content-Type': 'application/json',
+        'CF-Connecting-IP': '1.2.3.4',
+        Origin: 'https://console.freegamestore.online',
+      },
       body: 'not json',
     });
     const env = { SESSIONS: {}, DB: {} as D1Database };
@@ -101,6 +106,22 @@ describe('client-error onRequestPost', () => {
 
     const res = await onRequestPost(ctx);
     expect(res.status).toBe(400);
+    expect(mRecordError).not.toHaveBeenCalled();
+  });
+
+  it('403s a report posted from a game subdomain, writing nothing (#460)', async () => {
+    mResolveCreator.mockResolvedValue('alice');
+    const request = new Request('https://console.freegamestore.online/api/client-error', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'CF-Connecting-IP': '1.2.3.4',
+        Origin: 'https://evil-game.freegamestore.online',
+      },
+      body: JSON.stringify({ message: 'spam' }),
+    });
+    const res = await onRequestPost({ request, env: { SESSIONS: {}, DB: {} } } as unknown as Ctx);
+    expect(res.status).toBe(403);
     expect(mRecordError).not.toHaveBeenCalled();
   });
 

@@ -100,7 +100,12 @@ describe('/api/analytics/:id proxy (#354)', () => {
     const res = await onRequestPut({
       request: new Request('https://console.freegamestore.online/api/analytics/chess', {
         method: 'PUT',
-        headers: { Cookie: `__Host-fgs_token=${cookie}`, 'Content-Type': 'application/json' },
+        headers: {
+          Cookie: `__Host-fgs_token=${cookie}`,
+          'Content-Type': 'application/json',
+          // The storefront's analytics page is the PUT caller in production.
+          Origin: 'https://freegamestore.online',
+        },
         body: JSON.stringify({ ga4: 'G-ABC123' }),
       }),
       env,
@@ -110,6 +115,27 @@ describe('/api/analytics/:id proxy (#354)', () => {
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(init.method).toBe('PUT');
     expect(init.body).toBe(JSON.stringify({ ga4: 'G-ABC123' }));
+  });
+
+  it('403s a PUT from a game subdomain before admin is called (#460)', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const cookie = await signSession('alice');
+    const res = await onRequestPut({
+      request: new Request('https://console.freegamestore.online/api/analytics/chess', {
+        method: 'PUT',
+        headers: {
+          Cookie: `__Host-fgs_token=${cookie}`,
+          'Content-Type': 'application/json',
+          Origin: 'https://evil-game.freegamestore.online',
+        },
+        body: JSON.stringify({ ga4: 'G-EVIL' }),
+      }),
+      env,
+      params,
+    } as never);
+    expect(res.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('answers 502 with JSON when admin is unreachable', async () => {

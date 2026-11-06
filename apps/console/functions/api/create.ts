@@ -1,4 +1,5 @@
 import { corsHeaders, getCookie, resolveCreator, SESSION_COOKIE } from './_auth';
+import { rejectCrossSite } from './_csrf';
 import { fetchWithTimeout, recordError } from './_errlog';
 import { listUserGames } from './_games';
 // Single source of truth shared with check-id.ts so the create gate and the
@@ -55,6 +56,8 @@ function isProductionCreateCanary(user: string, id: string): boolean {
  * immediately (registry entry). No CF Pages project is created.
  */
 export const onRequestPost: PagesFunction<Env> = async (context) => {
+  const crossSite = rejectCrossSite(context.request);
+  if (crossSite) return crossSite;
   // --- instrumentation only (does not change provisioning behavior) ---
   const t0 = Date.now();
   const rid = crypto.randomUUID().slice(0, 8);

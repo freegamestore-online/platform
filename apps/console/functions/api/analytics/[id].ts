@@ -1,4 +1,5 @@
 import { corsHeaders, getCookie, resolveCreator, SESSION_COOKIE } from '../_auth';
+import { rejectCrossSite } from '../_csrf';
 import { validateId } from '../_validate';
 
 interface Env {
@@ -26,6 +27,8 @@ async function proxy(
       headers: { 'Content-Type': 'application/json', ...corsHeaders(context.request) },
     });
 
+  const crossSite = rejectCrossSite(context.request);
+  if (crossSite) return crossSite;
   const user = await resolveCreator(context.request, context.env);
   if (!user) return json({ error: 'Unauthorized' }, 401);
 

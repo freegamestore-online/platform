@@ -15,19 +15,15 @@ export interface SessionEnv {
   JWT_SECRET?: string;
 }
 
+import { FIRST_PARTY_ORIGINS } from './_csrf';
+
 export const SESSION_COOKIE = '__Host-fgs_token';
 
-// First-party origins ONLY. The old `*.freegamestore.online` wildcard reflected
-// game subdomains too — and games are untrusted user content sharing the
-// session cookie's registrable domain, so any game could read this credentialed
-// API (project list, chat history, /api/me) cross-origin. Pin to the console +
-// storefront + dev origins.
-const FIRST_PARTY_ORIGINS = new Set([
-  'https://console.freegamestore.online',
-  'https://freegamestore.online',
-  'http://localhost:5173',
-]);
-
+// CORS reflects first-party origins ONLY (the list lives with the CSRF guard in
+// _csrf.ts). The old `*.freegamestore.online` wildcard reflected game
+// subdomains too — and games are untrusted user content sharing the session
+// cookie's registrable domain, so any game could read this credentialed API
+// (project list, chat history, /api/me) cross-origin.
 export function corsHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get('Origin') ?? '';
   const allow = FIRST_PARTY_ORIGINS.has(origin) ? origin : 'https://console.freegamestore.online';

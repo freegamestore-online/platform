@@ -1,5 +1,6 @@
 import { clampErrorLogText, ERROR_LOG_LIMITS } from '../../../../contracts/error-log/v1/contract';
 import { corsHeaders, resolveCreator } from './_auth';
+import { rejectCrossSite } from './_csrf';
 import { recordError } from './_errlog';
 
 interface Env {
@@ -37,6 +38,8 @@ export const onRequestOptions: PagesFunction<Env> = async (ctx) =>
  */
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
+  const crossSite = rejectCrossSite(request);
+  if (crossSite) return crossSite;
   const json = (v: unknown, status = 200) =>
     new Response(JSON.stringify(v), {
       status,

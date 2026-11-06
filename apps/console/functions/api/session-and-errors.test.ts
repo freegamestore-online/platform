@@ -53,10 +53,16 @@ function kv(entries: Record<string, string> = {}) {
 }
 
 const legacySession = { 'sessions:old': JSON.stringify({ github: 'alice', avatarUrl: '' }) };
+// Same-origin, JSON — what the Studio's fetch() calls carry (#460 gates on both).
 const req = (path: string, cookie: string, init: RequestInit = {}) =>
   new Request(`https://console.freegamestore.online${path}`, {
     ...init,
-    headers: { Cookie: cookie, Origin: 'https://console.freegamestore.online', ...init.headers },
+    headers: {
+      Cookie: cookie,
+      Origin: 'https://console.freegamestore.online',
+      'Content-Type': 'application/json',
+      ...init.headers,
+    },
   });
 
 beforeEach(() => {

@@ -32,10 +32,18 @@ const mFetch = vi.mocked(fetchWithTimeout);
 
 type Ctx = Parameters<typeof onRequestPost>[0];
 
-function makeCtx(body: Record<string, unknown>, envOverrides: Record<string, unknown> = {}): Ctx {
+function makeCtx(
+  body: Record<string, unknown>,
+  envOverrides: Record<string, unknown> = {},
+  origin = 'https://console.freegamestore.online',
+): Ctx {
   const request = new Request('https://console.freegamestore.online/api/create', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Cookie: '__Host-fgs_token=abc' },
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: '__Host-fgs_token=abc',
+      Origin: origin,
+    },
     body: JSON.stringify(body),
   });
   const env = {
@@ -75,6 +83,17 @@ beforeEach(() => {
 });
 
 describe('create onRequestPost authorization', () => {
+  it('403s a same-site game page posting with the creator cookie, before any auth or I/O (#460)', async () => {
+    mResolveCreator.mockResolvedValue('alice');
+    const res = await onRequestPost(
+      makeCtx({ id: 'coolgame', name: 'Cool' }, {}, 'https://evil-game.freegamestore.online'),
+    );
+    expect(res.status).toBe(403);
+    expect(mResolveCreator).not.toHaveBeenCalled();
+    expect(mListUserGames).not.toHaveBeenCalled();
+    expect(mFetch).not.toHaveBeenCalled();
+  });
+
   it('returns 401 when unauthenticated', async () => {
     mResolveCreator.mockResolvedValue(null);
     const res = await onRequestPost(makeCtx({ id: 'coolgame', name: 'Cool' }));

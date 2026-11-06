@@ -10,6 +10,8 @@
  * but may need manual cleanup (though partial deletion is unlikely given the order).
  */
 
+import { rejectCrossSite } from '../api/_csrf';
+
 interface DeleteResult {
   ok: boolean;
   agent?: { ok: boolean; message?: string; error?: string };
@@ -25,6 +27,8 @@ function getCookie(request: Request, name: string): string | null {
 }
 
 export const onRequestPost: PagesFunction = async (context) => {
+  const crossSite = rejectCrossSite(context.request);
+  if (crossSite) return crossSite;
   const cookie = getCookie(context.request, '__Host-fgs_token');
 
   if (!cookie) {

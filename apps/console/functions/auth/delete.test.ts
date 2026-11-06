@@ -24,11 +24,17 @@ afterEach(() => {
   global.fetch = originalFetch;
 });
 
-async function post(cookie = '__Host-fgs_token=valid.token.here') {
+// The Profile page posts same-origin, so the browser attaches this Origin.
+const CONSOLE = 'https://console.freegamestore.online';
+
+async function post(
+  cookie = '__Host-fgs_token=valid.token.here',
+  headers: Record<string, string> = { Origin: CONSOLE },
+) {
   const context = {
     request: new Request('https://console.freegamestore.online/auth/delete', {
       method: 'POST',
-      headers: { Cookie: cookie },
+      headers: { Cookie: cookie, ...headers },
     }),
     env: {},
   };
@@ -43,7 +49,7 @@ describe('POST /auth/delete', () => {
     const context = {
       request: new Request('https://console.freegamestore.online/auth/delete', {
         method: 'POST',
-        headers: { Cookie: '' }, // No token
+        headers: { Cookie: '', Origin: CONSOLE }, // No token
       }),
       env: {},
     };
@@ -51,6 +57,21 @@ describe('POST /auth/delete', () => {
     // biome-ignore lint/suspicious/noExplicitAny: test context
     const res = await onRequestPost(context as any);
     expect(res.status).toBe(401);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('403s a same-site game page posting with the creator cookie; nothing is deleted (#460)', async () => {
+    const { res } = await post('__Host-fgs_token=valid.token.here', {
+      Origin: 'https://evil-game.freegamestore.online',
+    });
+    expect(res.status).toBe(403);
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(res.headers.getSetCookie()).toHaveLength(0);
+  });
+
+  it('403s a cookie-bearing POST that carries neither Origin nor Sec-Fetch-Site (#460)', async () => {
+    const { res } = await post('__Host-fgs_token=valid.token.here', {});
+    expect(res.status).toBe(403);
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
@@ -94,7 +115,7 @@ describe('POST /auth/delete', () => {
     const context = {
       request: new Request('https://console.freegamestore.online/auth/delete', {
         method: 'POST',
-        headers: { Cookie: '__Host-fgs_token=token' },
+        headers: { Cookie: '__Host-fgs_token=token', Origin: CONSOLE },
       }),
       env: {},
     };

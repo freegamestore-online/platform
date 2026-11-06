@@ -4,11 +4,11 @@ import { onRequestPost } from './logout';
 // Regression for #71: Sign out left the console's host-only session cookie in
 // place, so /auth/me kept resolving the user. Only this origin can clear it.
 
-function call(cookie?: string) {
+function call(cookie?: string, origin = 'https://console.freegamestore.online') {
   const del = vi.fn(async () => {});
   const request = new Request('https://console.freegamestore.online/auth/logout', {
     method: 'POST',
-    headers: cookie ? { Cookie: cookie } : {},
+    headers: { Origin: origin, ...(cookie ? { Cookie: cookie } : {}) },
   });
   const context = { request, env: { SESSIONS: { delete: del } } } as unknown as Parameters<
     typeof onRequestPost
@@ -38,6 +38,17 @@ describe('POST /auth/logout', () => {
     const legacy = response.headers.getSetCookie().find((c) => c.startsWith('fgs_pub_session=;'));
     expect(legacy).toMatch(/Domain=\.freegamestore\.online/);
     expect(legacy).toMatch(/Max-Age=0/);
+  });
+
+  it('403s a sign-out forced from a game subdomain (#460)', async () => {
+    const { res, del } = call(
+      'fgs_pub_session=legacy123; __Host-fgs_token=t',
+      'https://evil-game.freegamestore.online',
+    );
+    const response = await res;
+    expect(response.status).toBe(403);
+    expect(del).not.toHaveBeenCalled();
+    expect(response.headers.getSetCookie()).toHaveLength(0);
   });
 
   it('still clears cookies when there is no legacy session to delete', async () => {
