@@ -12,6 +12,10 @@ name: Create canary
 # workflow is the only way to reach it, and that change is a push to main.
 on:
   workflow_dispatch:
+  # Daily, off-peak. Each run makes 2 games (console and mcp); the auth worker
+  # allows 4 canary creates a UTC day, so one manual run a day fits beside it.
+  schedule:
+    - cron: '17 3 * * *'
 
 permissions:
   contents: read
