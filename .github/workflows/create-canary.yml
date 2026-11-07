@@ -1,0 +1,34 @@
+name: Create canary
+
+# Creates a throwaway game through the console and MCP paths, asserts the end
+# state (registry entry, route, supported deploy.yml, first keyless deploy
+# green) and deletes it (#527). Manual until the FGS_CANARY_SESSION secret
+# (a creator session token for the platform owner) is set on this repo; then add
+# a `schedule:` trigger. The canary id pattern e2e-create-*-test is the only id
+# the console create quota bypass accepts.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        path: [console, mcp]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @freegamestore/compliance build
+      - name: Create, assert, clean up
+        env:
+          FGS_SESSION_TOKEN: ${{ secrets.FGS_CANARY_SESSION }}
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/create-canary.mjs --path ${{ matrix.path }}
