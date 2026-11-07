@@ -1069,6 +1069,22 @@ describe('handlePublish existing-repo claim guard (#61)', () => {
     expect(writes).toHaveLength(0);
   });
 
+  it('refuses a LISTED id with the same owner when its repo is archived, and writes no route (#525)', async () => {
+    const writes = stub(
+      'escape',
+      { archived: true, template_repository: GAME_TEMPLATE },
+      { games: [{ id: 'escape', creatorGithub: 'Crystal12341' }] },
+    );
+    const res = await handlePublish(
+      { id: 'escape', name: 'Fight', category: 'arcade', creatorGithub: 'Crystal12341' },
+      env,
+    );
+    expect(res.success).toBe(false);
+    expect(res.conflict).toBe(true);
+    expect(res.steps.at(-1)?.detail).toMatch(/was deleted.*cannot be reused/);
+    expect(writes).toHaveLength(0); // no route, no registry write
+  });
+
   it('fails closed when the registry cannot be read', async () => {
     const writes = stub('new-game', { template_repository: GAME_TEMPLATE }, null);
     const res = await handlePublish(
@@ -1670,5 +1686,49 @@ describe('ownership by GitHub id (#472)', () => {
     } finally {
       error.mockRestore();
     }
+  });
+});
+
+describe('strandedRepo (#524)', () => {
+  const fail = (steps: Array<[string, 'ok' | 'fail' | 'skip']>) => ({
+    success: false,
+    steps: steps.map(([name, status]) => ({ name, status, detail: '' })),
+  });
+
+  it('names a repo created in this call whose registry write failed', async () => {
+    const { strandedRepo } = await import('./publish');
+    expect(
+      strandedRepo(
+        fail([
+          ['GitHub repo', 'ok'],
+          ['Store registry', 'fail'],
+        ]),
+        'snake',
+      ),
+    ).toBe('freegamestore-online/snake');
+  });
+
+  it('names nothing when the repo pre-existed, was registered, or the call succeeded', async () => {
+    const { strandedRepo } = await import('./publish');
+    expect(
+      strandedRepo(
+        fail([
+          ['GitHub repo', 'skip'],
+          ['Store registry', 'fail'],
+        ]),
+        'x',
+      ),
+    ).toBeNull();
+    expect(
+      strandedRepo(
+        fail([
+          ['GitHub repo', 'ok'],
+          ['Store registry', 'ok'],
+          ['Hosting', 'fail'],
+        ]),
+        'x',
+      ),
+    ).toBeNull();
+    expect(strandedRepo({ success: true, steps: [] }, 'x')).toBeNull();
   });
 });

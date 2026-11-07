@@ -56,9 +56,16 @@ function makeDB(routeSlugs: string[]) {
 function registryFetch(
   games: unknown[] | null,
   repos: Record<string, 'live' | 'archived' | 'error'> = {},
+  orgRepos: unknown[] | null = null,
 ) {
   return async (input: unknown) => {
     const url = typeof input === 'string' ? input : (input as Request).url;
+    // GET /orgs/<org>/repos: the repo-side drift sweep (#524, #525).
+    if (/api\.github\.com\/orgs\/freegamestore-online\/repos/.test(url)) {
+      return orgRepos
+        ? new Response(JSON.stringify(orgRepos), { status: 200 })
+        : new Response('nope', { status: 500 });
+    }
     // GET /repos/<org>/<slug>: the orphan guard (#363). Unlisted repos are gone
     // (404), which is what deleting a game leaves behind.
     const repo = url.match(/api\.github\.com\/repos\/freegamestore-online\/([^/?]+)$/);
@@ -147,6 +154,110 @@ describe('GET /api/reconcile is report-only', () => {
     expect(calls.filter((c) => /INSERT INTO routes|DELETE FROM routes/i.test(c.sql))).toHaveLength(
       0,
     );
+  });
+});
+
+const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
+
+async function getReconcile(env: unknown) {
+  const AUTH = {
+    fetch: async () =>
+      new Response(JSON.stringify({ email: 'serge.the.dev@gmail.com' }), { status: 200 }),
+  };
+  const res = await worker.fetch(
+    new Request('https://admin.freegamestore.online/api/reconcile', {
+      headers: { 'X-FGS-Token': 't' },
+    }),
+    { ...(env as object), AUTH, ADMIN_EMAILS: 'serge.the.dev@gmail.com' } as unknown as Parameters<
+      typeof worker.fetch
+    >[1],
+  );
+  return (await res.json()) as {
+    drift: boolean;
+    unlistedButServed: string[];
+    repoWithoutRegistry?: Array<{ name: string; createdAt: string; pushedAt: string | null }>;
+    archivedRepoListed?: string[];
+  };
+}
+
+// Drift categories for games that fell out of the supported lifecycle (#520).
+describe('reconcile drift categories', () => {
+  it('reports a route with no registry entry and a live repo as unlistedButServed (#521)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      registryFetch([{ id: 'chess' }], { 'snake-2': 'live', gone: 'archived' }),
+    );
+    const { db } = makeDB(['chess', 'snake-2', 'gone']);
+    const body = await getReconcile({ GITHUB_TOKEN: 'x', DB: db });
+    expect(body.drift).toBe(true);
+    // gone has an archived repo: a plain orphan the hourly heal deletes, not "served".
+    expect(body.unlistedButServed).toEqual(['snake-2']);
+  });
+
+  it('keeps reporting unlistedButServed on the heal run, and still deletes nothing live', async () => {
+    vi.stubGlobal('fetch', registryFetch([{ id: 'chess' }], { 'snake-2': 'live' }));
+    const { calls, db } = makeDB(['chess', 'snake-2']);
+    await runScheduled({ GITHUB_TOKEN: 'x', DB: db });
+    expect(calls.filter((c) => /DELETE FROM routes/i.test(c.sql))).toHaveLength(0);
+    const row = calls.find(
+      (c) => /INSERT INTO error_log/i.test(c.sql) && /unlistedButServed/.test(String(c.binds[3])),
+    );
+    expect(String(row?.binds[3])).toContain('1 unlistedButServed [snake-2]');
+  });
+
+  it('reports a stranded repo with no registry entry (#524)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      registryFetch([{ id: 'chess' }], {}, [
+        { name: 'chess', created_at: ago(9999) },
+        { name: 'snake-game', created_at: ago(9999), pushed_at: ago(9000) },
+      ]),
+    );
+    const { db } = makeDB(['chess']);
+    const body = await getReconcile({ GITHUB_TOKEN: 'x', DB: db });
+    expect(body.drift).toBe(true);
+    expect(body.repoWithoutRegistry?.map((r) => r.name)).toEqual(['snake-game']);
+    expect(body.repoWithoutRegistry?.[0]?.pushedAt).toBeTruthy();
+  });
+
+  it('does not report a repo created 5 minutes ago (in-flight provision), archived, template or infra repos', async () => {
+    vi.stubGlobal(
+      'fetch',
+      registryFetch([{ id: 'chess' }], {}, [
+        { name: 'chess', created_at: ago(9999) },
+        { name: 'new-game', created_at: ago(5) },
+        { name: 'old-archived', created_at: ago(9999), archived: true },
+        { name: 'template-game-canvas', created_at: ago(9999), is_template: true },
+        { name: 'platform', created_at: ago(9999) },
+        { name: 'ci-workflows', created_at: ago(9999) },
+      ]),
+    );
+    const { db } = makeDB(['chess']);
+    const body = await getReconcile({ GITHUB_TOKEN: 'x', DB: db });
+    expect(body.repoWithoutRegistry).toEqual([]);
+    expect(body.drift).toBe(false);
+  });
+
+  it('reports a registry entry whose repo is archived (#525)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      registryFetch([{ id: 'chess' }, { id: 'escape' }], {}, [
+        { name: 'chess', created_at: ago(9999) },
+        { name: 'escape', created_at: ago(9999), archived: true },
+      ]),
+    );
+    const { db } = makeDB(['chess', 'escape']);
+    const body = await getReconcile({ GITHUB_TOKEN: 'x', DB: db });
+    expect(body.archivedRepoListed).toEqual(['escape']);
+    expect(body.drift).toBe(true);
+  });
+
+  it('claims no repo drift when the org repo list cannot be read', async () => {
+    vi.stubGlobal('fetch', registryFetch([{ id: 'chess' }]));
+    const { db } = makeDB(['chess']);
+    const body = await getReconcile({ GITHUB_TOKEN: 'x', DB: db });
+    expect(body.repoWithoutRegistry).toBeUndefined();
+    expect(body.drift).toBe(false);
   });
 });
 

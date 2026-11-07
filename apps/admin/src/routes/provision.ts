@@ -1,7 +1,7 @@
 import type { DataService } from '../data';
 import { recordError } from '../errlog';
 import { jsonResponse, safeEqual } from '../http';
-import { provisionStatus } from '../publish';
+import { provisionStatus, strandedRepo } from '../publish';
 import { gameLifecycle } from '../services';
 import type { Route } from './types';
 
@@ -54,11 +54,14 @@ export function provisionRoutes(_data: DataService): Route[] {
                 .filter((s) => s.status === 'fail')
                 .map((s) => `${s.name}: ${s.detail}`)
                 .join('; ') || 'provision returned success:false';
+            const stranded = strandedRepo(result, String(body?.id));
             await recordError(env.DB, {
               source: 'admin/provision',
               user: owner,
               context: `id=${body?.id} +${Date.now() - t0}ms`,
-              message: failMsg,
+              message: stranded
+                ? `${failMsg} | STRANDED REPO: ${stranded} was created in this call but has no registry entry`
+                : failMsg,
               stack: JSON.stringify(result).slice(0, 1500),
             });
           }

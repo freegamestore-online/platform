@@ -647,6 +647,14 @@ async function existingRepoClaimError(
   },
   owner: string | undefined,
 ): Promise<{ error: string; conflict: boolean } | null> {
+  // A deleted game's repo is archived. Refuse before any listed-owner shortcut:
+  // re-provisioning would put the route back for a repo nobody can push to (#525).
+  if (repo.archived === true) {
+    return {
+      error: `"${id}" was deleted (its repo is archived) and the id cannot be reused — choose a different id`,
+      conflict: true,
+    };
+  }
   const registryFile = await ghApi(
     env,
     `/repos/${config.org}/${config.storeRepo}/contents/${STORE_CONFIG.storeRegistryPath}`,
@@ -681,7 +689,7 @@ async function existingRepoClaimError(
     template?.owner?.login === config.org &&
     typeof template?.name === 'string' &&
     template.name.startsWith('template-game-');
-  if (!fromGameTemplate || repo.archived === true) {
+  if (!fromGameTemplate) {
     return {
       error: `${config.org}/${id} already exists and is not a game this service provisioned — choose a different id`,
       conflict: true,
@@ -1297,8 +1305,10 @@ export async function handlePublish(
 
   // If the registry write failed the game isn't listed anywhere — do NOT then
   // create a host route for it, or we'd serve a game that's invisible on every
-  // dashboard (served-but-invisible, the worst partial state). Bail now; the
-  // repo + any route are absent, so an idempotent re-provision starts clean.
+  // dashboard (served-but-invisible, the worst partial state). Bail now. A repo
+  // generated in this call is NOT removed: it stays, unlisted and unrouted. Only
+  // the same creator re-provisioning heals it (existingRepoClaimError); the
+  // reconcile sweep reports it as repoWithoutRegistry (#524). No route exists.
   if (regStep.status === 'fail') {
     return {
       steps,
@@ -1367,6 +1377,18 @@ export function lifecycleStatus(code?: LifecycleErrorCode): number {
  *  (400), an id owned by someone else is a conflict (409), and everything else
  *  — GitHub, the registry, D1 — is an upstream failure the caller can retry
  *  (502), not a "bad request" (#66). */
+/** The repo a failed provision left behind, or null. It exists when this call
+ *  generated it (`GitHub repo` ok) but the registry entry was never written (#524). */
+export function strandedRepo(
+  result: { success: boolean; steps: Step[] },
+  id: string,
+): string | null {
+  if (result.success) return null;
+  const created = result.steps.some((st) => st.name === 'GitHub repo' && st.status === 'ok');
+  const registered = result.steps.some((st) => st.name === 'Store registry' && st.status === 'ok');
+  return created && !registered ? `${STORE_CONFIG.org}/${id}` : null;
+}
+
 export function provisionStatus(result: {
   success: boolean;
   conflict?: boolean;

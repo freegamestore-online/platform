@@ -136,6 +136,16 @@ export interface ReconcileReport {
   missingRoute: string[];
   /** Has a D1 route but isn't in the registry → drift (provision half-done or unlisted). */
   orphanRoute: string[];
+  /** Has a D1 route, no registry entry, and its repo is still live: unlisted but
+   *  still served (and, with a legacy workflow, still deployable) (#521). Reported
+   *  every run until resolved; never auto-deleted. A subset of `orphanRoute`. */
+  unlistedButServed?: string[];
+  /** Un-archived org repos that are no registry entry, no template and no infra
+   *  repo, created over 30 minutes ago: a failed or interrupted provision, or a
+   *  hand-unlisted game (#524). Null when GitHub's repo list could not be read. */
+  repoWithoutRegistry?: StrandedRepo[];
+  /** Registry entries whose repo is archived: listed and routed but undeployable (#525). */
+  archivedRepoListed?: string[];
   drift: boolean;
   /** True when the registry read FAILED (not merely empty). In this state the
    *  comparison is untrustworthy, so no drift is claimed and no healing runs. */
@@ -176,6 +186,83 @@ export async function orphanRepoIsGone(env: Env, slug: string): Promise<boolean>
   } catch {
     return false;
   }
+}
+
+/** Org repos that are infrastructure, not games. */
+export const INFRA_REPOS = new Set(['platform', 'ci-workflows', 'submissions', 'brand', 'public']);
+/** A repo younger than this may be a provision still in flight (#524). */
+export const IN_FLIGHT_MS = 30 * 60_000;
+
+export interface StrandedRepo {
+  name: string;
+  createdAt: string;
+  pushedAt: string | null;
+}
+
+interface OrgRepo {
+  name: string;
+  archived?: boolean;
+  is_template?: boolean;
+  created_at?: string;
+  pushed_at?: string | null;
+}
+
+/** Every repo in the org (archived included), or null if GitHub cannot answer. */
+export async function listOrgRepos(env: Env): Promise<OrgRepo[] | null> {
+  const all: OrgRepo[] = [];
+  try {
+    for (let page = 1; page <= 10; page++) {
+      const res = await fetch(
+        `https://api.github.com/orgs/${ORG}/repos?type=all&per_page=100&page=${page}`,
+        {
+          headers: {
+            Accept: 'application/vnd.github+json',
+            'User-Agent': 'freegamestore-admin',
+            ...(env.GITHUB_TOKEN ? { Authorization: `Bearer ${env.GITHUB_TOKEN}` } : {}),
+          },
+        },
+      );
+      if (!res.ok) return null;
+      const batch = await res.json();
+      if (!Array.isArray(batch)) return null;
+      all.push(...(batch as OrgRepo[]));
+      if (batch.length < 100) return all;
+    }
+  } catch {
+    return null;
+  }
+  return all;
+}
+
+/** Repo-side drift (#524, #525): stranded repos with no registry entry, and
+ *  registry entries whose repo is archived. Pure over the two lists. */
+export function repoDrift(
+  repos: OrgRepo[],
+  items: Array<{ id?: unknown; repo?: unknown }>,
+  now = Date.now(),
+): { repoWithoutRegistry: StrandedRepo[]; archivedRepoListed: string[] } {
+  const repoName = (g: { id?: unknown; repo?: unknown }) =>
+    typeof g.repo === 'string' && g.repo ? (g.repo.split('/').pop() as string) : String(g.id ?? '');
+  const listed = new Set(items.flatMap((g) => [String(g.id ?? ''), repoName(g)]));
+  const archived = new Set(repos.filter((r) => r.archived).map((r) => r.name));
+  return {
+    repoWithoutRegistry: repos
+      .filter(
+        (r) =>
+          !r.archived &&
+          !r.is_template &&
+          !r.name.startsWith('template-game-') &&
+          !INFRA_REPOS.has(r.name) &&
+          !listed.has(r.name) &&
+          now - Date.parse(r.created_at ?? '') >= IN_FLIGHT_MS,
+      )
+      .map((r) => ({ name: r.name, createdAt: r.created_at ?? '', pushedAt: r.pushed_at ?? null }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    archivedRepoListed: items
+      .filter((g) => g.id && archived.has(repoName(g)))
+      .map((g) => String(g.id))
+      .sort(),
+  };
 }
 
 /** Compare the storefront registry against the D1 `routes` table and surface —
@@ -239,17 +326,33 @@ export async function reconcile(env: Env, heal = false): Promise<ReconcileReport
     .map((g) => g.id as string)
     .sort();
 
+  // Orphan routes whose repo is still live: unlisted but served (#521). A route
+  // touched inside the grace window is a provision racing the registry read.
+  const unlistedButServed: string[] = [];
+  for (const slug of orphanRoute) {
+    if (Date.now() - (routeUpdatedAt.get(slug) ?? 0) < ORPHAN_GRACE_MS) continue;
+    if (!(await orphanRepoIsGone(env, slug))) unlistedButServed.push(slug);
+  }
+  const orgRepos = await listOrgRepos(env);
+  const repoSide = orgRepos ? repoDrift(orgRepos, items) : null;
+  const routeDrift = missingRoute.length > 0 || orphanRoute.length > 0;
+
   const report: ReconcileReport = {
     ts,
     registryCount: registryIds.size,
     routeCount: routeSlugs.size,
     missingRoute,
     orphanRoute,
+    unlistedButServed,
+    ...(repoSide ?? {}),
     pending,
     // A pending game is NOT drift — provisioning before the build is deliberate.
     // It only becomes interesting if it never resolves, which the flip below
     // handles rather than alarming about.
-    drift: missingRoute.length > 0 || orphanRoute.length > 0,
+    drift:
+      routeDrift ||
+      (repoSide?.repoWithoutRegistry.length ?? 0) > 0 ||
+      (repoSide?.archivedRepoListed.length ?? 0) > 0,
   };
 
   // Route healing acts only on a FRESH registry read (#64). The raw CDN copy can
@@ -259,7 +362,7 @@ export async function reconcile(env: Env, heal = false): Promise<ReconcileReport
   // next run) and re-inserted the route of a just-deleted game, which the host
   // then served again from R2. Drift is still reported; it heals next run.
   const freshRegistry = registry.status === 'available' && registry.source === 'contents';
-  if (heal && report.drift && !freshRegistry) {
+  if (heal && routeDrift && !freshRegistry) {
     report.healSkipped = 'stale-registry';
     console.warn('[reconcile] registry came from the cached raw copy — route heal skipped');
     // Logged, not just warned: a skip that repeats every hour leaves listed
@@ -270,7 +373,7 @@ export async function reconcile(env: Env, heal = false): Promise<ReconcileReport
       message: `route heal skipped (stale registry read): ${missingRoute.length} missingRoute, ${orphanRoute.length} orphanRoute left as is`,
     });
   }
-  if (heal && env.DB && report.drift && freshRegistry) {
+  if (heal && env.DB && routeDrift && freshRegistry) {
     const insertedRoutes: string[] = [];
     const deletedRoutes: string[] = [];
     const keptRoutes: string[] = [];
@@ -287,7 +390,7 @@ export async function reconcile(env: Env, heal = false): Promise<ReconcileReport
       // if it is truly orphaned, a later run removes it.
       if (Date.now() - (routeUpdatedAt.get(slug) ?? 0) < ORPHAN_GRACE_MS) continue;
       // And never delete one whose game repo is still live (#363).
-      if (!(await orphanRepoIsGone(env, slug))) {
+      if (unlistedButServed.includes(slug)) {
         keptRoutes.push(slug);
         continue;
       }
@@ -356,7 +459,11 @@ export async function reconcile(env: Env, heal = false): Promise<ReconcileReport
     await recordError(env.DB, {
       source: 'admin/reconcile',
       context: `heal=${heal}`,
-      message: `drift: ${missingRoute.length} missingRoute, ${orphanRoute.length} orphanRoute`,
+      message:
+        `drift: ${missingRoute.length} missingRoute, ${orphanRoute.length} orphanRoute, ` +
+        `${unlistedButServed.length} unlistedButServed [${unlistedButServed.join(', ')}], ` +
+        `${report.repoWithoutRegistry?.length ?? 0} repoWithoutRegistry [${(report.repoWithoutRegistry ?? []).map((r) => r.name).join(', ')}], ` +
+        `${report.archivedRepoListed?.length ?? 0} archivedRepoListed [${(report.archivedRepoListed ?? []).join(', ')}]`,
       stack: JSON.stringify(report).slice(0, 1500),
     });
   } else {
