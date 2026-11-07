@@ -540,7 +540,9 @@ export function registerBuildSessionTools(ctx: RegistrationContext): void {
         game_id: id,
       });
       if (confirmBlock) return confirmBlock;
-      const result = await fgsDelete(ctx.env.API_BASE, `/api/games/${id}`, token);
+      // Delist, drop the route, archive, purge: an abort at the 10 s default would
+      // leave the game half deleted (#533).
+      const result = await fgsDelete(ctx.env.API_BASE, `/api/games/${id}`, token, 60_000);
       if (result?.error) {
         const hint =
           result.status === 401

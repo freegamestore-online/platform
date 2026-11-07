@@ -37,6 +37,8 @@ async function readableGameError(ctx: RegistrationContext, game_id: string) {
   return null;
 }
 
+const PROVISION_TIMEOUT_MS = 90_000;
+
 export function registerGameFilesTools(ctx: RegistrationContext): void {
   // -- create_game (provision + scaffold + go live) --
   ctx.safeTool(
@@ -116,15 +118,23 @@ export function registerGameFilesTools(ctx: RegistrationContext): void {
       // ownership, and template so admin picks the right scaffold. The MCP must
       // NOT re-scaffold afterward — a second force-push (replaceTree) would wipe
       // admin's substituted tree.
-      const prov = (await fgsPost(ctx.env.API_BASE, '/api/provision', token, {
-        id: game_id,
-        name,
-        category,
-        description: description || name,
-        oneliner: description || name,
-        creatorGithub: ctx.session.userId,
-        template: tmpl,
-      })) as {
+      const prov = (await fgsPost(
+        ctx.env.API_BASE,
+        '/api/provision',
+        token,
+        {
+          id: game_id,
+          name,
+          category,
+          description: description || name,
+          oneliner: description || name,
+          creatorGithub: ctx.session.userId,
+          template: tmpl,
+        },
+        // As long as the console allows it (create.ts): cutting the call off at the
+        // 10 s default left admin's provision half done, a repo with no listing (#533).
+        PROVISION_TIMEOUT_MS,
+      )) as {
         error?: string;
         detail?: string;
         success?: boolean;

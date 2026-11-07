@@ -60,9 +60,10 @@ export const errMsg = (err: unknown) => (err instanceof Error ? err.message : St
 export async function safeFetch(
   label: string,
   fetchFn: (signal: AbortSignal) => Promise<Response>,
+  timeoutMs?: number,
 ): Promise<{ res: Response } | { error: string }> {
   try {
-    return { res: await withTimeout(fetchFn) };
+    return { res: await withTimeout(fetchFn, timeoutMs) };
   } catch (err: unknown) {
     return { error: `Request failed for ${label}: ${errMsg(err)}` };
   }
@@ -144,7 +145,14 @@ export async function fgsApi(apiBase: string, path: string, token?: string) {
 }
 
 // POST to the FGS admin
-export async function fgsPost(apiBase: string, path: string, token: string, body: unknown) {
+export async function fgsPost(
+  apiBase: string,
+  path: string,
+  token: string,
+  body: unknown,
+  /** Default 10 s; provisioning needs far longer (#533). */
+  timeoutMs?: number,
+) {
   // X-FGS-Token survives worker-to-worker (Cloudflare strips Authorization on those hops).
   const r = await safeFetch(path, (signal) =>
     fetch(`${apiBase}${path}`, {
@@ -157,6 +165,7 @@ export async function fgsPost(apiBase: string, path: string, token: string, body
       body: JSON.stringify(body),
       signal,
     }),
+    timeoutMs,
   );
   if ('error' in r) return r;
   const res = r.res;
@@ -181,13 +190,22 @@ export async function fgsPost(apiBase: string, path: string, token: string, body
 // DELETE against an FGS worker (admin or agent). Same header trio as fgsPost —
 // X-FGS-Token survives worker-to-worker hops (CF strips Authorization there),
 // Authorization covers the direct path. Ownership is enforced server-side.
-export async function fgsDelete(base: string, path: string, token: string) {
-  const r = await safeFetch(path, (signal) =>
-    fetch(`${base}${path}`, {
-      method: 'DELETE',
-      headers: { 'X-FGS-Token': token, Authorization: `Bearer ${token}` },
-      signal,
-    }),
+export async function fgsDelete(
+  base: string,
+  path: string,
+  token: string,
+  /** Default 10 s; deleting a game is delist + route + archive + purge (#533). */
+  timeoutMs?: number,
+) {
+  const r = await safeFetch(
+    path,
+    (signal) =>
+      fetch(`${base}${path}`, {
+        method: 'DELETE',
+        headers: { 'X-FGS-Token': token, Authorization: `Bearer ${token}` },
+        signal,
+      }),
+    timeoutMs,
   );
   if ('error' in r) return r;
   const res = r.res;

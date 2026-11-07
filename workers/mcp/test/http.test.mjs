@@ -223,3 +223,30 @@ test('readBody distinguishes an empty body from an unreadable one', async () => 
   assert.equal(bad.text, undefined);
   assert.match(bad.error, /network error/);
 });
+
+// -- #533: provisioning outlives the 10 s default --
+
+test('fgsPost takes a longer timeout than the 10 s default, and still aborts at it', async () => {
+  const seen = [];
+  const hangs = (_url, init) =>
+    new Promise((_resolve, reject) => {
+      seen.push(init.signal);
+      init.signal.addEventListener('abort', () => reject(new Error('The operation was aborted')));
+    });
+  const short = await withFetch(hangs, () => fgsPost(API, '/api/provision', 'tok', {}, 20));
+  assert.match(short.error, /\/api\/provision.*aborted/);
+  assert.equal(seen[0].aborted, true);
+  // Under the default, a 5 ms call is nowhere near its deadline.
+  const quick = await withFetch(
+    async () => ok('{"success":true}'),
+    () => fgsPost(API, '/api/provision', 'tok', {}),
+  );
+  assert.deepEqual(quick, { success: true });
+});
+
+test('create_game gives the admin provision call 90 s, as the console does', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const src = await readFile(new URL('../src/tools/game-files.ts', import.meta.url), 'utf8');
+  assert.match(src, /const PROVISION_TIMEOUT_MS = 90_000;/);
+  assert.match(src, /'\/api\/provision',[\s\S]*?PROVISION_TIMEOUT_MS,\s*\)\) as/);
+});
