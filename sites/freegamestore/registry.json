@@ -1623,23 +1623,6 @@
       "creatorGithubId": "299975406"
     },
     {
-      "id": "escape",
-      "name": "Fight",
-      "category": "action",
-      "icon": "&#129503;",
-      "iconBg": "#1a1a2e",
-      "description": "Blast through a zombie-filled maze — kill every undead to escape and claim victory!",
-      "appUrl": "https://escape.freegamestore.online",
-      "repo": "freegamestore-online/escape",
-      "hostedOn": "r2",
-      "type": "standalone",
-      "developer": "Crystal12341",
-      "creatorGithub": "Crystal12341",
-      "firstPublished": "2026-07-11T07:06:41.941Z",
-      "lastUpdated": "2026-07-05T02:20:43Z",
-      "creatorGithubId": "299980342"
-    },
-    {
       "id": "orb-cascade",
       "name": "Orb Cascade",
       "category": "arcade",
