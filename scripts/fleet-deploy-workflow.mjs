@@ -286,7 +286,7 @@ async function inspect(repo, generated, workdir, registry, verifyBuild = false) 
       'web/src',
     ]);
     if (range && needsSdkCss(range) && imports.ok) {
-      usesShell = tryRun('git', ['-C', dir, 'grep', '-lw', 'GameShell', '--', 'web/src']).ok;
+      usesShell = tryRun('git', ['-C', dir, 'grep', '-l', '<GameShell', '--', 'web/src']).ok;
       const css = readFileSync(cssPath, 'utf8');
       const fixed = ensureSdkCss(css);
       if (fixed) {
