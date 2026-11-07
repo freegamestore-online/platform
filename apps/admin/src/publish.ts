@@ -553,7 +553,8 @@ export async function substituteTemplatePlaceholders(
     const baseTree = headCommit.tree?.sha;
     if (!baseTree) return { name: 'Naming', status: 'fail', detail: 'could not read base tree' };
 
-    const treeItems: Array<{ path: string; mode: string; type: string; sha: string }> = [];
+    // `sha: null` deletes the path from the new tree.
+    const treeItems: Array<{ path: string; mode: string; type: string; sha: string | null }> = [];
     for (const t of targets) {
       const file = await ghApi(env, `/repos/${repo}/contents/${t.path}`);
       if (!file.content) continue; // not in this template variant
@@ -566,6 +567,22 @@ export async function substituteTemplatePlaceholders(
         encoding: 'utf-8',
       });
       if (blob.sha) treeItems.push({ path: t.path, mode: '100644', type: 'blob', sha: blob.sha });
+    }
+    // The templates carry their OWN self-check, .github/workflows/compliance.yml,
+    // whose text contains the literal APPNAME (it substitutes it in a scratch
+    // copy). A game does not need it (deploy.yml runs the same `fgs check` gate)
+    // and its APPNAME fails that gate's "No template placeholders" check, so the
+    // first deploy of every new game went red (#532). Drop it, as long as it is
+    // still the template's.
+    const selfCheckPath = '.github/workflows/compliance.yml';
+    const selfCheck = await ghApi(env, `/repos/${repo}/contents/${selfCheckPath}`);
+    if (
+      selfCheck.content &&
+      new TextDecoder()
+        .decode(Uint8Array.from(atob(selfCheck.content.replace(/\n/g, '')), (c) => c.charCodeAt(0)))
+        .includes('APPNAME')
+    ) {
+      treeItems.push({ path: selfCheckPath, mode: '100644', type: 'blob', sha: null });
     }
     if (treeItems.length === 0)
       return { name: 'Naming', status: 'skip', detail: 'no placeholders found' };

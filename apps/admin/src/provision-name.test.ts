@@ -126,4 +126,64 @@ describe('provisioning', () => {
     expect(() => new Function(`return ({${vite}})`)()).not.toThrow();
     expect(new Function(`return ({${vite}})`)()).toEqual({ name: hostile, short_name: hostile });
   });
+
+  // #532: the templates' own self-check holds the literal APPNAME and fails a new
+  // game's first `fgs check`, so the naming commit drops it.
+  describe('the template-only compliance.yml (#532)', () => {
+    const SELF_CHECK = '.github/workflows/compliance.yml';
+    async function naming(files: Record<string, string>) {
+      let tree: Array<{ path: string; sha: string | null }> | undefined;
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+        const url = String(input);
+        const method = init?.method ?? 'GET';
+        if (url.includes('/git/ref/heads/main')) return Response.json({ object: { sha: 'head' } });
+        if (url.includes('/git/commits/head')) return Response.json({ tree: { sha: 'base' } });
+        const content = /\/contents\/(.+)$/.exec(url)?.[1];
+        if (method === 'GET' && content) {
+          return files[content] !== undefined
+            ? Response.json({ content: btoa(files[content]!) })
+            : new Response('{}', { status: 404 });
+        }
+        if (method === 'POST' && url.endsWith('/git/blobs')) return Response.json({ sha: 'blob' });
+        if (method === 'POST' && url.endsWith('/git/trees')) {
+          tree = JSON.parse(String(init?.body)).tree;
+          return Response.json({ sha: 'tree' }, { status: 201 });
+        }
+        if (method === 'POST' && url.endsWith('/git/commits'))
+          return Response.json({ sha: 'commit' }, { status: 201 });
+        return Response.json({ ref: 'refs/heads/main' });
+      });
+      const step = await substituteTemplatePlaceholders(
+        { GITHUB_TOKEN: 't' } as never,
+        'org',
+        'g',
+        'G',
+      );
+      return { step, tree };
+    }
+
+    it('deletes it from the new game while it still carries APPNAME', async () => {
+      const { step, tree } = await naming({
+        'CLAUDE.md': '# APPNAME',
+        [SELF_CHECK]: 'run: grep -rlI APPNAME . | xargs sed -i s/APPNAME/x/',
+      });
+      expect(step.status).toBe('ok');
+      expect(tree).toContainEqual({ path: SELF_CHECK, mode: '100644', type: 'blob', sha: null });
+    });
+
+    it('does so even when nothing else needs naming', async () => {
+      const { step, tree } = await naming({ [SELF_CHECK]: '# APPNAME' });
+      expect(step.status).toBe('ok');
+      expect(tree).toEqual([{ path: SELF_CHECK, mode: '100644', type: 'blob', sha: null }]);
+    });
+
+    it("leaves a compliance.yml that is the game's own (no APPNAME), or none, alone", async () => {
+      expect((await naming({ 'CLAUDE.md': '# APPNAME', [SELF_CHECK]: 'name: mine' })).tree).toEqual(
+        [expect.objectContaining({ path: 'CLAUDE.md' })],
+      );
+      expect((await naming({ 'CLAUDE.md': '# APPNAME' })).tree).toEqual([
+        expect.objectContaining({ path: 'CLAUDE.md' }),
+      ]);
+    });
+  });
 });
