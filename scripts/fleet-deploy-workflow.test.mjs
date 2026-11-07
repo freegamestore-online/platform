@@ -2,7 +2,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { GAME_DEPLOY_WORKFLOW } from '../packages/compliance/dist/index.js';
-import { bumpGamesSdk, COMMIT_MESSAGE, classify, GAMES_SDK } from './fleet-deploy-workflow.mjs';
+import {
+  bumpGamesSdk,
+  COMMIT_MESSAGE,
+  CSS_COMMIT_MESSAGE,
+  classify,
+  ensureSdkCss,
+  GAMES_SDK,
+  needsSdkCss,
+} from './fleet-deploy-workflow.mjs';
 
 const generated = GAME_DEPLOY_WORKFLOW;
 
@@ -164,4 +172,67 @@ test('the drifted copies of the workflow are gone (one generator, #482)', () => 
     '../sites/freegamestore/deploy-workflow.yml',
   ])
     assert.throws(() => readFileSync(new URL(path, import.meta.url)));
+});
+
+const OLD_CSS = `@import "tailwindcss";
+
+/* Fonts loaded via <link> */
+
+:root {
+  --paper: #ffffff;
+}
+`;
+
+test('index.css gets the SDK theme import, the @source and the tokens (#519)', () => {
+  const out = ensureSdkCss(OLD_CSS);
+  assert.match(out, /^@import "tailwindcss";\n@import "@freegamestore\/games\/theme\.css";/);
+  assert.match(out, /@source "\.\.\/node_modules\/@freegamestore\/games\/dist";/);
+  for (const name of [
+    'paper',
+    'panel',
+    'ink',
+    'muted',
+    'line',
+    'accent',
+    'success',
+    'warning',
+    'danger',
+  ])
+    assert.match(out, new RegExp(`--color-${name}: var\\(--${name}`));
+  assert.match(out, /--font-display: "Fraunces", serif;/);
+  assert.ok(
+    out.endsWith(OLD_CSS.slice(OLD_CSS.indexOf('\n/* Fonts'))),
+    'rest of the file is untouched',
+  );
+});
+
+test('ensureSdkCss is idempotent and only adds what is missing', () => {
+  const once = ensureSdkCss(OLD_CSS);
+  assert.equal(ensureSdkCss(once), null);
+  const partial = `@import "tailwindcss";\n@source "../node_modules/@freegamestore/games/dist";\n@theme inline {\n  --color-paper: var(--paper);\n}\n`;
+  const out = ensureSdkCss(partial);
+  assert.equal(out.match(/@source/g).length, 1);
+  assert.equal(out.match(/--color-paper/g).length, 1);
+  assert.match(out, /theme\.css/);
+  assert.match(out, /--color-ink/);
+});
+
+test('ensureSdkCss leaves a file that is not a Tailwind v4 entry alone', () => {
+  assert.equal(ensureSdkCss('body { margin: 0 }\n'), null);
+});
+
+test('the SDK CSS is only needed from 0.20 on', () => {
+  assert.equal(needsSdkCss('^0.14.0'), false);
+  assert.equal(needsSdkCss('^0.19.1'), false);
+  assert.equal(needsSdkCss('^0.20.2'), true);
+  assert.equal(needsSdkCss('^1.0.0'), true);
+  assert.equal(needsSdkCss(undefined), false);
+});
+
+test('the css-only commit refs the issues and carries attribution', () => {
+  assert.match(CSS_COMMIT_MESSAGE, /Refs freegamestore-online\/platform#519/);
+  assert.equal(
+    CSS_COMMIT_MESSAGE.trim().split('\n').at(-1),
+    'Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>',
+  );
 });
