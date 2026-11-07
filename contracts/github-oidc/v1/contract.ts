@@ -1,5 +1,7 @@
 /**
  * GitHub Actions OIDC verification — zero-dependency, Web Crypto only.
+ * FGS-internal: shared by apps/admin (keyless game deploys, #488) and
+ * workers/auth (the create-canary session exchange, #531).
  * Ported from proappstore-online/platform packages/build-core (#279, #430) for
  * the keyless game deploy (freegamestore-online/platform#488), as in
  * freeappstore-online/platform packages/backend/src/lib/github-oidc.ts.

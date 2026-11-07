@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { _resetJwksCache } from '../../../contracts/github-oidc/v1/contract';
 import { contentTypeFor, DEPLOY_AUDIENCE, GAME_ORG_ID, handleDeploy, pruneDeploys } from './deploy';
 import type { Env } from './env';
-import { _resetJwksCache } from './github-oidc';
 import { insertHostRoute } from './publish';
 
 // The same protocol and the same refusals as the FAS API's keyless deploy

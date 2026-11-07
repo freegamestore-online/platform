@@ -21,3 +21,10 @@ CREATE TABLE IF NOT EXISTS session_revocations (
   sub TEXT PRIMARY KEY,
   revoked_at_ms INTEGER NOT NULL
 );
+
+-- Creates by the create canary (#531), per UTC day, capped in the worker.
+-- The worker creates this itself on first use.
+CREATE TABLE IF NOT EXISTS canary_creates (
+  day TEXT PRIMARY KEY,
+  n INTEGER NOT NULL
+);

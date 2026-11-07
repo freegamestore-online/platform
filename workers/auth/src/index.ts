@@ -1,4 +1,17 @@
 import { handoffFormPage } from '../../../contracts/handoff-delivery/v1/contract';
+import {
+  CANARY_AUDIENCE,
+  CANARY_CREATES_PER_DAY,
+  canaryDay,
+  canaryOidcRefusal,
+  canarySessionClaims,
+  canaryVerifyRefusal,
+  isCanarySession,
+  isCanarySessionClaims,
+  isCanaryToken,
+  presentedToken,
+} from '../../../contracts/canary-session/v1/contract';
+import { verifyGithubOidc } from '../../../contracts/github-oidc/v1/contract';
 import { signHs256Jwt, verifyHs256Jwt } from '../../../contracts/session-jwt/v1/contract';
 
 interface Env {
@@ -815,6 +828,8 @@ const REVOCATIONS_DDL =
  */
 async function accountLive(db: D1Database, payload: Record<string, unknown>): Promise<boolean> {
   if (typeof payload.sub !== 'string') return false;
+  // The create canary is not an account (#531); it has no row to be live.
+  if (isCanarySession(payload)) return false;
   await ensureTable(db, REVOCATIONS_DDL);
   const row = await db
     .prepare(
@@ -945,6 +960,107 @@ export async function handleHandoffIssue(request: Request, env: Env): Promise<Re
   return json({ token: await mintHandoff(token, target, env.JWT_SECRET) }, 200, request);
 }
 
+// --- Create canary session (#531) ---
+// The create canary (.github/workflows/create-canary.yml) trades its GitHub
+// Actions OIDC token for a 15-minute `fgs_token` that names no person. This is
+// the only place that mints one, and what it may then do is fixed in the
+// canary-session contract: create and delete `e2e-create-*-test` games.
+
+const CANARY_CREATES_DDL =
+  'CREATE TABLE IF NOT EXISTS canary_creates (day TEXT PRIMARY KEY, n INTEGER NOT NULL)';
+
+function canaryRefusal(request: Request, reason: string, status = 403): Response {
+  return json({ error: 'forbidden', reason }, status, request);
+}
+
+/** POST /canary/session — `Authorization: Bearer <GitHub OIDC JWT>`, audience `freegamestore-canary`. */
+export async function handleCanarySession(
+  request: Request,
+  env: Env,
+  test: { now?: number; fetchImpl?: typeof fetch } = {},
+): Promise<Response> {
+  const authz = request.headers.get('Authorization') ?? '';
+  const token = authz.startsWith('Bearer ') ? authz.slice(7).trim() : '';
+  if (!token) return canaryRefusal(request, 'missing_token');
+  const now = test.now ?? Date.now();
+
+  let claims: Awaited<ReturnType<typeof verifyGithubOidc>>;
+  try {
+    claims = await verifyGithubOidc(token, {
+      audience: CANARY_AUDIENCE,
+      now,
+      ...(test.fetchImpl ? { fetchImpl: test.fetchImpl } : {}),
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    // GitHub's key set being unreachable says nothing about the token.
+    if (/JWKS/.test(message)) return canaryRefusal(request, 'jwks_unavailable', 503);
+    return canaryRefusal(request, canaryVerifyRefusal(message));
+  }
+  const refusal = canaryOidcRefusal(claims);
+  if (refusal) return canaryRefusal(request, refusal);
+
+  // Single-use. Fail closed: an un-recorded jti would be a replayable one.
+  let fresh: boolean;
+  try {
+    fresh = await consumeOnce(env.DB, `canary-oidc:${claims.jti}`, claims.exp);
+  } catch (e) {
+    console.error('canary jti set unavailable:', e instanceof Error ? e.message : e);
+    return canaryRefusal(request, 'store_unavailable', 503);
+  }
+  if (!fresh) return canaryRefusal(request, 'replay');
+
+  const nowS = Math.floor(now / 1000);
+  const sessionClaims = canarySessionClaims(nowS);
+  const session = await jwtSign(sessionClaims, env.JWT_SECRET);
+  return json({ token: session, expires_at: sessionClaims.exp }, 200, request);
+}
+
+/**
+ * POST /canary/authorize `{ action: "verify" | "create" }` — the other services
+ * (admin, MCP) cannot verify the HS256 session themselves, and /me refuses it.
+ * "create" additionally takes one of the day's CANARY_CREATES_PER_DAY slots, so a
+ * leaked or looping session cannot fill the store with games: admin asks once per
+ * provision, the one place both creation paths meet.
+ */
+export async function handleCanaryAuthorize(
+  request: Request,
+  env: Env,
+  test: { now?: number } = {},
+): Promise<Response> {
+  const token = presentedToken(request);
+  const claims = token ? await verifyHs256Jwt(token, env.JWT_SECRET).catch(() => null) : null;
+  if (!claims || !isCanarySessionClaims(claims)) {
+    return json({ error: 'invalid or expired canary session' }, 401, request);
+  }
+  const body = (await request.json().catch(() => null)) as { action?: unknown } | null;
+  const action = body?.action;
+  if (action === 'create') {
+    const day = canaryDay(test.now ?? Date.now());
+    let allowed: boolean;
+    try {
+      await ensureTable(env.DB, CANARY_CREATES_DDL);
+      // The WHERE makes the increment itself the cap: no row changes once n is at
+      // the cap, so concurrent creates cannot overshoot it.
+      const taken = await env.DB.prepare(
+        'INSERT INTO canary_creates (day, n) VALUES (?1, 1) ON CONFLICT(day) DO UPDATE SET n = n + 1 WHERE n < ?2',
+      )
+        .bind(day, CANARY_CREATES_PER_DAY)
+        .run();
+      allowed = taken.meta.changes === 1;
+    } catch (e) {
+      console.error('canary create cap unavailable:', e instanceof Error ? e.message : e);
+      return json({ error: 'canary store unavailable' }, 503, request);
+    }
+    if (!allowed) {
+      return json({ error: `canary create cap reached (${CANARY_CREATES_PER_DAY} a day)` }, 429, request);
+    }
+  } else if (action !== 'verify') {
+    return json({ error: 'action must be "verify" or "create"' }, 400, request);
+  }
+  return json({ sub: claims.sub, exp: claims.exp }, 200, request);
+}
+
 // --- Main ---
 
 /** Trust the configured local dev origin with credentials (#486). Every
@@ -975,6 +1091,20 @@ async function route(request: Request, env: Env): Promise<Response> {
   // CORS preflight
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: cors(request) });
+  }
+
+  // The create canary's own routes (#531) come before the gate below.
+  if (request.method === 'POST' && path === '/canary/session') {
+    return handleCanarySession(request, env);
+  }
+  if (request.method === 'POST' && path === '/canary/authorize') {
+    return handleCanaryAuthorize(request, env);
+  }
+
+  // Deny by default (#531): a canary session is good for the two routes above
+  // and nothing else, so every other route refuses it before looking at it.
+  if (isCanaryToken(presentedToken(request))) {
+    return canaryRefusal(request, 'canary_session');
   }
 
   // GitHub OAuth (primary — used by console + CLI)

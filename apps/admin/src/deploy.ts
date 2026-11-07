@@ -1,5 +1,5 @@
+import { type OidcClaims, verifyGithubOidc } from '../../../contracts/github-oidc/v1/contract';
 import type { Env } from './env';
-import { type OidcClaims, verifyGithubOidc } from './github-oidc';
 import { readRegistry } from './registryReader';
 
 /**

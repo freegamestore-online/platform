@@ -9,6 +9,8 @@ on:
       - contracts/game-metadata/**
       - contracts/registry-ownership/**
       - contracts/cross-site/**
+      - contracts/canary-session/**
+      - contracts/github-oidc/**
       - contracts/handoff-delivery/**
       - contracts/session-jwt/**
       - .github/workflows/deploy-admin.yml
