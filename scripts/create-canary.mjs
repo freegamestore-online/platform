@@ -33,35 +33,52 @@ export async function checkEndState(id, deps) {
   const sleep = deps.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
   const gh = (path, accept = 'application/vnd.github+json') =>
     doFetch(`${GH}${path}`, {
-      headers: { Authorization: `Bearer ${ghToken}`, Accept: accept, 'User-Agent': 'fgs-create-canary' },
+      headers: {
+        Authorization: `Bearer ${ghToken}`,
+        Accept: accept,
+        'User-Agent': 'fgs-create-canary',
+      },
     });
   const failures = [];
 
   // 1. Registry entry points at the new repo.
-  const reg = await gh(`/repos/${ORG}/platform/contents/${REGISTRY_PATH}`, 'application/vnd.github.raw+json');
+  const reg = await gh(
+    `/repos/${ORG}/platform/contents/${REGISTRY_PATH}`,
+    'application/vnd.github.raw+json',
+  );
   if (!reg.ok) failures.push(`registry unreadable (HTTP ${reg.status})`);
   else {
     const entry = ((await reg.json()).games ?? []).find((g) => g.id === id);
     if (!entry) failures.push('no registry entry');
-    else if (entry.repo !== `${ORG}/${id}`) failures.push(`registry repo is ${entry.repo}, want ${ORG}/${id}`);
+    else if (entry.repo !== `${ORG}/${id}`)
+      failures.push(`registry repo is ${entry.repo}, want ${ORG}/${id}`);
   }
 
   // 2. Host route: an unrouted host answers "no game registered".
   const host = await doFetch(`https://${id}.${DOMAIN}/`);
   const hostBody = await host.text();
-  if (/no game registered/i.test(hostBody)) failures.push('no host route (host answers "no game registered")');
+  if (/no game registered/i.test(hostBody))
+    failures.push('no host route (host answers "no game registered")');
 
   // 3. deploy.yml is exactly the supported keyless caller.
-  const wf = await gh(`/repos/${ORG}/${id}/contents/.github/workflows/deploy.yml`, 'application/vnd.github.raw+json');
+  const wf = await gh(
+    `/repos/${ORG}/${id}/contents/.github/workflows/deploy.yml`,
+    'application/vnd.github.raw+json',
+  );
   if (!wf.ok) failures.push(`deploy.yml unreadable (HTTP ${wf.status})`);
-  else if ((await wf.text()) !== expectedWorkflow) failures.push('deploy.yml is not the supported GAME_DEPLOY_WORKFLOW');
+  else if ((await wf.text()) !== expectedWorkflow)
+    failures.push('deploy.yml is not the supported GAME_DEPLOY_WORKFLOW');
 
   // 4. The first push-triggered deploy run concludes success (no 403 "not a provisioned game").
   let conclusion = null;
   for (const start = Date.now(); Date.now() - start < runTimeoutMs; ) {
-    const runs = await gh(`/repos/${ORG}/${id}/actions/workflows/deploy.yml/runs?event=push&per_page=20`);
+    const runs = await gh(
+      `/repos/${ORG}/${id}/actions/workflows/deploy.yml/runs?event=push&per_page=20`,
+    );
     if (runs.ok) {
-      const list = ((await runs.json()).workflow_runs ?? []).filter((r) => r.status === 'completed' && r.conclusion !== 'cancelled');
+      const list = ((await runs.json()).workflow_runs ?? []).filter(
+        (r) => r.status === 'completed' && r.conclusion !== 'cancelled',
+      );
       // Oldest completed push run = the first one the provision triggered.
       const first = list.at(-1);
       if (first) {
@@ -85,7 +102,13 @@ async function createViaConsole(id, token) {
       Origin: `https://console.${DOMAIN}`,
       Cookie: `__Host-fgs_token=${token}`,
     },
-    body: JSON.stringify({ id, name: 'E2E Create Canary', category: 'arcade', description: 'canary', template: 'canvas' }),
+    body: JSON.stringify({
+      id,
+      name: 'E2E Create Canary',
+      category: 'arcade',
+      description: 'canary',
+      template: 'canvas',
+    }),
   });
 }
 
@@ -101,7 +124,15 @@ async function createViaMcp(id, token) {
       jsonrpc: '2.0',
       id: 1,
       method: 'tools/call',
-      params: { name: 'create_game', arguments: { game_id: id, name: 'E2E Create Canary', category: 'arcade', template: 'canvas' } },
+      params: {
+        name: 'create_game',
+        arguments: {
+          game_id: id,
+          name: 'E2E Create Canary',
+          category: 'arcade',
+          template: 'canvas',
+        },
+      },
     }),
   });
 }
@@ -112,7 +143,9 @@ async function main() {
   const token = process.env.FGS_SESSION_TOKEN;
   const ghToken = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
   if (!token || !ghToken || !['console', 'mcp'].includes(path)) {
-    console.error('usage: FGS_SESSION_TOKEN=... GH_TOKEN=... node scripts/create-canary.mjs [--path console|mcp] [--keep]');
+    console.error(
+      'usage: FGS_SESSION_TOKEN=... GH_TOKEN=... node scripts/create-canary.mjs [--path console|mcp] [--keep]',
+    );
     process.exit(2);
   }
   const { GAME_DEPLOY_WORKFLOW } = await import('../packages/compliance/dist/index.js');
@@ -124,8 +157,12 @@ async function main() {
     else failures = await checkEndState(id, { ghToken, expectedWorkflow: GAME_DEPLOY_WORKFLOW });
   } finally {
     if (!args.includes('--keep')) {
-      const del = await fetch(`https://admin.${DOMAIN}/api/games/${id}`, { method: 'DELETE', headers: { 'X-FGS-Token': token } });
-      if (!del.ok && del.status !== 404) failures.push(`cleanup of ${id} failed: HTTP ${del.status} (archive it by hand)`);
+      const del = await fetch(`https://admin.${DOMAIN}/api/games/${id}`, {
+        method: 'DELETE',
+        headers: { 'X-FGS-Token': token },
+      });
+      if (!del.ok && del.status !== 404)
+        failures.push(`cleanup of ${id} failed: HTTP ${del.status} (archive it by hand)`);
     }
   }
   if (failures.length) {
