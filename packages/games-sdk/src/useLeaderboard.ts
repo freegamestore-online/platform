@@ -58,13 +58,16 @@ export function useLeaderboard(
   // Guards against setState after unmount. load() is called both from the
   // mount effect and from submitScore(); a ref covers every caller, unlike a
   // per-effect cancelled flag.
+  // Set true in the effect body, not just the initial value: StrictMode
+  // simulates an unmount/remount, and the cleanup would otherwise leave it
+  // false forever (#529).
   const mountedRef = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
       mountedRef.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
   // Sequences concurrent load()s so a slower earlier response can't overwrite a
   // newer one (e.g. gameId change, or refresh racing submitScore's reload) —
   // otherwise the wrong game's / stale scores can win.

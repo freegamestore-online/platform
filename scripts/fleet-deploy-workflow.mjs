@@ -31,7 +31,7 @@ const ORG = 'freegamestore-online';
 const WORKFLOW = '.github/workflows/deploy.yml';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 /** The games SDK release every game moves to (#512: 0.20.2 has no CSS import in dist; 0.18-0.20.0 broke game vitest suites). */
-export const GAMES_SDK = '0.20.2';
+export const GAMES_SDK = '0.20.3';
 
 export const COMMIT_MESSAGE = `ci: keyless OIDC deploy workflow; games SDK ${GAMES_SDK}
 

@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as sdk from './index.js';
 import { useLeaderboard } from './useLeaderboard.js';
@@ -30,6 +31,17 @@ describe('useLeaderboard', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.topScores[0]?.player_name).toBe('Top');
     expect(result.current.recentScores[0]?.player_name).toBe('Recent');
+  });
+
+  it('loads scores under StrictMode (double mount)', async () => {
+    mockFetch((url) =>
+      url.includes('/recent')
+        ? { game: 'g', scores: [entry('Recent', 5)] }
+        : { game: 'g', scores: [entry('Top', 100)] },
+    );
+    const { result } = renderHook(() => useLeaderboard('snake'), { wrapper: StrictMode });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.topScores[0]?.player_name).toBe('Top');
   });
 
   it('submitScore returns ok + rank from the worker', async () => {

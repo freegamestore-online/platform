@@ -8,6 +8,8 @@ versioned independently; releases publish via `.github/workflows/publish.yml`
 ## [Unreleased]
 
 ### Fixed
+- `@freegamestore/games` 0.20.3: `useLeaderboard` loads under React StrictMode (`vite dev`, e2e); its unmount guard
+  was never reset on mount (#529).
 - `@freegamestore/games` (next: 0.20.2; 0.20.1 is superseded): `GameTopbar` ships its styles as a `<style>`, so `dist`
   has no `.module.css` import and game vitest suites that render SDK components load under
   Node again (#512). See `packages/games-sdk/CHANGELOG.md`.

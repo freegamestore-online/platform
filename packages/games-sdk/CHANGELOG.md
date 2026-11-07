@@ -1,5 +1,13 @@
 # @freegamestore/games
 
+## 0.20.3
+
+Drop-in for 0.20.2.
+
+- **`useLeaderboard` loads under React StrictMode (#529).** Its unmount guard was never reset on
+  mount, so the StrictMode double mount (`vite dev`, e2e suites) discarded every response and the
+  leaderboard stayed on "Loading scores...". Production builds were not affected.
+
 ## 0.20.2
 
 Drop-in for 0.20.0; no code changes are needed. **Use this instead of 0.20.1.**
