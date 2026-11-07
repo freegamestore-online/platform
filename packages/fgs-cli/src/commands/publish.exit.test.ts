@@ -1,6 +1,7 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { GAME_DEPLOY_WORKFLOW } from '@freegamestore/compliance';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // #92: `fgs publish` exited 0 when the session was rejected (401) or admin
@@ -107,7 +108,11 @@ describe('provisionOutcome (#92)', () => {
   const pushed = (lines: string[]) => lines.some((l) => /git (push|remote add)/.test(l));
 
   it('auth failure exits 1 and prints no push instructions', () => {
-    const o = provisionOutcome({ kind: 'unauthorized', reason: 'session expired' }, 'x', false);
+    const o = provisionOutcome(
+      { kind: 'unauthorized', reason: 'session expired' },
+      'x',
+      'unchanged',
+    );
     expect(o.exitCode).toBe(1);
     expect(pushed(o.lines)).toBe(false);
   });
@@ -116,7 +121,7 @@ describe('provisionOutcome (#92)', () => {
     const o = provisionOutcome(
       { kind: 'rejected', reason: 'Validation: ID is reserved' },
       'x',
-      false,
+      'unchanged',
     );
     expect(o.exitCode).toBe(1);
     expect(o.lines.join('\n')).toContain('ID is reserved');
@@ -125,7 +130,7 @@ describe('provisionOutcome (#92)', () => {
 
   it('an unavailable service falls through to the Issue form', () => {
     expect(
-      provisionOutcome({ kind: 'unavailable', reason: '503' }, 'x', false).exitCode,
+      provisionOutcome({ kind: 'unavailable', reason: '503' }, 'x', 'unchanged').exitCode,
     ).toBeNull();
   });
 
@@ -133,7 +138,7 @@ describe('provisionOutcome (#92)', () => {
     const o = provisionOutcome(
       { kind: 'success', appUrl: 'https://a', repoUrl: 'https://github.com/o/a', created: true },
       'a',
-      true,
+      'added',
     );
     expect(o.exitCode).toBe(0);
     const text = o.lines.join('\n');
@@ -147,7 +152,7 @@ describe('provisionOutcome (#92)', () => {
     const o = provisionOutcome(
       { kind: 'success', appUrl: 'https://a', repoUrl: 'https://github.com/o/a', created: false },
       'a',
-      false,
+      'unchanged',
     );
     expect(o.exitCode).toBe(0);
     expect(o.lines.join('\n')).not.toContain('--force');
@@ -246,5 +251,26 @@ describe('fgs publish exit codes end to end (#92)', () => {
     );
     await expect(run()).rejects.toThrow('exit:1');
     expect(out).toContain('already taken');
+  });
+
+  it('replaces a legacy deploy.yml even under --skip-checks, before the push instructions (#523)', async () => {
+    mkdirSync(join(dir, '.github', 'workflows'), { recursive: true });
+    const target = join(dir, '.github', 'workflows', 'deploy.yml');
+    writeFileSync(target, 'run: aws s3 sync dist s3://b\n');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        json(200, {
+          success: true,
+          appUrl: 'https://space-rescue.freegamestore.online',
+          repoUrl: 'https://github.com/freegamestore-online/space-rescue',
+          steps: [{ name: 'GitHub repo', status: 'ok' }],
+        }),
+      ),
+    );
+    await run();
+    expect(readFileSync(target, 'utf8')).toBe(GAME_DEPLOY_WORKFLOW);
+    expect(out).toContain('Replaced .github/workflows/deploy.yml');
+    expect(out.indexOf('git commit')).toBeLessThan(out.indexOf('git push --force'));
   });
 });

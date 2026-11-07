@@ -8,7 +8,7 @@ import { assertValidAppId } from '../lib/app-id.js';
 import { readConfig } from '../lib/config.js';
 import { openUrl } from '../lib/open.js';
 import { renderCheckResults } from './check.js';
-import { ensureDeployWorkflow } from './publish-workflow.js';
+import { type DeployWorkflowChange, ensureDeployWorkflow } from './publish-workflow.js';
 
 const SUBMISSION_URL = 'https://github.com/freegamestore-online/submissions/issues/new';
 
@@ -169,8 +169,11 @@ export const publishCommand = new Command('publish')
       // Issue-form fallback.
       if (!opts.issue) {
         const autoResult = await tryAutoProvision(input, categorySlug);
-        const injected = autoResult.kind === 'success' ? await ensureDeployWorkflow() : false;
-        const outcome = provisionOutcome(autoResult, input.name, injected);
+        // Runs even under --skip-checks: the push below replaces the generated
+        // repo, so a legacy deploy.yml from an old checkout must not go with it (#523).
+        const workflowChange =
+          autoResult.kind === 'success' ? await ensureDeployWorkflow() : 'unchanged';
+        const outcome = provisionOutcome(autoResult, input.name, workflowChange);
         for (const line of outcome.lines) process.stdout.write(`${line}\n`);
         // Only an unavailable provisioning service falls through to the Issue
         // form. Auth and validation failures are hard errors (#92): exiting 0
@@ -278,7 +281,7 @@ export async function tryAutoProvision(
 export function provisionOutcome(
   result: AutoProvisionResult,
   gameName: string,
-  deployWorkflowAdded: boolean,
+  workflowChange: DeployWorkflowChange,
 ): { lines: string[]; exitCode: number | null } {
   switch (result.kind) {
     case 'unauthorized':
@@ -308,8 +311,12 @@ export function provisionOutcome(
         `  Listing:  https://freegamestore.online/games/${gameName}`,
         '',
       ];
-      if (deployWorkflowAdded) {
-        lines.push('  Added .github/workflows/deploy.yml (R2 deploy workflow) — commit it:', '');
+      if (workflowChange !== 'unchanged') {
+        const did = workflowChange === 'added' ? 'Added' : 'Replaced';
+        lines.push(
+          `  ${did} .github/workflows/deploy.yml (keyless deploy workflow). Commit it before you push:`,
+          '',
+        );
         lines.push('  git add .github/workflows/deploy.yml');
         lines.push('  git commit -m "Add FreeGameStore deploy workflow"', '');
       }
