@@ -23,6 +23,9 @@ export interface McpProps extends Record<string, unknown> {
   token?: string;
   /** Verified session subject, `github:<id>` — absent on grants made before #472. */
   sub?: string;
+  /** The create canary's keyless session (#531): set only by resolveCanaryToken,
+   *  which has auth vouch for it. No `userId`: it is not a GitHub user. */
+  canary?: boolean;
 }
 
 export type SafeTool = <Args extends z.ZodRawShape>(

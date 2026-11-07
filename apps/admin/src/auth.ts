@@ -4,6 +4,7 @@
 // dependency on FAS's signing key (per the admin-worker-per-store
 // principle). `fgs login` exchanges a GitHub token for a session here.
 
+import { isCanarySession } from '../../../contracts/canary-session/v1/contract';
 import { githubIdFromSub } from '../../../contracts/registry-ownership/v1/contract';
 import { signHs256Jwt, verifyHs256Jwt } from '../../../contracts/session-jwt/v1/contract';
 
@@ -94,6 +95,8 @@ export async function verifySession(
   // token signed for another store, or with another key, is refused.
   const payload = await verifyHs256Jwt(token, signingKey);
   if (typeof payload?.sub !== 'string') return null;
+  // The create canary is no one an admin session can be for (#531).
+  if (isCanarySession(payload)) return null;
   // Tokens minted before #472 carry no gid: ownership falls back to the login.
   const githubId =
     typeof payload.gid === 'string' && /^\d+$/.test(payload.gid) ? payload.gid : null;

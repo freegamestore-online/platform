@@ -5,6 +5,7 @@ import { McpServer, type ToolCallback } from '@modelcontextprotocol/sdk/server/m
 import { McpAgent } from 'agents/mcp';
 import type { z } from 'zod';
 import authHandler, { refuseRevokedGrant } from './auth-handler.js';
+import { canaryToolRefusal, isCanaryProps, resolveCanaryToken } from './canary.js';
 import { githubIdFromSub, ownershipFacts, readRegistryGames } from './github.js';
 import { type GuardEnv, withBoundedBody, withOriginPolicy, withRateLimits } from './guards.js';
 import { errMsg } from './http.js';
@@ -86,7 +87,11 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
   /** Safety context for the current caller: env (read-only flag + audit KV) and
    *  the GitHub login the audit trail is keyed on. */
   private safety(): SafetyContext {
-    return { env: this.env, subject: this.session.userId };
+    // The canary has no GitHub login; its audit trail is keyed on its sub.
+    return {
+      env: this.env,
+      subject: this.session.userId ?? (isCanaryProps(this.session) ? this.session.sub : undefined),
+    };
   }
 
   /**
@@ -114,6 +119,9 @@ export class FgsMcpAgent extends McpAgent<Env, unknown, McpProps> {
     cb: ToolCallback<Args>,
   ): void {
     const guarded = (async (...callArgs: Parameters<ToolCallback<Args>>) => {
+      // Deny by default for the create canary's session (#531): before any handler runs.
+      const canaryRefusal = canaryToolRefusal(this.session, name, callArgs[0]);
+      if (canaryRefusal) return errText(`Forbidden: ${canaryRefusal}`);
       try {
         return await (cb as (...a: unknown[]) => Promise<unknown>)(...callArgs);
       } catch (err: unknown) {
@@ -153,8 +161,12 @@ export class FgsApiHandler extends WorkerEntrypoint<Env> {
     // The grant outlives the FGS session it was made from, and several tools
     // act on props alone (GitHub writes gated on props.userId). Re-check that
     // session on every call, so a deleted account's grant stops working (#499).
-    const refused = await refuseRevokedGrant(this.env.AUTH, props);
-    if (refused) return refused;
+    // A canary session was verified by auth on this very request (resolveCanaryToken)
+    // and /me refuses it by design, so it skips the re-check.
+    if (props?.canary !== true) {
+      const refused = await refuseRevokedGrant(this.env.AUTH, props);
+      if (refused) return refused;
+    }
     const sessionId = request.headers.get('mcp-session-id');
     if (props?.token && sessionId) {
       try {
@@ -187,6 +199,9 @@ const oauthProvider = new OAuthProvider({
   // S256 only: `plain` offers no protection, /authorize already refuses it, and the
   // discovery metadata must stop advertising it (#445).
   allowPlainPKCE: false,
+  // The create canary connects with its keyless fgs_token rather than an OAuth
+  // grant (#531). Nothing else is an external token: resolveCanaryToken refuses it.
+  resolveExternalToken: resolveCanaryToken,
 });
 
 // Guards run before the provider, outermost first: Origin, then rate limits, then

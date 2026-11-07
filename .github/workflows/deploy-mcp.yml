@@ -7,6 +7,7 @@ on:
       - workers/mcp/**
       - contracts/registry-ownership/**
       - contracts/handoff-delivery/**
+      - contracts/canary-session/**
       - .github/workflows/deploy-mcp.yml
   workflow_dispatch:
 

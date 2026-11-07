@@ -1,7 +1,9 @@
+import { isCanaryToken, presentedToken } from '../../../contracts/canary-session/v1/contract';
 import { AUTH_ORIGIN, readHandoff } from '../../../contracts/handoff-delivery/v1/contract';
 import { githubIdFromSub } from '../../../contracts/registry-ownership/v1/contract';
 import { handleAuthExchange, handleAuthMe, verifySession } from './auth';
 import type { Env } from './env';
+import { jsonResponse } from './http';
 
 export type CallerCredentials = {
   admin: string | null;
@@ -108,6 +110,57 @@ export async function authenticateLogin(
     }
   }
   return null;
+}
+
+/**
+ * Deny by default for the create canary's keyless session (#531), ahead of every
+ * route, static assets and /v1/deploys included: it may provision a throwaway
+ * game and delete it, and reach nothing else. Those two handlers verify it (the
+ * auth worker) and the game id themselves. A route added later is refused with
+ * no change here.
+ */
+export function refuseCanaryOutsideItsRoutes(request: Request): Response | null {
+  if (request.method === 'OPTIONS' || !isCanaryToken(presentedToken(request))) return null;
+  const { pathname } = new URL(request.url);
+  const allowed =
+    (request.method === 'POST' && pathname === '/api/provision') ||
+    (request.method === 'DELETE' && /^\/api\/games\/[a-z0-9][a-z0-9-]*$/.test(pathname));
+  return allowed
+    ? null
+    : jsonResponse({ error: 'forbidden', reason: 'canary_session' }, 403, request);
+}
+
+/**
+ * The create canary (#531), asked of the auth worker, which alone can verify its
+ * session (admin has no JWT secret, and /me refuses canary sessions on purpose).
+ * Only POST /api/provision and DELETE /api/games/:id call this; resolveCaller
+ * and the dispatcher treat the canary as no one. `create` also takes one of the
+ * day's slots. Null when auth does not vouch for it; `status` is what to answer.
+ */
+export async function authorizeCanary(
+  request: Request,
+  env: Env,
+  action: 'verify' | 'create',
+): Promise<{ sub: string } | { status: number; error: string }> {
+  const token = presentedToken(request);
+  if (!token || !isCanaryToken(token)) return { status: 401, error: 'unauthorized' };
+  try {
+    const res = await env.AUTH.fetch('https://auth.freegamestore.online/canary/authorize', {
+      method: 'POST',
+      headers: { 'X-FGS-Token': token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    if (res.ok) {
+      const body = (await res.json()) as { sub?: unknown };
+      if (typeof body.sub === 'string') return { sub: body.sub };
+      return { status: 502, error: 'canary verification unavailable' };
+    }
+    if (res.status === 429) return { status: 429, error: 'canary create cap reached for today' };
+    if (res.status === 401) return { status: 401, error: 'unauthorized' };
+    return { status: 502, error: 'canary verification unavailable' };
+  } catch {
+    return { status: 502, error: 'canary verification unavailable' };
+  }
 }
 
 /** Unified caller resolution for all routes. Returns admin email (if authenticated

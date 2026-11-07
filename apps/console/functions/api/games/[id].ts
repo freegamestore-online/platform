@@ -1,4 +1,11 @@
-import { corsHeaders, getCookie, resolveCreator, SESSION_COOKIE } from '../_auth';
+import { isCanaryGameId } from '../../../../../contracts/canary-session/v1/contract';
+import {
+  corsHeaders,
+  getCookie,
+  resolveCanarySession,
+  resolveCreator,
+  SESSION_COOKIE,
+} from '../_auth';
 import { type DevOriginEnv, rejectCrossSite } from '../_csrf';
 import { validateId } from '../_validate';
 
@@ -29,12 +36,19 @@ async function proxy(
 
   const crossSite = rejectCrossSite(context.request, { body: method === 'PATCH' }, context.env);
   if (crossSite) return crossSite;
-  const user = await resolveCreator(context.request, context.env);
+  // The keyless create canary (#531) may delete only the e2e-create-*-test game
+  // it made (admin checks that it is the owner), and edit nothing.
+  const canary =
+    method === 'DELETE' ? await resolveCanarySession(context.request, context.env) : null;
+  const user = canary?.sub ?? (await resolveCreator(context.request, context.env));
   if (!user) return json({ error: 'Unauthorized' }, 401);
 
   const id = String(context.params.id ?? '');
   const idError = validateId(id);
   if (idError) return json({ error: idError }, 400);
+  if (canary && !isCanaryGameId(id)) {
+    return json({ error: 'A canary session can only delete e2e-create-*-test games' }, 403);
+  }
 
   const init: RequestInit = {
     method,

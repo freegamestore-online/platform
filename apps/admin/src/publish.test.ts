@@ -781,7 +781,10 @@ describe('setGameStatuses', () => {
  *  Awaits that PUT rather than the whole provision: later steps (placeholder
  *  substitution, route insert) retry against a stub that can never satisfy them,
  *  and the entry shape is settled by the time it commits. */
-function firstRegistryPut(req: Parameters<typeof handlePublish>[0]): Promise<GameEntry[]> {
+function firstRegistryPut(
+  req: Parameters<typeof handlePublish>[0],
+  calls: string[] = [],
+): Promise<GameEntry[]> {
   let resolvePut: (games: GameEntry[]) => void;
   const firstPut = new Promise<GameEntry[]>((r) => {
     resolvePut = r;
@@ -790,6 +793,7 @@ function firstRegistryPut(req: Parameters<typeof handlePublish>[0]): Promise<Gam
   vi.stubGlobal('fetch', async (input: unknown, init?: { method?: string; body?: string }) => {
     const url = typeof input === 'string' ? input : (input as Request).url;
     const method = init?.method ?? 'GET';
+    calls.push(`${method} ${url}`);
     if (url.includes('registry.json')) {
       if (method === 'GET') {
         const sourceId = req.cloneFrom?.trim().toLowerCase();
@@ -1730,5 +1734,116 @@ describe('strandedRepo (#524)', () => {
       ),
     ).toBeNull();
     expect(strandedRepo({ success: true, steps: [] }, 'x')).toBeNull();
+  });
+});
+
+describe('handlePublish for the create canary (#531)', () => {
+  const CANARY_SUB = 'canary:freegamestore-online/platform';
+
+  it('records creatorSub, with no creatorGithub, and invites nobody', async () => {
+    const calls: string[] = [];
+    const games = await firstRegistryPut(
+      {
+        id: 'e2e-create-console-a-test',
+        name: 'Canary',
+        category: 'arcade',
+        creatorSub: CANARY_SUB,
+      },
+      calls,
+    );
+    const entry = games.find((g: GameEntry) => g.id === 'e2e-create-console-a-test') as
+      | Record<string, unknown>
+      | undefined;
+    expect(entry?.creatorSub).toBe(CANARY_SUB);
+    // The storefront build drops an entry whose creatorGithub is not a GitHub username.
+    expect(entry).not.toHaveProperty('creatorGithub');
+    expect(entry).not.toHaveProperty('creatorGithubId');
+    expect(calls.filter((c) => c.includes('/collaborators/'))).toEqual([]);
+  });
+
+  it('never provisions over an existing repo', async () => {
+    const writes: string[] = [];
+    vi.stubGlobal('fetch', async (input: unknown, init?: { method?: string }) => {
+      const url = typeof input === 'string' ? input : (input as Request).url;
+      const method = init?.method ?? 'GET';
+      if (method !== 'GET') writes.push(`${method} ${url}`);
+      if (method === 'GET' && url.endsWith('/repos/freegamestore-online/chess'))
+        return new Response(JSON.stringify({ id: 1, template_repository: GAME_TEMPLATE }), {
+          status: 200,
+        });
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+    const env = { GITHUB_TOKEN: 'x', DB: undefined } as unknown as Parameters<
+      typeof handlePublish
+    >[1];
+    const res = await handlePublish(
+      { id: 'chess', name: 'Chess', category: 'arcade', creatorSub: CANARY_SUB },
+      env,
+    );
+    expect(res.success).toBe(false);
+    expect(res.conflict).toBe(true);
+    expect(writes).toEqual([]);
+  });
+});
+
+describe('handleDeleteGame for the create canary (#531)', () => {
+  const CANARY_SUB = 'canary:freegamestore-online/platform';
+  const run = async (
+    games: Record<string, unknown>[],
+    id: string,
+    login: string,
+    opts: Parameters<typeof handleDeleteGame>[3],
+  ) => {
+    const writes: string[] = [];
+    vi.stubGlobal('fetch', async (_input: unknown, init?: { method?: string }) => {
+      if (init?.method && init.method !== 'GET') writes.push(init.method);
+      if (init?.method === 'PATCH')
+        return new Response(JSON.stringify({ archived: true }), { status: 200 });
+      if (init?.method === 'PUT')
+        return new Response(JSON.stringify({ content: {} }), { status: 200 });
+      return new Response(JSON.stringify({ content: btoa(JSON.stringify({ games })), sha: 's' }), {
+        status: 200,
+      });
+    });
+    const env = {
+      GITHUB_TOKEN: 'x',
+      DB: { prepare: () => ({ bind: () => ({ run: async () => {} }) }), batch: async () => [] },
+    } as unknown as Parameters<typeof handleDeleteGame>[2];
+    return { res: await handleDeleteGame(id, login, env, opts), writes };
+  };
+
+  it('deletes and archives the game whose creatorSub is the canary', async () => {
+    const { res, writes } = await run(
+      [{ id: 'e2e-create-console-a-test', creatorSub: CANARY_SUB }],
+      'e2e-create-console-a-test',
+      CANARY_SUB,
+      { canarySub: CANARY_SUB },
+    );
+    expect(res.ok).toBe(true);
+    expect(writes).toContain('PUT');
+    expect(writes).toContain('PATCH');
+  });
+
+  it('refuses a game with another owner, or none, and writes nothing', async () => {
+    for (const game of [
+      { id: 'chess', creatorGithub: 'someone' },
+      { id: 'chess' },
+      { id: 'chess', creatorSub: 'canary:other/repo' },
+    ]) {
+      const { res, writes } = await run([game], 'chess', CANARY_SUB, { canarySub: CANARY_SUB });
+      expect(res.code).toBe('forbidden');
+      expect(writes).toEqual([]);
+    }
+  });
+
+  it('is not an ownership a person can claim by login', async () => {
+    const { res, writes } = await run(
+      [{ id: 'e2e-create-console-a-test', creatorSub: CANARY_SUB }],
+      'e2e-create-console-a-test',
+      CANARY_SUB,
+      {},
+    );
+    expect(res.code).toBe('forbidden');
+    expect(writes).toEqual([]);
   });
 });

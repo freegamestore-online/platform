@@ -38,7 +38,7 @@ export function createGameLifecycle(
         gameId: string,
         login: string,
         env: PublishEnv,
-        options?: { adminOverride?: boolean; callerGithubId?: string | null },
+        options?: { adminOverride?: boolean; callerGithubId?: string | null; canarySub?: string },
       ) => handleDeleteGame(gameId, login, env, options)),
   };
 }

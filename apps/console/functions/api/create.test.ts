@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // branches deterministically without a live GitHub / admin backend.
 vi.mock('./_auth', () => ({
   resolveCreatorUser: vi.fn(),
+  resolveCanarySession: vi.fn(async () => null),
   corsHeaders: () => ({}),
   SESSION_COOKIE: '__Host-fgs_token',
   getCookie: (request: Request, name: string) => {
@@ -21,12 +22,13 @@ vi.mock('./_errlog', () => ({
   fetchWithTimeout: vi.fn(),
 }));
 
-import { resolveCreatorUser } from './_auth';
+import { resolveCanarySession, resolveCreatorUser } from './_auth';
 import { fetchWithTimeout } from './_errlog';
 import { listUserGames } from './_games';
 import { onRequestPost } from './create';
 
 const mResolveCreator = vi.mocked(resolveCreatorUser);
+const mResolveCanary = vi.mocked(resolveCanarySession);
 const creator = (github: string) => ({
   github,
   githubId: 1,
@@ -202,5 +204,64 @@ describe('create onRequestPost authorization', () => {
     const res = await onRequestPost(makeCtx({ id: 'Bad Id!', name: 'Cool' }));
     expect(res.status).toBe(400);
     expect(mFetch).not.toHaveBeenCalled();
+  });
+});
+
+describe('create onRequestPost for the keyless canary session (#531)', () => {
+  const CANARY = { sub: 'canary:freegamestore-online/platform' };
+
+  it('creates an e2e-create-*-test game with no creator, ban lookup or quota check', async () => {
+    mResolveCanary.mockResolvedValueOnce(CANARY);
+    let provisionBody: Record<string, unknown> | undefined;
+    wireFetch({
+      repoStatus: 404,
+      onProvision: (b) => {
+        provisionBody = b;
+      },
+    });
+    const ctx = makeCtx(
+      // The body tries to name an owner and a game to clone; neither is honoured.
+      {
+        id: 'e2e-create-console-abc-test',
+        name: 'Canary',
+        creatorGithub: 'attacker',
+        cloneFrom: 'chess',
+      },
+      { MAX_APPS_PER_USER: '0' },
+    );
+    const res = await onRequestPost(ctx);
+    expect(res.status).toBe(200);
+    expect(provisionBody?.id).toBe('e2e-create-console-abc-test');
+    expect(provisionBody?.creatorGithub).toBeUndefined();
+    expect(provisionBody?.cloneFrom).toBeUndefined();
+    expect(mResolveCreator).not.toHaveBeenCalled();
+    expect(mListUserGames).not.toHaveBeenCalled();
+    expect((ctx.env as { CREATORS: { get: unknown } }).CREATORS.get).not.toHaveBeenCalled();
+  });
+
+  it('403s any other game id, before any network call', async () => {
+    for (const id of ['coolgame', 'e2e-create-x', 'e2e-create--test-x', 'my-e2e-create-x-test']) {
+      mResolveCanary.mockResolvedValueOnce(CANARY);
+      const res = await onRequestPost(makeCtx({ id, name: 'Canary' }));
+      expect(res.status).toBe(403);
+    }
+    expect(mFetch).not.toHaveBeenCalled();
+  });
+
+  it('409s when the repo already exists: the canary owns nothing it did not just make', async () => {
+    mResolveCanary.mockResolvedValueOnce(CANARY);
+    wireFetch({ repoStatus: 200 });
+    const res = await onRequestPost(makeCtx({ id: 'e2e-create-console-abc-test', name: 'Canary' }));
+    expect(res.status).toBe(409);
+  });
+
+  it('does not use a creator session as a canary one', async () => {
+    mResolveCreator.mockResolvedValue(creator('alice'));
+    mListUserGames.mockResolvedValue({ owned: [], isOrgMember: false, adminAll: [] });
+    wireFetch({ repoStatus: 404 });
+    const res = await onRequestPost(makeCtx({ id: 'e2e-create-console-abc-test', name: 'X' }));
+    // alice is an ordinary creator: the quota path applies, and she is the owner.
+    expect(res.status).toBe(200);
+    expect(mListUserGames).toHaveBeenCalled();
   });
 });

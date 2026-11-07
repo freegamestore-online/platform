@@ -31,7 +31,7 @@ export interface DeleteGame {
     gameId: string,
     login: string,
     env: PublishEnv,
-    options?: { adminOverride?: boolean; callerGithubId?: string | null },
+    options?: { adminOverride?: boolean; callerGithubId?: string | null; canarySub?: string },
   ): Promise<{ ok?: boolean; error?: string; code?: LifecycleErrorCode; steps?: Step[] }>;
 }
 

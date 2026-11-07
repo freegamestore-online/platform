@@ -1,3 +1,9 @@
+import {
+  isCanaryGameId,
+  isCanaryToken,
+  presentedToken,
+} from '../../../../contracts/canary-session/v1/contract';
+import { authorizeCanary } from '../caller';
 import type { DataService } from '../data';
 import { getGameAnalytics, putGameAnalyticsConfig } from '../game-analytics';
 import { jsonResponse } from '../http';
@@ -58,6 +64,30 @@ export function gamesRoutes(data: DataService): Route[] {
         const { isAdmin } = caller;
         const actor = login || (isAdmin ? caller.admin : null);
         if (!actor) {
+          // The keyless create canary (#531) may delete the game it made, and only that.
+          if (isCanaryToken(presentedToken(request))) {
+            if (!isCanaryGameId(id)) {
+              return jsonResponse(
+                { error: 'a canary session can only delete e2e-create-*-test games' },
+                403,
+                request,
+              );
+            }
+            const verdict = await authorizeCanary(request, env, 'verify');
+            if ('status' in verdict)
+              return jsonResponse({ error: verdict.error }, verdict.status, request);
+            const canaryResult: GameLifecycleResult = await gameLifecycle.delete(
+              id,
+              verdict.sub,
+              env,
+              { canarySub: verdict.sub },
+            );
+            return jsonResponse(
+              canaryResult,
+              canaryResult.error ? lifecycleStatus(canaryResult.code) : 200,
+              request,
+            );
+          }
           return jsonResponse({ error: 'unauthorized' }, 401, request);
         }
 

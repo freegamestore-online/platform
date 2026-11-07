@@ -1,5 +1,12 @@
+import { isCanaryGameId } from '../../../../contracts/canary-session/v1/contract';
 import { githubIdFromSub } from '../../../../contracts/registry-ownership/v1/contract';
-import { corsHeaders, getCookie, resolveCreatorUser, SESSION_COOKIE } from './_auth';
+import {
+  corsHeaders,
+  getCookie,
+  resolveCanarySession,
+  resolveCreatorUser,
+  SESSION_COOKIE,
+} from './_auth';
 import { type DevOriginEnv, rejectCrossSite } from './_csrf';
 import { fetchWithTimeout, recordError } from './_errlog';
 import { listUserGames } from './_games';
@@ -46,7 +53,7 @@ function isProductionCreateCanary(user: string, id: string): boolean {
   // hidden fixture IDs only, owner only. The store build excludes *-test IDs
   // from the public catalog, and the canary deletes the game immediately after
   // verifying the host.
-  return user.toLowerCase() === 'serge-ivo' && /^e2e-create-[a-z0-9-]+-test$/.test(id);
+  return user.toLowerCase() === 'serge-ivo' && isCanaryGameId(id);
 }
 
 /**
@@ -73,14 +80,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   let idForLog: string | undefined;
   try {
     log('start');
-    const creator = await resolveCreatorUser(context.request, context.env);
-    const user = creator?.github ?? null;
+    // The keyless create canary (#531) is no GitHub user: it may create only a
+    // throwaway e2e-create-*-test game, owned by its own sub, with no push grant.
+    const canary = await resolveCanarySession(context.request, context.env);
+    const creator = canary ? null : await resolveCreatorUser(context.request, context.env);
+    const user = canary?.sub ?? creator?.github ?? null;
     userForLog = user ?? undefined;
     log(`auth: ${user ?? 'unauthenticated'}`);
     if (!user) return json({ error: 'Unauthorized' }, 401);
 
     // Reject suspended creators (api/me.ts surfaces `banned`; create must honor it too).
-    const kvRaw = await context.env.CREATORS.get(user);
+    const kvRaw = canary ? null : await context.env.CREATORS.get(user);
     if (kvRaw) {
       try {
         if ((JSON.parse(kvRaw) as { banned?: boolean }).banned)
@@ -103,6 +113,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     log(`body id=${body.id} name=${JSON.stringify(body.name)} template=${body.template}`);
     const idErr = validateId(body.id);
     if (idErr) return json({ error: idErr }, 400);
+    if (canary && !isCanaryGameId(body.id)) {
+      return json({ error: 'A canary session can only create e2e-create-*-test games' }, 403);
+    }
     if (!body.name) return json({ error: 'name required' }, 400);
 
     // Ownership + per-creator limit, both from the SAME registry-primary `owned`
@@ -110,7 +123,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     // create gate can never disagree.
     let owned: { id: string }[] = [];
     try {
-      ({ owned } = await listUserGames(context.env, user, githubIdFromSub(creator?.sub)));
+      // The canary owns no game here: its games are registered under its sub, not
+      // a login, so a pre-existing repo is never "its own" and 409s below.
+      if (!canary)
+        ({ owned } = await listUserGames(context.env, user, githubIdFromSub(creator?.sub)));
       log(`listUserGames ok: ${owned.length} owned`);
     } catch (e) {
       // Don't fall through to the ownership/limit checks on a registry outage —
@@ -150,7 +166,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
     if (!repoExisted) {
       const max = parseInt(context.env.MAX_APPS_PER_USER || '10', 10);
-      if (owned.length >= max && !isProductionCreateCanary(user, body.id)) {
+      if (!canary && owned.length >= max && !isProductionCreateCanary(user, body.id)) {
         return json({ error: `Game limit reached (${max} per creator)` }, 403);
       }
     }
@@ -172,8 +188,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           iconBg: body.iconBg,
           description: body.description,
           template: body.template,
-          cloneFrom: body.cloneFrom,
-          creatorGithub: user,
+          // A canary has no login to grant push to and clones nothing; admin
+          // derives its owner from the token it is forwarded.
+          cloneFrom: canary ? undefined : body.cloneFrom,
+          creatorGithub: canary ? undefined : user,
         }),
       },
       90000,

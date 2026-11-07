@@ -1,6 +1,11 @@
 import { routeAdminRequest } from './admin-request-router';
 import { serveAdminStatic } from './admin-static';
-import { authenticateAdmin, handleAdminAuthRoute, resolveCaller } from './caller';
+import {
+  authenticateAdmin,
+  handleAdminAuthRoute,
+  refuseCanaryOutsideItsRoutes,
+  resolveCaller,
+} from './caller';
 import { dataService } from './data';
 import { handleDeploy, pruneDeploys } from './deploy';
 import type { Env } from './env';
@@ -20,6 +25,8 @@ export default {
 
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    const canaryRefusal = refuseCanaryOutsideItsRoutes(request);
+    if (canaryRefusal) return canaryRefusal;
     // Keyless game deploys (#488): GitHub OIDC + upload-token bearer auth, raw
     // file bodies, no cookies; answered before the cookie/JSON admin router.
     const deploy = await handleDeploy(request, env);

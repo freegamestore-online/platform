@@ -11,6 +11,11 @@
 // and asks auth's /me whether the account still exists (#499).
 // Files prefixed with `_` are not routed by Pages, so this is import-only.
 
+import {
+  CANARY_SUB,
+  isCanarySession,
+  isCanarySessionClaims,
+} from '../../../../contracts/canary-session/v1/contract';
 import { verifyHs256Jwt } from '../../../../contracts/session-jwt/v1/contract';
 import { type DevOriginEnv, isFirstPartyOrigin } from './_csrf';
 
@@ -113,7 +118,15 @@ export async function resolveCreatorUser(
   const tok = getCookie(request, SESSION_COOKIE);
   if (tok && env.JWT_SECRET) {
     const p = await verifyJWT(tok, env.JWT_SECRET);
-    if (p && isConsoleSession(p) && typeof p.login === 'string' && (await accountLive(tok))) {
+    // The create canary is not a creator (#531). `typ` already keeps it out of
+    // isConsoleSession; this keeps it out even if that rule is ever loosened.
+    if (
+      p &&
+      !isCanarySession(p) &&
+      isConsoleSession(p) &&
+      typeof p.login === 'string' &&
+      (await accountLive(tok))
+    ) {
       const sub = typeof p.sub === 'string' ? p.sub : null;
       const parsed = sub?.startsWith('github:') ? Number(sub.slice('github:'.length)) : NaN;
       return {
@@ -127,6 +140,24 @@ export async function resolveCreatorUser(
     }
   }
   return null;
+}
+
+/**
+ * The create canary's identity (#531), or null for anything else. Only
+ * POST /api/create and DELETE /api/games/:id call this; every other route sees
+ * the canary as signed out (resolveCreatorUser) and _middleware.ts turns it away
+ * with a 403 before it gets that far. The signature and expiry are checked here,
+ * with the secret this Pages project shares with the auth worker, so a forged
+ * cookie buys nothing; there is no account to look up.
+ */
+export async function resolveCanarySession(
+  request: Request,
+  env: SessionEnv,
+): Promise<{ sub: string } | null> {
+  const tok = getCookie(request, SESSION_COOKIE);
+  if (!tok || !env.JWT_SECRET) return null;
+  const p = await verifyHs256Jwt(tok, env.JWT_SECRET);
+  return isCanarySessionClaims(p) ? { sub: CANARY_SUB } : null;
 }
 
 /** GitHub login of the signed-in creator, or null. */

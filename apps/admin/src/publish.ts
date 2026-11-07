@@ -44,6 +44,11 @@ export interface PublishRequest {
   oneliner?: string;
   type?: string;
   creatorGithub?: string;
+  /** The create canary's sub (#531), set instead of `creatorGithub` by the canary
+   *  provision route only. It is no GitHub login, so it is recorded as
+   *  `creatorSub` (the storefront build rejects a `creatorGithub` that is not a
+   *  username), nobody is invited, and an existing repo is never touched. */
+  creatorSub?: string;
   /** Engine/starter key (kaplay|phaser|3d|pixi|babylon|excalibur|littlejs|canvas|grid|cards). Defaults to canvas. */
   template?: string;
   /** Remix: id of an existing published game to seed this one from (all free
@@ -1068,6 +1073,15 @@ export async function handlePublish(
     };
   }
   const repoExisted = repoCheck.__status === 200;
+  if (repoExisted && req.creatorSub) {
+    // The canary makes fresh e2e-create-*-test ids; it has no claim on any repo.
+    steps.push({
+      name: 'GitHub repo',
+      status: 'fail',
+      detail: `${config.org}/${id} already exists — a canary session only creates new games`,
+    });
+    return { steps, success: false, conflict: true };
+  }
   if (repoExisted) {
     // An existing repo is only provisionable if it is already a listed game or
     // provably an interrupted provision of one. Otherwise any signed-in caller
@@ -1272,6 +1286,7 @@ export async function handlePublish(
         developer: req.creatorGithub || config.developer,
         ...(req.creatorGithub ? { creatorGithub: req.creatorGithub } : {}),
         ...(creatorGithubId ? { creatorGithubId } : {}),
+        ...(req.creatorSub ? { creatorSub: req.creatorSub } : {}),
         // Which engine/template this game was generated from (kaplay|phaser|3d|
         // canvas|grid|cards). Lets the storefront + studio show the engine and
         // lets the agent load engine-correct authoring context on import. Only
@@ -1533,7 +1548,13 @@ export async function handleDeleteGame(
    *  repo, for a game the caller does NOT own. Without it the console's
    *  Deprovision button could only ever delete the admin's own games, which is
    *  not what an ops console is for. */
-  opts: { adminOverride?: boolean; callerGithubId?: string | null } = {},
+  opts: {
+    adminOverride?: boolean;
+    callerGithubId?: string | null;
+    /** The create canary's sub (#531): it owns exactly the games provisioned with
+     *  this `creatorSub`, which no GitHub user can match. */
+    canarySub?: string;
+  } = {},
 ): Promise<{ ok?: boolean; error?: string; code?: LifecycleErrorCode; steps?: Step[] }> {
   const config = STORE_CONFIG;
 
@@ -1561,15 +1582,15 @@ export async function handleDeleteGame(
         console.error(logMessage);
       }
     }
-    if (
-      !opts.adminOverride &&
-      !ownershipFacts(
-        game,
-        login,
-        { isOrgMember: false, isLegacyAcceptedCollaborator: false },
-        opts.callerGithubId,
-      ).isCreator
-    ) {
+    const isOwner = opts.canarySub
+      ? typeof game.creatorSub === 'string' && game.creatorSub === opts.canarySub
+      : ownershipFacts(
+          game,
+          login,
+          { isOrgMember: false, isLegacyAcceptedCollaborator: false },
+          opts.callerGithubId,
+        ).isCreator;
+    if (!opts.adminOverride && !isOwner) {
       return {
         ok: false,
         error: owner

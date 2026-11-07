@@ -8,6 +8,7 @@ on:
       - contracts/error-log/**
       - contracts/registry-ownership/**
       - contracts/cross-site/**
+      - contracts/canary-session/**
       - contracts/handoff-delivery/**
       - contracts/session-jwt/**
       - .github/workflows/deploy-console.yml
