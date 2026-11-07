@@ -6,7 +6,7 @@ import type { DeployEnv, DeployStatus } from "./deploy";
 import { ACTIONS_DEPLOY_CEILING_MS, deployApp, pushCommit, substituteAppName, waitForActionsDeploy } from "./deploy";
 import { checkDeployStatus, getAuditResults, getBuildLogs, getCIResults, listDeployed } from "./infra";
 import type { ToolCall } from "./providers/types";
-import { validateGameId } from "./registry";
+import { readRegistry, validateGameId } from "./registry";
 
 interface ExecContext {
   appId: string | null;
@@ -110,6 +110,35 @@ export async function executeInfraTool(tc: ToolCall, ctx: ExecContext): Promise<
   }
 }
 
+/** An id compared ignoring case, hyphens and trailing digits (royal-heist ~ royalheist ~ royal-heist2). */
+function looseId(id: string): string {
+  return id.toLowerCase().replace(/-/g, "").replace(/\d+$/, "");
+}
+
+/** The creator's own existing game that a new deploy would duplicate: same
+ *  display name (case-insensitive) or same id by `looseId` (#526). The agent used to
+ *  answer "id taken" by inventing a near-duplicate id for the same game. Null when
+ *  nothing matches or the registry cannot be read (admin still guards the exact id). */
+async function findOwnDuplicate(
+  ctx: ExecContext,
+  appId: string,
+  appName: string,
+): Promise<{ id: string; name?: string } | null> {
+  const login = ctx.creatorLogin?.toLowerCase();
+  if (!login) return null;
+  const registry = await readRegistry(ctx.config, ctx.env.GITHUB_TOKEN);
+  if (registry.status !== "available") return null;
+  const name = appName?.trim().toLowerCase();
+  return (
+    registry.games.find(
+      (g) =>
+        g.id !== appId &&
+        g.creatorGithub?.toLowerCase() === login &&
+        (looseId(g.id) === looseId(appId) || (!!name && g.name?.trim().toLowerCase() === name)),
+    ) ?? null
+  );
+}
+
 async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
   const appId = tc.input.id as string;
   const appName = tc.input.name as string;
@@ -130,7 +159,12 @@ async function executeDeploy(tc: ToolCall, ctx: ExecContext): Promise<string> {
       return `Error: the ${ctx.config.noun} "${appId}" was DELETED (its repo is archived), so it can't be redeployed. Start a new ${ctx.config.noun} with a different ID instead.`;
     }
     if (!ctx.appId) {
-      return `Error: ${ctx.config.noun} ID "${appId}" is already taken, and this session is not opened on it — deploying would overwrite that ${ctx.config.noun} blind. If it's the user's own ${ctx.config.noun}, tell them to open it first (opening loads the real repo files into this session); do NOT retry deploy or push_update. Otherwise choose a different ID.`;
+      return `Error: ${ctx.config.noun} ID "${appId}" is already taken, and this session is not opened on it — deploying would overwrite that ${ctx.config.noun} blind. If it's the user's own ${ctx.config.noun}, tell them to open it first (opening loads the real repo files into this session). Otherwise ask the user what they want to call this ${ctx.config.noun}; do NOT pick another ID yourself, and do NOT retry deploy or push_update.`;
+    }
+  } else if (repoRes.status === 404 && !ctx.appId) {
+    const dup = await findOwnDuplicate(ctx, appId, appName);
+    if (dup) {
+      return `Error: the user already has a ${ctx.config.noun} "${dup.id}"${dup.name ? ` ("${dup.name}")` : ""} that this would duplicate. Nothing was deployed. Tell the user to open "${dup.id}" and update it there, or ask them whether they really want a separate ${ctx.config.noun}. Do NOT invent a different ID to get around this.`;
     }
   } else if (repoRes.status !== 404) {
     // Only an explicit 404 means "free". A 401/403/5xx says nothing about who

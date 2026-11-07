@@ -145,9 +145,9 @@ export async function deployApp(
 }
 
 /** Path B: register the D1 host route + store registry entry via the admin
- *  Worker (which owns the shared `fas` D1 + registry). The agent already created
- *  the repo, so admin's provision is idempotent here — it skips repo creation
- *  and just writes the route + registry. Auth is the shared internal token
+ *  Worker (which owns the shared `fas` D1 + registry). Admin creates the repo
+ *  from the template (or skips it when it exists), then writes the registry
+ *  entry and route; the agent only pushes files afterwards. Auth is the shared internal token
  *  (the agent holds no user fgs_token at deploy time). */
 async function registerViaAdmin(
   deployConfig: DeployConfig,
