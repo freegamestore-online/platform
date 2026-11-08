@@ -3,6 +3,7 @@
  *
  * Orchestrates deletion of:
  * - Agent D1 session index, per-session Durable Object storage, API keys, comp grants
+ * - Admin CLI sessions (`fgs login`), which auth cannot revoke (#500)
  * - Auth D1 user record
  * - Console session cookies
  *
@@ -16,6 +17,7 @@ import { type DevOriginEnv, rejectCrossSite } from '../api/_csrf';
 
 const AUTH = 'https://auth.freegamestore.online';
 const AGENT = 'https://agent.freegamestore.online';
+const ADMIN = 'https://admin.freegamestore.online';
 
 interface Step {
   ok: boolean;
@@ -26,6 +28,7 @@ interface Step {
 interface DeleteResult {
   ok: boolean;
   agent?: Step;
+  admin?: Step;
   auth?: Step;
   cleared?: boolean;
   error?: string;
@@ -101,7 +104,16 @@ export const onRequestPost: PagesFunction<DevOriginEnv> = async (context) => {
     return respond(result, 502);
   }
 
-  // 2. Auth: the user record. It goes last, so a failure above leaves the
+  // 2. Admin: revoke the CLI sessions it signed itself (#500). Admin verifies
+  // the console session through auth, so this must precede step 3, which kills
+  // that session; it is idempotent, so a retry after a later failure is safe.
+  result.admin = await deleteAt(`${ADMIN}/v1/auth/sessions`, cookie);
+  if (!result.admin.ok) {
+    result.error = `Could not sign out your command-line sessions (${result.admin.error}). Your account was not deleted; try again.`;
+    return respond(result, 502);
+  }
+
+  // 3. Auth: the user record. It goes last, so a failure above leaves the
   // account in place to retry with.
   result.auth = await deleteAt(`${AUTH}/account`, cookie);
   if (!result.auth.ok) {
@@ -109,7 +121,7 @@ export const onRequestPost: PagesFunction<DevOriginEnv> = async (context) => {
     return respond(result, 502);
   }
 
-  // 3. Clear session cookies
+  // 4. Clear session cookies
   const headers = new Headers();
   headers.append(
     'Set-Cookie',

@@ -4,6 +4,7 @@ import { githubIdFromSub } from '../../../contracts/registry-ownership/v1/contra
 import { handleAuthExchange, handleAuthMe, verifySession } from './auth';
 import type { Env } from './env';
 import { jsonResponse } from './http';
+import { revokeSessions } from './session-revocations';
 
 export type CallerCredentials = {
   admin: string | null;
@@ -75,7 +76,7 @@ export async function authenticateLogin(
   // 1. Admin-minted session token (CLI). Carries the GitHub id once minted
   //    after #472; older tokens fall back to the login match.
   if (bearer) {
-    const session = await verifySession(bearer, env.SESSION_SIGNING_KEY);
+    const session = await verifySession(bearer, env.SESSION_SIGNING_KEY, env.DB);
     if (session) return session;
   }
 
@@ -222,8 +223,31 @@ export async function handleAdminAuthRoute(request: Request, env: Env): Promise<
     );
     return new Response(null, { status: 302, headers });
   }
+  if (url.pathname === '/v1/auth/sessions' && request.method === 'DELETE')
+    return handleRevokeSessions(request, env);
   if (url.pathname === '/v1/auth/exchange' && request.method === 'POST')
     return handleAuthExchange(request, env);
   if (url.pathname === '/v1/auth/me' && request.method === 'GET') return handleAuthMe(request, env);
   return null;
+}
+
+/**
+ * Revoke every CLI session issued so far to the caller (#500). The console calls
+ * it as part of account deletion, forwarding the user's session; it can only
+ * ever act on the identity that session proves, so it is no account-existence
+ * oracle and needs no shared secret. A header credential is required, never the
+ * ambient cookie (#485), so a cross-site page cannot sign a user out of the CLI.
+ */
+async function handleRevokeSessions(request: Request, env: Env): Promise<Response> {
+  const hasHeaderCredential =
+    !!request.headers.get('X-FGS-Token') || !!request.headers.get('Authorization');
+  const who = hasHeaderCredential ? await authenticateLogin(request, env) : null;
+  if (!who) return jsonResponse({ error: 'unauthorized' }, 401, request);
+  try {
+    await revokeSessions(env.DB, who);
+  } catch (e) {
+    console.error('session revocation failed:', e);
+    return jsonResponse({ ok: false, error: 'could not revoke sessions' }, 500, request);
+  }
+  return jsonResponse({ ok: true }, 200, request);
 }

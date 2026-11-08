@@ -7,6 +7,7 @@
 import { isCanarySession } from '../../../contracts/canary-session/v1/contract';
 import { githubIdFromSub } from '../../../contracts/registry-ownership/v1/contract';
 import { signHs256Jwt, verifyHs256Jwt } from '../../../contracts/session-jwt/v1/contract';
+import { isRevoked } from './session-revocations';
 
 // Per-IP, in-memory (per isolate) limit on exchanges: each one is a GitHub
 // introspection, and this is the one place a stolen GitHub token can be tried.
@@ -90,6 +91,7 @@ export async function mintSessionToken(
 export async function verifySession(
   token: string,
   signingKey: string,
+  db?: D1Database,
 ): Promise<{ login: string; githubId: string | null } | null> {
   // alg, exp and iss (FGS_ISSUER) are checked by the shared contract (#490), so a
   // token signed for another store, or with another key, is refused.
@@ -100,7 +102,11 @@ export async function verifySession(
   // Tokens minted before #472 carry no gid: ownership falls back to the login.
   const githubId =
     typeof payload.gid === 'string' && /^\d+$/.test(payload.gid) ? payload.gid : null;
-  return { login: payload.sub, githubId };
+  const session = { login: payload.sub, githubId };
+  // Not signed in again since the account was deleted (#500). Given the DB, a
+  // lookup that fails refuses the session rather than letting it through.
+  if (db && (await isRevoked(db, session, payload.iat).catch(() => true))) return null;
+  return session;
 }
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
@@ -154,7 +160,7 @@ export async function handleAuthExchange(
 
 export async function handleAuthMe(
   request: Request,
-  env: { SESSION_SIGNING_KEY: string },
+  env: { SESSION_SIGNING_KEY: string; DB: D1Database },
 ): Promise<Response> {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ')) {
@@ -163,7 +169,7 @@ export async function handleAuthMe(
       headers: JSON_HEADERS,
     });
   }
-  const login = (await verifySession(authHeader.slice(7), env.SESSION_SIGNING_KEY))?.login;
+  const login = (await verifySession(authHeader.slice(7), env.SESSION_SIGNING_KEY, env.DB))?.login;
   if (!login) {
     return new Response(JSON.stringify({ error: 'invalid or expired session' }), {
       status: 401,

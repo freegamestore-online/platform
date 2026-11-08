@@ -176,4 +176,38 @@ describe('POST /auth/delete', () => {
     expect(body.error).toMatch(/not deleted|was not/);
     expect(res.headers.getSetCookie()).toHaveLength(0);
   });
+
+  // #500: admin signs its own CLI sessions, which auth cannot revoke.
+  it('revokes admin CLI sessions with the console session, between agent and auth (#500)', async () => {
+    const { res, mockFetch } = await post();
+    expect(res.status).toBe(200);
+    const urls = mockFetch.mock.calls.filter(([, i]) => i?.method === 'DELETE').map(([u]) => u);
+    expect(urls).toEqual([
+      'https://agent.freegamestore.online/v1/account',
+      'https://admin.freegamestore.online/v1/auth/sessions',
+      'https://auth.freegamestore.online/account',
+    ]);
+    const adminCall = mockFetch.mock.calls.find(
+      ([u]) => u === 'https://admin.freegamestore.online/v1/auth/sessions',
+    );
+    expect(adminCall?.[1].headers['X-FGS-Token']).toBe('valid.token.here');
+  });
+
+  it('keeps the account and reports failure when admin revocation fails (#500)', async () => {
+    mockFetch.mockImplementation((url: string) =>
+      url.includes('admin.freegamestore.online')
+        ? new Response(JSON.stringify({ ok: false, error: 'db down' }), { status: 500 })
+        : okResponse(url),
+    );
+    const { res } = await post();
+    expect(res.status).toBe(502);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.ok).toBe(false);
+    expect(body.error).toMatch(/not deleted/);
+    expect(mockFetch).not.toHaveBeenCalledWith(
+      'https://auth.freegamestore.online/account',
+      expect.anything(),
+    );
+    expect(res.headers.getSetCookie()).toHaveLength(0);
+  });
 });
