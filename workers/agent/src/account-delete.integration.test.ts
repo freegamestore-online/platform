@@ -1,6 +1,7 @@
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { onRequestPost as consoleDelete } from "../../../apps/console/functions/auth/delete";
-import { resolveCaller } from "../../../apps/admin/src/caller";
+import { handleAdminAuthRoute, resolveCaller } from "../../../apps/admin/src/caller";
 import { dispatchApiRoute } from "../../../apps/admin/src/routes/dispatch";
 import { resolveCreatorUser } from "../../../apps/console/functions/api/_auth";
 import authWorker, { jwtSign } from "../../auth/src/index";
@@ -75,12 +76,19 @@ function setup(opts: { sessions?: string[]; wipeStatus?: number } = {}) {
     },
   } as unknown as AgentEnv;
 
-  // The console function reaches both workers by their public URLs.
+  // Admin's revocation store (#500), from the real migration. Admin reaches auth
+  // over a service binding, so the console session meets auth's real audience check.
+  const adminDb = sqliteD1();
+  adminDb.sqlite.exec(readFileSync(new URL("../../host/migrations/0006_admin_session_revocations.sql", import.meta.url), "utf8"));
+  const adminEnv = { AUTH: agentEnv.AUTH, DB: adminDb, SESSION_SIGNING_KEY: "admin-key" } as unknown as Parameters<typeof handleAdminAuthRoute>[1];
+
+  // The console function reaches the workers by their public URLs.
   vi.stubGlobal("fetch", async (input: RequestInfo, init?: RequestInit) => {
     const req = new Request(input, init);
     const host = new URL(req.url).host;
     if (host === "auth.freegamestore.online") return authWorker.fetch(req, authEnv);
     if (host === "agent.freegamestore.online") return agentWorker.fetch(req, agentEnv, {} as ExecutionContext);
+    if (host === "admin.freegamestore.online") return (await handleAdminAuthRoute(req, adminEnv)) ?? new Response("no route", { status: 404 });
     if (host === "api.github.com" || host === "raw.githubusercontent.com") return new Response("{}", { status: 404 });
     throw new Error(`unexpected fetch ${req.url}`);
   });
@@ -88,7 +96,7 @@ function setup(opts: { sessions?: string[]; wipeStatus?: number } = {}) {
   const deleted = (db: typeof agentDb, table: string) =>
     db.runs.some((r) => r.sql.startsWith(`DELETE FROM ${table} WHERE`) && r.args[0] === USER);
   const authUserDeleted = () => !authDb.sqlite.prepare("SELECT 1 FROM users WHERE id = ?").get(USER);
-  return { authDb, agentDb, wiped, deleted, authUserDeleted, agentEnvAuth: (agentEnv as unknown as { AUTH: Fetcher }).AUTH };
+  return { authDb, adminDb, agentDb, wiped, deleted, authUserDeleted, agentEnvAuth: (agentEnv as unknown as { AUTH: Fetcher }).AUTH };
 }
 
 /** What auth's /handoff/consume mints for the console: the browser's cookie. */
@@ -110,10 +118,12 @@ afterEach(() => {
 
 describe("account deletion across console, agent and auth (#483)", () => {
   it("deletes the agent data, BYO keys, grants and the auth record for a real console session", async () => {
-    const { agentDb, wiped, deleted, authUserDeleted } = setup();
+    const { adminDb, agentDb, wiped, deleted, authUserDeleted } = setup();
     const res = await postDelete(await consoleSession());
     const body = (await res.json()) as { ok: boolean };
     expect(res.status).toBe(200);
+    // Admin signs its own CLI sessions, so it records its own watermark (#500).
+    expect(adminDb.sqlite.prepare("SELECT subject FROM admin_session_revocations ORDER BY subject").all().map((r) => r.subject)).toEqual(["gid:4242", "login:deleter"]);
     expect(body.ok).toBe(true);
     expect(wiped).toEqual(["s1", "s2"]);
     for (const table of ["agent_sessions", "user_api_keys", "complimentary_grants"]) {
