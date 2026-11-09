@@ -22,6 +22,27 @@ export interface DeviceFlowStart {
   poll: () => Promise<{ accessToken: string; login: string }>;
 }
 
+// Only recognized identifiers and local guidance enter an error message (#534).
+// Never echo a provider description/body: it can contain codes, tokens or terminal escapes.
+const DEVICE_FLOW_ERRORS = new Map([
+  [
+    'device_flow_disabled',
+    'The OAuth app owner must open the owning account or organization’s Developer settings → OAuth apps → FreeGameStore, select Enable Device Flow, and save.',
+  ],
+  [
+    'incorrect_client_credentials',
+    'Check FGS_GITHUB_CLIENT_ID against FreeGameStore’s own OAuth app client ID.',
+  ],
+  [
+    'invalid_scope',
+    'The OAuth app rejected the requested scope. Check the FreeGameStore OAuth app configuration.',
+  ],
+  [
+    'rate_limit_exceeded',
+    'GitHub is rate limiting device authorization. Wait before running fgs login again.',
+  ],
+]);
+
 export async function startDeviceFlow(clientId: string): Promise<DeviceFlowStart> {
   const codeRes = await fetch('https://github.com/login/device/code', {
     method: 'POST',
@@ -29,7 +50,12 @@ export async function startDeviceFlow(clientId: string): Promise<DeviceFlowStart
     body: JSON.stringify({ client_id: clientId, scope: 'read:user' }),
   });
   if (!codeRes.ok) {
-    throw new Error(`GitHub device-code request failed: ${codeRes.status}`);
+    const body: unknown = await codeRes.json().catch(() => null);
+    const error = body && typeof body === 'object' && 'error' in body ? body.error : undefined;
+    const hint = typeof error === 'string' ? DEVICE_FLOW_ERRORS.get(error) : undefined;
+    throw new Error(
+      `GitHub device-code request failed: ${codeRes.status}${hint ? ` (${error}): ${hint}` : ''}`,
+    );
   }
   const code = (await codeRes.json()) as DeviceCodeResponse;
 

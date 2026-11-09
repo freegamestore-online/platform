@@ -38,7 +38,22 @@ const DEFAULT_API_BASE = 'https://admin.freegamestore.online';
  */
 export function resolveApiBase(): string {
   const fromEnv = process.env.FGS_API_BASE?.trim();
-  return normalizeApiBase(fromEnv || DEFAULT_API_BASE);
+  if (!fromEnv) return DEFAULT_API_BASE;
+  let url: URL;
+  try {
+    url = new URL(fromEnv);
+  } catch {
+    throw new Error(
+      'FGS_API_BASE must be a valid absolute HTTPS URL (HTTP is allowed for localhost development).',
+    );
+  }
+  const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) {
+    throw new Error(
+      'FGS_API_BASE must use HTTPS (HTTP is allowed only for localhost or 127.0.0.1 development).',
+    );
+  }
+  return normalizeApiBase(fromEnv);
 }
 
 export function normalizeApiBase(s: string): string {

@@ -20,12 +20,13 @@ export async function runLogin(): Promise<{ login: string }> {
     );
   }
 
+  // Validate the API destination before starting OAuth or handling any token (#535).
+  const config = await readConfig();
   const flow = await startDeviceFlow(DEFAULT_CLIENT_ID);
   process.stdout.write(`\nOpen ${flow.verificationUri} and enter code: ${flow.userCode}\n\n`);
   process.stdout.write('Waiting for authorization...\n');
 
   const { accessToken, login } = await flow.poll();
-  const config = await readConfig();
 
   const exchangeRes = await fetch(`${config.apiBase}/v1/auth/exchange`, {
     method: 'POST',

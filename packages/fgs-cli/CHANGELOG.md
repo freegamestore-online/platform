@@ -1,5 +1,10 @@
 # @freegamestore/cli
 
+## 0.2.11
+
+- Explain GitHub Device Flow errors with safe guidance for enabling Device Flow on FGS's OAuth app; omit arbitrary response bodies and credentials (#534).
+- Validate `FGS_API_BASE` before login starts OAuth. Require HTTPS for remote hosts, allow HTTP only on localhost or 127.0.0.1, and preserve invocation-local overrides (#535).
+
 ## 0.2.8
 
 - `fgs login` runs the GitHub device flow against FGS's own OAuth app (`Ov23lit1nu5OOzKXQO85`) instead of FAS's. The admin exchange accepts only tokens issued to FGS's app (platform#458), so 0.2.7 and older are refused at `fgs login` (or need `FGS_GITHUB_CLIENT_ID=Ov23lit1nu5OOzKXQO85`).

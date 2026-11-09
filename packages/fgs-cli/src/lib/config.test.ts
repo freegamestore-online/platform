@@ -2,7 +2,38 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { normalizeApiBase } from './config.js';
+import { normalizeApiBase, resolveApiBase } from './config.js';
+
+describe('API base transport policy (#535)', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each(['', '  '])('uses the production default for empty overrides: %j', (value) => {
+    vi.stubEnv('FGS_API_BASE', value);
+    expect(resolveApiBase()).toBe('https://admin.freegamestore.online');
+  });
+
+  it.each([
+    [' https://admin.example.com/v1/// ', 'https://admin.example.com/v1'],
+    ['http://localhost:8787/', 'http://localhost:8787'],
+    ['http://127.0.0.1:8787', 'http://127.0.0.1:8787'],
+  ])('accepts a supported endpoint: %s', (value, expected) => {
+    vi.stubEnv('FGS_API_BASE', value);
+    expect(resolveApiBase()).toBe(expected);
+  });
+
+  it.each([
+    'not-a-url',
+    '/relative',
+    'ftp://localhost',
+    'file:///tmp/api',
+    'http://admin.example.com',
+    'http://localhost.example.com',
+    'http://127.0.0.1.example.com',
+  ])('refuses malformed or insecure overrides: %s', (value) => {
+    vi.stubEnv('FGS_API_BASE', value);
+    expect(() => resolveApiBase()).toThrow(/FGS_API_BASE/);
+  });
+});
 
 describe('normalizeApiBase', () => {
   it('leaves a clean URL alone', () => {

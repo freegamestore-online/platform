@@ -1,6 +1,6 @@
 {
   "name": "@freegamestore/cli",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "description": "fgs — CLI for publishing free games to freegamestore.online",
   "license": "MIT",
   "type": "module",
