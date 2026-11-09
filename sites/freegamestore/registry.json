@@ -2776,6 +2776,24 @@
       "provisionedSha": "986045da7e69627d989b33f2a866dba7e20c990c",
       "lastUpdated": "2026-11-05T20:36:29Z",
       "creatorGithubId": "152139341"
+    },
+    {
+      "id": "e2e-create-console-mw96genq-test",
+      "name": "E2E Create Canary",
+      "category": "arcade",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "canary",
+      "appUrl": "https://e2e-create-console-mw96genq-test.freegamestore.online",
+      "repo": "freegamestore-online/e2e-create-console-mw96genq-test",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "FreeGameStore",
+      "creatorSub": "canary:freegamestore-online/platform",
+      "engine": "canvas",
+      "firstPublished": "2026-11-09T11:28:04.582Z",
+      "status": "pending",
+      "provisionedSha": "476df6e40aff673205b1853bfccdf04a6ea716ce"
     }
   ]
 }
