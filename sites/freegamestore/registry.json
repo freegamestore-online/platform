@@ -2776,6 +2776,24 @@
       "provisionedSha": "986045da7e69627d989b33f2a866dba7e20c990c",
       "lastUpdated": "2026-11-09T01:36:25Z",
       "creatorGithubId": "152139341"
+    },
+    {
+      "id": "e2e-create-console-mwal7acc-test",
+      "name": "E2E Create Canary",
+      "category": "arcade",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "canary",
+      "appUrl": "https://e2e-create-console-mwal7acc-test.freegamestore.online",
+      "repo": "freegamestore-online/e2e-create-console-mwal7acc-test",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "FreeGameStore",
+      "creatorSub": "canary:freegamestore-online/platform",
+      "engine": "canvas",
+      "firstPublished": "2026-11-10T11:08:39.603Z",
+      "status": "pending",
+      "provisionedSha": "b3b2d56c5c96c4b1b7ec1cfa430f3a6531953c7b"
     }
   ]
 }
