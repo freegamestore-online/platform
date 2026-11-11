@@ -2778,24 +2778,6 @@
       "creatorGithubId": "152139341"
     },
     {
-      "id": "e2e-create-mcp-mwc04sdi-test",
-      "name": "E2E Create Canary",
-      "category": "arcade",
-      "icon": "🎮",
-      "iconBg": "#ecfdf5",
-      "description": "E2E Create Canary",
-      "appUrl": "https://e2e-create-mcp-mwc04sdi-test.freegamestore.online",
-      "repo": "freegamestore-online/e2e-create-mcp-mwc04sdi-test",
-      "hostedOn": "r2",
-      "type": "standalone",
-      "developer": "FreeGameStore",
-      "creatorSub": "canary:freegamestore-online/platform",
-      "engine": "canvas",
-      "firstPublished": "2026-11-11T10:54:24.771Z",
-      "status": "pending",
-      "provisionedSha": "71775b1e10b4e9c7aeaf807d935b5c8a93423d24"
-    },
-    {
       "id": "e2e-create-console-mwc04ru2-test",
       "name": "E2E Create Canary",
       "category": "arcade",
