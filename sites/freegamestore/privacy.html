@@ -10,10 +10,10 @@
   <meta name="apple-mobile-web-app-title" content="FreeGameStore" />
   <meta name="application-name" content="FreeGameStore" />
   <title>Privacy Policy — FreeGameStore</title>
-  <meta name="description" content="FreeGameStore privacy policy. We collect no data, use no cookies, and perform no tracking." />
+  <meta name="description" content="How FreeGameStore handles player data, creator accounts and the MCP connector." />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Privacy Policy — FreeGameStore" />
-  <meta property="og:description" content="FreeGameStore privacy policy. We collect no data, use no cookies, and perform no tracking." />
+  <meta property="og:description" content="How FreeGameStore handles player data, creator accounts and the MCP connector." />
   <meta property="og:url" content="https://freegamestore.online/privacy" />
   <meta property="og:image" content="https://freegamestore.online/icon-512.png" />
   <meta name="twitter:card" content="summary" />
@@ -45,58 +45,29 @@
   </header>
 
   <main class="container">
-    <div class="page-header">
-      <h1>Privacy Policy</h1>
-      <p>We believe privacy is a right, not a feature. Here is exactly what we collect: nothing.</p>
-    </div>
-
+    <div class="page-header"><h1>Privacy Policy</h1><p>How FreeGameStore handles player data, creator accounts and AI connector requests.</p></div>
     <div class="page-content">
-      <p class="legal-date">Last updated: May 4, 2026</p>
-
-      <h2>Overview</h2>
-      <p>FreeGameStore and all applications hosted on the freegamestore.online domain are designed with a strict no-data-collection policy. We do not collect, store, process, or transmit any personal information, usage data, or behavioral data of any kind.</p>
-
-      <h2>Data Collection</h2>
-      <p>We collect <strong>no data whatsoever</strong>. Specifically:</p>
-      <ul>
-        <li>No personal information (name, email, phone number, etc.)</li>
-        <li>No usage analytics or behavioral tracking</li>
-        <li>No device fingerprinting</li>
-        <li>No IP address logging</li>
-        <li>No location data</li>
-        <li>No search history or browsing patterns</li>
-      </ul>
-
-      <h2>Cookies and Local Storage</h2>
-      <p>Our applications <strong>do not use cookies</strong> of any kind — no session cookies, no tracking cookies, no third-party cookies. Applications may use your browser's local storage (localStorage or IndexedDB) solely to save your in-app progress and preferences on your own device. This data never leaves your device and is never transmitted to any server.</p>
-
-      <h2>Third-Party Services</h2>
-      <p>We do not integrate with, embed, or load resources from any third-party analytics, advertising, or tracking services. There are no third-party scripts, pixels, beacons, or SDKs in our applications. Specifically:</p>
-      <ul>
-        <li>No Google Analytics or similar analytics platforms</li>
-        <li>No advertising networks or ad trackers</li>
-        <li>No social media tracking pixels</li>
-        <li>No customer data platforms</li>
-        <li>No A/B testing or experimentation platforms</li>
-      </ul>
-
-      <h2>Data Sharing</h2>
-      <p>Since we collect no data, we have no data to share. We do not sell, rent, trade, or otherwise disclose any information to third parties because no such information exists in our systems.</p>
-
-      <h2>Accounts</h2>
-      <p>FreeGameStore applications do not require user accounts. There is no registration, no login, and no authentication. You use the apps anonymously by default.</p>
-
-      <h2>Data Storage</h2>
-      <p>All application data (progress, preferences, saved content) is stored exclusively in your browser's local storage on your device. This data is under your complete control. You can clear it at any time through your browser settings. We have no access to this data and no ability to retrieve it.</p>
-
-      <h2>Children's Privacy</h2>
-      <p>Because we collect no data from any user, we inherently comply with all children's data protection requirements. Our apps are safe for users of all ages.</p>
-
-      <h2>Changes to This Policy</h2>
-      <p>If we ever change this policy, it will only become more protective of your privacy, never less. Our commitment to zero data collection is foundational to this platform.</p>
-
-      <h2>Contact</h2>
-      <p>If you have questions about this privacy policy, you can reach us through our <a href="https://github.com/freegamestore-online">GitHub organization</a>.</p>
+      <p class="legal-date">Last updated: November 13, 2026</p>
+      <h2>Playing games and browsing</h2>
+      <p>Games are free and must not include advertising trackers, behavioral tracking or fingerprinting. Games may save progress and preferences locally on your device. Connected features, such as accounts, cloud saves and multiplayer, send the information needed to provide those features to our services. Clearing browser storage removes local progress and preferences.</p>
+      <p>Cloudflare hosts the storefront and services and processes network requests, including IP addresses, to deliver and secure them. The storefront can use Cloudflare Web Analytics for aggregate, cookieless traffic measurements. We do not sell personal information or use it for targeted advertising.</p>
+      <h2>Creator accounts</h2>
+      <p>Signing in uses GitHub identity and FreeGameStore session credentials. Creator services process account identifiers, game metadata, source files and deployment information to manage and publish your games. Authentication uses secure session cookies; these are separate from tracking cookies.</p>
+      <section id="mcp" aria-labelledby="mcp-title">
+        <h2 id="mcp-title">MCP connector</h2>
+        <h3>What it reads and writes, and why</h3>
+        <p>When your assistant calls a tool, FreeGameStore processes the tool arguments and returns results to that assistant. Reference and catalog tools read public platform documentation, game metadata and source files. Authenticated tools can list your games, read or update your game files, provision and publish repositories, inspect deployments, and create, continue, read or delete your VibeCode build sessions. Sessions include prompts, conversation messages, generated code and build status. Administrative tools are restricted to platform administrators.</p>
+        <p>We use this information to carry out the actions you request, authenticate you, enforce ownership and investigate failures or abuse. Write attempts, dry runs and denied actions generate an audit log containing your GitHub login, timestamp, tool name, redacted arguments and result details. Secret redaction reduces exposure; avoid putting secrets or sensitive personal information into prompts or files.</p>
+        <h3>Tokens and retention</h3>
+        <p>The MCP OAuth provider stores authorization grants and token records in Cloudflare KV. The grant carries the FreeGameStore session credential used to authenticate downstream requests. MCP access tokens have a 30-day lifetime; the underlying FreeGameStore session is also checked, so an expired or revoked session requires sign-in again. Refresh tokens and authorization grants are managed by the OAuth provider; the service does not promise that all grant records disappear when an access token expires. The sign-in handoff state expires after 10 minutes.</p>
+        <p>MCP audit entries expire after 90 days. Game files and GitHub commit history remain until removed or managed in the repository; disconnecting does not erase published source. VibeCode sessions remain until deleted through the creator tools or account deletion. Provider and infrastructure logs may follow their own retention policies.</p>
+        <h3>Who receives the data</h3>
+        <ul><li>Cloudflare hosts our Workers, KV authorization and audit records, Durable Object sessions and R2 game assets.</li><li>GitHub provides identity and stores game repositories, commits and deployment workflows. Published game source is public.</li><li>Your connected AI assistant receives tool results under its own privacy policy. If you call <code>agent_build</code>, the selected AI provider (such as Anthropic, OpenAI, Google or GitHub) receives the prompt, conversation and relevant code needed to build the game. Provider API keys are used for provider authentication; do not include them in public issues.</li></ul>
+        <h3>Your controls</h3>
+        <p>Review the consent screen and requested actions before connecting. Inspect your own events with <code>mcp_audit_log</code>. Remove the connector in your assistant to stop its use. To invalidate existing FreeGameStore sessions, use <a href="/signout">Sign out</a>, which affects other signed-in clients too. Disconnecting does not delete games, sessions or existing audit entries. Manage games and sessions in the creator console, or contact support about account deletion and privacy requests.</p>
+      </section>
+      <h2>Contact and policy changes</h2>
+      <p>For privacy questions or deletion requests, contact the maintainers through <a href="/support">FreeGameStore support</a>. Do not post private information in a public issue. Updates to this policy are published here with the revision date. See our <a href="/terms">terms</a> for connector use.</p>
     </div>
   </main>
 

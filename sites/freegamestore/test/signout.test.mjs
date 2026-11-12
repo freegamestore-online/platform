@@ -55,6 +55,6 @@ test('the signout page waits for a click, is not indexed, and is built into dist
   // The POST happens only in the click handler.
   assert.ok(js.indexOf("addEventListener('click'") < js.lastIndexOf('signOut(fetch'));
   const build = readFileSync(join(SITE, 'build.js'), 'utf8');
-  assert.match(build, /'signout\.html',\n\s*'signout\.js',/);
+  assert.match(build, /'signout\.html',\r?\n\s*'signout\.js',/);
   assert.match(build, /frame-ancestors 'none'/);
 });

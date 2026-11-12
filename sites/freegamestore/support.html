@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="FreeGameStore" />
+  <meta name="application-name" content="FreeGameStore" />
+  <title>Support — FreeGameStore</title>
+  <meta name="description" content="Contact FreeGameStore support and troubleshoot or revoke the MCP connector." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Support — FreeGameStore" />
+  <meta property="og:description" content="Contact FreeGameStore support and troubleshoot or revoke the MCP connector." />
+  <meta property="og:url" content="https://freegamestore.online/support" />
+  <meta property="og:image" content="https://freegamestore.online/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+  <link rel="canonical" href="https://freegamestore.online/support" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>(function(){try{var p=localStorage.getItem('stores-theme');var d=p==='dark'||(!p||p==='system')&&matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.dataset.theme='dark';var t=localStorage.getItem('stores-text-size');if(t)document.documentElement.dataset.text=t;}catch(e){}})()</script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="/" class="logo">Free <span>Games</span></a>
+      <button class="nav-toggle" type="button" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg></button>
+      <nav>
+        <a href="/">Games</a>
+        <a href="/ideas">Ideas</a>
+        <a href="https://freeappstore.online">Apps</a>
+        <a href="/about">About</a>
+        <a href="/developers">Developers</a>
+        <a href="/get-started">Get Started</a>
+        <a href="https://console.freegamestore.online">Console</a>
+        <a href="/docs/">Docs</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-header"><h1>FreeGameStore support</h1><p>Help with games, creator accounts and the MCP connector.</p></div>
+    <div class="page-content">
+      <h2>Contact us</h2>
+      <p><a href="https://github.com/freegamestore-online/platform/issues/new">Open a support issue</a> in our platform repository, or <a href="https://github.com/freegamestore-online/platform/issues">check existing issues</a>. Include your client and version, the time, the tool name and the error message. Public issues are visible to everyone: remove tokens, API keys, private code and personal information.</p>
+      <h2>MCP connection problems</h2>
+      <ol><li>Use <code>https://mcp.freegamestore.online/mcp</code> with Streamable HTTP. Check your plan and workspace allow custom connectors.</li><li>Remove and reconnect FreeGameStore in your assistant's connector settings. Complete sign-in and consent again. In Claude Code, use <code>/mcp</code> to authenticate.</li><li>If tools are missing, refresh the connection and enable FreeGameStore in the current conversation. Start with <code>platform_guide</code>. A denied write may mean the game belongs to another account or the service is temporarily read-only.</li></ol>
+      <h2 id="revoke">Disconnect or revoke access</h2>
+      <p>Remove FreeGameStore from your assistant's connector settings (Claude Code: <code>claude mcp remove freegamestore</code>). To invalidate existing FreeGameStore sessions, use <a href="/signout">Sign out</a>; this also affects your other signed-in clients. Reconnect and sign in again when needed. Removing a connector does not delete published games, repository history or VibeCode sessions.</p>
+      <h2>Manage your data</h2>
+      <p>Use the creator console to manage games and sessions. The connector provides <code>mcp_audit_log</code> to inspect your recent write attempts. For deletion requests or privacy questions, contact the maintainers through the support issue link above without including sensitive data. See <a href="/privacy#mcp">MCP privacy</a>, <a href="/terms">terms</a> and the <a href="/docs/mcp/">connector guide</a>.</p>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">
+        <a href="/" class="logo">Free <span>Games</span></a>
+        <p>Free forever, open source, privacy-first.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/about">About</a>
+        <a href="/contribute">Build</a>
+        <a href="/docs/">Docs</a>
+        <a href="/capabilities">Capabilities</a>
+        <a href="/browser-apis">Browser APIs</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+        <a href="https://github.com/freegamestore-online">GitHub</a>
+        <a href="https://github.com/freegamestore-online/freegamestore/discussions">Support</a>
+      </div>
+    </div>
+  </footer>
+  <script src="/theme.js" defer></script>
+</body>
+</html>

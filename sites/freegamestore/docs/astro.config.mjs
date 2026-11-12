@@ -24,6 +24,7 @@ export default defineConfig({
           label: 'Start here',
           items: [
             { label: 'What is FreeGameStore?', slug: 'start/overview' },
+            { label: 'AI assistant connector', slug: 'mcp' },
             { label: 'Developer guidelines', slug: 'guidelines' },
             { label: 'Build your first game', slug: 'start/first-game' },
             { label: 'Publish to the storefront', slug: 'start/publishing' },

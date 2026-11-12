@@ -50,8 +50,15 @@
       <h1>Build a free game with AI.</h1>
       <p class="ai-lead">FreeGameStore is AI-first. Drop our <a href="https://freegamestore.online/skills.md">SKILLS.md</a> into your AI tool of choice, and the agent already knows the brand rules, the privacy mandates, the CLI, and the deploy flow before it writes a line of code. Ship a real, free, MIT-licensed game in an afternoon.</p>
       <p class="ai-lead">Even faster: connect the <a href="/docs/mcp">MCP server</a> and build, publish, and improve games without leaving your editor — <strong>your AI writes the code</strong> (<code>create_game</code> → <code>update_files</code>), or <strong>the platform's VibeCode agent does</strong> (<code>agent_build</code>). One line to connect:</p>
-      <div class="cmd">claude mcp add freegamestore -- npx mcp-remote https://mcp.freegamestore.online/mcp</div>
+      <div class="cmd">claude mcp add --transport http freegamestore https://mcp.freegamestore.online/mcp</div>
     </div>
+
+    <section id="ai-assistants" aria-labelledby="ai-assistants-title">
+      <h2 id="ai-assistants-title">Use FreeGameStore in your AI assistant</h2>
+      <p>Connect to build and manage games from your assistant. Custom connector access depends on your plan, workspace permissions and client version. Sign in through FreeGameStore's consent screen; review every requested action.</p>
+      <div class="ai-tools">{{AI_ASSISTANTS}}</div>
+      <p>Try: &ldquo;Show me the FreeGameStore platform guide.&rdquo; Building and publishing changes your games and repositories. Read the <a href="/docs/mcp/">connector guide</a>, <a href="/privacy#mcp">MCP privacy policy</a> and <a href="/support">troubleshooting help</a>.</p>
+    </section>
 
     <h2>Pick your tool</h2>
     <div class="ai-tools">

@@ -1,0 +1,130 @@
+[
+  {
+    "id": "claude",
+    "name": "Claude (web, Desktop and mobile)",
+    "steps": [
+      "On claude.ai, open Settings > Connectors and add a custom connector named FreeGameStore with the server URL.",
+      "Sign in and review the permissions. Use the connected account in Desktop or mobile where remote connectors are supported.",
+      "Start a conversation, enable FreeGameStore and ask for the platform guide."
+    ],
+    "snippet": null,
+    "docs": "https://claude.com/docs/connectors/building/authentication",
+    "listing": {
+      "live": false,
+      "url": null
+    },
+    "lastClientTestedAt": null
+  },
+  {
+    "id": "chatgpt",
+    "name": "ChatGPT",
+    "steps": [
+      "Open Plugins > Add custom MCP server (older interfaces: Apps / Connectors > Advanced > Developer mode). Workspace permission may be required.",
+      "Enter the server URL, choose OAuth and connect your FreeGameStore account.",
+      "Enable FreeGameStore in a conversation and ask for the platform guide before approving writes."
+    ],
+    "snippet": null,
+    "docs": "https://developers.openai.com/api/docs/guides/custom-mcp-server",
+    "listing": {
+      "live": false,
+      "url": null
+    },
+    "lastClientTestedAt": null
+  },
+  {
+    "id": "gemini",
+    "name": "Gemini CLI / Antigravity",
+    "steps": [
+      "In Gemini CLI, run the command below. Gemini web does not accept this CLI configuration.",
+      "In Antigravity, open the MCP server settings, add a custom remote server using the server URL, then reload the tools.",
+      "Complete sign-in when prompted and request the platform guide. Availability and OAuth support depend on your client version."
+    ],
+    "snippet": "gemini mcp add --transport http freegamestore https://mcp.freegamestore.online/mcp",
+    "docs": "https://geminicli.com/docs/tools/mcp-server/",
+    "listing": {
+      "live": false,
+      "url": null
+    },
+    "lastClientTestedAt": null
+  },
+  {
+    "id": "grok",
+    "name": "Grok",
+    "steps": [
+      "On a paid plan with custom connectors enabled, open connector settings and add a custom remote MCP connector. Workspace administrators may control access.",
+      "Enter the server URL and complete OAuth sign-in.",
+      "Enable the connector in a conversation and ask for the platform guide. This is a custom connection; catalog availability is separate."
+    ],
+    "snippet": null,
+    "docs": "https://docs.x.ai/grok/connectors/custom-mcp-tunneling",
+    "listing": {
+      "live": false,
+      "url": null
+    },
+    "lastClientTestedAt": null
+  },
+  {
+    "id": "claude-code",
+    "name": "Claude Code",
+    "steps": [
+      "Run the command below in your terminal.",
+      "Open /mcp in Claude Code and authenticate FreeGameStore.",
+      "Ask for the platform guide, then review tool permissions before building."
+    ],
+    "snippet": "claude mcp add --transport http freegamestore https://mcp.freegamestore.online/mcp",
+    "docs": "https://code.claude.com/docs/en/mcp",
+    "listing": {
+      "live": false,
+      "url": null
+    },
+    "lastClientTestedAt": null
+  },
+  {
+    "id": "cursor",
+    "name": "Cursor",
+    "steps": [
+      "Add the configuration below to .cursor/mcp.json (project) or ~/.cursor/mcp.json (personal).",
+      "Reload MCP tools, connect FreeGameStore and complete OAuth sign-in.",
+      "Ask Agent for the platform guide."
+    ],
+    "snippet": "{\n  \"mcpServers\": {\n    \"freegamestore\": {\n      \"url\": \"https://mcp.freegamestore.online/mcp\"\n    }\n  }\n}",
+    "docs": "https://cursor.com/docs/context/mcp",
+    "listing": {
+      "live": false,
+      "url": null
+    },
+    "lastClientTestedAt": null
+  },
+  {
+    "id": "windsurf",
+    "name": "Windsurf",
+    "steps": [
+      "Open Cascade MCP settings and edit mcp_config.json.",
+      "Add the configuration below, reload and complete sign-in when prompted.",
+      "Enable FreeGameStore tools and ask Cascade for the platform guide."
+    ],
+    "snippet": "{\n  \"mcpServers\": {\n    \"freegamestore\": {\n      \"serverUrl\": \"https://mcp.freegamestore.online/mcp\"\n    }\n  }\n}",
+    "docs": "https://docs.windsurf.com/windsurf/cascade/mcp",
+    "listing": {
+      "live": false,
+      "url": null
+    },
+    "lastClientTestedAt": null
+  },
+  {
+    "id": "vscode",
+    "name": "VS Code",
+    "steps": [
+      "Run MCP: Add Server from the Command Palette and choose HTTP.",
+      "Enter the server URL and name freegamestore, or add the configuration below to .vscode/mcp.json.",
+      "Start the server, complete sign-in and enable its tools in Copilot agent chat."
+    ],
+    "snippet": "{\n  \"servers\": {\n    \"freegamestore\": {\n      \"type\": \"http\",\n      \"url\": \"https://mcp.freegamestore.online/mcp\"\n    }\n  }\n}",
+    "docs": "https://code.visualstudio.com/docs/agents/reference/mcp-configuration",
+    "listing": {
+      "live": false,
+      "url": null
+    },
+    "lastClientTestedAt": null
+  }
+]

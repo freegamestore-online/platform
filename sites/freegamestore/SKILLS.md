@@ -445,3 +445,7 @@ git push --follow-tags
 | Platform docs | This file (SKILLS.md) |
 
 All support is on GitHub. No email, Slack, or Discord.
+
+## AI assistant connector
+
+Connect Claude, ChatGPT, Gemini CLI / Antigravity, Grok or your editor using the [client setup cards](https://freegamestore.online/build-with-ai#ai-assistants). The public [MCP connector guide](https://freegamestore.online/docs/mcp/) covers OAuth, permissions and tools at `https://mcp.freegamestore.online/mcp`. Review writes before approval. See [support](https://freegamestore.online/support), [MCP privacy](https://freegamestore.online/privacy#mcp) and [terms](https://freegamestore.online/terms#mcp).

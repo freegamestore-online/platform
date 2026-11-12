@@ -1,45 +1,50 @@
 ---
 title: MCP Server
-description: Connect your editor's AI to FreeGameStore via MCP. Build, publish, and improve real games from Cursor or Claude — your AI writes the code, or the platform's VibeCode agent does.
+description: Connect FreeGameStore to your AI assistant. Client setup, OAuth, game tools, privacy, revocation and support.
 ---
 
 The FreeGameStore MCP server drives the **full game build loop from inside your editor**. Endpoint: `https://mcp.freegamestore.online/mcp` (Streamable HTTP).
 
-## Connect
+## Connect your assistant
 
-**Claude Code:**
+See [Use FreeGameStore in your AI assistant](/build-with-ai#ai-assistants) for client-specific steps for Claude (web, Desktop and mobile), ChatGPT, Gemini CLI / Antigravity, Grok, Claude Code, Cursor, Windsurf and VS Code. Custom connector access depends on your client, subscription and workspace permissions. A custom connection does not imply a live directory listing.
+
+The endpoint is `https://mcp.freegamestore.online/mcp` using Streamable HTTP.
 
 ```bash
-claude mcp add freegamestore -- npx mcp-remote https://mcp.freegamestore.online/mcp
+claude mcp add --transport http freegamestore https://mcp.freegamestore.online/mcp
 ```
 
-**Cursor / any MCP client** (config form):
+Run `/mcp` in Claude Code to authenticate. For Gemini CLI:
+
+```bash
+gemini mcp add --transport http freegamestore https://mcp.freegamestore.online/mcp
+```
+
+For Cursor, add to `.cursor/mcp.json`:
 
 ```json
-{
-  "mcpServers": {
-    "freegamestore": {
-      "command": "npx",
-      "args": ["mcp-remote", "https://mcp.freegamestore.online/mcp"]
-    }
-  }
-}
+{"mcpServers":{"freegamestore":{"url":"https://mcp.freegamestore.online/mcp"}}}
 ```
+
+VS Code uses `.vscode/mcp.json` with a `servers` object and `type: "http"` instead. Windsurf uses `mcpServers` and `serverUrl` in `mcp_config.json`. Follow the client cards for full instructions.
 
 ## Two ways to build
 
 1. **Your editor's AI writes the code, the MCP ships it.** Claude or Cursor generates the game, then calls `create_game` (provision + scaffold a template + deploy) and `update_files` / `read_file` / `list_files` to iterate. Every push auto-redeploys to `<id>.freegamestore.online` in ~30–60s.
 2. **You just prompt — the platform's VibeCode agent writes + deploys it.** `agent_build` hands the whole build to the server-side agent; `agent_status` polls progress. FGS's agent is bring-your-own-key — pass an `api_key` for your provider (anthropic/openai/google/github).
 
-## Authentication
+## Authentication and permissions
 
-Read-only tools (`platform_guide`, `sdk_reference`, `deploy_status`, `game_info`, `game_logs`, `read_file`, `list_files`) work unauthenticated. Tools that build, mutate, or list your games need an FGS session token — the one `fgs login` caches. Pass it through `mcp-remote`:
+Connect using OAuth, sign into FreeGameStore and review the consent screen. The connector checks your account and game ownership for protected tools. Public reference tools can be used without signing in where the client supports it. Never paste a session token or API key into a public config or issue.
 
-```bash
-claude mcp add freegamestore -- \
-  npx mcp-remote https://mcp.freegamestore.online/mcp \
-  --header "Authorization: Bearer <token>"
-```
+Start by requesting `platform_guide`. Review writes before approving them. Destructive tools require explicit confirmation; use dry-run previews where supported. MCP access tokens last 30 days, and an expired or revoked underlying session requires sign-in again.
+
+## Troubleshooting, revocation and privacy
+
+If sign-in expires, remove and reconnect the connector, then authenticate again. Remove it in your assistant to disconnect. [Sign out](/signout) to invalidate existing FreeGameStore sessions across clients. Removing a connector does not delete published games or VibeCode sessions.
+
+Use `mcp_audit_log` to inspect your own write attempts (retained for 90 days). Manage games and sessions through the creator console. Read [MCP privacy](/privacy#mcp), [terms](/terms#mcp), and [support](/support) for data controls, recipients and contact information.
 
 ## Tools
 

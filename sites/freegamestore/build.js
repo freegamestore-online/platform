@@ -4,6 +4,8 @@ const https = require('https');
 const crypto = require('crypto');
 
 const ROOT = __dirname;
+const { renderAssistants } = require('./lib/assistants.cjs');
+const assistants = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/ai-assistants.json'), 'utf8'));
 // DIST and the registry path can be overridden via env vars so the test
 // suite in test/build.test.mjs can run a parallel build against a temp
 // registry without touching real outputs.
@@ -448,6 +450,7 @@ const criticalStyleHash = 'sha256-' + crypto.createHash('sha256').update(CRITICA
 
 function replaceAssetVersions(html) {
   return html
+    .replace('{{AI_ASSISTANTS}}', () => renderAssistants(assistants))
     // Unify the header and footer from the shared partials (#416). Viewport is
     // intentionally NOT normalised: the homepage deliberately allows zoom (a11y,
     // enforced by build.test.mjs) while app-like pages block it.
@@ -1087,6 +1090,7 @@ const sitemapEntries = [
   '  <url><loc>https://freegamestore.online/ai/cline</loc><priority>0.7</priority></url>',
   '  <url><loc>https://freegamestore.online/ai/chatgpt-web</loc><priority>0.7</priority></url>',
   '  <url><loc>https://freegamestore.online/developers</loc><priority>0.8</priority></url>',
+  '  <url><loc>https://freegamestore.online/support</loc><priority>0.5</priority></url>',
   '  <url><loc>https://freegamestore.online/privacy</loc><priority>0.5</priority></url>',
   '  <url><loc>https://freegamestore.online/terms</loc><priority>0.5</priority></url>',
   ...uniqueAuthors.map(username =>
@@ -1132,6 +1136,7 @@ const filesToCopy = [
   'contribute.html',
   'analytics.html',
   'privacy.html',
+  'support.html',
   'terms.html',
   'build-with-ai.html',
   'get-started.html',

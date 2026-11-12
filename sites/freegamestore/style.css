@@ -1770,7 +1770,7 @@ footer .container {
 .ai-hero h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 1rem; }
 .ai-lead { font-size: 1.15rem; color: var(--muted); line-height: 1.6; max-width: 720px; margin-bottom: 2rem; }
 .ai-tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; margin: 1.5rem 0 3rem; }
-.ai-tool { padding: 1.25rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); transition: border-color 0.15s; text-decoration: none; color: var(--ink); display: block; }
+.ai-tool { min-width: 0; overflow-wrap: anywhere; padding: 1.25rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); transition: border-color 0.15s; text-decoration: none; color: var(--ink); display: block; }
 .ai-tool:hover { border-color: var(--accent); text-decoration: none; }
 .ai-tool h3 { font-size: 1.1rem; margin-bottom: 0.4rem; }
 .ai-tool p { font-size: 0.9rem; color: var(--muted); }
