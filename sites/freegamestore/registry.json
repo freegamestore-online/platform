@@ -2778,24 +2778,6 @@
       "creatorGithubId": "152139341"
     },
     {
-      "id": "e2e-create-console-mwdfuz3g-test",
-      "name": "E2E Create Canary",
-      "category": "arcade",
-      "icon": "🎮",
-      "iconBg": "#ecfdf5",
-      "description": "canary",
-      "appUrl": "https://e2e-create-console-mwdfuz3g-test.freegamestore.online",
-      "repo": "freegamestore-online/e2e-create-console-mwdfuz3g-test",
-      "hostedOn": "r2",
-      "type": "standalone",
-      "developer": "FreeGameStore",
-      "creatorSub": "canary:freegamestore-online/platform",
-      "engine": "canvas",
-      "firstPublished": "2026-11-12T11:02:25.396Z",
-      "status": "pending",
-      "provisionedSha": "ee5294fb8e60dc9f7f84d5563789e1065d398690"
-    },
-    {
       "id": "e2e-create-mcp-mwdfv1ao-test",
       "name": "E2E Create Canary",
       "category": "arcade",
