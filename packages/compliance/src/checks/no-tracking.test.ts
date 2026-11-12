@@ -206,3 +206,68 @@ describe('checkNoTracking: platform loader only (#356)', () => {
     expect(r.status).toBe('pass');
   });
 });
+
+// #492: the no-tracking check scanned every .json file as text, so the
+// bare English word "plausible" in a trivia/word game's data JSON failed
+// the check the same way it did on FAS (freeappstore-online/platform#458).
+// Ported FAS's fix: only package.json is scanned (for dependency names);
+// other .json is data and SDK-adjacent names need hostname/call-site/package
+// context, not a bare word match.
+describe('checkNoTracking: SDK-context required, not bare words in data (#492)', () => {
+  it('does not flag "plausible" in trivia question data JSON', async () => {
+    await writeFile(
+      join(dir, 'web', 'questions.json'),
+      JSON.stringify([{ q: 'Which answer is most plausible?', a: 'B' }]),
+    );
+    const r = await checkNoTracking(fsFileSource(dir));
+    expect(r.status).toBe('pass');
+  });
+
+  it('does not flag "umami" in a cooking game\'s recipe data JSON', async () => {
+    await writeFile(
+      join(dir, 'web', 'recipes.json'),
+      JSON.stringify([{ name: 'Dashi', tags: ['umami', 'savory'] }]),
+    );
+    const r = await checkNoTracking(fsFileSource(dir));
+    expect(r.status).toBe('pass');
+  });
+
+  it('flags Plausible installed via package.json dependency', async () => {
+    await writeFile(
+      join(dir, 'web', 'package.json'),
+      '{"dependencies":{"plausible-tracker":"0.3.9"}}',
+    );
+    const r = await checkNoTracking(fsFileSource(dir));
+    expect(r.status).toBe('fail');
+    expect(r.detail).toMatch(/plausible/);
+  });
+
+  it('flags a self-hosted Plausible script tag', async () => {
+    await writeFile(
+      join(dir, 'web', 'index.html'),
+      '<script defer data-domain="chess.freegamestore.online" src="https://plausible.io/js/script.js"></script>',
+    );
+    const r = await checkNoTracking(fsFileSource(dir));
+    expect(r.status).toBe('fail');
+    expect(r.detail).toMatch(/plausible/);
+  });
+
+  it('flags Matomo installed via package.json dependency even though matomo.cloud is absent', async () => {
+    await writeFile(
+      join(dir, 'web', 'package.json'),
+      '{"dependencies":{"matomo-tracker":"1.2.2"}}',
+    );
+    const r = await checkNoTracking(fsFileSource(dir));
+    expect(r.status).toBe('fail');
+    expect(r.detail).toMatch(/matomo/);
+  });
+
+  it('does not scan non-package.json JSON for dependency-style names either', async () => {
+    await writeFile(
+      join(dir, 'web', 'manifest-like.json'),
+      '{"dependencies":{"posthog-js":"1.0.0"}}',
+    );
+    const r = await checkNoTracking(fsFileSource(dir));
+    expect(r.status).toBe('pass');
+  });
+});
