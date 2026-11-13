@@ -2776,6 +2776,24 @@
       "provisionedSha": "986045da7e69627d989b33f2a866dba7e20c990c",
       "lastUpdated": "2026-11-09T01:36:25Z",
       "creatorGithubId": "152139341"
+    },
+    {
+      "id": "bug-hunter",
+      "name": "Bug Hunter",
+      "category": "brain-training",
+      "icon": "🎮",
+      "iconBg": "#ecfdf5",
+      "description": "Find the bug in beginner-friendly JavaScript puzzles.",
+      "appUrl": "https://bug-hunter.freegamestore.online",
+      "repo": "freegamestore-online/bug-hunter",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "lakshayredhu",
+      "creatorGithub": "lakshayredhu",
+      "creatorGithubId": "329980547",
+      "firstPublished": "2026-11-13T07:21:59.702Z",
+      "status": "pending",
+      "provisionedSha": "b99aee140147fc97a432f00d332e2cd040ee33d8"
     }
   ]
 }
