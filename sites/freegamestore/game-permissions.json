@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-04T08:18:12.297Z",
+  "generatedAt": "2026-11-13T08:57:38.238Z",
   "games": {
     "2048": {
       "declared": {},
@@ -66,6 +66,10 @@
       "detected": []
     },
     "bubbleshooter": {
+      "declared": {},
+      "detected": []
+    },
+    "bug-hunter": {
       "declared": {},
       "detected": []
     },
