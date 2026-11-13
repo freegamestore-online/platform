@@ -43,6 +43,10 @@ jobs:
       - name: Scan game permissions
         run: node scripts/scan-game-permissions.mjs --clones .game-clones
       - name: Commit changes and dispatch storefront deployment
+        # Also after a scan that could not read one game (#538): the others are
+        # refreshed and that game keeps its previous entry. Skipping the commit
+        # left new games out of the file and blocked every storefront deploy.
+        if: ${{ !cancelled() }}
         run: |
           set -euo pipefail
           if git diff --quiet -- sites/freegamestore/game-permissions.json; then
