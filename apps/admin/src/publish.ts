@@ -1,5 +1,6 @@
 import { normalizeCategorySlug } from '../../../contracts/game-metadata/v1/contract.js';
 import { provisionGameAnalytics } from './analytics-provision';
+import { DEFAULT_GAME_ICON, pickGameIcon } from './game-icon';
 import { REGISTRY_LOCATION } from './registryLocation';
 import { readRegistry } from './registryReader';
 
@@ -1019,10 +1020,14 @@ export async function handlePublish(
   // storefront build DROP the whole game from the store + search
   // (PLATFORM-ISSUES A1 + REGISTRY-VALIDATION-RECOMMENDATIONS). `||` falls back on
   // "" too, so a blank field is never persisted.
-  const icon = req.icon || '🎮';
   const iconBg = normalizeIconBg(req.iconBg);
   const category = normalizeCategorySlug(req.category) || 'casual';
   const description = req.description || req.oneliner || req.name;
+  // Blank, or the create form's pre-filled gamepad left in place: pick one (#537).
+  const icon =
+    req.icon && req.icon !== DEFAULT_GAME_ICON
+      ? req.icon
+      : pickGameIcon(req.name, description, category);
   const name = displayName(req.name, id);
   const idError = validateId(id);
   if (idError) {
