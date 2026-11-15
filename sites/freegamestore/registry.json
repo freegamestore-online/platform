@@ -2796,24 +2796,6 @@
       "provisionedSha": "b99aee140147fc97a432f00d332e2cd040ee33d8"
     },
     {
-      "id": "e2e-create-console-mwhpqcou-test",
-      "name": "E2E Create Canary",
-      "category": "arcade",
-      "icon": "🕹️",
-      "iconBg": "#ecfdf5",
-      "description": "canary",
-      "appUrl": "https://e2e-create-console-mwhpqcou-test.freegamestore.online",
-      "repo": "freegamestore-online/e2e-create-console-mwhpqcou-test",
-      "hostedOn": "r2",
-      "type": "standalone",
-      "developer": "FreeGameStore",
-      "creatorSub": "canary:freegamestore-online/platform",
-      "engine": "canvas",
-      "firstPublished": "2026-11-15T10:49:50.741Z",
-      "status": "pending",
-      "provisionedSha": "63ef6ff83fdb2a7d363c617cff1c41c6783d2e5d"
-    },
-    {
       "id": "e2e-create-mcp-mwhpqe29-test",
       "name": "E2E Create Canary",
       "category": "arcade",
