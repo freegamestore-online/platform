@@ -203,8 +203,17 @@ export function needsSdkCss(range) {
   return major > 0 || minor >= 20;
 }
 
+/** pnpm is pnpm.cmd on Windows, which execFile cannot launch without a shell; only pnpm gets one (its args are plain words). */
+export const needsShell = (cmd, platform = process.platform) =>
+  platform === 'win32' && cmd === 'pnpm';
+
 function sh(cmd, args, opts = {}) {
-  return execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...opts });
+  return execFileSync(cmd, args, {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    shell: needsShell(cmd),
+    ...opts,
+  });
 }
 
 function tryRun(cmd, args, opts) {

@@ -10,6 +10,7 @@ import {
   ensureSdkCss,
   GAMES_SDK,
   needsSdkCss,
+  needsShell,
 } from './fleet-deploy-workflow.mjs';
 
 const generated = GAME_DEPLOY_WORKFLOW;
@@ -235,4 +236,10 @@ test('the css-only commit refs the issues and carries attribution', () => {
     CSS_COMMIT_MESSAGE.trim().split('\n').at(-1),
     'Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>',
   );
+});
+
+test('only pnpm on Windows is launched through a shell', () => {
+  assert.equal(needsShell('pnpm', 'win32'), true);
+  assert.equal(needsShell('pnpm', 'linux'), false);
+  assert.equal(needsShell('git', 'win32'), false);
 });
