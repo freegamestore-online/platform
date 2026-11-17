@@ -9,6 +9,7 @@ import {
   classify,
   ensureSdkCss,
   GAMES_SDK,
+  isGameRepo,
   needsSdkCss,
   needsShell,
 } from './fleet-deploy-workflow.mjs';
@@ -242,4 +243,20 @@ test('only pnpm on Windows is launched through a shell', () => {
   assert.equal(needsShell('pnpm', 'win32'), true);
   assert.equal(needsShell('pnpm', 'linux'), false);
   assert.equal(needsShell('git', 'win32'), false);
+});
+
+test('isGameRepo keeps games and drops platform, infra, templates, e2e and dot repos (#212)', () => {
+  for (const name of [
+    'platform',
+    'ci-workflows',
+    'brand',
+    'public',
+    'template-shooter',
+    'e2e-tests',
+    '.github',
+    '',
+  ]) {
+    assert.equal(isGameRepo(name), false, name);
+  }
+  for (const name of ['tenwise', 'beat-star']) assert.equal(isGameRepo(name), true, name);
 });

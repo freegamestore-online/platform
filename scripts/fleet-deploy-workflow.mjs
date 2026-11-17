@@ -431,6 +431,17 @@ async function apply(plan, generated, wait) {
   return { ...plan, sha, run: run.url, result: `reverted (run ${run.conclusion})` };
 }
 
+/** True for org repos that are games; false for platform/infra, templates, e2e fixtures and dot-repos. */
+export function isGameRepo(name) {
+  return Boolean(
+    name &&
+      !['platform', 'ci-workflows', 'brand', 'public'].includes(name) &&
+      !name.startsWith('template-') &&
+      !name.startsWith('e2e-') &&
+      !name.startsWith('.'),
+  );
+}
+
 function allGameRepos() {
   return sh('gh', [
     'repo',
@@ -445,14 +456,7 @@ function allGameRepos() {
     '.[].name',
   ])
     .split('\n')
-    .filter(
-      (name) =>
-        name &&
-        !['platform', 'ci-workflows', 'brand', 'public'].includes(name) &&
-        !name.startsWith('template-') &&
-        !name.startsWith('e2e-') &&
-        !name.startsWith('.'),
-    );
+    .filter(isGameRepo);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
