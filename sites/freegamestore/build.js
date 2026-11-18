@@ -1125,6 +1125,7 @@ const filesToCopy = [
   'get-started.js',
   'analytics.js',
   'favicon.svg',
+  'wordmark-dark.svg',
   'favicon-16x16.png',
   'favicon-32x32.png',
   'brand.json',

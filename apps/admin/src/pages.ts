@@ -18,6 +18,8 @@ export function renderSignIn(signedInAs: string | null): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Sign in — FreeGameStore Admin</title>
+<link rel="icon" href="https://freegamestore.online/favicon.svg?v=2026-11-18" type="image/svg+xml">
+<link rel="apple-touch-icon" href="https://freegamestore.online/apple-touch-icon.png?v=2026-11-18">
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -25,8 +27,7 @@ export function renderSignIn(signedInAs: string | null): string {
     background:#0d0f0e; color:#e5e5e5; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
   .card { width:100%; max-width:380px; background:#141715; border:1px solid #262a27; border-radius:16px;
     padding:2.25rem 2rem; text-align:center; }
-  .mark { font-family:Fraunces,Georgia,serif; font-weight:800; font-size:1.35rem; letter-spacing:-0.02em; margin-bottom:0.35rem; }
-  .mark span { color:#34d399; }
+  .mark { margin-bottom:0.35rem; }
   .sub { color:#8b938d; font-size:0.8rem; margin:0 0 1.6rem; text-transform:uppercase; letter-spacing:0.12em; }
   .note { color:#a8b0aa; font-size:0.9rem; line-height:1.5; margin:0 0 1.6rem; }
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:0.5rem; width:100%;
@@ -35,7 +36,7 @@ export function renderSignIn(signedInAs: string | null): string {
   .btn:hover { background:#2dd4a7; }
 </style></head>
 <body><main class="card">
-  <div class="mark">Free<span>Game</span>Store</div>
+  <div class="mark"><img src="https://freegamestore.online/wordmark-dark.svg?v=2026-11-18" width="255" height="60" alt="FreeGameStore"></div>
   <p class="sub">Admin</p>
   ${wrong}
   <a class="btn" href="${loginUrl}">${cta}</a>
