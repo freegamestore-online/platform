@@ -5,15 +5,15 @@
  * already query-versioned, so a new ?v= is a cache miss = fresh fetch).
  * Cross-origin requests (fonts, analytics) are left to the network untouched. */
 
-const CACHE = 'fgs-storefront-v1';
+const CACHE = 'fgs-storefront-2026-11-18';
 const CORE = [
   '/',
   '/style.css',
   '/theme.js',
   '/storefront.js',
-  '/favicon.svg',
-  '/icon-192.png',
-  '/icon-512.png',
+  '/favicon.svg?v=2026-11-18',
+  '/icon-192.png?v=2026-11-18',
+  '/icon-512.png?v=2026-11-18',
   '/manifest.webmanifest',
 ];
 

@@ -104,7 +104,13 @@ function SignIn() {
   return (
     <div className="min-h-[100dvh] flex items-center justify-center px-4">
       <div className="rounded-2xl border border-line bg-panel p-8 max-w-sm w-full text-center">
-        <img src="/favicon.svg" width={48} height={48} alt="" className="mx-auto mb-4 size-12" />
+        <img
+          src="/favicon.svg?v=2026-11-18"
+          width={48}
+          height={48}
+          alt=""
+          className="mx-auto mb-4 size-12"
+        />
         <h1 className="text-xl font-extrabold text-ink">
           Free<span className="text-accent">Game</span>Store{' '}
           <span className="text-xs align-middle border border-line text-muted rounded px-1.5 py-0.5 ml-1">
@@ -134,7 +140,7 @@ function Header({ navigate, view }: { navigate: (h: string) => void; view: View 
             onClick={() => navigate('/')}
             className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-ink"
           >
-            <img src="/favicon.svg" width={32} height={32} alt="" className="size-8" />
+            <img src="/favicon.svg?v=2026-11-18" width={32} height={32} alt="" className="size-8" />
             <span>
               Free<span className="text-accent">Game</span>Store
             </span>

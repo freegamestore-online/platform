@@ -49,7 +49,7 @@ export function Nav() {
           to="/"
           className="flex items-center gap-2 text-base font-extrabold tracking-tight text-ink no-underline"
         >
-          <img src="/favicon.svg" width={32} height={32} alt="" className="size-8" />
+          <img src="/favicon.svg?v=2026-11-18" width={32} height={32} alt="" className="size-8" />
           <span>
             Free<span className="text-accent">Game</span>Store
           </span>

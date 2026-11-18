@@ -17,3 +17,5 @@ Individual apps and games retain their own names and icons. This kit identifies 
 ## Distribution
 
 The canonical exports are copied to `sites/freegamestore/`, `apps/console/web/public/` and `apps/admin/web/public/`. Public `brand.json` files make the deployed revision inspectable. Assets are local to each deployable surface, so admin and creator experiences do not depend on the storefront origin for their identity.
+
+Version public identity references with `?v=2026-11-18` (the kit version). The storefront caches image paths immutably; changing bytes at an unversioned URL can leave the old logo visible. Update header, favicon, touch icon, PWA manifest icon and social-image references together when the kit changes.
