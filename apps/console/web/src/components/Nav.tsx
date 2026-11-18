@@ -47,9 +47,12 @@ export function Nav() {
       <div className="max-w-3xl mx-auto px-4 flex items-center justify-between">
         <Link
           to="/"
-          className="font-display text-xl font-extrabold tracking-tight text-ink no-underline"
+          className="flex items-center gap-2 text-base font-extrabold tracking-tight text-ink no-underline"
         >
-          Free<span className="text-accent">Game</span>Store
+          <img src="/favicon.svg" width={32} height={32} alt="" className="size-8" />
+          <span>
+            Free<span className="text-accent">Game</span>Store
+          </span>
         </Link>
 
         <nav className="hidden sm:flex items-center gap-5">

@@ -1,0 +1,13 @@
+{
+  "version": "2026-11-18",
+  "id": "fgs",
+  "name": "FreeGameStore",
+  "prefix": "Free",
+  "noun": "Game",
+  "family": "games",
+  "accent": "#10b981",
+  "darkAccent": "#34d399",
+  "gradient": "#34d399",
+  "ink": "#ffffff",
+  "domain": "freegamestore.online"
+}

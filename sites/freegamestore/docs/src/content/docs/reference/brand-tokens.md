@@ -3,6 +3,9 @@ title: Brand tokens
 description: The CSS variables every game shares. Read these, don't override them.
 ---
 
+The platform uses the emerald gamepad mark and the Manrope 800 **FreeGameStore** wordmark from the shared store-family kit. Games keep their own icons and names. See the repository’s `brand/BRAND.md` for platform assets.
+
+
 The FreeGameStore brand surface is shared by every game in the catalog
 through a small set of CSS custom properties. The SDK components
 (`<GameShell>`, `<GameTopbar>`, `<GameButton>`) read these tokens; your

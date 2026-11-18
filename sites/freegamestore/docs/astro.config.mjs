@@ -13,6 +13,13 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'FreeGameStore SDK',
+      favicon: '/favicon.svg',
+      logo: {
+        light: './src/assets/wordmark-light.svg',
+        dark: './src/assets/wordmark-dark.svg',
+        alt: '',
+        replacesTitle: true,
+      },
       description: 'How to build, ship, and maintain a free game on freegamestore.online.',
       social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/freegamestore-online' }],
       editLink: {
