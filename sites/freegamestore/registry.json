@@ -2795,6 +2795,24 @@
       "status": "failed",
       "provisionedSha": "b99aee140147fc97a432f00d332e2cd040ee33d8",
       "lastUpdated": "2026-11-13T09:16:14Z"
+    },
+    {
+      "id": "e2e-create-console-mwnh586l-test",
+      "name": "E2E Create Canary",
+      "category": "arcade",
+      "icon": "🕹️",
+      "iconBg": "#ecfdf5",
+      "description": "canary",
+      "appUrl": "https://e2e-create-console-mwnh586l-test.freegamestore.online",
+      "repo": "freegamestore-online/e2e-create-console-mwnh586l-test",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "FreeGameStore",
+      "creatorSub": "canary:freegamestore-online/platform",
+      "engine": "canvas",
+      "firstPublished": "2026-11-19T11:36:05.629Z",
+      "status": "pending",
+      "provisionedSha": "01f205bc300dabed77c96cfbc123732b3f91b784"
     }
   ]
 }
