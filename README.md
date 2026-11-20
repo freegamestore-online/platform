@@ -24,6 +24,10 @@ The platform monorepo for [FreeGameStore](https://freegamestore.online): the sto
 | `packages/fgs-cli` | [`@freegamestore/cli`](https://www.npmjs.com/package/@freegamestore/cli) | CLI for scaffolding and publishing games |
 | `packages/compliance` | [`@freegamestore/compliance`](https://www.npmjs.com/package/@freegamestore/compliance) | Compliance checks (brand, accessibility, security) |
 
+## Brand
+
+The brand guide is [`brand/BRAND.md`](brand/BRAND.md); the logo and icon files are in `brand/assets/`.
+
 ## Development
 
 ```bash
