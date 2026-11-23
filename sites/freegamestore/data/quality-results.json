@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-11-16T15:04:39.729Z",
+  "timestamp": "2026-11-23T17:38:12.026Z",
   "games": [
     {
       "id": "2048",
       "name": "2048",
       "url": "https://2048.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11823,
+      "loadTimeMs": 11328,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -206,7 +206,7 @@
       "name": "Asteroids",
       "url": "https://asteroids.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11740,
+      "loadTimeMs": 11540,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -405,7 +405,7 @@
       "name": "Billiards",
       "url": "https://billiards.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11447,
+      "loadTimeMs": 11032,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -604,7 +604,7 @@
       "name": "blackjack",
       "url": "https://blackjack.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11527,
+      "loadTimeMs": 11407,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -803,7 +803,7 @@
       "name": "Bowling",
       "url": "https://bowling.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11922,
+      "loadTimeMs": 11129,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -1002,7 +1002,7 @@
       "name": "Breakout",
       "url": "https://breakout.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11475,
+      "loadTimeMs": 11362,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -1202,7 +1202,7 @@
       "name": "bubbleshooter",
       "url": "https://bubbleshooter.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 10914,
+      "loadTimeMs": 10853,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -1401,10 +1401,10 @@
       "name": "Checkers",
       "url": "https://checkers.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 11188,
+      "loadTimeMs": 11511,
       "consoleErrors": [
-        "Failed to load resource: the server responded with a status of 401 ()",
-        "Failed to load resource: the server responded with a status of 410 ()"
+        "Failed to load resource: the server responded with a status of 410 ()",
+        "Failed to load resource: the server responded with a status of 401 ()"
       ],
       "viewports": [
         {
@@ -1601,7 +1601,7 @@
       "name": "Chess",
       "url": "https://chess.freegamestore.online",
       "score": 20,
-      "loadTimeMs": 10922,
+      "loadTimeMs": 11935,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -1800,7 +1800,7 @@
       "name": "coinflip",
       "url": "https://coinflip.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 10918,
+      "loadTimeMs": 11717,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -2001,8 +2001,8 @@
       "score": 60,
       "loadTimeMs": 11105,
       "consoleErrors": [
-        "Failed to load resource: the server responded with a status of 401 ()",
-        "Failed to load resource: the server responded with a status of 410 ()"
+        "Failed to load resource: the server responded with a status of 410 ()",
+        "Failed to load resource: the server responded with a status of 401 ()"
       ],
       "viewports": [
         {
@@ -2199,7 +2199,7 @@
       "name": "dice",
       "url": "https://dice.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 10958,
+      "loadTimeMs": 10885,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -2398,7 +2398,7 @@
       "name": "Dragon Tap",
       "url": "https://dragontap.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11064,
+      "loadTimeMs": 12499,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -2598,7 +2598,7 @@
       "name": "Pipe Flyer",
       "url": "https://flappy.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11013,
+      "loadTimeMs": 10811,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -2798,7 +2798,7 @@
       "name": "Road Hopper",
       "url": "https://frogger.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 10997,
+      "loadTimeMs": 11124,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -2997,7 +2997,7 @@
       "name": "Hangman",
       "url": "https://hangman.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 10919,
+      "loadTimeMs": 12323,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -3196,7 +3196,7 @@
       "name": "highlow",
       "url": "https://highlow.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11152,
+      "loadTimeMs": 10819,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -3395,7 +3395,7 @@
       "name": "Mahjong",
       "url": "https://mahjong.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 10787,
+      "loadTimeMs": 12556,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -3595,7 +3595,7 @@
       "name": "Match 3",
       "url": "https://match3.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11064,
+      "loadTimeMs": 10904,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -3794,7 +3794,7 @@
       "name": "Memory",
       "url": "https://memory.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 10877,
+      "loadTimeMs": 10717,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -3991,7 +3991,7 @@
       "name": "memorymatch",
       "url": "https://memorymatch.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 10721,
+      "loadTimeMs": 10760,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -4190,7 +4190,7 @@
       "name": "Minesweeper",
       "url": "https://minesweeper.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 10965,
+      "loadTimeMs": 10747,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -4388,7 +4388,7 @@
       "name": "MusicBot",
       "url": "https://musicbot.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 1460,
+      "loadTimeMs": 1281,
       "consoleErrors": [],
       "viewports": [
         {
@@ -4583,7 +4583,7 @@
       "name": "Dot Muncher",
       "url": "https://pacman.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 10941,
+      "loadTimeMs": 10708,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -4782,7 +4782,7 @@
       "name": "pinball",
       "url": "https://pinball.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 10692,
+      "loadTimeMs": 10704,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -4981,7 +4981,7 @@
       "name": "PixelCode",
       "url": "https://pixelcode.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 1696,
+      "loadTimeMs": 1334,
       "consoleErrors": [],
       "viewports": [
         {
@@ -5176,11 +5176,10 @@
       "name": "Platformer",
       "url": "https://platformer.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11463,
+      "loadTimeMs": 10923,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
-        "Failed to load resource: the server responded with a status of 410 ()",
-        "TypeError: Cannot read properties of null (reading 'x')\n    at Object.update (https://platformer.freegamestore.online/assets/kaplay-Df2cu_p-.js:56:64805)\n    at e (https://platformer.freegamestore.online/assets/kaplay-Df2cu_p-.js:53:877)\n    at https://platformer.freegamestore.online/assets/kaplay-Df2cu_p-.js:53:1117\n    at Ws.forEach (<anonymous>)\n    at ye.trigger (https://platformer.freegamestore.online/assets/kaplay-Df2cu_p-.js:53:1099)\n    at Pt.trigger (https://platformer.freegamestore.online/assets/kaplay-Df2cu_p-.js:53:1575)\n    at Object.trigger (https://platformer.freegamestore.online/assets/kaplay-Df2cu_p-.js:56:23907)\n    at Object.update (https://platformer.freegamestore.online/assets/kaplay-Df2cu_p-.js:56:19177)\n    at https://platformer.freegamestore.online/assets/kaplay-Df2cu_p-.js:56:19162\n    at Array.forEach (<anonymous>)"
+        "Failed to load resource: the server responded with a status of 410 ()"
       ],
       "viewports": [
         {
@@ -5224,8 +5223,8 @@
           "scrollWidth": 393,
           "scrollHeight": 852,
           "clippedInteractive": 0,
-          "totalInteractive": 8,
-          "smallTouchTargets": 5,
+          "totalInteractive": 7,
+          "smallTouchTargets": 4,
           "contentOverflow": 0
         },
         {
@@ -5377,7 +5376,7 @@
       "name": "Pong",
       "url": "https://pong.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11129,
+      "loadTimeMs": 10745,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -5577,7 +5576,7 @@
       "name": "Puzzle",
       "url": "https://puzzle.freegamestore.online",
       "score": 20,
-      "loadTimeMs": 10879,
+      "loadTimeMs": 10797,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -5776,7 +5775,7 @@
       "name": "Quick Dice",
       "url": "https://quickdice.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11049,
+      "loadTimeMs": 10905,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -5976,7 +5975,7 @@
       "name": "Racing",
       "url": "https://racing.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11075,
+      "loadTimeMs": 10919,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -6174,7 +6173,7 @@
       "name": "reversi",
       "url": "https://reversi.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 10883,
+      "loadTimeMs": 10795,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -6373,7 +6372,7 @@
       "name": "riichi",
       "url": "https://riichi.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 11079,
+      "loadTimeMs": 10892,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -6418,7 +6417,7 @@
           "scrollsY": false,
           "scrollWidth": 393,
           "scrollHeight": 852,
-          "clippedInteractive": 0,
+          "clippedInteractive": 2,
           "totalInteractive": 20,
           "smallTouchTargets": 4,
           "contentOverflow": 0
@@ -6572,7 +6571,7 @@
       "name": "RoboClean",
       "url": "https://roboclean.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 1500,
+      "loadTimeMs": 1569,
       "consoleErrors": [],
       "viewports": [
         {
@@ -6767,7 +6766,7 @@
       "name": "Simon",
       "url": "https://simon.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 10883,
+      "loadTimeMs": 10777,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -6966,7 +6965,7 @@
       "name": "Slither",
       "url": "https://slither.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 10716,
+      "loadTimeMs": 10889,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -7163,10 +7162,10 @@
       "name": "Snake",
       "url": "https://snake.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 10917,
+      "loadTimeMs": 10665,
       "consoleErrors": [
-        "Failed to load resource: the server responded with a status of 401 ()",
-        "Failed to load resource: the server responded with a status of 410 ()"
+        "Failed to load resource: the server responded with a status of 410 ()",
+        "Failed to load resource: the server responded with a status of 401 ()"
       ],
       "viewports": [
         {
@@ -7363,7 +7362,7 @@
       "name": "Solitaire",
       "url": "https://solitaire.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 10955,
+      "loadTimeMs": 10719,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -7563,7 +7562,7 @@
       "name": "spaceinvaders",
       "url": "https://spaceinvaders.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 10988,
+      "loadTimeMs": 10838,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -7762,7 +7761,7 @@
       "name": "Space Shooter",
       "url": "https://spaceshooter.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11854,
+      "loadTimeMs": 11121,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -7780,7 +7779,7 @@
           "scrollHeight": 568,
           "clippedInteractive": 0,
           "totalInteractive": 7,
-          "smallTouchTargets": 5,
+          "smallTouchTargets": 4,
           "contentOverflow": 0
         },
         {
@@ -7962,7 +7961,7 @@
       "name": "Sudoku",
       "url": "https://sudoku.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 11050,
+      "loadTimeMs": 10923,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -8162,7 +8161,7 @@
       "name": "tanks",
       "url": "https://tanks.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11171,
+      "loadTimeMs": 10768,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -8361,7 +8360,7 @@
       "name": "Falling Blocks",
       "url": "https://tetris.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 10849,
+      "loadTimeMs": 10890,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -8561,7 +8560,7 @@
       "name": "tictactoe",
       "url": "https://tictactoe.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 10740,
+      "loadTimeMs": 10756,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -8760,7 +8759,7 @@
       "name": "Toe Tap",
       "url": "https://toetap.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11067,
+      "loadTimeMs": 10732,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -8959,7 +8958,7 @@
       "name": "TurtleCode",
       "url": "https://turtlecode.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 1434,
+      "loadTimeMs": 1350,
       "consoleErrors": [],
       "viewports": [
         {
@@ -9154,7 +9153,7 @@
       "name": "war",
       "url": "https://war.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11052,
+      "loadTimeMs": 10695,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -9353,7 +9352,7 @@
       "name": "Whack-a-Mole",
       "url": "https://whackamole.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 10882,
+      "loadTimeMs": 10733,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -9399,7 +9398,7 @@
           "scrollWidth": 393,
           "scrollHeight": 852,
           "clippedInteractive": 0,
-          "totalInteractive": 8,
+          "totalInteractive": 9,
           "smallTouchTargets": 5,
           "contentOverflow": 0
         },
@@ -9414,7 +9413,7 @@
           "scrollWidth": 414,
           "scrollHeight": 896,
           "clippedInteractive": 0,
-          "totalInteractive": 9,
+          "totalInteractive": 8,
           "smallTouchTargets": 5,
           "contentOverflow": 0
         },
@@ -9429,7 +9428,7 @@
           "scrollWidth": 600,
           "scrollHeight": 800,
           "clippedInteractive": 0,
-          "totalInteractive": 8,
+          "totalInteractive": 9,
           "smallTouchTargets": 0,
           "contentOverflow": 0
         },
@@ -9459,7 +9458,7 @@
           "scrollWidth": 1024,
           "scrollHeight": 1366,
           "clippedInteractive": 0,
-          "totalInteractive": 9,
+          "totalInteractive": 8,
           "smallTouchTargets": 0,
           "contentOverflow": 0
         },
@@ -9474,7 +9473,7 @@
           "scrollWidth": 568,
           "scrollHeight": 320,
           "clippedInteractive": 0,
-          "totalInteractive": 9,
+          "totalInteractive": 7,
           "smallTouchTargets": 0,
           "contentOverflow": 9
         },
@@ -9504,7 +9503,7 @@
           "scrollWidth": 736,
           "scrollHeight": 414,
           "clippedInteractive": 0,
-          "totalInteractive": 9,
+          "totalInteractive": 8,
           "smallTouchTargets": 0,
           "contentOverflow": 0
         },
@@ -9552,7 +9551,7 @@
       "name": "Five-Letter Word",
       "url": "https://wordle.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 10940,
+      "loadTimeMs": 10741,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -9750,7 +9749,7 @@
       "name": "Word Search",
       "url": "https://wordsearch.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11160,
+      "loadTimeMs": 10812,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -9947,7 +9946,7 @@
       "name": "Crazy Eights",
       "url": "https://uno.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 1693,
+      "loadTimeMs": 1313,
       "consoleErrors": [],
       "viewports": [
         {
@@ -10144,7 +10143,7 @@
       "name": "mcp-hybrid-test",
       "url": "https://mcp-hybrid-test.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11016,
+      "loadTimeMs": 10704,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -10343,7 +10342,7 @@
       "name": "Block Sudoku",
       "url": "https://blockudoku.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1632,
+      "loadTimeMs": 1211,
       "consoleErrors": [],
       "viewports": [
         {
@@ -10540,7 +10539,7 @@
       "name": "Maze Racer",
       "url": "https://maze-racer.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 1489,
+      "loadTimeMs": 1295,
       "consoleErrors": [],
       "viewports": [
         {
@@ -10735,7 +10734,7 @@
       "name": "Five-Letter Word",
       "url": "https://wordguess.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 11002,
+      "loadTimeMs": 10708,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -10934,7 +10933,7 @@
       "name": "Color Match",
       "url": "https://color-match.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 1616,
+      "loadTimeMs": 1465,
       "consoleErrors": [],
       "viewports": [
         {
@@ -11131,7 +11130,7 @@
       "name": "Fire & Ice Duo",
       "url": "https://fireboyandwatergirl.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1555,
+      "loadTimeMs": 1704,
       "consoleErrors": [],
       "viewports": [
         {
@@ -11328,7 +11327,7 @@
       "name": "Nail Studio",
       "url": "https://nail-studio.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 1605,
+      "loadTimeMs": 1345,
       "consoleErrors": [],
       "viewports": [
         {
@@ -11525,7 +11524,7 @@
       "name": "TS Probe",
       "url": "https://ts-probe.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 10911,
+      "loadTimeMs": 11026,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -11724,7 +11723,7 @@
       "name": "Apple Picking",
       "url": "https://apple-picking.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1278,
+      "loadTimeMs": 1443,
       "consoleErrors": [],
       "viewports": [
         {
@@ -11921,7 +11920,7 @@
       "name": "Kart Racers",
       "url": "https://kart-racers.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1502,
+      "loadTimeMs": 1363,
       "consoleErrors": [],
       "viewports": [
         {
@@ -12118,7 +12117,7 @@
       "name": "MCP Proof",
       "url": "https://mcp-proof.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 10816,
+      "loadTimeMs": 10688,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -12317,7 +12316,7 @@
       "name": "Slicing",
       "url": "https://slicing-game.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 1631,
+      "loadTimeMs": 1711,
       "consoleErrors": [],
       "viewports": [
         {
@@ -12514,7 +12513,7 @@
       "name": "AVOIDit",
       "url": "https://bladeblast.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1578,
+      "loadTimeMs": 1483,
       "consoleErrors": [],
       "viewports": [
         {
@@ -12711,7 +12710,7 @@
       "name": "Decaying Tic Tac Toe",
       "url": "https://decaying-tic-tac-toe.freegamestore.online",
       "score": 20,
-      "loadTimeMs": 1669,
+      "loadTimeMs": 1455,
       "consoleErrors": [],
       "viewports": [
         {
@@ -12906,7 +12905,7 @@
       "name": "Beat Star",
       "url": "https://beat-star.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 1454,
+      "loadTimeMs": 1470,
       "consoleErrors": [],
       "viewports": [
         {
@@ -13103,7 +13102,7 @@
       "name": "Frog jumping on islands in the marsh",
       "url": "https://frofrogjumping.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1602,
+      "loadTimeMs": 1356,
       "consoleErrors": [],
       "viewports": [
         {
@@ -13300,7 +13299,7 @@
       "name": "Angry ",
       "url": "https://angrry.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1524,
+      "loadTimeMs": 1283,
       "consoleErrors": [],
       "viewports": [
         {
@@ -13497,7 +13496,7 @@
       "name": "SLICEit",
       "url": "https://sliceit.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1353,
+      "loadTimeMs": 1287,
       "consoleErrors": [],
       "viewports": [
         {
@@ -13694,7 +13693,7 @@
       "name": "climberadventure",
       "url": "https://climberadventure.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1309,
+      "loadTimeMs": 1564,
       "consoleErrors": [],
       "viewports": [
         {
@@ -13891,7 +13890,7 @@
       "name": "Flappy Slay Bird 🎀",
       "url": "https://flappyslaybird.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1527,
+      "loadTimeMs": 1318,
       "consoleErrors": [],
       "viewports": [
         {
@@ -14088,7 +14087,7 @@
       "name": "Ocean Save",
       "url": "https://ocean-save.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1436,
+      "loadTimeMs": 1230,
       "consoleErrors": [],
       "viewports": [
         {
@@ -14285,7 +14284,7 @@
       "name": "bouncing ball",
       "url": "https://bouncingball.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1578,
+      "loadTimeMs": 1563,
       "consoleErrors": [],
       "viewports": [
         {
@@ -14482,7 +14481,7 @@
       "name": "PixelJump",
       "url": "https://pixeljump.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 1625,
+      "loadTimeMs": 1339,
       "consoleErrors": [],
       "viewports": [
         {
@@ -14679,7 +14678,7 @@
       "name": "Cat Clicker",
       "url": "https://cat-clicker.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 1527,
+      "loadTimeMs": 1274,
       "consoleErrors": [],
       "viewports": [
         {
@@ -14876,7 +14875,7 @@
       "name": "Slither Arena",
       "url": "https://snake-io.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1292,
+      "loadTimeMs": 1251,
       "consoleErrors": [],
       "viewports": [
         {
@@ -15073,7 +15072,7 @@
       "name": "The Cycle Of Life",
       "url": "https://the-cycle-of-life.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1604,
+      "loadTimeMs": 1412,
       "consoleErrors": [],
       "viewports": [
         {
@@ -15270,7 +15269,7 @@
       "name": "monster attack",
       "url": "https://monster-attack.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1520,
+      "loadTimeMs": 1319,
       "consoleErrors": [],
       "viewports": [
         {
@@ -15467,7 +15466,7 @@
       "name": "Orb Cascade",
       "url": "https://orb-cascade.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11376,
+      "loadTimeMs": 10680,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -15665,7 +15664,7 @@
       "name": "Crystal Orbit",
       "url": "https://crystal-orbit.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 1664,
+      "loadTimeMs": 1567,
       "consoleErrors": [],
       "viewports": [
         {
@@ -15860,7 +15859,7 @@
       "name": "Glow Match",
       "url": "https://glow-match.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 1581,
+      "loadTimeMs": 1355,
       "consoleErrors": [],
       "viewports": [
         {
@@ -16057,7 +16056,7 @@
       "name": "Royal Heist",
       "url": "https://royal-heist.freegamestore.online",
       "score": 96,
-      "loadTimeMs": 1623,
+      "loadTimeMs": 1254,
       "consoleErrors": [],
       "viewports": [
         {
@@ -16252,7 +16251,7 @@
       "name": "Neon Runner",
       "url": "https://neon-runner.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1742,
+      "loadTimeMs": 1586,
       "consoleErrors": [],
       "viewports": [
         {
@@ -16449,7 +16448,7 @@
       "name": "Star Dodger",
       "url": "https://star-dodger.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 1928,
+      "loadTimeMs": 1468,
       "consoleErrors": [],
       "viewports": [
         {
@@ -16644,7 +16643,7 @@
       "name": "Brick Blast",
       "url": "https://brick-blast.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1785,
+      "loadTimeMs": 1696,
       "consoleErrors": [],
       "viewports": [
         {
@@ -16839,7 +16838,7 @@
       "name": "Minigolf",
       "url": "https://minigolf.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 1373,
+      "loadTimeMs": 1685,
       "consoleErrors": [],
       "viewports": [
         {
@@ -17034,7 +17033,7 @@
       "name": "Bird Launcher",
       "url": "https://angry-birds3.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 2310,
+      "loadTimeMs": 2068,
       "consoleErrors": [],
       "viewports": [
         {
@@ -17229,7 +17228,7 @@
       "name": "Cart",
       "url": "https://cart.freegamestore.online",
       "score": 99,
-      "loadTimeMs": 1893,
+      "loadTimeMs": 1627,
       "consoleErrors": [],
       "viewports": [
         {
@@ -17424,7 +17423,7 @@
       "name": "fish life",
       "url": "https://fish-life.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 2858,
+      "loadTimeMs": 1620,
       "consoleErrors": [],
       "viewports": [
         {
@@ -17621,7 +17620,7 @@
       "name": "Stack pack",
       "url": "https://stack-pack.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 2231,
+      "loadTimeMs": 1667,
       "consoleErrors": [],
       "viewports": [
         {
@@ -17818,7 +17817,7 @@
       "name": "DigiCritter",
       "url": "https://digicritter.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 2343,
+      "loadTimeMs": 2403,
       "consoleErrors": [],
       "viewports": [
         {
@@ -18015,7 +18014,7 @@
       "name": "Crossy School",
       "url": "https://crossy-school.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1765,
+      "loadTimeMs": 1676,
       "consoleErrors": [],
       "viewports": [
         {
@@ -18212,7 +18211,7 @@
       "name": "Slice Master",
       "url": "https://good-pizza-great-pizza.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1516,
+      "loadTimeMs": 1659,
       "consoleErrors": [],
       "viewports": [
         {
@@ -18409,7 +18408,7 @@
       "name": "Don't Look Up",
       "url": "https://dont-look-up.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1949,
+      "loadTimeMs": 1719,
       "consoleErrors": [],
       "viewports": [
         {
@@ -18606,7 +18605,7 @@
       "name": "Phone Case DIY",
       "url": "https://phone-case-diy.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 2177,
+      "loadTimeMs": 2227,
       "consoleErrors": [],
       "viewports": [
         {
@@ -18803,7 +18802,7 @@
       "name": "Obby",
       "url": "https://obby.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1908,
+      "loadTimeMs": 1834,
       "consoleErrors": [],
       "viewports": [
         {
@@ -19000,7 +18999,7 @@
       "name": "Seasons Matter",
       "url": "https://seasons-matter.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 1837,
+      "loadTimeMs": 1496,
       "consoleErrors": [],
       "viewports": [
         {
@@ -19197,7 +19196,7 @@
       "name": "stacky birdy",
       "url": "https://stacky-birdy.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1707,
+      "loadTimeMs": 1527,
       "consoleErrors": [],
       "viewports": [
         {
@@ -19394,7 +19393,7 @@
       "name": "Lavaman And Icegirl",
       "url": "https://lavaman-and-icegirl.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1638,
+      "loadTimeMs": 1414,
       "consoleErrors": [],
       "viewports": [
         {
@@ -19591,7 +19590,7 @@
       "name": "FruityDrop",
       "url": "https://fruitydropz.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 2660,
+      "loadTimeMs": 3161,
       "consoleErrors": [],
       "viewports": [
         {
@@ -19788,7 +19787,7 @@
       "name": "Crossy Rivers",
       "url": "https://crossy-rivers.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 11075,
+      "loadTimeMs": 10817,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -19988,7 +19987,7 @@
       "name": "CUBIworld",
       "url": "https://cubisworld.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1768,
+      "loadTimeMs": 1806,
       "consoleErrors": [],
       "viewports": [
         {
@@ -20185,7 +20184,7 @@
       "name": "Zombie",
       "url": "https://zombie.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 2156,
+      "loadTimeMs": 2077,
       "consoleErrors": [],
       "viewports": [
         {
@@ -20380,7 +20379,7 @@
       "name": "Race",
       "url": "https://race.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1900,
+      "loadTimeMs": 1533,
       "consoleErrors": [],
       "viewports": [
         {
@@ -20577,7 +20576,7 @@
       "name": "Endless Highway",
       "url": "https://endlesshighway.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 2157,
+      "loadTimeMs": 1645,
       "consoleErrors": [],
       "viewports": [
         {
@@ -20774,7 +20773,7 @@
       "name": "My Dream Room",
       "url": "https://my-dream-room.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1889,
+      "loadTimeMs": 1719,
       "consoleErrors": [],
       "viewports": [
         {
@@ -20971,7 +20970,7 @@
       "name": "Squishy Swap!",
       "url": "https://squishy-swap.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 2743,
+      "loadTimeMs": 2278,
       "consoleErrors": [],
       "viewports": [
         {
@@ -21168,7 +21167,7 @@
       "name": "Candy Shop",
       "url": "https://candy-shop.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1942,
+      "loadTimeMs": 1702,
       "consoleErrors": [],
       "viewports": [
         {
@@ -21365,7 +21364,7 @@
       "name": "Survive",
       "url": "https://survive.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1677,
+      "loadTimeMs": 1547,
       "consoleErrors": [],
       "viewports": [
         {
@@ -21562,7 +21561,7 @@
       "name": "TRADE",
       "url": "https://trade.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 1556,
+      "loadTimeMs": 1406,
       "consoleErrors": [],
       "viewports": [
         {
@@ -21759,7 +21758,7 @@
       "name": "The Make-up Game",
       "url": "https://the-make-up-game.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1948,
+      "loadTimeMs": 1654,
       "consoleErrors": [],
       "viewports": [
         {
@@ -21956,7 +21955,7 @@
       "name": "Candy Store 2",
       "url": "https://candy-store-2.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 2291,
+      "loadTimeMs": 1748,
       "consoleErrors": [],
       "viewports": [
         {
@@ -22153,7 +22152,7 @@
       "name": "Zombie Attack",
       "url": "https://zombie-attack.freegamestore.online",
       "score": 96,
-      "loadTimeMs": 1616,
+      "loadTimeMs": 1508,
       "consoleErrors": [],
       "viewports": [
         {
@@ -22348,7 +22347,7 @@
       "name": "my shopping spree",
       "url": "https://my-shopping-spree.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 1705,
+      "loadTimeMs": 1478,
       "consoleErrors": [],
       "viewports": [
         {
@@ -22545,7 +22544,7 @@
       "name": "Starship",
       "url": "https://starship.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1694,
+      "loadTimeMs": 1535,
       "consoleErrors": [],
       "viewports": [
         {
@@ -22742,7 +22741,7 @@
       "name": "Command",
       "url": "https://command.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1914,
+      "loadTimeMs": 1702,
       "consoleErrors": [],
       "viewports": [
         {
@@ -22939,7 +22938,7 @@
       "name": "Style Runway",
       "url": "https://dress-to-impress.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11034,
+      "loadTimeMs": 10986,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -23138,7 +23137,7 @@
       "name": "A jungle race",
       "url": "https://a-jungle-race.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1857,
+      "loadTimeMs": 1526,
       "consoleErrors": [],
       "viewports": [
         {
@@ -23335,7 +23334,7 @@
       "name": "Puppy Fashion",
       "url": "https://puppy-fashion.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 1733,
+      "loadTimeMs": 1456,
       "consoleErrors": [],
       "viewports": [
         {
@@ -23532,7 +23531,7 @@
       "name": "Whispers of the Wild",
       "url": "https://whispers-of-the-wild.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 1943,
+      "loadTimeMs": 1729,
       "consoleErrors": [],
       "viewports": [
         {
@@ -23727,7 +23726,7 @@
       "name": "Mosaic Rush",
       "url": "https://mosaic-rush.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 11001,
+      "loadTimeMs": 11078,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -23926,7 +23925,7 @@
       "name": "Sort Puzzle",
       "url": "https://sort-puzzle.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1475,
+      "loadTimeMs": 1955,
       "consoleErrors": [],
       "viewports": [
         {
@@ -24123,7 +24122,7 @@
       "name": "Line Link",
       "url": "https://line-link.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11017,
+      "loadTimeMs": 10879,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -24322,7 +24321,7 @@
       "name": "Number Match",
       "url": "https://number-match.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 10984,
+      "loadTimeMs": 10969,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -24521,7 +24520,7 @@
       "name": "Pixline",
       "url": "https://pixline.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 11023,
+      "loadTimeMs": 10920,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -24537,8 +24536,8 @@
           "scrollWidth": 320,
           "scrollHeight": 568,
           "clippedInteractive": 0,
-          "totalInteractive": 60,
-          "smallTouchTargets": 51,
+          "totalInteractive": 36,
+          "smallTouchTargets": 2,
           "contentOverflow": 0
         },
         {
@@ -24552,8 +24551,8 @@
           "scrollWidth": 360,
           "scrollHeight": 800,
           "clippedInteractive": 0,
-          "totalInteractive": 60,
-          "smallTouchTargets": 51,
+          "totalInteractive": 36,
+          "smallTouchTargets": 2,
           "contentOverflow": 0
         },
         {
@@ -24567,7 +24566,7 @@
           "scrollWidth": 393,
           "scrollHeight": 852,
           "clippedInteractive": 0,
-          "totalInteractive": 60,
+          "totalInteractive": 36,
           "smallTouchTargets": 2,
           "contentOverflow": 0
         },
@@ -24582,7 +24581,7 @@
           "scrollWidth": 414,
           "scrollHeight": 896,
           "clippedInteractive": 0,
-          "totalInteractive": 60,
+          "totalInteractive": 36,
           "smallTouchTargets": 2,
           "contentOverflow": 0
         },
@@ -24597,7 +24596,7 @@
           "scrollWidth": 600,
           "scrollHeight": 800,
           "clippedInteractive": 0,
-          "totalInteractive": 60,
+          "totalInteractive": 36,
           "smallTouchTargets": 0,
           "contentOverflow": 0
         },
@@ -24612,7 +24611,7 @@
           "scrollWidth": 768,
           "scrollHeight": 1024,
           "clippedInteractive": 0,
-          "totalInteractive": 60,
+          "totalInteractive": 36,
           "smallTouchTargets": 0,
           "contentOverflow": 0
         },
@@ -24627,7 +24626,7 @@
           "scrollWidth": 1024,
           "scrollHeight": 1366,
           "clippedInteractive": 0,
-          "totalInteractive": 60,
+          "totalInteractive": 36,
           "smallTouchTargets": 0,
           "contentOverflow": 0
         },
@@ -24641,10 +24640,10 @@
           "scrollsY": false,
           "scrollWidth": 568,
           "scrollHeight": 320,
-          "clippedInteractive": 21,
-          "totalInteractive": 60,
+          "clippedInteractive": 12,
+          "totalInteractive": 36,
           "smallTouchTargets": 0,
-          "contentOverflow": 12
+          "contentOverflow": 18
         },
         {
           "id": "l-667",
@@ -24656,8 +24655,8 @@
           "scrollsY": false,
           "scrollWidth": 667,
           "scrollHeight": 375,
-          "clippedInteractive": 14,
-          "totalInteractive": 60,
+          "clippedInteractive": 12,
+          "totalInteractive": 36,
           "smallTouchTargets": 0,
           "contentOverflow": 11
         },
@@ -24671,8 +24670,8 @@
           "scrollsY": false,
           "scrollWidth": 736,
           "scrollHeight": 414,
-          "clippedInteractive": 10,
-          "totalInteractive": 60,
+          "clippedInteractive": 12,
+          "totalInteractive": 36,
           "smallTouchTargets": 0,
           "contentOverflow": 11
         },
@@ -24687,7 +24686,7 @@
           "scrollWidth": 1024,
           "scrollHeight": 768,
           "clippedInteractive": 0,
-          "totalInteractive": 60,
+          "totalInteractive": 36,
           "smallTouchTargets": 0,
           "contentOverflow": 0
         },
@@ -24702,7 +24701,7 @@
           "scrollWidth": 1366,
           "scrollHeight": 1024,
           "clippedInteractive": 0,
-          "totalInteractive": 60,
+          "totalInteractive": 36,
           "smallTouchTargets": 0,
           "contentOverflow": 0
         }
@@ -24720,7 +24719,7 @@
       "name": "Flowarrow",
       "url": "https://flowarrow.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 11123,
+      "loadTimeMs": 10910,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -24919,7 +24918,7 @@
       "name": "Boltsort",
       "url": "https://boltsort.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 1796,
+      "loadTimeMs": 1434,
       "consoleErrors": [],
       "viewports": [
         {
@@ -25116,7 +25115,7 @@
       "name": "Tallyroll",
       "url": "https://tallyroll.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11322,
+      "loadTimeMs": 10875,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -25315,7 +25314,7 @@
       "name": "Tilerun",
       "url": "https://tilerun.freegamestore.online",
       "score": 35,
-      "loadTimeMs": 10908,
+      "loadTimeMs": 10922,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -25514,7 +25513,7 @@
       "name": "Rollway Ludo",
       "url": "https://rollway-ludo.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 10742,
+      "loadTimeMs": 10851,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -25713,7 +25712,7 @@
       "name": "Crossweave",
       "url": "https://crossweave.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 10971,
+      "loadTimeMs": 10832,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -25913,7 +25912,7 @@
       "name": "Puzzlepix",
       "url": "https://puzzlepix.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 11032,
+      "loadTimeMs": 11270,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -26113,7 +26112,7 @@
       "name": "Quillcipher",
       "url": "https://quillcipher.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 11026,
+      "loadTimeMs": 10847,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -26128,10 +26127,10 @@
           "scrollsY": false,
           "scrollWidth": 320,
           "scrollHeight": 568,
-          "clippedInteractive": 32,
-          "totalInteractive": 71,
-          "smallTouchTargets": 51,
-          "contentOverflow": 7
+          "clippedInteractive": 40,
+          "totalInteractive": 79,
+          "smallTouchTargets": 59,
+          "contentOverflow": 8
         },
         {
           "id": "p-360",
@@ -26143,10 +26142,10 @@
           "scrollsY": false,
           "scrollWidth": 360,
           "scrollHeight": 800,
-          "clippedInteractive": 1,
-          "totalInteractive": 71,
-          "smallTouchTargets": 51,
-          "contentOverflow": 0
+          "clippedInteractive": 2,
+          "totalInteractive": 79,
+          "smallTouchTargets": 59,
+          "contentOverflow": 2
         },
         {
           "id": "p-393",
@@ -26159,8 +26158,8 @@
           "scrollWidth": 393,
           "scrollHeight": 852,
           "clippedInteractive": 0,
-          "totalInteractive": 71,
-          "smallTouchTargets": 51,
+          "totalInteractive": 79,
+          "smallTouchTargets": 59,
           "contentOverflow": 0
         },
         {
@@ -26174,8 +26173,8 @@
           "scrollWidth": 414,
           "scrollHeight": 896,
           "clippedInteractive": 0,
-          "totalInteractive": 71,
-          "smallTouchTargets": 51,
+          "totalInteractive": 79,
+          "smallTouchTargets": 59,
           "contentOverflow": 0
         },
         {
@@ -26189,8 +26188,8 @@
           "scrollWidth": 600,
           "scrollHeight": 800,
           "clippedInteractive": 0,
-          "totalInteractive": 71,
-          "smallTouchTargets": 49,
+          "totalInteractive": 79,
+          "smallTouchTargets": 57,
           "contentOverflow": 0
         },
         {
@@ -26204,8 +26203,8 @@
           "scrollWidth": 768,
           "scrollHeight": 1024,
           "clippedInteractive": 0,
-          "totalInteractive": 71,
-          "smallTouchTargets": 49,
+          "totalInteractive": 79,
+          "smallTouchTargets": 57,
           "contentOverflow": 0
         },
         {
@@ -26219,8 +26218,8 @@
           "scrollWidth": 1024,
           "scrollHeight": 1366,
           "clippedInteractive": 0,
-          "totalInteractive": 71,
-          "smallTouchTargets": 49,
+          "totalInteractive": 79,
+          "smallTouchTargets": 57,
           "contentOverflow": 0
         },
         {
@@ -26233,10 +26232,10 @@
           "scrollsY": false,
           "scrollWidth": 568,
           "scrollHeight": 320,
-          "clippedInteractive": 32,
-          "totalInteractive": 71,
-          "smallTouchTargets": 49,
-          "contentOverflow": 8
+          "clippedInteractive": 37,
+          "totalInteractive": 79,
+          "smallTouchTargets": 57,
+          "contentOverflow": 9
         },
         {
           "id": "l-667",
@@ -26249,8 +26248,8 @@
           "scrollWidth": 667,
           "scrollHeight": 375,
           "clippedInteractive": 32,
-          "totalInteractive": 71,
-          "smallTouchTargets": 49,
+          "totalInteractive": 79,
+          "smallTouchTargets": 57,
           "contentOverflow": 8
         },
         {
@@ -26264,8 +26263,8 @@
           "scrollWidth": 736,
           "scrollHeight": 414,
           "clippedInteractive": 32,
-          "totalInteractive": 71,
-          "smallTouchTargets": 49,
+          "totalInteractive": 79,
+          "smallTouchTargets": 57,
           "contentOverflow": 8
         },
         {
@@ -26279,8 +26278,8 @@
           "scrollWidth": 1024,
           "scrollHeight": 768,
           "clippedInteractive": 0,
-          "totalInteractive": 71,
-          "smallTouchTargets": 49,
+          "totalInteractive": 79,
+          "smallTouchTargets": 57,
           "contentOverflow": 0
         },
         {
@@ -26294,8 +26293,8 @@
           "scrollWidth": 1366,
           "scrollHeight": 1024,
           "clippedInteractive": 0,
-          "totalInteractive": 71,
-          "smallTouchTargets": 49,
+          "totalInteractive": 79,
+          "smallTouchTargets": 57,
           "contentOverflow": 0
         }
       ],
@@ -26312,7 +26311,7 @@
       "name": "Cascade Keys",
       "url": "https://cascade-keys.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 11056,
+      "loadTimeMs": 10966,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -26512,7 +26511,7 @@
       "name": "Hexaspell",
       "url": "https://hexaspell.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 10897,
+      "loadTimeMs": 11177,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -26621,7 +26620,7 @@
           "clippedInteractive": 1,
           "totalInteractive": 19,
           "smallTouchTargets": 8,
-          "contentOverflow": 3
+          "contentOverflow": 2
         },
         {
           "id": "l-568",
@@ -26712,7 +26711,7 @@
       "name": "Tenwise",
       "url": "https://tenwise.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 10929,
+      "loadTimeMs": 11067,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -26911,7 +26910,7 @@
       "name": "Chain Rush",
       "url": "https://chain-rush.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 10990,
+      "loadTimeMs": 11083,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -27110,7 +27109,7 @@
       "name": "Zap Drills",
       "url": "https://zap-drills.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 11071,
+      "loadTimeMs": 10871,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()"
       ],
@@ -27309,7 +27308,7 @@
       "name": "Fourfold",
       "url": "https://fourfold.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 10874,
+      "loadTimeMs": 11299,
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 401 ()",
         "Failed to load resource: the server responded with a status of 410 ()"
@@ -27509,7 +27508,7 @@
       "name": "Penfight",
       "url": "https://penfight.freegamestore.online",
       "score": 0,
-      "loadTimeMs": 1622,
+      "loadTimeMs": 2231,
       "consoleErrors": [],
       "viewports": [
         {
@@ -27706,7 +27705,7 @@
       "name": "Math Invaders",
       "url": "https://math-invaders.freegamestore.online",
       "score": 60,
-      "loadTimeMs": 1762,
+      "loadTimeMs": 1763,
       "consoleErrors": [],
       "viewports": [
         {
@@ -27902,8 +27901,8 @@
       "id": "bug-hunter",
       "name": "Bug Hunter",
       "url": "https://bug-hunter.freegamestore.online",
-      "score": 99,
-      "loadTimeMs": 1692,
+      "score": 60,
+      "loadTimeMs": 1786,
       "consoleErrors": [],
       "viewports": [
         {
@@ -27911,14 +27910,14 @@
           "label": "320x568 iPhone SE",
           "width": 320,
           "height": 568,
-          "pass": true,
+          "pass": false,
           "scrollsX": false,
           "scrollsY": false,
           "scrollWidth": 320,
           "scrollHeight": 568,
           "clippedInteractive": 0,
-          "totalInteractive": 11,
-          "smallTouchTargets": 0,
+          "totalInteractive": 10,
+          "smallTouchTargets": 2,
           "contentOverflow": 0
         },
         {
@@ -27926,14 +27925,14 @@
           "label": "360x800 Android",
           "width": 360,
           "height": 800,
-          "pass": true,
+          "pass": false,
           "scrollsX": false,
           "scrollsY": false,
           "scrollWidth": 360,
           "scrollHeight": 800,
           "clippedInteractive": 0,
-          "totalInteractive": 12,
-          "smallTouchTargets": 0,
+          "totalInteractive": 10,
+          "smallTouchTargets": 2,
           "contentOverflow": 0
         },
         {
@@ -27941,14 +27940,14 @@
           "label": "393x852 iPhone 15",
           "width": 393,
           "height": 852,
-          "pass": true,
+          "pass": false,
           "scrollsX": false,
           "scrollsY": false,
           "scrollWidth": 393,
           "scrollHeight": 852,
           "clippedInteractive": 0,
-          "totalInteractive": 10,
-          "smallTouchTargets": 0,
+          "totalInteractive": 9,
+          "smallTouchTargets": 2,
           "contentOverflow": 0
         },
         {
@@ -27956,14 +27955,14 @@
           "label": "414x896 iPhone 11 PM",
           "width": 414,
           "height": 896,
-          "pass": true,
+          "pass": false,
           "scrollsX": false,
           "scrollsY": false,
           "scrollWidth": 414,
           "scrollHeight": 896,
           "clippedInteractive": 0,
           "totalInteractive": 10,
-          "smallTouchTargets": 0,
+          "smallTouchTargets": 2,
           "contentOverflow": 0
         },
         {
@@ -27977,7 +27976,7 @@
           "scrollWidth": 600,
           "scrollHeight": 800,
           "clippedInteractive": 0,
-          "totalInteractive": 11,
+          "totalInteractive": 9,
           "smallTouchTargets": 0,
           "contentOverflow": 0
         },
@@ -28007,7 +28006,7 @@
           "scrollWidth": 1024,
           "scrollHeight": 1366,
           "clippedInteractive": 0,
-          "totalInteractive": 11,
+          "totalInteractive": 9,
           "smallTouchTargets": 0,
           "contentOverflow": 0
         },
@@ -28037,7 +28036,7 @@
           "scrollWidth": 667,
           "scrollHeight": 375,
           "clippedInteractive": 0,
-          "totalInteractive": 11,
+          "totalInteractive": 10,
           "smallTouchTargets": 0,
           "contentOverflow": 0
         },
@@ -28067,7 +28066,7 @@
           "scrollWidth": 1024,
           "scrollHeight": 768,
           "clippedInteractive": 0,
-          "totalInteractive": 10,
+          "totalInteractive": 9,
           "smallTouchTargets": 0,
           "contentOverflow": 0
         },
@@ -28082,7 +28081,7 @@
           "scrollWidth": 1366,
           "scrollHeight": 1024,
           "clippedInteractive": 0,
-          "totalInteractive": 9,
+          "totalInteractive": 10,
           "smallTouchTargets": 0,
           "contentOverflow": 0
         }
