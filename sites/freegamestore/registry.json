@@ -2813,6 +2813,24 @@
       "firstPublished": "2026-11-27T12:13:24.769Z",
       "status": "pending",
       "provisionedSha": "609362bdafde314b6d6bc3e73e89070e99802751"
+    },
+    {
+      "id": "e2e-create-mcp-mwyy01wg-test",
+      "name": "E2E Create Canary",
+      "category": "arcade",
+      "icon": "🕹️",
+      "iconBg": "#ecfdf5",
+      "description": "E2E Create Canary",
+      "appUrl": "https://e2e-create-mcp-mwyy01wg-test.freegamestore.online",
+      "repo": "freegamestore-online/e2e-create-mcp-mwyy01wg-test",
+      "hostedOn": "r2",
+      "type": "standalone",
+      "developer": "FreeGameStore",
+      "creatorSub": "canary:freegamestore-online/platform",
+      "engine": "canvas",
+      "firstPublished": "2026-11-27T12:13:25.999Z",
+      "status": "pending",
+      "provisionedSha": "2686fd9b4b466c417ad5ddf91ba8f032ad86ce99"
     }
   ]
 }
